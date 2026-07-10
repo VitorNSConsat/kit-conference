@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Conferência de Kits{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+{% if user %}
+<nav class="navbar">
+    <span class="brand">📦 Conferência de Kits</span>
+    <div>
+        <a href="/">Início</a>
+        <a href="/print-queue">Fila de Impressão</a>
+        <a href="/admin/items">Itens</a>
+        <a href="/admin/templates">Templates</a>
+        <a href="/reports">Relatórios</a>
+        <a href="/logout">Sair ({{ user.nome }})</a>
+    </div>
+</nav>
+{% endif %}
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>
