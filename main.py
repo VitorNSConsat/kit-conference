@@ -117,8 +117,62 @@ async def admin_items_toggle(request: Request, item_id: int):
     return RedirectResponse("/admin/items", status_code=302)
 
 
+# ── Admin: Templates ──────────────────────────────────────────────────────────
+
+@app.get("/admin/templates", response_class=HTMLResponse)
+@require_login
+async def admin_templates(request: Request):
+    todos = templates_mod.listar_todos()
+    itens_catalogo = items_mod.listar_itens()
+    itens_ativos = [i for i in itens_catalogo if i["ativo"]]
+    return render(request, "admin_templates.html",
+                  {"templates": todos, "itens_catalogo": itens_ativos})
+
+
+@app.post("/admin/templates")
+@require_login
+async def admin_templates_post(request: Request):
+    user = get_current_user(request)
+    form = await request.form()
+    nome = form.get("nome", "").strip()
+    cliente = form.get("cliente", "").strip()
+    # itens vêm como: codigo_barra_0, qtd_0, obrigatorio_0, ...
+    itens = []
+    i = 0
+    while f"codigo_barra_{i}" in form:
+        cb = form.get(f"codigo_barra_{i}", "").strip()
+        qtd = int(form.get(f"qtd_{i}", 1))
+        obrig = bool(form.get(f"obrigatorio_{i}"))
+        if cb:
+            itens.append({"codigo_barra": cb, "quantidade_exigida": qtd, "obrigatorio": obrig})
+        i += 1
+    if not nome or not cliente or not itens:
+        todos = templates_mod.listar_todos()
+        itens_catalogo = [x for x in items_mod.listar_itens() if x["ativo"]]
+        return render(request, "admin_templates.html",
+                      {"templates": todos, "itens_catalogo": itens_catalogo,
+                       "erro": "Preencha nome, cliente e ao menos 1 item."})
+    templates_mod.criar_template(nome, cliente, user["id"], itens)
+    return RedirectResponse("/admin/templates?ok=1", status_code=302)
+
+
+@app.post("/admin/templates/{template_id}/nova-versao")
+@require_login
+async def admin_template_nova_versao(request: Request, template_id: int):
+    user = get_current_user(request)
+    novo_id = templates_mod.nova_versao(template_id, user["id"])
+    return RedirectResponse(f"/admin/templates?ok=versao", status_code=302)
+
+
+@app.post("/admin/templates/{template_id}/toggle")
+@require_login
+async def admin_template_toggle(request: Request, template_id: int):
+    templates_mod.toggle_ativo(template_id)
+    return RedirectResponse("/admin/templates", status_code=302)
+
+
 # ── Placeholder para rotas adicionadas nas próximas tasks ────────────────────
-# (Tasks 3-11 adicionam rotas aqui)
+# (Tasks 6-11 adicionam rotas aqui)
 
 if __name__ == "__main__":
     import uvicorn

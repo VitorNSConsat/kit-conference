@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Templates — Conferência de Kits{% endblock %}
+{% block content %}
+<h1>Templates de Kit</h1>
+
+{% if request.query_params.get('ok') %}
+<div class="alert alert-success">Template salvo com sucesso.</div>
+{% endif %}
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="card">
+    <h2>Novo Template</h2>
+    <form method="post" action="/admin/templates" id="form-template">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div class="form-group">
+                <label>Nome do Kit</label>
+                <input type="text" name="nome" required placeholder="ex: Kit Instalação Básica">
+            </div>
+            <div class="form-group">
+                <label>Cliente</label>
+                <input type="text" name="cliente" required placeholder="ex: Empresa X">
+            </div>
+        </div>
+        <h2>Itens do Kit</h2>
+        <div id="itens-container">
+            <div class="item-linha" style="display:grid; grid-template-columns:2fr 80px 100px auto; gap:8px; margin-bottom:8px;" data-idx="0">
+                <select name="codigo_barra_0" required>
+                    <option value="">— selecione o item —</option>
+                    {% for item in itens_catalogo %}
+                    <option value="{{ item.codigo_barra }}">{{ item.descricao }} ({{ item.codigo_barra }})</option>
+                    {% endfor %}
+                </select>
+                <input type="number" name="qtd_0" value="1" min="1" placeholder="Qtd">
+                <label style="display:flex;align-items:center;gap:6px;margin:0;">
+                    <input type="checkbox" name="obrigatorio_0" value="1" checked> Obrigatório
+                </label>
+                <button type="button" onclick="removerLinha(this)" class="btn btn-sm btn-danger">✕</button>
+            </div>
+        </div>
+        <button type="button" onclick="adicionarLinha()" class="btn btn-sm btn-warning" style="margin-bottom:16px;">+ Adicionar Item</button>
+        <br>
+        <button type="submit" class="btn btn-primary">Criar Template</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Templates Cadastrados</h2>
+    <table>
+        <thead>
+            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for t in templates %}
+        <tr>
+            <td>{{ t.nome }}</td>
+            <td>{{ t.cliente }}</td>
+            <td>v{{ t.versao }}</td>
+            <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                <form method="post" action="/admin/templates/{{ t.id }}/toggle">
+                    <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
+                </form>
+                <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
+                    <button class="btn btn-sm btn-warning">Nova Versão</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum template cadastrado.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let idx = 1;
+const catalogo = {{ itens_catalogo | tojson }};
+
+function adicionarLinha() {
+    const container = document.getElementById('itens-container');
+    const div = document.createElement('div');
+    div.className = 'item-linha';
+    div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 100px auto;gap:8px;margin-bottom:8px;';
+    div.dataset.idx = idx;
+    let opts = '<option value="">— selecione —</option>';
+    catalogo.forEach(i => { opts += `<option value="${i.codigo_barra}">${i.descricao} (${i.codigo_barra})</option>`; });
+    div.innerHTML = `
+        <select name="codigo_barra_${idx}" required>${opts}</select>
+        <input type="number" name="qtd_${idx}" value="1" min="1">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;">
+            <input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório
+        </label>
+        <button type="button" onclick="removerLinha(this)" class="btn btn-sm btn-danger">✕</button>`;
+    container.appendChild(div);
+    idx++;
+}
+
+function removerLinha(btn) {
+    const container = document.getElementById('itens-container');
+    if (container.children.length > 1) btn.closest('.item-linha').remove();
+}
+</script>
+{% endblock %}
