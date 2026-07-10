@@ -63,6 +63,23 @@ async def logout(request: Request):
     return RedirectResponse("/login", status_code=302)
 
 
+# ── Home ──────────────────────────────────────────────────────────────────────
+
+@app.get("/", response_class=HTMLResponse)
+@require_login
+async def home(request: Request):
+    templates_ativos = templates_mod.listar_templates_ativos()
+    return render(request, "index.html", {"templates_ativos": templates_ativos})
+
+
+@app.post("/session/start")
+@require_login
+async def session_start(request: Request, kit_template_id: int = Form(...)):
+    user = get_current_user(request)
+    sessao_id = sessions_mod.start_session(kit_template_id, user["id"])
+    return RedirectResponse(f"/session/{sessao_id}", status_code=302)
+
+
 # ── Placeholder para rotas adicionadas nas próximas tasks ────────────────────
 # (Tasks 3-11 adicionam rotas aqui)
 

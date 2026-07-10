@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Início — Conferência de Kits{% endblock %}
+{% block content %}
+<h1>Nova Sessão de Bipagem</h1>
+<div class="card" style="max-width: 500px;">
+    {% if templates_ativos %}
+    <form method="post" action="/session/start">
+        <div class="form-group">
+            <label for="kit_template_id">Selecione o Kit</label>
+            <select name="kit_template_id" id="kit_template_id" required>
+                <option value="">— escolha —</option>
+                {% for t in templates_ativos %}
+                <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Iniciar Sessão</button>
+    </form>
+    {% else %}
+    <div class="alert alert-danger">Nenhum template de kit ativo. Cadastre um em <a href="/admin/templates">Templates</a>.</div>
+    {% endif %}
+</div>
+
+<div style="margin-top: 24px;">
+    <a href="/print-queue" class="btn btn-warning">🖨 Fila de Impressão</a>
+</div>
+{% endblock %}
