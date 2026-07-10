@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Bipagem — {{ session.kit_nome }}{% endblock %}
 {% block content %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger" style="margin-bottom:16px;">
+    <strong>Validação Falhou:</strong> {{ request.query_params.get('erro') }}
+</div>
+{% endif %}
+
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
     <div>
         <h1 style="margin-bottom:4px;">{{ session.kit_nome }}</h1>

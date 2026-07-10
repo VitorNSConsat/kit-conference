@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import datetime
+from urllib.parse import quote
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -222,6 +223,12 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
 @require_login
 async def session_finalize(request: Request, sessao_id: int):
     user = get_current_user(request)
+
+    # Guard against double finalization
+    session_check = sessions_mod.get_session(sessao_id)
+    if not session_check or session_check["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+
     validation = sessions_mod.validate_kit_complete(sessao_id)
     if validation["status"] != "completo":
         faltam = "; ".join(
@@ -229,7 +236,7 @@ async def session_finalize(request: Request, sessao_id: int):
             for i in validation["itens_faltantes"]
         )
         return RedirectResponse(
-            f"/session/{sessao_id}?erro={faltam}", status_code=302
+            f"/session/{sessao_id}?erro={quote(faltam)}", status_code=302
         )
 
     session = sessions_mod.get_session(sessao_id)
