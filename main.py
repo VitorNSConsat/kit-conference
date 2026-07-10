@@ -216,6 +216,109 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
     except WebSocketDisconnect:
         pass
 
+# ── Finalização ───────────────────────────────────────────────────────────────
+
+@app.post("/session/{sessao_id}/finalize")
+@require_login
+async def session_finalize(request: Request, sessao_id: int):
+    user = get_current_user(request)
+    validation = sessions_mod.validate_kit_complete(sessao_id)
+    if validation["status"] != "completo":
+        faltam = "; ".join(
+            f"{i['descricao']} (faltam {i['faltam']})"
+            for i in validation["itens_faltantes"]
+        )
+        return RedirectResponse(
+            f"/session/{sessao_id}?erro={faltam}", status_code=302
+        )
+
+    session = sessions_mod.get_session(sessao_id)
+    contagem = sessions_mod.get_contagem(sessao_id)
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+
+    itens_zpl = []
+    for it in itens_template:
+        qtd = contagem.get(it["codigo_barra"], 0)
+        if qtd > 0:
+            itens_zpl.append({"descricao": it["descricao"], "quantidade": qtd})
+
+    kit_id = str(uuid.uuid4())
+    zpl = zpl_mod.generate_zpl(
+        kit_id=kit_id,
+        kit_nome=session["kit_nome"],
+        cliente=session["cliente"],
+        operador=session["operador_nome"],
+        timestamp=datetime.now(),
+        itens=itens_zpl,
+    )
+
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, "
+            "kit_template_versao, operador_id) VALUES (?, ?, ?, ?, ?)",
+            (kit_id, sessao_id, session["kit_template_id"],
+             session["kit_template_versao"], user["id"])
+        )
+        conn.execute(
+            "UPDATE scan_session SET status = 'finalizado', "
+            "finalizado_em = CURRENT_TIMESTAMP WHERE id = ?",
+            (sessao_id,)
+        )
+
+    pq_mod.adicionar(kit_id, zpl, user["id"])
+
+    return RedirectResponse(
+        f"/session/{sessao_id}/complete?kit_id={kit_id}", status_code=302
+    )
+
+
+@app.get("/session/{sessao_id}/complete", response_class=HTMLResponse)
+@require_login
+async def session_complete(request: Request, sessao_id: int, kit_id: str):
+    with db() as conn:
+        pq_row = conn.execute(
+            "SELECT * FROM print_queue WHERE kit_id = ? ORDER BY id DESC LIMIT 1",
+            (kit_id,)
+        ).fetchone()
+    return render(request, "complete.html", {
+        "kit_id": kit_id,
+        "pq_id": dict(pq_row)["id"] if pq_row else None,
+    })
+
+
+# ── Fila de Impressão ─────────────────────────────────────────────────────────
+
+@app.get("/print-queue", response_class=HTMLResponse)
+@require_login
+async def print_queue_page(request: Request):
+    fila = pq_mod.listar_aguardando()
+    return render(request, "print_queue.html", {"fila": fila})
+
+
+@app.get("/print-queue/{pq_id}/zpl")
+@require_login
+async def print_queue_zpl(request: Request, pq_id: int):
+    from fastapi.responses import PlainTextResponse
+    item = pq_mod.buscar(pq_id)
+    if not item:
+        return PlainTextResponse("Não encontrado", status_code=404)
+    return PlainTextResponse(item["zpl"], media_type="text/plain")
+
+
+@app.post("/print-queue/{pq_id}/impresso")
+@require_login
+async def print_queue_impresso(request: Request, pq_id: int):
+    pq_mod.marcar_impresso(pq_id)
+    return RedirectResponse("/print-queue", status_code=302)
+
+
+@app.post("/print-queue/{pq_id}/cancelar")
+@require_login
+async def print_queue_cancelar(request: Request, pq_id: int):
+    pq_mod.cancelar(pq_id)
+    return RedirectResponse("/print-queue", status_code=302)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

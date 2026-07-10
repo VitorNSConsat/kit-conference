@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Fila de Impressão{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <h1>Fila de Impressão</h1>
+    <span style="color:#888; font-size:13px;">Atualização automática a cada 10s</span>
+</div>
+
+{% if fila %}
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Kit ID</th>
+                <th>Kit</th>
+                <th>Cliente</th>
+                <th>Solicitado por</th>
+                <th>Data</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in fila %}
+        <tr>
+            <td>{{ item.id }}</td>
+            <td><code style="font-size:11px;">{{ item.kit_id[:8] }}...</code></td>
+            <td>{{ item.kit_nome }}</td>
+            <td>{{ item.cliente }}</td>
+            <td>{{ item.solicitado_por_nome }}</td>
+            <td>{{ item.solicitado_em }}</td>
+            <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button onclick="imprimirZpl({{ item.id }})" class="btn btn-sm btn-success">Imprimir</button>
+                <form method="post" action="/print-queue/{{ item.id }}/impresso" style="display:inline;">
+                    <button class="btn btn-sm btn-primary">Marcar Impresso</button>
+                </form>
+                <form method="post" action="/print-queue/{{ item.id }}/cancelar" style="display:inline;"
+                      onsubmit="return confirm('Cancelar este item da fila?')">
+                    <button class="btn btn-sm btn-danger">Cancelar</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center; color:#888; padding:40px;">
+    Nenhum item aguardando impressão.
+</div>
+{% endif %}
+
+<iframe id="print-frame" style="display:none;"></iframe>
+{% endblock %}
+{% block scripts %}
+<script>
+setTimeout(() => location.reload(), 10000);
+
+function imprimirZpl(pqId) {
+    fetch(`/print-queue/${pqId}/zpl`)
+        .then(r => r.text())
+        .then(zpl => {
+            const frame = document.getElementById("print-frame");
+            frame.srcdoc = `<pre style="font-family:monospace;font-size:10px;">${zpl}</pre>`;
+            frame.onload = () => {
+                frame.contentWindow.print();
+                fetch(`/print-queue/${pqId}/impresso`, { method: "POST" })
+                    .then(() => setTimeout(() => location.reload(), 1500));
+            };
+        });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Kit Finalizado{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px;">
+    <h1>&#10003; Kit Finalizado com Sucesso!</h1>
+    <p style="margin: 12px 0; color:#555;">Kit ID: <code>{{ kit_id }}</code></p>
+    <p style="color:#555; margin-bottom:20px;">
+        A etiqueta foi adicionada à <strong>fila de impressão</strong>.
+        No PC com a impressora Zebra, acesse a fila e clique em Imprimir.
+    </p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <a href="/" class="btn btn-primary">Nova Sessão</a>
+        <a href="/print-queue" class="btn btn-warning">Abrir Fila de Impressão</a>
+    </div>
+</div>
+{% endblock %}
