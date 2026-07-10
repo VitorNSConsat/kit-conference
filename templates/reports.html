@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Relatórios — Conferência de Kits{% endblock %}
+{% block content %}
+<h1>Relatório de Kits Finalizados</h1>
+
+<div class="card">
+    <form method="get" action="/reports" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+        <div class="form-group" style="margin:0;">
+            <label>Data inicial</label>
+            <input type="date" name="data_ini" value="{{ data_ini }}" style="width:160px; margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Data final</label>
+            <input type="date" name="data_fim" value="{{ data_fim }}" style="width:160px; margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Operador</label>
+            <select name="operador_id" style="width:180px; margin:0;">
+                <option value="">Todos</option>
+                {% for u in usuarios %}
+                <option value="{{ u.id }}" {{ 'selected' if operador_id == u.id|string }}>{{ u.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="/reports" class="btn btn-warning">Limpar</a>
+    </form>
+</div>
+
+<div class="card">
+    <p style="color:#888; font-size:13px; margin-bottom:12px;">{{ kits|length }} kit(s) encontrado(s)</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Kit ID</th>
+                <th>Kit</th>
+                <th>Cliente</th>
+                <th>Versão</th>
+                <th>Operador</th>
+                <th>Finalizado em</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for k in kits %}
+        <tr>
+            <td><code style="font-size:11px;">{{ k.kit_id[:12] }}...</code></td>
+            <td>{{ k.kit_nome }}</td>
+            <td>{{ k.cliente }}</td>
+            <td>v{{ k.versao }}</td>
+            <td>{{ k.operador_nome }}</td>
+            <td>{{ k.finalizado_em }}</td>
+            <td><span class="badge {{ 'badge-success' if k.status == 'ativo' else 'badge-danger' }}">{{ k.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

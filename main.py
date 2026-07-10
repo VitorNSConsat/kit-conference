@@ -326,6 +326,48 @@ async def print_queue_cancelar(request: Request, pq_id: int):
     return RedirectResponse("/print-queue", status_code=302)
 
 
+# ── Relatórios ────────────────────────────────────────────────────────────────
+
+@app.get("/reports", response_class=HTMLResponse)
+@require_login
+async def reports(request: Request,
+                  data_ini: str = "",
+                  data_fim: str = "",
+                  operador_id: str = ""):
+    query = """
+        SELECT kr.kit_id, kr.finalizado_em, kr.status,
+               kt.nome AS kit_nome, kt.cliente, kt.versao,
+               u.nome AS operador_nome
+        FROM kit_record kr
+        JOIN kit_template kt ON kt.id = kr.kit_template_id
+        JOIN users u ON u.id = kr.operador_id
+        WHERE 1=1
+    """
+    params = []
+    if data_ini:
+        query += " AND DATE(kr.finalizado_em) >= ?"
+        params.append(data_ini)
+    if data_fim:
+        query += " AND DATE(kr.finalizado_em) <= ?"
+        params.append(data_fim)
+    if operador_id:
+        query += " AND kr.operador_id = ?"
+        params.append(int(operador_id))
+    query += " ORDER BY kr.finalizado_em DESC LIMIT 200"
+
+    with db() as conn:
+        rows = conn.execute(query, params).fetchall()
+        usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
+
+    return render(request, "reports.html", {
+        "kits": [dict(r) for r in rows],
+        "usuarios": [dict(u) for u in usuarios],
+        "data_ini": data_ini,
+        "data_fim": data_fim,
+        "operador_id": operador_id,
+    })
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
