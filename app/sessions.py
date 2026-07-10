@@ -13,7 +13,8 @@ def start_session(kit_template_id: int, operador_id: int) -> int:
             "VALUES (?, ?, ?)",
             (kit_template_id, template["versao"], operador_id)
         )
-    return cur.lastrowid
+        sessao_id = cur.lastrowid
+    return sessao_id
 
 
 def get_session(sessao_id: int) -> dict | None:
@@ -134,6 +135,8 @@ def validate_kit_complete(sessao_id: int) -> dict:
       itens_faltantes: list (vazio se completo)
     """
     session = get_session(sessao_id)
+    if not session:
+        raise ValueError(f"Sessão {sessao_id} não encontrada.")
     itens_template = templates_mod.get_itens_template(session["kit_template_id"])
     contagem = get_contagem(sessao_id)
     faltantes = []
