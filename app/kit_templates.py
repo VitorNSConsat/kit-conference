@@ -1,4 +1,3 @@
-import json
 from database import db
 
 
@@ -87,5 +86,5 @@ def nova_versao(template_id: int, criado_por: int) -> int:
 def toggle_ativo(template_id: int):
     with db() as conn:
         conn.execute(
-            "UPDATE kit_template SET ativo = NOT ativo WHERE id = ?", (template_id,)
+            "UPDATE kit_template SET ativo = 1 - ativo WHERE id = ?", (template_id,)
         )
