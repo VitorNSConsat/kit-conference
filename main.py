@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from urllib.parse import quote
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -305,7 +305,6 @@ async def print_queue_page(request: Request):
 @app.get("/print-queue/{pq_id}/zpl")
 @require_login
 async def print_queue_zpl(request: Request, pq_id: int):
-    from fastapi.responses import PlainTextResponse
     item = pq_mod.buscar(pq_id)
     if not item:
         return PlainTextResponse("Não encontrado", status_code=404)
