@@ -15,7 +15,6 @@ import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
 import app.zpl as zpl_mod
-import app.print_queue as pq_mod
 
 load_dotenv()
 
@@ -271,8 +270,10 @@ async def session_finalize(request: Request, sessao_id: int):
             "finalizado_em = CURRENT_TIMESTAMP WHERE id = ?",
             (sessao_id,)
         )
-
-    pq_mod.adicionar(kit_id, zpl, user["id"])
+        conn.execute(
+            "INSERT INTO print_queue (kit_id, zpl, solicitado_por) VALUES (?, ?, ?)",
+            (kit_id, zpl, user["id"])
+        )
 
     return RedirectResponse(
         f"/session/{sessao_id}/complete?kit_id={kit_id}", status_code=302
