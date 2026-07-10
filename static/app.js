@@ -62,6 +62,6 @@ function atualizarContagem(codigoBarra, atual, exigido) {
         el.querySelector(".check").textContent = "✅";
     }
     // Verifica se todos os itens obrigatórios estão completos
-    const pendentes = document.querySelectorAll(".item-row.pending");
+    const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
 }

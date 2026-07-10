@@ -201,10 +201,10 @@ async def session_cancel(request: Request, sessao_id: int):
 async def ws_session(websocket: WebSocket, sessao_id: int):
     session_data = websocket.scope.get("session", {})
     user_id = session_data.get("user_id")
+    await websocket.accept()
     if not user_id:
         await websocket.close(code=1008)
         return
-    await websocket.accept()
     try:
         while True:
             codigo = await websocket.receive_text()

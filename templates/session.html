@@ -22,7 +22,8 @@
         {% set atual = contagem.get(item.codigo_barra, 0) %}
         {% set completo = atual >= item.quantidade_exigida %}
         <div class="item-row {{ 'done' if completo else 'pending' }}"
-             id="item-{{ item.codigo_barra }}">
+             id="item-{{ item.codigo_barra }}"
+             data-obrigatorio="{{ 'true' if item.obrigatorio else 'false' }}">
             <div>
                 <strong>{{ item.descricao }}</strong><br>
                 <small style="color:#888;">{{ item.codigo_barra }}</small>
