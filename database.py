@@ -7,9 +7,34 @@ load_dotenv()
 
 DB_PATH = os.getenv("DB_PATH", "kit_conference.db")
 
+# Anchor connection keeps the shared in-memory DB alive during tests.
+# Only used when DB_PATH == ":memory:".
+_memory_anchor: sqlite3.Connection | None = None
+
+
+def _get_db_path():
+    """Re-reads DB_PATH from env to support test overrides set before import."""
+    return os.getenv("DB_PATH", DB_PATH)
+
+
+def _ensure_memory_anchor(path: str):
+    """When using :memory:, keep one persistent connection so the DB survives."""
+    global _memory_anchor
+    if path == ":memory:" and _memory_anchor is None:
+        _memory_anchor = sqlite3.connect(
+            "file::memory:?cache=shared", uri=True, check_same_thread=False
+        )
+
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    path = _get_db_path()
+    _ensure_memory_anchor(path)
+    if path == ":memory:":
+        conn = sqlite3.connect(
+            "file::memory:?cache=shared", uri=True, check_same_thread=False
+        )
+    else:
+        conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
