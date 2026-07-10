@@ -80,6 +80,43 @@ async def session_start(request: Request, kit_template_id: int = Form(...)):
     return RedirectResponse(f"/session/{sessao_id}", status_code=302)
 
 
+# ── Admin: Itens ──────────────────────────────────────────────────────────────
+
+@app.get("/admin/items", response_class=HTMLResponse)
+@require_login
+async def admin_items(request: Request):
+    itens = items_mod.listar_itens()
+    return render(request, "admin_items.html", {"itens": itens})
+
+
+@app.post("/admin/items")
+@require_login
+async def admin_items_post(request: Request,
+                           codigo_barra: str = Form(...),
+                           descricao: str = Form(...),
+                           unidade: str = Form("UN"),
+                           categoria: str = Form(""),
+                           controla_serial: str = Form("")):
+    user = get_current_user(request)
+    try:
+        items_mod.criar_item(
+            codigo_barra.strip(), descricao.strip(), unidade.strip(),
+            categoria.strip(), bool(controla_serial), user["id"]
+        )
+        return RedirectResponse("/admin/items?ok=1", status_code=302)
+    except Exception as e:
+        itens = items_mod.listar_itens()
+        return render(request, "admin_items.html",
+                      {"itens": itens, "erro": f"Erro ao salvar: {e}"})
+
+
+@app.post("/admin/items/{item_id}/toggle")
+@require_login
+async def admin_items_toggle(request: Request, item_id: int):
+    items_mod.toggle_ativo(item_id)
+    return RedirectResponse("/admin/items", status_code=302)
+
+
 # ── Placeholder para rotas adicionadas nas próximas tasks ────────────────────
 # (Tasks 3-11 adicionam rotas aqui)
 
