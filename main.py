@@ -171,8 +171,50 @@ async def admin_template_toggle(request: Request, template_id: int):
     return RedirectResponse("/admin/templates", status_code=302)
 
 
-# ── Placeholder para rotas adicionadas nas próximas tasks ────────────────────
-# (Tasks 6-11 adicionam rotas aqui)
+# ── Sessions ──────────────────────────────────────────────────────────────────
+
+@app.get("/session/{sessao_id}", response_class=HTMLResponse)
+@require_login
+async def session_page(request: Request, sessao_id: int):
+    session = sessions_mod.get_session(sessao_id)
+    if not session:
+        return RedirectResponse("/", status_code=302)
+    if session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+    itens = templates_mod.get_itens_template(session["kit_template_id"])
+    contagem = sessions_mod.get_contagem(sessao_id)
+    return render(request, "session.html", {
+        "session": session,
+        "itens": itens,
+        "contagem": contagem,
+    })
+
+
+@app.post("/session/{sessao_id}/cancel")
+@require_login
+async def session_cancel(request: Request, sessao_id: int):
+    sessions_mod.cancel_session(sessao_id)
+    return RedirectResponse("/", status_code=302)
+
+
+@app.websocket("/ws/session/{sessao_id}")
+async def ws_session(websocket: WebSocket, sessao_id: int):
+    session_data = websocket.scope.get("session", {})
+    user_id = session_data.get("user_id")
+    if not user_id:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    try:
+        while True:
+            codigo = await websocket.receive_text()
+            codigo = codigo.strip()
+            if not codigo:
+                continue
+            result = sessions_mod.register_scan(sessao_id, codigo)
+            await websocket.send_json(result)
+    except WebSocketDisconnect:
+        pass
 
 if __name__ == "__main__":
     import uvicorn

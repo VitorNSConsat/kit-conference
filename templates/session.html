@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Bipagem — {{ session.kit_nome }}{% endblock %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <div>
+        <h1 style="margin-bottom:4px;">{{ session.kit_nome }}</h1>
+        <span style="color:#666; font-size:14px;">Cliente: {{ session.cliente }} &nbsp;|&nbsp; Operador: {{ session.operador_nome }} &nbsp;|&nbsp; <span id="ws-status">⏳ Conectando...</span></span>
+    </div>
+    <form method="post" action="/session/{{ session.id }}/cancel"
+          onsubmit="return confirm('Cancelar a sessão? Os itens bipados serão descartados.')">
+        <button type="submit" class="btn btn-danger">Cancelar Sessão</button>
+    </form>
+</div>
+
+<div class="scan-buffer" id="scan-buffer">Aguardando bipagem...</div>
+
+<div class="scan-layout">
+    <!-- Painel esquerdo: itens e progresso -->
+    <div class="card">
+        <h2>Itens do Kit</h2>
+        {% for item in itens %}
+        {% set atual = contagem.get(item.codigo_barra, 0) %}
+        {% set completo = atual >= item.quantidade_exigida %}
+        <div class="item-row {{ 'done' if completo else 'pending' }}"
+             id="item-{{ item.codigo_barra }}">
+            <div>
+                <strong>{{ item.descricao }}</strong><br>
+                <small style="color:#888;">{{ item.codigo_barra }}</small>
+                {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="count">{{ atual }}/{{ item.quantidade_exigida }}</span>
+                <span class="check">{{ '✅' if completo else '⬜' }}</span>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div style="margin-top:20px;">
+            <form method="post" action="/session/{{ session.id }}/finalize">
+                {% set todos_ok = namespace(ok=true) %}
+                {% for item in itens %}{% if item.obrigatorio and contagem.get(item.codigo_barra, 0) < item.quantidade_exigida %}{% set todos_ok.ok = false %}{% endif %}{% endfor %}
+                <button type="submit" class="btn btn-success" id="btn-finalizar"
+                        {{ '' if todos_ok.ok else 'disabled' }}>
+                    ✅ Finalizar Kit e Gerar Etiqueta
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Painel direito: feed de eventos -->
+    <div class="card">
+        <h2>Eventos de Bipagem</h2>
+        <div class="scan-feed" id="scan-feed">
+            <div class="scan-event" style="color:#888; font-size:13px;">Aguardando bipagens...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/app.js"></script>
+<script>initScanner({{ session.id }});</script>
+{% endblock %}
