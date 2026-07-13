@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Fila de Impressão{% endblock %}
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<div class="pq-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
     <h1>Fila de Impressão</h1>
     <span style="color:#888; font-size:13px;">Atualização automática a cada 10s</span>
 </div>
 
 {% if fila %}
-<div class="card">
+<div class="card table-scroll">
     <table>
         <thead>
             <tr>
                 <th>#</th>
-                <th>Kit ID</th>
                 <th>Kit</th>
                 <th>Cliente</th>
                 <th>Solicitado por</th>
@@ -24,20 +23,46 @@
         {% for item in fila %}
         <tr>
             <td>{{ item.id }}</td>
-            <td><code style="font-size:11px;">{{ item.kit_id[:8] }}...</code></td>
-            <td>{{ item.kit_nome }}</td>
+            <td>
+                <div style="font-weight:600;">{{ item.kit_nome }}</div>
+                <div style="font-family:monospace;font-size:10px;color:#aaa;">{{ item.kit_id[:12] }}…</div>
+            </td>
             <td>{{ item.cliente }}</td>
             <td>{{ item.solicitado_por_nome }}</td>
-            <td>{{ item.solicitado_em }}</td>
-            <td style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button onclick="imprimirZpl({{ item.id }})" class="btn btn-sm btn-success">Imprimir</button>
-                <form method="post" action="/print-queue/{{ item.id }}/impresso" style="display:inline;">
-                    <button class="btn btn-sm btn-primary">Marcar Impresso</button>
-                </form>
-                <form method="post" action="/print-queue/{{ item.id }}/cancelar" style="display:inline;"
-                      onsubmit="return confirm('Cancelar este item da fila?')">
-                    <button class="btn btn-sm btn-danger">Cancelar</button>
-                </form>
+            <td style="white-space:nowrap;font-size:12px;">{{ item.solicitado_em }}</td>
+            <td>
+                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+
+                    <!-- Botão único: abre etiqueta e diálogo de impressão do SO -->
+                    <button class="btn btn-sm btn-success"
+                            onclick="imprimir({{ item.id }})">
+                        🖨️ Imprimir
+                    </button>
+
+                    <!-- Preview ZPL (validação visual) -->
+                    <a href="/print-queue/{{ item.id }}/preview" target="_blank"
+                       class="btn btn-sm" style="background:#6c5ce7;color:white;">
+                        👁️ Preview
+                    </a>
+
+                    <form method="post" action="/print-queue/{{ item.id }}/impresso" style="display:inline;">
+                        <button class="btn btn-sm btn-primary">✔ Marcado</button>
+                    </form>
+
+                    <form method="post" action="/print-queue/{{ item.id }}/cancelar" style="display:inline;"
+                          onsubmit="return confirm('Cancelar este item da fila?')">
+                        <button class="btn btn-sm btn-danger">✕</button>
+                    </form>
+
+                    <!-- ZPL avançado (discreto) -->
+                    <a href="/print-queue/{{ item.id }}/zpl"
+                       download="etiqueta_{{ item.id }}.zpl"
+                       title="Baixar arquivo ZPL (avançado)"
+                       style="font-size:11px;color:#bbb;text-decoration:none;align-self:center;">
+                        ⬇ .zpl
+                    </a>
+
+                </div>
             </td>
         </tr>
         {% endfor %}
@@ -49,25 +74,22 @@
     Nenhum item aguardando impressão.
 </div>
 {% endif %}
-
-<iframe id="print-frame" style="display:none;"></iframe>
 {% endblock %}
+
 {% block scripts %}
 <script>
 setTimeout(() => location.reload(), 10000);
 
-function imprimirZpl(pqId) {
-    fetch(`/print-queue/${pqId}/zpl`)
-        .then(r => r.text())
-        .then(zpl => {
-            const frame = document.getElementById("print-frame");
-            frame.srcdoc = `<pre style="font-family:monospace;font-size:10px;">${zpl}</pre>`;
-            frame.onload = () => {
-                frame.contentWindow.print();
-                fetch(`/print-queue/${pqId}/impresso`, { method: "POST" })
-                    .then(() => setTimeout(() => location.reload(), 1500));
-            };
-        });
+function imprimir(pqId) {
+    // Abre a etiqueta em nova aba — ela auto-dispara o diálogo de impressão do SO
+    // O usuário escolhe a impressora (Zebra, normal, PDF, etc.) e configura lá
+    window.open(`/print-queue/${pqId}/etiqueta`, '_blank');
+
+    // Marca como impresso após 3s (tempo para a janela abrir e o usuário ver)
+    setTimeout(() => {
+        fetch(`/print-queue/${pqId}/impresso`, { method: 'POST' })
+            .then(() => setTimeout(() => location.reload(), 800));
+    }, 3000);
 }
 </script>
 {% endblock %}

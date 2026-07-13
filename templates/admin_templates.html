@@ -3,8 +3,14 @@
 {% block content %}
 <h1>Templates de Kit</h1>
 
-{% if request.query_params.get('ok') %}
-<div class="alert alert-success">Template salvo com sucesso.</div>
+{% if request.query_params.get('ok') == '1' %}
+<div class="alert alert-success">Template criado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'editado' %}
+<div class="alert alert-success">Template atualizado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'versao' %}
+<div class="alert alert-success">Nova versão criada com sucesso.</div>
+{% elif request.query_params.get('ok') == 'excluido' %}
+<div class="alert alert-success">Template excluído.</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -26,10 +32,10 @@
         <h2>Itens do Kit</h2>
         <div id="itens-container">
             <div class="item-linha" style="display:grid; grid-template-columns:2fr 80px 100px auto; gap:8px; margin-bottom:8px;" data-idx="0">
-                <select name="codigo_barra_0" required>
-                    <option value="">— selecione o item —</option>
-                    {% for item in itens_catalogo %}
-                    <option value="{{ item.codigo_barra }}">{{ item.descricao }} ({{ item.codigo_barra }})</option>
+                <select name="item_tipo_id_0" required>
+                    <option value="">— selecione o tipo —</option>
+                    {% for tipo in tipos_catalogo %}
+                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
                     {% endfor %}
                 </select>
                 <input type="number" name="qtd_0" value="1" min="1" placeholder="Qtd">
@@ -59,11 +65,16 @@
             <td>v{{ t.versao }}</td>
             <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
             <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
                 <form method="post" action="/admin/templates/{{ t.id }}/toggle">
                     <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
                 </form>
                 <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
                     <button class="btn btn-sm btn-warning">Nova Versão</button>
+                </form>
+                <form method="post" action="/admin/templates/{{ t.id }}/delete"
+                      onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
+                    <button class="btn btn-sm btn-danger">Excluir</button>
                 </form>
             </td>
         </tr>
@@ -77,7 +88,7 @@
 {% block scripts %}
 <script>
 let idx = 1;
-const catalogo = {{ itens_catalogo | tojson }};
+const catalogo = {{ tipos_catalogo | tojson }};
 
 function adicionarLinha() {
     const container = document.getElementById('itens-container');
@@ -85,10 +96,10 @@ function adicionarLinha() {
     div.className = 'item-linha';
     div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 100px auto;gap:8px;margin-bottom:8px;';
     div.dataset.idx = idx;
-    let opts = '<option value="">— selecione —</option>';
-    catalogo.forEach(i => { opts += `<option value="${i.codigo_barra}">${i.descricao} (${i.codigo_barra})</option>`; });
+    let opts = '<option value="">— selecione o tipo —</option>';
+    catalogo.forEach(t => { opts += `<option value="${t.id}">${t.nome}</option>`; });
     div.innerHTML = `
-        <select name="codigo_barra_${idx}" required>${opts}</select>
+        <select name="item_tipo_id_${idx}" required>${opts}</select>
         <input type="number" name="qtd_${idx}" value="1" min="1">
         <label style="display:flex;align-items:center;gap:6px;margin:0;">
             <input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório

@@ -29,9 +29,9 @@ def buscar_template(template_id: int) -> dict | None:
 def get_itens_template(template_id: int) -> list:
     with db() as conn:
         rows = conn.execute(
-            "SELECT ki.*, i.descricao, i.unidade, i.controla_serial "
+            "SELECT ki.*, it.nome AS descricao "
             "FROM kit_template_items ki "
-            "JOIN item_master i ON i.codigo_barra = ki.codigo_barra "
+            "JOIN item_tipo it ON it.id = ki.item_tipo_id "
             "WHERE ki.kit_template_id = ?",
             (template_id,)
         ).fetchall()
@@ -40,7 +40,7 @@ def get_itens_template(template_id: int) -> list:
 
 def criar_template(nome: str, cliente: str, criado_por: int,
                    itens: list[dict]) -> int:
-    """itens: [{'codigo_barra': str, 'quantidade_exigida': int, 'obrigatorio': bool}]"""
+    """itens: [{'item_tipo_id': int, 'quantidade_exigida': int, 'obrigatorio': bool}]"""
     with db() as conn:
         cur = conn.execute(
             "INSERT INTO kit_template (nome, cliente, versao, criado_por) "
@@ -51,9 +51,9 @@ def criar_template(nome: str, cliente: str, criado_por: int,
         for item in itens:
             conn.execute(
                 "INSERT INTO kit_template_items "
-                "(kit_template_id, codigo_barra, quantidade_exigida, obrigatorio) "
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio) "
                 "VALUES (?, ?, ?, ?)",
-                (template_id, item["codigo_barra"],
+                (template_id, item["item_tipo_id"],
                  item["quantidade_exigida"], int(item.get("obrigatorio", True)))
             )
     return template_id
@@ -75,12 +75,60 @@ def nova_versao(template_id: int, criado_por: int) -> int:
         for item in itens:
             conn.execute(
                 "INSERT INTO kit_template_items "
-                "(kit_template_id, codigo_barra, quantidade_exigida, obrigatorio) "
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio) "
                 "VALUES (?, ?, ?, ?)",
-                (novo_id, item["codigo_barra"],
+                (novo_id, item["item_tipo_id"],
                  item["quantidade_exigida"], item["obrigatorio"])
             )
     return novo_id
+
+
+def atualizar_template(template_id: int, nome: str, cliente: str,
+                       itens: list[dict]):
+    """Atualiza nome, cliente e itens. Itens antigos são substituídos."""
+    with db() as conn:
+        conn.execute(
+            "UPDATE kit_template SET nome = ?, cliente = ? WHERE id = ?",
+            (nome, cliente, template_id)
+        )
+        conn.execute(
+            "DELETE FROM kit_template_items WHERE kit_template_id = ?", (template_id,)
+        )
+        for item in itens:
+            conn.execute(
+                "INSERT INTO kit_template_items "
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio) "
+                "VALUES (?, ?, ?, ?)",
+                (template_id, item["item_tipo_id"],
+                 item["quantidade_exigida"], int(item.get("obrigatorio", True)))
+            )
+
+
+def deletar_template(template_id: int):
+    """Exclui template em cascade. Bloqueia apenas sessões em andamento."""
+    with db() as conn:
+        sessoes = conn.execute(
+            "SELECT COUNT(*) FROM scan_session WHERE kit_template_id = ? AND status = 'em_andamento'",
+            (template_id,)
+        ).fetchone()[0]
+        if sessoes:
+            raise ValueError(f"Template possui {sessoes} sessão(ões) em andamento. Finalize antes de excluir.")
+
+        # Cascade: print_queue → kit_record → scan_session_items → scan_session → itens → template
+        sessao_ids = [r[0] for r in conn.execute(
+            "SELECT id FROM scan_session WHERE kit_template_id = ?", (template_id,)
+        ).fetchall()]
+        for sid in sessao_ids:
+            conn.execute("DELETE FROM scan_session_items WHERE sessao_id = ?", (sid,))
+        kit_ids = [r[0] for r in conn.execute(
+            "SELECT kit_id FROM kit_record WHERE kit_template_id = ?", (template_id,)
+        ).fetchall()]
+        for kid in kit_ids:
+            conn.execute("DELETE FROM print_queue WHERE kit_id = ?", (kid,))
+        conn.execute("DELETE FROM kit_record WHERE kit_template_id = ?", (template_id,))
+        conn.execute("DELETE FROM scan_session WHERE kit_template_id = ?", (template_id,))
+        conn.execute("DELETE FROM kit_template_items WHERE kit_template_id = ?", (template_id,))
+        conn.execute("DELETE FROM kit_template WHERE id = ?", (template_id,))
 
 
 def toggle_ativo(template_id: int):

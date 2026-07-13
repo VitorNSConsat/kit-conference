@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Kit — {{ kit.kit_nome }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────── */
+  .header {
+    background: #1a3a5c;
+    color: #fff;
+    padding: 18px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .header h1 { font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .header .subtitulo { font-size: 13px; opacity: .7; margin-top: 4px; }
+  .status-badge {
+    background: #27ae60;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    margin-left: 8px;
+  }
+
+  /* ── Cards de info ────────────────────────── */
+  .container { padding: 16px; max-width: 500px; margin: 0 auto; }
+
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-bottom: 10px;
+  }
+
+  /* ── Grid de informações ──────────────────── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .info-item { }
+  .info-item .label {
+    font-size: 10px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .info-item .value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+    margin-top: 2px;
+  }
+  .info-item.full { grid-column: 1 / -1; }
+
+  /* ── Destaque veículo/garagem ─────────────── */
+  .vg-card {
+    background: #f0f4f8;
+    border-left: 4px solid #1a3a5c;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .vg-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+  }
+  .vg-row:not(:last-child) { border-bottom: 1px solid #dde; }
+  .vg-key {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #1a3a5c;
+  }
+  .vg-val { font-size: 15px; font-weight: 700; color: #222; }
+
+  /* ── Lista de itens ───────────────────────── */
+  .item-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 12px;
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-qtd {
+    min-width: 36px;
+    height: 36px;
+    background: #1a3a5c;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .item-info { flex: 1; min-width: 0; }
+  .item-tipo { font-size: 15px; font-weight: 600; color: #222; }
+  .item-barcodes {
+    font-size: 11px;
+    color: #999;
+    margin-top: 3px;
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Rodapé ───────────────────────────────── */
+  .footer {
+    text-align: center;
+    padding: 20px 16px;
+    font-size: 11px;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>{{ kit.kit_nome }}</h1>
+      <div class="subtitulo">{{ kit.cliente }} &nbsp;·&nbsp; v{{ kit.versao }}</div>
+    </div>
+    <span class="status-badge">✓ Conferido</span>
+  </div>
+
+  <!-- Veículo e Garagem direto no header — visíveis imediatamente -->
+  {% if kit.veiculo or kit.garagem %}
+  <div style="display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);">
+    {% if kit.veiculo %}
+    <div>
+      <div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:1px;">Veículo</div>
+      <div style="font-size:20px;font-weight:900;letter-spacing:1px;">{{ kit.veiculo }}</div>
+    </div>
+    {% endif %}
+    {% if kit.garagem %}
+    <div>
+      <div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:1px;">Garagem</div>
+      <div style="font-size:20px;font-weight:900;letter-spacing:1px;">{{ kit.garagem }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="container">
+
+  <!-- Info resumida -->
+  <div class="card">
+    <div class="card-title">Informações</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="label">Data</div>
+        <div class="value">{{ kit.finalizado_em[:10] if kit.finalizado_em else '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Hora</div>
+        <div class="value">{{ kit.finalizado_em[11:16] if kit.finalizado_em else '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Operador</div>
+        <div class="value">{{ kit.operador_nome }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">ID</div>
+        <div class="value" style="font-family:monospace;font-size:12px;">{{ kit.kit_id[:8].upper() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Composição do kit -->
+  <div class="card">
+    <div class="card-title">Composição do Kit ({{ itens | length }} tipo{{ 's' if itens | length != 1 else '' }})</div>
+    {% for item in itens %}
+    <div class="item-row">
+      <div class="item-qtd">{{ item.quantidade }}</div>
+      <div class="item-info">
+        <div class="item-tipo">{{ item.tipo_nome }}</div>
+        {% if item.barcodes %}
+        <div class="item-barcodes">{{ item.barcodes }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
+    {% endfor %}
+  </div>
+
+</div>
+
+<div class="footer">
+  Conferência de Kits &nbsp;·&nbsp; {{ kit.kit_id }}
+</div>
+
+</body>
+</html>

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Rede e Conectividade{% endblock %}
+{% block content %}
+<h1>Rede e Conectividade</h1>
+
+<div style="max-width:580px;">
+
+  <!-- Endereços -->
+  <div class="card" style="margin-bottom:16px;">
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Endereços do Servidor</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#f4f7fb;border-radius:8px;">
+        <span style="font-size:24px;">🔒</span>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;">Principal — HTTPS</div>
+          <div style="font-size:17px;font-weight:900;color:#1a3a5c;font-family:monospace;">{{ url_https or url_http }}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">Admin · QR codes · iOS · Desktop</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#f8f9fa;border-radius:8px;">
+        <span style="font-size:24px;">🌐</span>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;">Alternativo — HTTP</div>
+          <div style="font-size:16px;font-weight:700;color:#555;font-family:monospace;">{{ url_http }}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">Android sem aviso · acesso sem certificado</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- QR de teste -->
+  <div class="card" style="margin-bottom:16px;text-align:center;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px;">QR de Acesso</div>
+    <p style="font-size:12px;color:#888;margin-bottom:0;">Escaneie com qualquer celular para testar a conectividade</p>
+    {{ qr_svg | safe }}
+    <div style="font-size:11px;color:#aaa;margin-top:4px;font-family:monospace;">{{ url_https or url_http }}</div>
+  </div>
+
+  <!-- iOS -->
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:22px;">🍎</span> Configuração — iPhone / iPad
+    </h3>
+
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">1</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Conecte ao Wi-Fi da empresa</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">O iPhone deve estar na mesma rede Wi-Fi do PC servidor.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">2</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Baixe o certificado de segurança</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            No <strong>Safari</strong>, abra:
+            <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:11px;display:inline-block;margin-top:4px;">{{ url_http }}/cert</code>
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:4px;">Aparece "Perfil Baixado" → toque <strong>Fechar</strong>.</div>
+          {% if tem_ssl %}
+          <a href="{{ url_http }}/cert"
+             style="display:inline-block;margin-top:8px;background:#1a3a5c;color:#fff;
+                    font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px;
+                    text-decoration:none;">⬇️ Baixar Certificado</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">3</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Instale o perfil</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            <strong>Ajustes</strong> → <strong>Perfil Baixado</strong> → toque no perfil → <strong>Instalar</strong> → confirme.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">4</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Ative a confiança do certificado</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            <strong>Ajustes → Geral → Sobre → Configurações de Confiança de Certificado</strong>
+            <br>Ative o certificado <em>KitConference</em>.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;">
+        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:14px;
+                    font-weight:800;flex-shrink:0;">✓</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#27ae60;">Pronto — feito uma única vez</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            Abra o Safari e acesse <code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;">{{ url_https or url_http }}</code>
+            <br>QR codes das etiquetas abrem automaticamente no Safari.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Android -->
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:22px;">🤖</span> Configuração — Android
+    </h3>
+
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">1</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Conecte ao Wi-Fi da empresa</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">Mesma rede Wi-Fi do PC servidor.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">2</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">Acesse pelo endereço alternativo (HTTP)</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            No Chrome, abra: <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:11px;">{{ url_http }}</code>
+            <br>Sem aviso, sem certificado — acesso direto.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
+        <div style="width:26px;height:26px;background:#f39c12;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:13px;
+                    font-weight:800;flex-shrink:0;">!</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;">QR code — primeiro acesso</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            O QR das etiquetas usa HTTPS. Na <strong>primeira vez</strong> o Chrome mostrará aviso de segurança:<br>
+            Toque em <strong>"Avançado"</strong> → <strong>"Continuar para o site"</strong>.
+            <br><span style="color:#27ae60;font-weight:600;">✓ Nas próximas vezes o Chrome lembra e abre direto.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;padding:12px 0;">
+        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:14px;
+                    font-weight:800;flex-shrink:0;">✓</div>
+        <div>
+          <div style="font-weight:700;font-size:13px;color:#27ae60;">Pronto para uso</div>
+          <div style="font-size:12px;color:#666;margin-top:3px;">
+            Admin via <code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;">{{ url_http }}</code> (sem aviso) ou
+            <code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;">{{ url_https or url_http }}</code> (com aviso na 1ª vez).
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Firewall -->
+  <div class="card" style="border:1.5px solid #f39c12;">
+    <h3 style="margin-bottom:10px;">🔥 Firewall do Windows</h3>
+    <p style="font-size:13px;color:#555;margin-bottom:10px;">
+      Se um celular não conseguir acessar, execute como <strong>Administrador</strong> no CMD:
+    </p>
+    <code id="fw-cmd" style="display:block;background:#f8f8f8;padding:10px;border-radius:6px;
+          font-size:11px;word-break:break-all;user-select:all;border:1px solid #ddd;">netsh advfirewall firewall add rule name="Kit Conference" dir=in action=allow protocol=TCP localport=8011,8080</code>
+    <button onclick="copiar()" class="btn btn-warning" style="margin-top:10px;font-size:12px;padding:6px 14px;">
+      📋 Copiar
+    </button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copiar() {
+  const txt = document.getElementById('fw-cmd').textContent.trim();
+  navigator.clipboard.writeText(txt).then(() => alert('Comando copiado!'));
+}
+</script>
+{% endblock %}

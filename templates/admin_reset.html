@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Zerar Banco de Dados{% endblock %}
+{% block content %}
+<div style="max-width:480px; margin:40px auto;">
+  <div class="card" style="border:2px solid #e74c3c;">
+    <h2 style="color:#e74c3c; margin-bottom:8px;">⚠️ Zerar todos os dados</h2>
+    <p style="color:#555; margin-bottom:16px;">
+      Esta ação irá apagar <strong>permanentemente</strong> todos os registros:
+    </p>
+    <ul style="color:#555; margin:0 0 20px 20px; line-height:2;">
+      <li>Usuários</li>
+      <li>Templates de kit</li>
+      <li>Tipos de item e patrimônios</li>
+      <li>Sessões e bipagens</li>
+      <li>Kits finalizados</li>
+      <li>Fila de impressão</li>
+    </ul>
+    <p style="color:#c0392b; font-weight:bold; margin-bottom:20px;">
+      Não há como desfazer esta operação.
+    </p>
+
+    {% if erro %}
+    <div class="alert alert-danger" style="margin-bottom:12px;">{{ erro }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/reset">
+      <div class="form-group">
+        <label>Digite <strong>CONFIRMAR</strong> para prosseguir:</label>
+        <input type="text" name="confirmacao" placeholder="CONFIRMAR"
+               style="font-size:16px; letter-spacing:2px;" autocomplete="off">
+      </div>
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button type="submit" class="btn btn-danger" style="flex:1;">
+          🗑️ Zerar tudo
+        </button>
+        <a href="/admin/items" class="btn" style="flex:1;background:#888;color:white;text-align:center;">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

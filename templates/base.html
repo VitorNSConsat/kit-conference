@@ -4,21 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Conferência de Kits{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
 {% if user %}
 <nav class="navbar">
     <span class="brand">📦 Conferência de Kits</span>
-    <div>
+    <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">☰</button>
+    <div class="nav-links" id="nav-links">
         <a href="/">Início</a>
         <a href="/print-queue">Fila de Impressão</a>
         <a href="/admin/items">Itens</a>
         <a href="/admin/templates">Templates</a>
         <a href="/reports">Relatórios</a>
+        <a href="/rede" title="Endereço do servidor na rede" style="color:#7ecfff;">🌐 Rede</a>
         <a href="/logout">Sair ({{ user.nome }})</a>
     </div>
 </nav>
+<script>
+function toggleNav() {
+    document.getElementById('nav-links').classList.toggle('open');
+}
+</script>
 {% endif %}
 <div class="container">
     {% block content %}{% endblock %}

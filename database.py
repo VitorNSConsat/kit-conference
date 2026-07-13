@@ -64,13 +64,19 @@ def init_db():
                 criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            -- Tipos de item pré-configurados (ex: "Antena 5dBi", "Roteador TP-Link")
+            CREATE TABLE IF NOT EXISTS item_tipo (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL UNIQUE,
+                ativo BOOLEAN DEFAULT 1,
+                criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- Patrimônios registrados (cada peça física tem código único)
             CREATE TABLE IF NOT EXISTS item_master (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 codigo_barra TEXT UNIQUE NOT NULL,
-                descricao TEXT NOT NULL,
-                unidade TEXT NOT NULL DEFAULT 'UN',
-                categoria TEXT,
-                controla_serial BOOLEAN DEFAULT 0,
+                item_tipo_id INTEGER NOT NULL REFERENCES item_tipo(id),
                 ativo BOOLEAN DEFAULT 1,
                 criado_por INTEGER REFERENCES users(id),
                 criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -86,10 +92,11 @@ def init_db():
                 criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            -- Itens do template referenciam TIPO, não código de barras específico
             CREATE TABLE IF NOT EXISTS kit_template_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kit_template_id INTEGER NOT NULL REFERENCES kit_template(id),
-                codigo_barra TEXT NOT NULL,
+                item_tipo_id INTEGER NOT NULL REFERENCES item_tipo(id),
                 quantidade_exigida INTEGER NOT NULL,
                 obrigatorio BOOLEAN DEFAULT 1
             );
@@ -104,11 +111,12 @@ def init_db():
                 finalizado_em DATETIME
             );
 
+            -- Cada bip registra o código de patrimônio e seu tipo
             CREATE TABLE IF NOT EXISTS scan_session_items (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sessao_id INTEGER NOT NULL REFERENCES scan_session(id),
                 codigo_barra TEXT NOT NULL,
-                serial TEXT,
+                item_tipo_id INTEGER NOT NULL REFERENCES item_tipo(id),
                 bipado_em DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -118,6 +126,8 @@ def init_db():
                 kit_template_id INTEGER NOT NULL REFERENCES kit_template(id),
                 kit_template_versao INTEGER NOT NULL,
                 operador_id INTEGER NOT NULL REFERENCES users(id),
+                veiculo TEXT DEFAULT '',
+                garagem TEXT DEFAULT '',
                 finalizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
                 status TEXT NOT NULL DEFAULT 'ativo'
             );
@@ -126,6 +136,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kit_id TEXT NOT NULL REFERENCES kit_record(kit_id),
                 zpl TEXT NOT NULL,
+                html_label TEXT,
                 solicitado_por INTEGER NOT NULL REFERENCES users(id),
                 solicitado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
                 status TEXT NOT NULL DEFAULT 'aguardando',

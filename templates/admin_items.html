@@ -3,54 +3,96 @@
 {% block content %}
 <h1>Catálogo de Itens</h1>
 
-{% if request.query_params.get('ok') %}
-<div class="alert alert-success">Item cadastrado com sucesso.</div>
+{% if request.query_params.get('ok') == '1' %}
+<div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'tipo' %}
+<div class="alert alert-success">Tipo de item criado com sucesso.</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
+<!-- ── Tipos de Item ─────────────────────────────────────────────────────── -->
 <div class="card">
-    <h2>Novo Item</h2>
-    <form method="post" action="/admin/items">
-        <div style="display:grid; grid-template-columns:1fr 2fr 1fr 1fr; gap:12px;">
-            <div class="form-group">
-                <label>Código de Barras</label>
-                <input type="text" name="codigo_barra" required placeholder="ex: 7891234567890">
-            </div>
-            <div class="form-group">
-                <label>Descrição</label>
-                <input type="text" name="descricao" required placeholder="ex: Antena Omnidirecional 5dBi">
-            </div>
-            <div class="form-group">
-                <label>Unidade</label>
-                <input type="text" name="unidade" value="UN">
-            </div>
-            <div class="form-group">
-                <label>Categoria</label>
-                <input type="text" name="categoria" placeholder="ex: Acessório">
-            </div>
-        </div>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="controla_serial" value="1">
-                Controla serial individual (cada peça tem número único)
-            </label>
-        </div>
-        <button type="submit" class="btn btn-primary">Cadastrar Item</button>
+    <h2>Tipos de Item</h2>
+    <p style="color:#666;font-size:13px;margin-top:-8px;">
+        Cadastre os tipos de itens do kit (ex: "Antena 5dBi", "Cabo USB", "Roteador TP-Link").
+        Na hora do bip, o operador selecionará de qual tipo é o patrimônio escaneado.
+    </p>
+    <form method="post" action="/admin/tipos" style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" name="nome" required placeholder="Nome do tipo (ex: Antena 5dBi)"
+               style="flex:1;">
+        <button type="submit" class="btn btn-primary">Adicionar Tipo</button>
     </form>
+
+    {% if tipos %}
+    <table>
+        <thead>
+            <tr><th>Nome</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for tipo in tipos %}
+        <tr>
+            <td>{{ tipo.nome }}</td>
+            <td>
+                <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
+                    {{ 'Ativo' if tipo.ativo else 'Inativo' }}
+                </span>
+            </td>
+            <td style="display:flex;gap:6px;">
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/delete"
+                      onsubmit="return confirm('Excluir o tipo \'{{ tipo.nome }}\'? Esta ação não pode ser desfeita.')">
+                    <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#888;">Nenhum tipo cadastrado ainda. Adicione os tipos acima.</p>
+    {% endif %}
 </div>
 
+<!-- ── Patrimônios Registrados ───────────────────────────────────────────── -->
 <div class="card">
-    <h2>Itens Cadastrados</h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+            <h2 style="margin-bottom:4px;">Patrimônios Registrados</h2>
+            <p style="color:#666;font-size:13px;margin-top:0;">
+                Patrimônios são registrados automaticamente durante a bipagem.
+                Você também pode cadastrar manualmente abaixo.
+            </p>
+        </div>
+        {% if itens %}
+        <form method="post" action="/admin/items/clear"
+              onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
+            <button type="submit" class="btn btn-danger" style="margin-top:8px;">
+                🗑️ Apagar Todos os Patrimônios
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Cadastro manual -->
+    <form method="post" action="/admin/items"
+          style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:16px;">
+        <input type="text" name="codigo_barra" required placeholder="Código de barras / patrimônio">
+        <select name="item_tipo_id" required>
+            <option value="">— selecione o tipo —</option>
+            {% for tipo in tipos if tipo.ativo %}
+            <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Cadastrar</button>
+    </form>
+
     <table>
         <thead>
             <tr>
-                <th>Código</th>
-                <th>Descrição</th>
-                <th>Unidade</th>
-                <th>Categoria</th>
-                <th>Serial</th>
+                <th>Código / Patrimônio</th>
+                <th>Tipo</th>
+                <th>Cadastrado em</th>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -60,24 +102,22 @@
             <tr>
                 <td><code>{{ item.codigo_barra }}</code></td>
                 <td>{{ item.descricao }}</td>
-                <td>{{ item.unidade }}</td>
-                <td>{{ item.categoria or '—' }}</td>
-                <td>{{ 'Sim' if item.controla_serial else 'Não' }}</td>
+                <td style="font-size:12px;color:#888;">{{ item.criado_em[:16] if item.criado_em else '—' }}</td>
                 <td>
                     <span class="badge {{ 'badge-success' if item.ativo else 'badge-danger' }}">
                         {{ 'Ativo' if item.ativo else 'Inativo' }}
                     </span>
                 </td>
                 <td>
-                    <form method="post" action="/admin/items/{{ item.id }}/toggle" style="display:inline;">
-                        <button type="submit" class="btn btn-sm {{ 'btn-danger' if item.ativo else 'btn-success' }}">
-                            {{ 'Desativar' if item.ativo else 'Ativar' }}
-                        </button>
+                    <form method="post" action="/admin/items/{{ item.id }}/delete"
+                          style="display:inline;"
+                          onsubmit="return confirm('Excluir patrimônio \'{{ item.codigo_barra }}\'?')">
+                        <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
                     </form>
                 </td>
             </tr>
         {% else %}
-            <tr><td colspan="7" style="text-align:center;color:#888;">Nenhum item cadastrado.</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
         {% endfor %}
         </tbody>
     </table>

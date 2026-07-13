@@ -14,12 +14,13 @@ def test_generate_zpl_contém_kit_id():
         timestamp=datetime(2026, 7, 10, 14, 30),
         itens=[{"descricao": "Antena", "quantidade": 2}]
     )
-    assert "abc-123" in zpl
-    assert "Kit Teste" in zpl
-    assert "Empresa X" in zpl
-    assert "10/07/2026 14:30" in zpl
-    assert "Joao" in zpl
-    assert "Antena" in zpl
+    # ID do kit (upper) presente no QR e no rodapé
+    assert "ABC-123" in zpl
+    # Data e hora presentes
+    assert "10/07/2026" in zpl
+    assert "14:30" in zpl
+    # URL do kit presente no QR
+    assert "/kit/" in zpl
     assert "^XA" in zpl
     assert "^XZ" in zpl
 
@@ -27,5 +28,20 @@ def test_generate_zpl_contém_kit_id():
 def test_generate_zpl_estrutura_zebra():
     zpl = generate_zpl("id-1", "Kit", "Cliente", "Op", datetime.now(), [])
     assert "^BQN" in zpl   # QR code presente
-    assert "^PW812" in zpl  # largura configurada
-    assert "^LL1218" in zpl  # comprimento configurado
+    assert "^PW800" in zpl  # largura 100mm a 203 DPI
+    assert "^LL1200" in zpl  # altura 150mm a 203 DPI
+
+
+def test_generate_zpl_veiculo_garagem():
+    zpl = generate_zpl(
+        kit_id="xyz-999",
+        kit_nome="Kit A",
+        cliente="C",
+        operador="Op",
+        timestamp=datetime(2026, 7, 10, 9, 0),
+        itens=[],
+        veiculo="ABC-1234",
+        garagem="G03",
+    )
+    assert "ABC-1234" in zpl
+    assert "G03" in zpl
