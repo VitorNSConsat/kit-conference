@@ -143,10 +143,14 @@ def init_db():
                 impresso_em DATETIME
             );
         """)
-        # Migration: add componente_codigo if not present (no-op on fresh DBs)
-        try:
-            conn.execute(
-                "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT"
-            )
-        except Exception:
-            pass
+        # Migrations (no-op when column already exists)
+        for stmt in [
+            "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
+            "ALTER TABLE kit_template_items ADD COLUMN requer_serial BOOLEAN DEFAULT 0",
+            "ALTER TABLE scan_session_items ADD COLUMN serial_number TEXT",
+            "ALTER TABLE scan_session_items ADD COLUMN status TEXT DEFAULT 'completo'",
+        ]:
+            try:
+                conn.execute(stmt)
+            except Exception:
+                pass

@@ -44,14 +44,84 @@ def get_session(sessao_id: int) -> dict | None:
 
 
 def get_contagem(sessao_id: int) -> dict:
-    """Retorna mapa {item_tipo_id: quantidade_bipada}."""
+    """Retorna {item_tipo_id: quantidade_bipada} — conta apenas itens com serial completo."""
     with db() as conn:
         rows = conn.execute(
             "SELECT item_tipo_id, COUNT(*) as qtd FROM scan_session_items "
-            "WHERE sessao_id = ? GROUP BY item_tipo_id",
+            "WHERE sessao_id = ? AND (status IS NULL OR status = 'completo') "
+            "GROUP BY item_tipo_id",
             (sessao_id,)
         ).fetchall()
     return {r["item_tipo_id"]: r["qtd"] for r in rows}
+
+
+def get_pendente_serial(sessao_id: int) -> dict | None:
+    """Retorna o item aguardando serial number nesta sessão, ou None."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT ssi.id, ssi.codigo_barra, ssi.item_tipo_id, it.nome AS descricao "
+            "FROM scan_session_items ssi "
+            "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            "WHERE ssi.sessao_id = ? AND ssi.status = 'aguardando_serial' "
+            "LIMIT 1",
+            (sessao_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def registrar_serial(sessao_id: int, serial_barra: str) -> dict:
+    """Registra o serial number do item pendente."""
+    pendente = get_pendente_serial(sessao_id)
+    if not pendente:
+        return register_scan(sessao_id, serial_barra)
+
+    if serial_barra == pendente["codigo_barra"]:
+        return {"resultado": "rejeitado",
+                "mensagem": "O serial não pode ser igual ao código do item. Bipe o serial number."}
+
+    with db() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM scan_session_items WHERE sessao_id = ? AND serial_number = ?",
+            (sessao_id, serial_barra)
+        ).fetchone()
+        if existing:
+            return {"resultado": "rejeitado",
+                    "mensagem": f"Serial '{serial_barra}' já registrado nesta sessão."}
+        conn.execute(
+            "UPDATE scan_session_items SET serial_number = ?, status = 'completo' WHERE id = ?",
+            (serial_barra, pendente["id"])
+        )
+
+    session = get_session(sessao_id)
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    template_item = next(
+        (i for i in itens_template if i["item_tipo_id"] == pendente["item_tipo_id"]), None
+    )
+    exigido = template_item["quantidade_exigida"] if template_item else 1
+    contagem = get_contagem(sessao_id)
+    novo_atual = contagem.get(pendente["item_tipo_id"], 0)
+
+    return {
+        "resultado": "aceito",
+        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})",
+        "contagem_atual": novo_atual,
+        "quantidade_exigida": exigido,
+        "codigo_barra": pendente["codigo_barra"],
+        "serial_number": serial_barra,
+        "item_tipo_id": pendente["item_tipo_id"],
+        "descricao": pendente["descricao"],
+    }
+
+
+def cancelar_serial(sessao_id: int) -> dict:
+    """Descarta o item aguardando serial — operador pode bipar o item novamente."""
+    with db() as conn:
+        conn.execute(
+            "DELETE FROM scan_session_items WHERE sessao_id = ? AND status = 'aguardando_serial'",
+            (sessao_id,)
+        )
+    return {"resultado": "cancelado_serial",
+            "mensagem": "Bipagem cancelada. Bipe o item novamente se necessário."}
 
 
 def _barcode_em_sessao(sessao_id: int, codigo_barra: str) -> bool:
@@ -111,8 +181,7 @@ def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
 
 def confirmar_componente(sessao_id: int, codigo_barra: str,
                          quantidades: dict) -> dict:
-    """Registra as quantidades informadas pelo operador para cada item do componente.
-    quantidades: {str(item_tipo_id): int} — operador pode ajustar cada campo."""
+    """Registra as quantidades informadas pelo operador para cada item do componente."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
@@ -139,12 +208,11 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
             exigido = item["quantidade_exigida"]
             atual = contagem.get(tipo_id, 0)
             qtd_informada = int(quantidades.get(str(tipo_id), 0))
-            # Limita ao máximo que ainda falta para não ultrapassar o exigido
             adicionar = min(qtd_informada, max(0, exigido - atual))
             for seq in range(adicionar):
                 conn.execute(
-                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status) "
+                    "VALUES (?, ?, ?, 'completo')",
                     (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id)
                 )
             atualizacoes.append({
@@ -157,7 +225,8 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
 
     adicionados = [u for u in atualizacoes if u["adicionados"] > 0]
     if not adicionados:
-        return {"resultado": "rejeitado", "mensagem": "Nenhum item adicionado (quantidades já atingidas ou zeradas)."}
+        return {"resultado": "rejeitado",
+                "mensagem": "Nenhum item adicionado (quantidades já atingidas ou zeradas)."}
 
     nomes = " + ".join(f"{u['descricao']} ×{u['adicionados']}" for u in adicionados)
     return {
@@ -179,7 +248,6 @@ def register_scan(sessao_id: int, codigo_barra: str,
 
     if not item:
         if item_tipo_id is None:
-            # Patrimônio desconhecido — pede identificação ao operador
             tipos = items_mod.listar_tipos_para_kit(session["kit_template_id"])
             return {
                 "resultado": "desconhecido",
@@ -187,7 +255,6 @@ def register_scan(sessao_id: int, codigo_barra: str,
                 "codigo_barra": codigo_barra,
                 "tipos": tipos,
             }
-        # Operador identificou o tipo — valida antes de criar
         itens_template = templates_mod.get_itens_template(session["kit_template_id"])
         if not any(i["item_tipo_id"] == item_tipo_id for i in itens_template):
             return {"resultado": "rejeitado",
@@ -195,7 +262,6 @@ def register_scan(sessao_id: int, codigo_barra: str,
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
 
-    # Patrimônio existe — verifica se pertence ao kit
     itens_template = templates_mod.get_itens_template(session["kit_template_id"])
     template_item = next(
         (i for i in itens_template if i["item_tipo_id"] == item["item_tipo_id"]), None
@@ -220,12 +286,24 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 
+    requer_serial = bool(template_item.get("requer_serial"))
+
     with db() as conn:
         conn.execute(
-            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id) "
-            "VALUES (?, ?, ?)",
-            (sessao_id, codigo_barra, item["item_tipo_id"])
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status) "
+            "VALUES (?, ?, ?, ?)",
+            (sessao_id, codigo_barra, item["item_tipo_id"],
+             "aguardando_serial" if requer_serial else "completo")
         )
+
+    if requer_serial:
+        return {
+            "resultado": "aguardando_serial",
+            "mensagem": f"'{item['descricao']}' bipado. Agora bipe o serial number.",
+            "codigo_barra": codigo_barra,
+            "item_tipo_id": item["item_tipo_id"],
+            "descricao": item["descricao"],
+        }
 
     novo_atual = atual + 1
     return {

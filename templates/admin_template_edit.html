@@ -73,6 +73,10 @@
                         <input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
                                {{ 'checked' if item.obrigatorio else '' }}> Obrigatório
                     </label>
+                    <label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;color:#6c5ce7;">
+                        <input type="checkbox" name="requer_serial_{{ loop.index0 }}" value="1"
+                               {{ 'checked' if item.requer_serial else '' }}> Serial
+                    </label>
                     <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>
                 </div>
             </div>
@@ -144,6 +148,9 @@ function adicionarTipo(tipoId, tipoNome) {
           `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
+          `</label>` +
+          `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;color:#6c5ce7;">` +
+            `<input type="checkbox" name="requer_serial_${idx}" value="1"> Serial` +
           `</label>` +
           `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>` +
         `</div>`;

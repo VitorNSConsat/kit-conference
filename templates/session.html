@@ -24,6 +24,19 @@
 
 <div class="scan-buffer" id="scan-buffer">Aguardando bipagem...</div>
 
+<!-- Banner serial number — aparece quando o item bipado exige serial -->
+<div id="banner-serial" style="display:none; background:#f0eaff; border:2px solid #6c5ce7;
+     border-radius:10px; padding:14px 18px; margin-bottom:12px;
+     align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+        <strong style="color:#6c5ce7;">📟 Serial Number</strong>
+        — Bipe o serial de:
+        <strong id="banner-serial-desc"></strong>
+        <span id="banner-serial-codigo" style="font-size:12px; color:#888; margin-left:6px;"></span>
+    </div>
+    <button onclick="cancelarSerial()" class="btn btn-sm btn-danger">Cancelar</button>
+</div>
+
 <div class="scan-layout">
     <!-- Painel esquerdo: itens e progresso -->
     <div class="card">
@@ -38,6 +51,7 @@
              data-obrigatorio="{{ 'true' if item.obrigatorio else 'false' }}">
             <div>
                 <strong>{{ item.descricao }}</strong>
+                {% if item.requer_serial %}<span class="badge" style="margin-left:6px;background:#6c5ce7;color:#fff;">📟 Serial</span>{% endif %}
                 {% if item.componente_codigo %}<span class="badge badge-warning" style="margin-left:6px;">📦 {{ item.componente_codigo }}</span>{% endif %}
                 {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}
             </div>
@@ -169,7 +183,6 @@ function abrirModalFinalizacao() {
 function fecharModalFinalizar() {
     document.getElementById("modal-finalizar").style.display = "none";
 }
-// Fechar modal de finalização com ESC
 document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
         fecharModalFinalizar();

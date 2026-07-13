@@ -41,7 +41,6 @@ def get_itens_template(template_id: int) -> list:
 
 def criar_template(nome: str, cliente: str, criado_por: int,
                    itens: list[dict]) -> int:
-    """itens: [{'item_tipo_id': int, 'quantidade_exigida': int, 'obrigatorio': bool, 'componente_codigo': str|None}]"""
     with db() as conn:
         cur = conn.execute(
             "INSERT INTO kit_template (nome, cliente, versao, criado_por) "
@@ -52,11 +51,13 @@ def criar_template(nome: str, cliente: str, criado_por: int,
         for item in itens:
             conn.execute(
                 "INSERT INTO kit_template_items "
-                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, componente_codigo) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, "
+                "componente_codigo, requer_serial) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (template_id, item["item_tipo_id"],
                  item["quantidade_exigida"], int(item.get("obrigatorio", True)),
-                 item.get("componente_codigo") or None)
+                 item.get("componente_codigo") or None,
+                 int(bool(item.get("requer_serial", False))))
             )
     return template_id
 
@@ -77,11 +78,13 @@ def nova_versao(template_id: int, criado_por: int) -> int:
         for item in itens:
             conn.execute(
                 "INSERT INTO kit_template_items "
-                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, componente_codigo) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, "
+                "componente_codigo, requer_serial) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (novo_id, item["item_tipo_id"],
                  item["quantidade_exigida"], item["obrigatorio"],
-                 item.get("componente_codigo"))
+                 item.get("componente_codigo"),
+                 item.get("requer_serial", 0))
             )
     return novo_id
 
@@ -100,11 +103,13 @@ def atualizar_template(template_id: int, nome: str, cliente: str,
         for item in itens:
             conn.execute(
                 "INSERT INTO kit_template_items "
-                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, componente_codigo) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(kit_template_id, item_tipo_id, quantidade_exigida, obrigatorio, "
+                "componente_codigo, requer_serial) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (template_id, item["item_tipo_id"],
                  item["quantidade_exigida"], int(item.get("obrigatorio", True)),
-                 item.get("componente_codigo") or None)
+                 item.get("componente_codigo") or None,
+                 int(bool(item.get("requer_serial", False))))
             )
 
 

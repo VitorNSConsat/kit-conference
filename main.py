@@ -87,6 +87,7 @@ def _parse_itens_form(form) -> list[dict]:
             "quantidade_exigida": max(1, int(form.get(f"qtd_{i}", 1) or 1)),
             "obrigatorio": bool(form.get(f"obrigatorio_{i}")),
             "componente_codigo": (form.get(f"componente_codigo_{i}", "") or "").strip() or None,
+            "requer_serial": bool(form.get(f"requer_serial_{i}")),
         })
     return itens
 
@@ -427,12 +428,19 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     result = sessions_mod.confirmar_componente(
                         sessao_id, msg["codigo_barra"], msg.get("quantidades", {})
                     )
+                elif msg.get("acao") == "cancelar_serial":
+                    result = sessions_mod.cancelar_serial(sessao_id)
                 else:
                     result = {"resultado": "rejeitado", "mensagem": "Mensagem inválida."}
             except (json.JSONDecodeError, KeyError, ValueError):
-                result = sessions_mod.checar_componente(sessao_id, data)
-                if result is None:
-                    result = sessions_mod.register_scan(sessao_id, data)
+                # Plain barcode scan — serial tem prioridade sobre bipagem normal
+                pendente = sessions_mod.get_pendente_serial(sessao_id)
+                if pendente:
+                    result = sessions_mod.registrar_serial(sessao_id, data)
+                else:
+                    result = sessions_mod.checar_componente(sessao_id, data)
+                    if result is None:
+                        result = sessions_mod.register_scan(sessao_id, data)
             await websocket.send_json(result)
     except WebSocketDisconnect:
         pass
@@ -744,7 +752,7 @@ async def report_excel(request: Request, kit_id: str):
         resumo = [dict(r) for r in resumo]
 
         itens = conn.execute(
-            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.bipado_em "
+            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, si.bipado_em "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
             "WHERE si.sessao_id = ? "
@@ -799,7 +807,7 @@ async def report_excel(request: Request, kit_id: str):
     # ── Aba Detalhes ────────────────────────────────────────────────────────────
     ws2 = wb.create_sheet("Detalhes")
     next_row = meta_block(ws2)
-    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Origem", "Bipado em"], 1):
+    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Serial Number", "Origem", "Bipado em"], 1):
         hdr_cell(ws2, next_row, col, h)
     for i, item in enumerate(itens):
         row = next_row + 1 + i
@@ -813,15 +821,17 @@ async def report_excel(request: Request, kit_id: str):
             codigo_display = codigo
         ws2.cell(row, 1, item["tipo_nome"])
         ws2.cell(row, 2, codigo_display)
-        ws2.cell(row, 3, origem)
-        ws2.cell(row, 4, item.get("bipado_em", ""))
+        ws2.cell(row, 3, item.get("serial_number") or "")
+        ws2.cell(row, 4, origem)
+        ws2.cell(row, 5, item.get("bipado_em", ""))
         if i % 2 == 0:
-            for col in (1, 2, 3, 4):
+            for col in (1, 2, 3, 4, 5):
                 ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
     ws2.column_dimensions["A"].width = 32
     ws2.column_dimensions["B"].width = 28
-    ws2.column_dimensions["C"].width = 18
-    ws2.column_dimensions["D"].width = 22
+    ws2.column_dimensions["C"].width = 24
+    ws2.column_dimensions["D"].width = 18
+    ws2.column_dimensions["E"].width = 22
 
     buf = BytesIO()
     wb.save(buf)

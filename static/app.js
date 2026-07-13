@@ -5,6 +5,7 @@ let ws = null;
 let buffer = "";
 let _aguardandoIdentificacao = false;
 let _codigoPendente = null;
+let _aguardandoSerial = false;
 
 function initScanner(sessaoId) {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -20,12 +21,26 @@ function initScanner(sessaoId) {
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+
+        if (data.resultado === "aguardando_serial") {
+            mostrarBannerSerial(data);
+            adicionarEvento(data);
+            return;
+        }
+        if (data.resultado === "cancelado_serial") {
+            ocultarBannerSerial();
+            adicionarEvento(data);
+            return;
+        }
+
         adicionarEvento(data);
+
         if (data.resultado === "aceito") {
             atualizarContagem(data.item_tipo_id, data.contagem_atual, data.quantidade_exigida);
+            if (data.serial_number) ocultarBannerSerial();
         } else if (data.resultado === "componente_pendente") {
             mostrarModalComponente(data);
-            return; // não adiciona evento no feed ainda
+            return;
         } else if (data.resultado === "componente") {
             data.atualizacoes.forEach(u => {
                 atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
@@ -79,6 +94,29 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
 }
 
+// ── Banner de serial number ───────────────────────────────────────────────────
+
+function mostrarBannerSerial(data) {
+    _aguardandoSerial = true;
+    document.getElementById("banner-serial-desc").textContent = data.descricao;
+    document.getElementById("banner-serial-codigo").textContent = `(${data.codigo_barra})`;
+    document.getElementById("banner-serial").style.display = "flex";
+}
+
+function ocultarBannerSerial() {
+    _aguardandoSerial = false;
+    document.getElementById("banner-serial").style.display = "none";
+    document.getElementById("banner-serial-desc").textContent = "";
+    document.getElementById("banner-serial-codigo").textContent = "";
+}
+
+function cancelarSerial() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({acao: "cancelar_serial"}));
+    }
+    ocultarBannerSerial();
+}
+
 // ── Modal de componente — confirmação antes de registrar ─────────────────────
 
 let _codigoComponentePendente = null;
@@ -115,7 +153,6 @@ function mostrarModalComponente(data) {
     });
 
     document.getElementById("modal-componente").style.display = "flex";
-    // Foca no primeiro input de quantidade
     const primeiro = lista.querySelector("input[type=number]");
     if (primeiro) primeiro.focus();
 }
