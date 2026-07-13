@@ -143,3 +143,10 @@ def init_db():
                 impresso_em DATETIME
             );
         """)
+        # Migration: add componente_codigo if not present (no-op on fresh DBs)
+        try:
+            conn.execute(
+                "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT"
+            )
+        except Exception:
+            pass

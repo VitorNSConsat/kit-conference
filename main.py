@@ -281,10 +281,12 @@ async def admin_templates_post(request: Request):
         tipo_id = form.get(f"item_tipo_id_{i}", "").strip()
         qtd = int(form.get(f"qtd_{i}", 1))
         obrig = bool(form.get(f"obrigatorio_{i}"))
+        comp = form.get(f"componente_codigo_{i}", "").strip() or None
         if tipo_id:
             itens.append({"item_tipo_id": int(tipo_id),
                           "quantidade_exigida": qtd,
-                          "obrigatorio": obrig})
+                          "obrigatorio": obrig,
+                          "componente_codigo": comp})
         i += 1
     if not nome or not cliente or not itens:
         todos = templates_mod.listar_todos()
@@ -323,10 +325,12 @@ async def admin_template_edit_post(request: Request, template_id: int):
         tipo_id = form.get(f"item_tipo_id_{i}", "").strip()
         qtd = int(form.get(f"qtd_{i}", 1))
         obrig = bool(form.get(f"obrigatorio_{i}"))
+        comp = form.get(f"componente_codigo_{i}", "").strip() or None
         if tipo_id:
             itens.append({"item_tipo_id": int(tipo_id),
                           "quantidade_exigida": qtd,
-                          "obrigatorio": obrig})
+                          "obrigatorio": obrig,
+                          "componente_codigo": comp})
         i += 1
     if not nome or not cliente or not itens:
         template = templates_mod.buscar_template(template_id)
@@ -420,7 +424,9 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                 else:
                     result = {"resultado": "rejeitado", "mensagem": "Mensagem inválida."}
             except (json.JSONDecodeError, KeyError, ValueError):
-                result = sessions_mod.register_scan(sessao_id, data)
+                result = sessions_mod.bipar_componente(sessao_id, data)
+                if result is None:
+                    result = sessions_mod.register_scan(sessao_id, data)
             await websocket.send_json(result)
     except WebSocketDisconnect:
         pass

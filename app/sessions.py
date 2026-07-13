@@ -76,6 +76,76 @@ def _barcode_em_kit_ativo(codigo_barra: str) -> bool:
     return row is not None
 
 
+def bipar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
+    """Se o código corresponde a um componente do template, registra todos os seus itens.
+    Retorna None se o código não é um componente (fluxo normal de bip deve continuar)."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return None
+
+    with db() as conn:
+        itens = conn.execute(
+            "SELECT ki.item_tipo_id, ki.quantidade_exigida, it.nome AS descricao "
+            "FROM kit_template_items ki "
+            "JOIN item_tipo it ON it.id = ki.item_tipo_id "
+            "WHERE ki.kit_template_id = ? AND ki.componente_codigo = ?",
+            (session["kit_template_id"], codigo_barra)
+        ).fetchall()
+        itens = [dict(r) for r in itens]
+
+    if not itens:
+        return None
+
+    # Verifica se o componente já foi bipado nesta sessão (prefixo COMP:{code}:)
+    prefix = f"COMP:{codigo_barra}:"
+    with db() as conn:
+        ja_bipado = conn.execute(
+            "SELECT 1 FROM scan_session_items "
+            "WHERE sessao_id = ? AND substr(codigo_barra, 1, ?) = ?",
+            (sessao_id, len(prefix), prefix)
+        ).fetchone()
+
+    if ja_bipado:
+        return {
+            "resultado": "rejeitado",
+            "mensagem": f"Componente '{codigo_barra}' já foi bipado nesta sessão.",
+        }
+
+    contagem = get_contagem(sessao_id)
+    atualizacoes = []
+
+    with db() as conn:
+        for item in itens:
+            tipo_id = item["item_tipo_id"]
+            exigido = item["quantidade_exigida"]
+            atual = contagem.get(tipo_id, 0)
+            faltam = max(0, exigido - atual)
+            for seq in range(faltam):
+                conn.execute(
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id) "
+                    "VALUES (?, ?, ?)",
+                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id)
+                )
+            atualizacoes.append({
+                "item_tipo_id": tipo_id,
+                "descricao": item["descricao"],
+                "contagem_atual": atual + faltam,
+                "quantidade_exigida": exigido,
+                "adicionados": faltam,
+            })
+
+    nomes = " + ".join(
+        f"{u['descricao']} ×{u['quantidade_exigida']}"
+        for u in atualizacoes
+    )
+    return {
+        "resultado": "componente",
+        "mensagem": f"📦 Componente '{codigo_barra}': {nomes}",
+        "codigo_barra": codigo_barra,
+        "atualizacoes": atualizacoes,
+    }
+
+
 def register_scan(sessao_id: int, codigo_barra: str,
                   item_tipo_id: int | None = None) -> dict:
     session = get_session(sessao_id)

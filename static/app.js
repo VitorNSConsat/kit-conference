@@ -23,6 +23,10 @@ function initScanner(sessaoId) {
         adicionarEvento(data);
         if (data.resultado === "aceito") {
             atualizarContagem(data.item_tipo_id, data.contagem_atual, data.quantidade_exigida);
+        } else if (data.resultado === "componente") {
+            data.atualizacoes.forEach(u => {
+                atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
+            });
         } else if (data.resultado === "desconhecido") {
             mostrarModalIdentificacao(data.codigo_barra, data.tipos);
         }

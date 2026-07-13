@@ -24,9 +24,12 @@
         </div>
 
         <h2>Itens do Kit</h2>
+        <div style="font-size:12px;color:#888;margin-bottom:6px;">
+            💡 <strong>Código do Componente</strong>: itens com o mesmo código serão registrados juntos com um único bip (ex: saquinho de parafusos).
+        </div>
         <div id="itens-container">
             {% for item in itens %}
-            <div class="item-linha" style="display:grid; grid-template-columns:2fr 80px 100px auto; gap:8px; margin-bottom:8px;">
+            <div class="item-linha" style="display:grid; grid-template-columns:2fr 60px 150px 90px auto; gap:8px; margin-bottom:8px; align-items:center;">
                 <select name="item_tipo_id_{{ loop.index0 }}" required>
                     <option value="">— selecione o tipo —</option>
                     {% for tipo in tipos_catalogo %}
@@ -36,7 +39,12 @@
                     {% endfor %}
                 </select>
                 <input type="number" name="qtd_{{ loop.index0 }}" value="{{ item.quantidade_exigida }}" min="1" placeholder="Qtd">
-                <label style="display:flex;align-items:center;gap:6px;margin:0;">
+                <input type="text" name="componente_codigo_{{ loop.index0 }}"
+                       value="{{ item.componente_codigo or '' }}"
+                       placeholder="Cód. componente"
+                       title="Itens com o mesmo código serão bipados juntos como um componente"
+                       style="font-size:12px;">
+                <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:13px;">
                     <input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
                            {{ 'checked' if item.obrigatorio else '' }}> Obrigatório
                 </label>
@@ -65,13 +73,16 @@ function adicionarLinha() {
     const container = document.getElementById('itens-container');
     const div = document.createElement('div');
     div.className = 'item-linha';
-    div.style.cssText = 'display:grid;grid-template-columns:2fr 80px 100px auto;gap:8px;margin-bottom:8px;';
+    div.style.cssText = 'display:grid;grid-template-columns:2fr 60px 150px 90px auto;gap:8px;margin-bottom:8px;align-items:center;';
     let opts = '<option value="">— selecione o tipo —</option>';
     catalogo.forEach(t => { opts += `<option value="${t.id}">${t.nome}</option>`; });
     div.innerHTML = `
         <select name="item_tipo_id_${idx}" required>${opts}</select>
         <input type="number" name="qtd_${idx}" value="1" min="1">
-        <label style="display:flex;align-items:center;gap:6px;margin:0;">
+        <input type="text" name="componente_codigo_${idx}" placeholder="Cód. componente"
+               title="Itens com o mesmo código serão bipados juntos como um componente"
+               style="font-size:12px;">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:13px;">
             <input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório
         </label>
         <button type="button" onclick="removerLinha(this)" class="btn btn-sm btn-danger">✕</button>`;
