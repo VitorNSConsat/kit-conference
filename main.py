@@ -109,23 +109,29 @@ async def rede(request: Request):
     url_https = getattr(app.state, "url_https", None)
     tem_ssl   = getattr(app.state, "tem_ssl",   False)
 
-    # QR aponta para HTTP (sem cert — funciona em qualquer dispositivo)
-    try:
-        import segno, io as _io
-        qr = segno.make(url_http, error="l")
-        buf = _io.BytesIO()
-        qr.save(buf, kind="svg", scale=5, border=2, xmldecl=False, nl=False)
-        qr_svg = buf.getvalue().decode("utf-8")
-        qr_svg = qr_svg.replace("<svg ", '<svg style="width:180px;height:180px;display:block;margin:16px auto 0;" ', 1)
-    except Exception:
-        qr_svg = ""
+    def _make_qr_svg(url: str) -> str:
+        try:
+            import segno, io as _io, re
+            qr = segno.make(url, error="l")
+            buf = _io.BytesIO()
+            qr.save(buf, kind="svg", scale=5, border=2, xmldecl=False, nl=False)
+            svg = buf.getvalue().decode("utf-8")
+            svg = re.sub(r'\s(width|height)="[^"]*"', '', svg, count=2)
+            svg = svg.replace("<svg ", '<svg style="display:block;width:100%;max-width:200px;height:auto;margin:0 auto;" ', 1)
+            return svg
+        except Exception:
+            return ""
+
+    qr_ios     = _make_qr_svg(url_https) if url_https else _make_qr_svg(url_http)
+    qr_android = _make_qr_svg(url_http)
 
     return render(request, "rede.html", {
-        "url_http":  url_http,
-        "url_https": url_https,
+        "url_http":    url_http,
+        "url_https":   url_https,
         "servidor_url": url_https or url_http,
-        "qr_svg":    qr_svg,
-        "tem_ssl":   tem_ssl,
+        "qr_ios":      qr_ios,
+        "qr_android":  qr_android,
+        "tem_ssl":     tem_ssl,
     })
 
 
