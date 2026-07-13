@@ -19,7 +19,7 @@
 <div class="card">
     <h2>Novo Template</h2>
     <form method="post" action="/admin/templates" id="form-template">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
             <div class="form-group">
                 <label>Nome do Kit</label>
                 <input type="text" name="nome" required placeholder="ex: Kit Instalação Básica">
@@ -29,30 +29,42 @@
                 <input type="text" name="cliente" required placeholder="ex: Empresa X">
             </div>
         </div>
-        <h2>Itens do Kit</h2>
-        <div style="font-size:12px;color:#888;margin-bottom:6px;">
-            💡 <strong>Código do Componente</strong>: itens com o mesmo código serão registrados juntos com um único bip.
+
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+            <h2 style="margin:0;">Tipos disponíveis</h2>
+            <button type="button" onclick="adicionarTodos()" class="btn btn-warning">
+                ⚡ Inserir todos os itens
+            </button>
         </div>
-        <div id="itens-container">
-            <div class="item-linha" style="display:grid; grid-template-columns:2fr 60px 150px 90px auto; gap:8px; margin-bottom:8px; align-items:center;" data-idx="0">
-                <select name="item_tipo_id_0" required>
-                    <option value="">— selecione o tipo —</option>
-                    {% for tipo in tipos_catalogo %}
-                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
-                    {% endfor %}
-                </select>
-                <input type="number" name="qtd_0" value="1" min="1" placeholder="Qtd">
-                <input type="text" name="componente_codigo_0" placeholder="Cód. componente"
-                       title="Itens com o mesmo código serão bipados juntos como um componente"
-                       style="font-size:12px;">
-                <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:13px;">
-                    <input type="checkbox" name="obrigatorio_0" value="1" checked> Obrigatório
-                </label>
-                <button type="button" onclick="removerLinha(this)" class="btn btn-sm btn-danger">✕</button>
-            </div>
+        <p style="font-size:12px;color:#888;margin-bottom:10px;">
+            Clique nos cards para adicionar ao kit. Itens com o mesmo <strong>Código de Componente</strong> são bipados juntos (ex: saquinho de parafusos).
+        </p>
+
+        {% if tipos_catalogo %}
+        <div class="tipos-grid-admin" id="tipos-grid">
+            {% for tipo in tipos_catalogo %}
+            <button type="button" class="tipo-card-admin"
+                    data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
+                    onclick="adicionarTipoFromCard(this)">
+                {{ tipo.nome }}
+            </button>
+            {% endfor %}
         </div>
-        <button type="button" onclick="adicionarLinha()" class="btn btn-sm btn-warning" style="margin-bottom:16px;">+ Adicionar Item</button>
-        <br>
+        {% else %}
+        <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
+            Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Admin → Itens</a> primeiro.
+        </p>
+        {% endif %}
+
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <strong>Itens selecionados</strong>
+            <span id="contagem-sel" style="font-size:13px;color:#888;"></span>
+        </div>
+        <div id="msg-vazio" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
+            Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
+        </div>
+        <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+
         <button type="submit" class="btn btn-primary">Criar Template</button>
     </form>
 </div>
@@ -92,47 +104,95 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<style>
+.tipos-grid-admin {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.tipo-card-admin {
+    padding: 14px 8px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+    line-height: 1.3;
+    color: #1a3a5c;
+}
+.tipo-card-admin:hover { border-color: #1a3a5c; background: #eef2f7; }
+.tipo-card-admin:active { background: #dce6f0; }
+.item-sel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f4f7fb;
+    border-radius: 8px;
+    border: 1px solid #e0e7ef;
+    flex-wrap: wrap;
+}
+.item-sel-nome { font-weight: 600; font-size: 14px; flex: 1; min-width: 120px; color: #1a3a5c; }
+.item-sel-campos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+</style>
 <script>
-let idx = 1;
+let idx = 0;
 const catalogo = {{ tipos_catalogo | tojson }};
 
-function adicionarLinha() {
+function adicionarTipoFromCard(btn) {
+    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome);
+}
+
+function adicionarTipo(tipoId, tipoNome) {
     const container = document.getElementById('itens-container');
     const div = document.createElement('div');
-    div.className = 'item-linha';
-    div.style.cssText = 'display:grid;grid-template-columns:2fr 60px 150px 90px auto;gap:8px;margin-bottom:8px;align-items:center;';
-    div.dataset.idx = idx;
-    let opts = '<option value="">— selecione o tipo —</option>';
-    catalogo.forEach(t => { opts += `<option value="${t.id}">${t.nome}</option>`; });
-    div.innerHTML = `
-        <select name="item_tipo_id_${idx}" required>${opts}</select>
-        <input type="number" name="qtd_${idx}" value="1" min="1">
-        <input type="text" name="componente_codigo_${idx}" placeholder="Cód. componente"
-               title="Itens com o mesmo código serão bipados juntos como um componente"
-               style="font-size:12px;">
-        <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:13px;">
-            <input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório
-        </label>
-        <button type="button" onclick="removerLinha(this)" class="btn btn-sm btn-danger">✕</button>`;
+    div.className = 'item-sel';
+    div.innerHTML =
+        `<div class="item-sel-nome">${tipoNome}</div>` +
+        `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
+        `<div class="item-sel-campos">` +
+          `<label style="font-size:12px;color:#555;">Qtd</label>` +
+          `<input type="number" name="qtd_${idx}" value="1" min="1" style="width:55px;text-align:center;">` +
+          `<label style="font-size:12px;color:#555;">Componente</label>` +
+          `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
+          `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
+            `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
+          `</label>` +
+          `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>` +
+        `</div>`;
     container.appendChild(div);
     idx++;
+    atualizarVazio();
 }
 
-function removerLinha(btn) {
+function adicionarTodos() {
+    catalogo.forEach(t => adicionarTipo(t.id, t.nome));
+}
+
+function removerItem(btn) {
+    btn.closest('.item-sel').remove();
+    reindexar();
+    atualizarVazio();
+}
+
+function reindexar() {
     const container = document.getElementById('itens-container');
-    if (container.children.length > 1) {
-        btn.closest('.item-linha').remove();
-        reindexar(container);
-    }
-}
-
-function reindexar(container) {
     Array.from(container.children).forEach((div, i) => {
         div.querySelectorAll('[name]').forEach(el => {
             el.name = el.name.replace(/_\d+$/, '_' + i);
         });
     });
     idx = container.children.length;
+}
+
+function atualizarVazio() {
+    const n = document.getElementById('itens-container').children.length;
+    document.getElementById('msg-vazio').style.display = n > 0 ? 'none' : '';
+    document.getElementById('contagem-sel').textContent = n > 0 ? `(${n} ${n === 1 ? 'item' : 'itens'})` : '';
 }
 </script>
 {% endblock %}
