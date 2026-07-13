@@ -32,10 +32,13 @@
         {% set atual = contagem.get(item.item_tipo_id, 0) %}
         {% set completo = atual >= item.quantidade_exigida %}
         <div class="item-row {{ 'done' if completo else 'pending' }}"
-             id="item-tipo-{{ item.item_tipo_id }}"
+             id="item-ki-{{ item.id }}"
+             data-tipo-id="{{ item.item_tipo_id }}"
+             data-exigido="{{ item.quantidade_exigida }}"
              data-obrigatorio="{{ 'true' if item.obrigatorio else 'false' }}">
             <div>
                 <strong>{{ item.descricao }}</strong>
+                {% if item.componente_codigo %}<span class="badge badge-warning" style="margin-left:6px;">📦 {{ item.componente_codigo }}</span>{% endif %}
                 {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}
             </div>
             <div style="display:flex; align-items:center; gap:10px;">

@@ -29,10 +29,11 @@ def buscar_template(template_id: int) -> dict | None:
 def get_itens_template(template_id: int) -> list:
     with db() as conn:
         rows = conn.execute(
-            "SELECT ki.*, it.nome AS descricao "
+            "SELECT ki.*, COALESCE(it.nome, '[Tipo removido]') AS descricao "
             "FROM kit_template_items ki "
-            "JOIN item_tipo it ON it.id = ki.item_tipo_id "
-            "WHERE ki.kit_template_id = ?",
+            "LEFT JOIN item_tipo it ON it.id = ki.item_tipo_id "
+            "WHERE ki.kit_template_id = ? "
+            "ORDER BY ki.id",
             (template_id,)
         ).fetchall()
     return [dict(r) for r in rows]

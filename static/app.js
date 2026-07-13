@@ -64,15 +64,17 @@ function adicionarEvento(data) {
     while (feed.children.length > 50) feed.removeChild(feed.lastChild);
 }
 
-function atualizarContagem(itemTipoId, atual, exigido) {
-    const el = document.getElementById(`item-tipo-${itemTipoId}`);
-    if (!el) return;
-    el.querySelector(".count").textContent = `${atual}/${exigido}`;
-    if (atual >= exigido) {
-        el.classList.remove("pending");
-        el.classList.add("done");
-        el.querySelector(".check").textContent = "✅";
-    }
+function atualizarContagem(itemTipoId, atual, _exigido) {
+    // Atualiza todas as linhas com este tipo (pode aparecer mais de uma vez no template)
+    document.querySelectorAll(`.item-row[data-tipo-id="${itemTipoId}"]`).forEach(el => {
+        const exigido = parseInt(el.dataset.exigido);
+        el.querySelector(".count").textContent = `${atual}/${exigido}`;
+        if (atual >= exigido) {
+            el.classList.remove("pending");
+            el.classList.add("done");
+            el.querySelector(".check").textContent = "✅";
+        }
+    });
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
 }
