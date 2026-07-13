@@ -77,7 +77,7 @@ def _barcode_em_kit_ativo(codigo_barra: str) -> bool:
 
 
 def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
-    """Verifica se o código é um componente e retorna os itens para confirmação.
+    """Verifica se o código é um componente e retorna itens + contagem atual para o modal.
     NÃO registra nada. Retorna None se o código não é um componente."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
@@ -96,19 +96,11 @@ def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
     if not itens:
         return None
 
-    prefix = f"COMP:{codigo_barra}:"
-    with db() as conn:
-        ja_bipado = conn.execute(
-            "SELECT 1 FROM scan_session_items "
-            "WHERE sessao_id = ? AND substr(codigo_barra, 1, ?) = ?",
-            (sessao_id, len(prefix), prefix)
-        ).fetchone()
-
-    if ja_bipado:
-        return {
-            "resultado": "rejeitado",
-            "mensagem": f"Componente '{codigo_barra}' já foi bipado nesta sessão.",
-        }
+    contagem = get_contagem(sessao_id)
+    for item in itens:
+        atual = contagem.get(item["item_tipo_id"], 0)
+        item["atual"] = atual
+        item["faltam"] = max(0, item["quantidade_exigida"] - atual)
 
     return {
         "resultado": "componente_pendente",
@@ -117,8 +109,10 @@ def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
     }
 
 
-def confirmar_componente(sessao_id: int, codigo_barra: str) -> dict:
-    """Registra todos os itens de um componente após confirmação do operador."""
+def confirmar_componente(sessao_id: int, codigo_barra: str,
+                         quantidades: dict) -> dict:
+    """Registra as quantidades informadas pelo operador para cada item do componente.
+    quantidades: {str(item_tipo_id): int} — operador pode ajustar cada campo."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
@@ -136,20 +130,6 @@ def confirmar_componente(sessao_id: int, codigo_barra: str) -> dict:
     if not itens:
         return {"resultado": "rejeitado", "mensagem": "Componente não encontrado no template."}
 
-    prefix = f"COMP:{codigo_barra}:"
-    with db() as conn:
-        ja_bipado = conn.execute(
-            "SELECT 1 FROM scan_session_items "
-            "WHERE sessao_id = ? AND substr(codigo_barra, 1, ?) = ?",
-            (sessao_id, len(prefix), prefix)
-        ).fetchone()
-
-    if ja_bipado:
-        return {
-            "resultado": "rejeitado",
-            "mensagem": f"Componente '{codigo_barra}' já foi bipado nesta sessão.",
-        }
-
     contagem = get_contagem(sessao_id)
     atualizacoes = []
 
@@ -158,8 +138,10 @@ def confirmar_componente(sessao_id: int, codigo_barra: str) -> dict:
             tipo_id = item["item_tipo_id"]
             exigido = item["quantidade_exigida"]
             atual = contagem.get(tipo_id, 0)
-            faltam = max(0, exigido - atual)
-            for seq in range(faltam):
+            qtd_informada = int(quantidades.get(str(tipo_id), 0))
+            # Limita ao máximo que ainda falta para não ultrapassar o exigido
+            adicionar = min(qtd_informada, max(0, exigido - atual))
+            for seq in range(adicionar):
                 conn.execute(
                     "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id) "
                     "VALUES (?, ?, ?)",
@@ -168,14 +150,16 @@ def confirmar_componente(sessao_id: int, codigo_barra: str) -> dict:
             atualizacoes.append({
                 "item_tipo_id": tipo_id,
                 "descricao": item["descricao"],
-                "contagem_atual": atual + faltam,
+                "contagem_atual": atual + adicionar,
                 "quantidade_exigida": exigido,
-                "adicionados": faltam,
+                "adicionados": adicionar,
             })
 
-    nomes = " + ".join(
-        f"{u['descricao']} ×{u['quantidade_exigida']}" for u in atualizacoes
-    )
+    adicionados = [u for u in atualizacoes if u["adicionados"] > 0]
+    if not adicionados:
+        return {"resultado": "rejeitado", "mensagem": "Nenhum item adicionado (quantidades já atingidas ou zeradas)."}
+
+    nomes = " + ".join(f"{u['descricao']} ×{u['adicionados']}" for u in adicionados)
     return {
         "resultado": "componente",
         "mensagem": f"📦 Componente '{codigo_barra}': {nomes}",

@@ -422,7 +422,9 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                         item_tipo_id=int(msg["item_tipo_id"])
                     )
                 elif msg.get("acao") == "confirmar_componente":
-                    result = sessions_mod.confirmar_componente(sessao_id, msg["codigo_barra"])
+                    result = sessions_mod.confirmar_componente(
+                        sessao_id, msg["codigo_barra"], msg.get("quantidades", {})
+                    )
                 else:
                     result = {"resultado": "rejeitado", "mensagem": "Mensagem inválida."}
             except (json.JSONDecodeError, KeyError, ValueError):

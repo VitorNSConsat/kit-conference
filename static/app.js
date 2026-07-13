@@ -91,23 +91,43 @@ function mostrarModalComponente(data) {
     const lista = document.getElementById("comp-itens-lista");
     lista.innerHTML = "";
     data.itens.forEach(item => {
+        const completo = item.faltam === 0;
         const div = document.createElement("div");
-        div.style.cssText = "display:flex;justify-content:space-between;align-items:center;" +
-            "padding:10px 14px;background:#f4f7fb;border-radius:8px;font-size:14px;";
-        div.innerHTML = `<span style="font-weight:600;">${item.descricao}</span>` +
-            `<span style="background:#1a3a5c;color:#fff;padding:3px 10px;` +
-            `border-radius:12px;font-size:13px;font-weight:700;">× ${item.quantidade_exigida}</span>`;
+        div.style.cssText = "display:grid;grid-template-columns:1fr auto auto;align-items:center;" +
+            "gap:10px;padding:10px 14px;background:" + (completo ? "#f0fff4" : "#f4f7fb") +
+            ";border-radius:8px;border:1px solid " + (completo ? "#a8e6c0" : "#e0e7ef") + ";";
+        div.innerHTML =
+            `<div>
+                <div style="font-weight:600;font-size:14px;">${item.descricao}</div>
+                <div style="font-size:11px;color:#888;margin-top:2px;">${item.atual}/${item.quantidade_exigida} já bipados</div>
+             </div>` +
+            (completo
+                ? `<span style="color:#27ae60;font-size:18px;">✅</span>
+                   <input type="hidden" data-tipo-id="${item.item_tipo_id}" value="0">`
+                : `<label style="font-size:12px;color:#555;">Qtd:</label>
+                   <input type="number" data-tipo-id="${item.item_tipo_id}"
+                          value="${item.faltam}" min="0" max="${item.faltam}"
+                          style="width:64px;text-align:center;font-size:15px;font-weight:700;
+                                 padding:4px 6px;border:2px solid #1a3a5c;border-radius:6px;">`);
         lista.appendChild(div);
     });
 
     document.getElementById("modal-componente").style.display = "flex";
+    // Foca no primeiro input de quantidade
+    const primeiro = lista.querySelector("input[type=number]");
+    if (primeiro) primeiro.focus();
 }
 
 function confirmarComponente() {
     if (ws && ws.readyState === WebSocket.OPEN && _codigoComponentePendente) {
+        const quantidades = {};
+        document.querySelectorAll("#comp-itens-lista input[data-tipo-id]").forEach(inp => {
+            quantidades[inp.dataset.tipoId] = parseInt(inp.value) || 0;
+        });
         ws.send(JSON.stringify({
             acao: "confirmar_componente",
-            codigo_barra: _codigoComponentePendente
+            codigo_barra: _codigoComponentePendente,
+            quantidades: quantidades
         }));
     }
     fecharModalComponente();
