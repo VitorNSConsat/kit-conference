@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime
 from urllib.parse import quote
-from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -186,6 +186,18 @@ async def admin_tipos_post(request: Request, nome: str = Form(...)):
                       {"itens": itens, "tipos": tipos,
                        "erro": f"Erro ao criar tipo: {e}"})
     return RedirectResponse("/admin/items?ok=tipo", status_code=302)
+
+
+@app.post("/admin/tipos/importar")
+@require_login
+async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)):
+    conteudo = await arquivo.read()
+    try:
+        resultado = items_mod.importar_tipos_xlsx(conteudo)
+        params = f"importado={resultado['criados']}&ignorado={resultado['ignorados']}"
+    except Exception as e:
+        params = f"erro_import={quote(str(e))}"
+    return RedirectResponse(f"/admin/items?{params}", status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/delete")

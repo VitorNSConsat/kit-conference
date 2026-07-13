@@ -1,3 +1,4 @@
+import io
 from database import db
 
 
@@ -46,6 +47,30 @@ def toggle_tipo(tipo_id: int):
         conn.execute(
             "UPDATE item_tipo SET ativo = 1 - ativo WHERE id = ?", (tipo_id,)
         )
+
+
+def importar_tipos_xlsx(conteudo: bytes) -> dict:
+    """Lê um arquivo .xlsx e importa a primeira coluna (a partir da linha 2) como tipos de item.
+    Retorna {'criados': N, 'ignorados': M} onde ignorados = duplicatas já existentes."""
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+    ws = wb.active
+    criados = 0
+    ignorados = 0
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        valor = row[0] if row else None
+        if not valor:
+            continue
+        nome = str(valor).strip()
+        if not nome:
+            continue
+        try:
+            criar_tipo(nome)
+            criados += 1
+        except Exception:
+            ignorados += 1
+    wb.close()
+    return {"criados": criados, "ignorados": ignorados}
 
 
 # ── Patrimônios (item_master) ──────────────────────────────────────────────────
