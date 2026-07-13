@@ -1,7 +1,10 @@
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# Brasília Time (UTC-3) — garante horário correto independente do fuso do servidor
+BRT = timezone(timedelta(hours=-3))
 from urllib.parse import quote
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
@@ -468,7 +471,7 @@ async def session_finalize(request: Request, sessao_id: int,
             itens_label.append({"descricao": it["descricao"], "quantidade": qtd})
 
     kit_id = str(uuid.uuid4())
-    ts = datetime.now()
+    ts = datetime.now(tz=BRT)
 
     zpl = zpl_mod.generate_zpl(
         kit_id=kit_id,
@@ -493,18 +496,19 @@ async def session_finalize(request: Request, sessao_id: int,
     )
 
     with db() as conn:
+        ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
             "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, "
-            "kit_template_versao, operador_id, veiculo, garagem) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "kit_template_versao, operador_id, veiculo, garagem, finalizado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (kit_id, sessao_id, session["kit_template_id"],
              session["kit_template_versao"], user["id"],
-             veiculo.strip(), garagem.strip())
+             veiculo.strip(), garagem.strip(), ts_str)
         )
         conn.execute(
             "UPDATE scan_session SET status = 'finalizado', "
-            "finalizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-            (sessao_id,)
+            "finalizado_em = ? WHERE id = ?",
+            (ts_str, sessao_id)
         )
         conn.execute(
             "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por) "

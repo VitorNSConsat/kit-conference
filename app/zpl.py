@@ -153,19 +153,6 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etiqueta</title>
-<script>
-(function() {{
-  function _pad(n) {{ return n < 10 ? '0' + n : '' + n; }}
-  document.addEventListener('DOMContentLoaded', function() {{
-    var n = new Date();
-    var txt = _pad(n.getDate()) + '/' + _pad(n.getMonth()+1) + '/' + n.getFullYear()
-            + '    '
-            + _pad(n.getHours()) + ':' + _pad(n.getMinutes());
-    var el = document.getElementById('label-time');
-    if (el) el.textContent = txt;
-  }});
-}})();
-</script>
 <style>
   @page {{ size: 100mm 150mm; margin: 0; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
