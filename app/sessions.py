@@ -76,9 +76,9 @@ def _barcode_em_kit_ativo(codigo_barra: str) -> bool:
     return row is not None
 
 
-def bipar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
-    """Se o código corresponde a um componente do template, registra todos os seus itens.
-    Retorna None se o código não é um componente (fluxo normal de bip deve continuar)."""
+def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
+    """Verifica se o código é um componente e retorna os itens para confirmação.
+    NÃO registra nada. Retorna None se o código não é um componente."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return None
@@ -96,7 +96,46 @@ def bipar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
     if not itens:
         return None
 
-    # Verifica se o componente já foi bipado nesta sessão (prefixo COMP:{code}:)
+    prefix = f"COMP:{codigo_barra}:"
+    with db() as conn:
+        ja_bipado = conn.execute(
+            "SELECT 1 FROM scan_session_items "
+            "WHERE sessao_id = ? AND substr(codigo_barra, 1, ?) = ?",
+            (sessao_id, len(prefix), prefix)
+        ).fetchone()
+
+    if ja_bipado:
+        return {
+            "resultado": "rejeitado",
+            "mensagem": f"Componente '{codigo_barra}' já foi bipado nesta sessão.",
+        }
+
+    return {
+        "resultado": "componente_pendente",
+        "codigo_barra": codigo_barra,
+        "itens": itens,
+    }
+
+
+def confirmar_componente(sessao_id: int, codigo_barra: str) -> dict:
+    """Registra todos os itens de um componente após confirmação do operador."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    with db() as conn:
+        itens = conn.execute(
+            "SELECT ki.item_tipo_id, ki.quantidade_exigida, it.nome AS descricao "
+            "FROM kit_template_items ki "
+            "JOIN item_tipo it ON it.id = ki.item_tipo_id "
+            "WHERE ki.kit_template_id = ? AND ki.componente_codigo = ?",
+            (session["kit_template_id"], codigo_barra)
+        ).fetchall()
+        itens = [dict(r) for r in itens]
+
+    if not itens:
+        return {"resultado": "rejeitado", "mensagem": "Componente não encontrado no template."}
+
     prefix = f"COMP:{codigo_barra}:"
     with db() as conn:
         ja_bipado = conn.execute(
@@ -135,8 +174,7 @@ def bipar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
             })
 
     nomes = " + ".join(
-        f"{u['descricao']} ×{u['quantidade_exigida']}"
-        for u in atualizacoes
+        f"{u['descricao']} ×{u['quantidade_exigida']}" for u in atualizacoes
     )
     return {
         "resultado": "componente",

@@ -23,6 +23,9 @@ function initScanner(sessaoId) {
         adicionarEvento(data);
         if (data.resultado === "aceito") {
             atualizarContagem(data.item_tipo_id, data.contagem_atual, data.quantidade_exigida);
+        } else if (data.resultado === "componente_pendente") {
+            mostrarModalComponente(data);
+            return; // não adiciona evento no feed ainda
         } else if (data.resultado === "componente") {
             data.atualizacoes.forEach(u => {
                 atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
@@ -72,6 +75,54 @@ function atualizarContagem(itemTipoId, atual, exigido) {
     }
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
+}
+
+// ── Modal de componente — confirmação antes de registrar ─────────────────────
+
+let _codigoComponentePendente = null;
+
+function mostrarModalComponente(data) {
+    _codigoComponentePendente = data.codigo_barra;
+    _aguardandoIdentificacao = true;
+    buffer = "";
+
+    document.getElementById("comp-codigo").textContent = "Código: " + data.codigo_barra;
+
+    const lista = document.getElementById("comp-itens-lista");
+    lista.innerHTML = "";
+    data.itens.forEach(item => {
+        const div = document.createElement("div");
+        div.style.cssText = "display:flex;justify-content:space-between;align-items:center;" +
+            "padding:10px 14px;background:#f4f7fb;border-radius:8px;font-size:14px;";
+        div.innerHTML = `<span style="font-weight:600;">${item.descricao}</span>` +
+            `<span style="background:#1a3a5c;color:#fff;padding:3px 10px;` +
+            `border-radius:12px;font-size:13px;font-weight:700;">× ${item.quantidade_exigida}</span>`;
+        lista.appendChild(div);
+    });
+
+    document.getElementById("modal-componente").style.display = "flex";
+}
+
+function confirmarComponente() {
+    if (ws && ws.readyState === WebSocket.OPEN && _codigoComponentePendente) {
+        ws.send(JSON.stringify({
+            acao: "confirmar_componente",
+            codigo_barra: _codigoComponentePendente
+        }));
+    }
+    fecharModalComponente();
+}
+
+function cancelarComponente() {
+    fecharModalComponente();
+}
+
+function fecharModalComponente() {
+    document.getElementById("modal-componente").style.display = "none";
+    _codigoComponentePendente = null;
+    _aguardandoIdentificacao = false;
+    buffer = "";
+    document.getElementById("scan-buffer").textContent = "";
 }
 
 // ── Modal de identificação — grade de cards clicáveis ────────────────────────
