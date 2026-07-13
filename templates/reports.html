@@ -76,6 +76,10 @@
                         👁️ Preview ZPL
                     </a>
                     {% endif %}
+                    <a href="/reports/{{ k.kit_id }}/excel"
+                       class="btn btn-sm btn-success" title="Baixar planilha Excel deste kit">
+                        📊 Excel
+                    </a>
                     <form method="post" action="/reports/reprint/{{ k.kit_id }}" style="display:inline;">
                         <button class="btn btn-sm btn-success"
                                 onclick="return confirm('Adicionar à fila de impressão?')">

@@ -711,6 +711,132 @@ async def reprint_kit(request: Request, kit_id: str):
     return RedirectResponse("/print-queue?ok=reimpresso", status_code=302)
 
 
+@app.get("/reports/{kit_id}/excel")
+@require_login
+async def report_excel(request: Request, kit_id: str):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    with db() as conn:
+        kit = conn.execute(
+            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, "
+            "u.nome AS operador_nome "
+            "FROM kit_record kr "
+            "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "JOIN users u ON u.id = kr.operador_id "
+            "WHERE kr.kit_id = ?",
+            (kit_id,)
+        ).fetchone()
+        if not kit:
+            return PlainTextResponse("Kit não encontrado", status_code=404)
+        kit = dict(kit)
+
+        resumo = conn.execute(
+            "SELECT it.nome AS tipo_nome, COUNT(*) AS quantidade "
+            "FROM scan_session_items si "
+            "JOIN item_tipo it ON it.id = si.item_tipo_id "
+            "WHERE si.sessao_id = ? "
+            "GROUP BY si.item_tipo_id ORDER BY it.nome",
+            (kit["sessao_id"],)
+        ).fetchall()
+        resumo = [dict(r) for r in resumo]
+
+        itens = conn.execute(
+            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.bipado_em "
+            "FROM scan_session_items si "
+            "JOIN item_tipo it ON it.id = si.item_tipo_id "
+            "WHERE si.sessao_id = ? "
+            "ORDER BY it.nome, si.bipado_em",
+            (kit["sessao_id"],)
+        ).fetchall()
+        itens = [dict(i) for i in itens]
+
+    wb = openpyxl.Workbook()
+    azul = "1A3A5C"
+    branco = "FFFFFF"
+    cinza = "F4F7FB"
+
+    def hdr_cell(ws, row, col, value):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        return c
+
+    def meta_block(ws):
+        meta = [
+            ("Kit", kit["kit_nome"]),
+            ("Cliente", kit["cliente"]),
+            ("Versão", f"v{kit['versao']}"),
+            ("Operador", kit["operador_nome"]),
+            ("Veículo", kit.get("veiculo") or "—"),
+            ("Garagem", kit.get("garagem") or "—"),
+            ("Finalizado em", kit["finalizado_em"]),
+        ]
+        for r, (label, value) in enumerate(meta, 1):
+            ws.cell(r, 1, label).font = Font(bold=True)
+            ws.cell(r, 2, value)
+        return len(meta) + 2  # blank row + next data row
+
+    # ── Aba Resumo ──────────────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "Resumo"
+    next_row = meta_block(ws1)
+    for col, h in enumerate(["Tipo de Item", "Quantidade Bipada"], 1):
+        hdr_cell(ws1, next_row, col, h)
+    for i, r in enumerate(resumo):
+        row = next_row + 1 + i
+        ws1.cell(row, 1, r["tipo_nome"])
+        ws1.cell(row, 2, r["quantidade"])
+        if i % 2 == 0:
+            for col in (1, 2):
+                ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    ws1.column_dimensions["A"].width = 32
+    ws1.column_dimensions["B"].width = 20
+
+    # ── Aba Detalhes ────────────────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Detalhes")
+    next_row = meta_block(ws2)
+    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Origem", "Bipado em"], 1):
+        hdr_cell(ws2, next_row, col, h)
+    for i, item in enumerate(itens):
+        row = next_row + 1 + i
+        codigo = item["codigo_barra"]
+        if codigo.startswith("COMP:"):
+            parts = codigo.split(":", 3)
+            origem = "Saquinho"
+            codigo_display = parts[1] if len(parts) >= 2 else codigo
+        else:
+            origem = "Bipagem direta"
+            codigo_display = codigo
+        ws2.cell(row, 1, item["tipo_nome"])
+        ws2.cell(row, 2, codigo_display)
+        ws2.cell(row, 3, origem)
+        ws2.cell(row, 4, item.get("bipado_em", ""))
+        if i % 2 == 0:
+            for col in (1, 2, 3, 4):
+                ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    ws2.column_dimensions["A"].width = 32
+    ws2.column_dimensions["B"].width = 28
+    ws2.column_dimensions["C"].width = 18
+    ws2.column_dimensions["D"].width = 22
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    import re as _re
+    safe = _re.sub(r'[^\w\-]', '_', kit["kit_nome"])
+    data = (kit["finalizado_em"] or "")[:10]
+    filename = f"kit_{safe}_{data}.xlsx"
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.post("/reports/{kit_id}/delete")
 @require_login
 async def report_delete(request: Request, kit_id: str):
