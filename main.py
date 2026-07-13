@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -66,6 +67,28 @@ def startup():
         _zpl.SERVIDOR_URL = f"http://{ip}:8080"
         app.state.servidor_url = f"http://{ip}:8080"
         print(f"[KIT] HTTP: {app.state.servidor_url}")
+
+
+def _parse_itens_form(form) -> list[dict]:
+    """Extrai itens do formulário de template sem depender de índices sequenciais."""
+    indices = sorted(
+        int(m.group(1))
+        for k in form.keys()
+        for m in [re.match(r'^item_tipo_id_(\d+)$', k)]
+        if m
+    )
+    itens = []
+    for i in indices:
+        tipo_id = form.get(f"item_tipo_id_{i}", "").strip()
+        if not tipo_id:
+            continue
+        itens.append({
+            "item_tipo_id": int(tipo_id),
+            "quantidade_exigida": max(1, int(form.get(f"qtd_{i}", 1) or 1)),
+            "obrigatorio": bool(form.get(f"obrigatorio_{i}")),
+            "componente_codigo": (form.get(f"componente_codigo_{i}", "") or "").strip() or None,
+        })
+    return itens
 
 
 def render(request: Request, template: str, ctx: dict = {}):
@@ -278,19 +301,7 @@ async def admin_templates_post(request: Request):
     form = await request.form()
     nome = form.get("nome", "").strip()
     cliente = form.get("cliente", "").strip()
-    itens = []
-    i = 0
-    while f"item_tipo_id_{i}" in form:
-        tipo_id = form.get(f"item_tipo_id_{i}", "").strip()
-        qtd = int(form.get(f"qtd_{i}", 1))
-        obrig = bool(form.get(f"obrigatorio_{i}"))
-        comp = form.get(f"componente_codigo_{i}", "").strip() or None
-        if tipo_id:
-            itens.append({"item_tipo_id": int(tipo_id),
-                          "quantidade_exigida": qtd,
-                          "obrigatorio": obrig,
-                          "componente_codigo": comp})
-        i += 1
+    itens = _parse_itens_form(form)
     if not nome or not cliente or not itens:
         todos = templates_mod.listar_todos()
         tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
@@ -322,19 +333,7 @@ async def admin_template_edit_post(request: Request, template_id: int):
     form = await request.form()
     nome = form.get("nome", "").strip()
     cliente = form.get("cliente", "").strip()
-    itens = []
-    i = 0
-    while f"item_tipo_id_{i}" in form:
-        tipo_id = form.get(f"item_tipo_id_{i}", "").strip()
-        qtd = int(form.get(f"qtd_{i}", 1))
-        obrig = bool(form.get(f"obrigatorio_{i}"))
-        comp = form.get(f"componente_codigo_{i}", "").strip() or None
-        if tipo_id:
-            itens.append({"item_tipo_id": int(tipo_id),
-                          "quantidade_exigida": qtd,
-                          "obrigatorio": obrig,
-                          "componente_codigo": comp})
-        i += 1
+    itens = _parse_itens_form(form)
     if not nome or not cliente or not itens:
         template = templates_mod.buscar_template(template_id)
         itens_atuais = templates_mod.get_itens_template(template_id)

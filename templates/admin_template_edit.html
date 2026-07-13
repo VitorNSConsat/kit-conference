@@ -92,7 +92,19 @@ function adicionarLinha() {
 
 function removerLinha(btn) {
     const container = document.getElementById('itens-container');
-    if (container.children.length > 1) btn.closest('.item-linha').remove();
+    if (container.children.length > 1) {
+        btn.closest('.item-linha').remove();
+        reindexar(container);
+    }
+}
+
+function reindexar(container) {
+    Array.from(container.children).forEach((div, i) => {
+        div.querySelectorAll('[name]').forEach(el => {
+            el.name = el.name.replace(/_\d+$/, '_' + i);
+        });
+    });
+    idx = container.children.length;
 }
 </script>
 {% endblock %}
