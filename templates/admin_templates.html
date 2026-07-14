@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Templates — Conferência de Kits{% endblock %}
+{% block title %}Criar Kit — Conferência de Kits{% endblock %}
 {% block content %}
-<h1>Templates de Kit</h1>
+<h1>Criar Kit</h1>
 
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Template criado com sucesso.</div>
@@ -17,7 +17,41 @@
 {% endif %}
 
 <div class="card">
-    <h2>Novo Template</h2>
+    <h2>Kits Cadastrados</h2>
+    <table>
+        <thead>
+            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for t in templates %}
+        <tr>
+            <td>{{ t.nome }}</td>
+            <td>{{ t.cliente }}</td>
+            <td>v{{ t.versao }}</td>
+            <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
+                <form method="post" action="/admin/templates/{{ t.id }}/toggle">
+                    <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
+                </form>
+                <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
+                    <button class="btn btn-sm btn-warning">Nova Versão</button>
+                </form>
+                <form method="post" action="/admin/templates/{{ t.id }}/delete"
+                      onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
+                    <button class="btn btn-sm btn-danger">Excluir</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum kit cadastrado ainda.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Novo Kit</h2>
     <form method="post" action="/admin/templates" id="form-template">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
             <div class="form-group">
@@ -52,7 +86,7 @@
         </div>
         {% else %}
         <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
-            Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Admin → Itens</a> primeiro.
+            Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
         </p>
         {% endif %}
 
@@ -65,42 +99,8 @@
         </div>
         <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
 
-        <button type="submit" class="btn btn-primary">Criar Template</button>
+        <button type="submit" class="btn btn-primary">Criar Kit</button>
     </form>
-</div>
-
-<div class="card">
-    <h2>Templates Cadastrados</h2>
-    <table>
-        <thead>
-            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
-        </thead>
-        <tbody>
-        {% for t in templates %}
-        <tr>
-            <td>{{ t.nome }}</td>
-            <td>{{ t.cliente }}</td>
-            <td>v{{ t.versao }}</td>
-            <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap;">
-                <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
-                <form method="post" action="/admin/templates/{{ t.id }}/toggle">
-                    <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
-                </form>
-                <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
-                    <button class="btn btn-sm btn-warning">Nova Versão</button>
-                </form>
-                <form method="post" action="/admin/templates/{{ t.id }}/delete"
-                      onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
-                    <button class="btn btn-sm btn-danger">Excluir</button>
-                </form>
-            </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum template cadastrado.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
 </div>
 {% endblock %}
 {% block scripts %}
