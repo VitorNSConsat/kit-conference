@@ -861,15 +861,18 @@ async def report_delete(request: Request, kit_id: str):
 @app.get("/admin/estoque", response_class=HTMLResponse)
 @require_login
 async def admin_estoque(request: Request):
+    import app.zpl as _zpl
     itens = estoque_mod.listar_estoque()
     tipos_com_estoque = {e["item_tipo_id"] for e in itens}
     tipos_disponiveis = [t for t in items_mod.listar_tipos(apenas_ativos=True)
                          if t["id"] not in tipos_com_estoque]
     alertas = estoque_mod.alertas_abaixo_minimo()
+    url_http = getattr(app.state, "url_http", _zpl.SERVIDOR_URL)
     return render(request, "admin_estoque.html", {
         "itens": itens,
         "tipos_disponiveis": tipos_disponiveis,
         "alertas": alertas,
+        "url_http_base": url_http,
     })
 
 
@@ -944,10 +947,12 @@ async def admin_estoque_delete(request: Request, estoque_id: int):
 @require_login
 async def admin_estoque_qrcode(request: Request, estoque_id: int):
     from fastapi.responses import Response as FResponse
+    import app.zpl as _zpl
     est = estoque_mod.buscar_por_id(estoque_id)
     if not est:
         raise HTTPException(status_code=404)
-    base = str(request.base_url).rstrip("/")
+    # Sempre HTTP para garantir abertura automática no iOS sem erro de certificado
+    base = getattr(app.state, "url_http", _zpl.SERVIDOR_URL)
     url = f"{base}/estoque/{estoque_id}"
     import segno, io as _io
     qr = segno.make(url, error="m")

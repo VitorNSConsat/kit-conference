@@ -175,12 +175,14 @@
     </div>
 </div>
 <script>
+const URL_HTTP_BASE = "{{ url_http_base }}";
+
 function abrirQR(id, nome) {
     document.getElementById('qr-title').textContent = nome;
     document.getElementById('qr-img').src = `/admin/estoque/${id}/qrcode.svg`;
-    const link = window.location.origin + `/estoque/${id}`;
+    const link = URL_HTTP_BASE + `/estoque/${id}`;
     const a = document.getElementById('qr-link');
-    a.href = `/estoque/${id}`;
+    a.href = link;
     a.textContent = link;
     document.getElementById('qr-modal').style.display = 'flex';
 }
