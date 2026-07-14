@@ -120,22 +120,31 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
 # ── HTML para impressora normal ───────────────────────────────────────────────
 
 def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
-    """Etiqueta HTML para item de estoque: logo à esquerda, descrição + QR à direita."""
-    qr_img   = _qr_img(url_qr, size_mm=46)
+    """Etiqueta HTML 60×60mm: QR (error=H) com logo sobreposto no centro, descrição acima."""
     logo_b64 = _logo_base64()
-    logo_html = (
-        f'<img src="data:image/png;base64,{logo_b64}" alt="{EMPRESA_NOME}" class="logo-img">'
-        if logo_b64
-        else f'<div class="empresa-fallback">{EMPRESA_NOME}</div>'
+
+    # Error correction H (30%) permite cobrir ~20% da área com o logo
+    try:
+        import segno
+        qr = segno.make(url_qr, error="h")
+        buf = io.BytesIO()
+        qr.save(buf, kind="png", scale=12, border=3)
+        qr_src = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        qr_src = ""
+
+    logo_overlay = (
+        f'<img class="logo-over" src="data:image/png;base64,{logo_b64}" alt="logo">'
+        if logo_b64 else ''
     )
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Etiqueta Estoque — {tipo_nome}</title>
+<title>Etiqueta — {tipo_nome}</title>
 <style>
-  @page {{ size: 100mm 100mm; margin: 0; }}
+  @page {{ size: 60mm 60mm; margin: 0; }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 
   body {{
@@ -147,62 +156,47 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
 
   .label {{
     background: #fff;
-    width: 100mm; height: 100mm;
+    width: 60mm; height: 60mm;
     overflow: hidden;
-    display: flex;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2mm 3mm 2mm 3mm;
+    gap: 2mm;
     box-shadow: 0 4px 18px rgba(0,0,0,.2);
     border: 1px solid #ccc;
   }}
 
-  /* ── Coluna esquerda: logo ─────────────────── */
-  .col-logo {{
-    width: 38mm;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 6mm;
-    border-right: 1px solid #e0e0e0;
+  .descricao {{
+    font-size: 12px; font-weight: 700; color: #1a3a5c;
+    text-align: center; line-height: 1.3;
+    word-break: break-word; width: 100%;
     flex-shrink: 0;
   }}
-  .logo-img {{
-    max-width: 28mm; max-height: 28mm;
-    object-fit: contain;
-  }}
-  .empresa-fallback {{
-    font-size: 9px; font-weight: 900; color: #1a3a5c;
-    text-align: center; text-transform: uppercase;
-    letter-spacing: .5px; word-break: break-word;
-  }}
-  .col-logo .subtitulo {{
-    font-size: 6px; color: #bbb; text-align: center;
-    margin-top: 4px; letter-spacing: 1px;
-    text-transform: uppercase;
+
+  .qr-wrap {{
+    position: relative;
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%;
   }}
 
-  /* ── Coluna direita: descrição + QR ──────── */
-  .col-right {{
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 5mm 5mm 5mm 4mm;
-    gap: 3mm;
-  }}
-  .descricao {{
-    font-size: 15px; font-weight: 700; color: #1a3a5c;
-    text-align: center;
-    line-height: 1.3;
-    word-break: break-word;
-  }}
-  .qr-wrap img {{
+  .qr-wrap img.qr {{
     display: block;
-    width: 46mm; height: 46mm;
+    max-width: 100%; max-height: 100%;
     image-rendering: pixelated;
   }}
 
-  /* ── Impressão ───────────────────────────── */
+  .logo-over {{
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20%; height: 20%;
+    object-fit: contain;
+    background: #fff;
+    padding: 2px;
+    border-radius: 2px;
+  }}
+
   @media print {{
     body {{ background: white; padding: 0; margin: 0; }}
     .label {{ box-shadow: none; border: none; }}
@@ -212,16 +206,13 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
 </head>
 <body>
 <div class="label">
-  <div class="col-logo">
-    {logo_html}
-    <div class="subtitulo">Estoque</div>
-  </div>
-  <div class="col-right">
-    <div class="descricao">{tipo_nome}</div>
-    <div class="qr-wrap">{qr_img}</div>
+  <div class="descricao">{tipo_nome}</div>
+  <div class="qr-wrap">
+    <img class="qr" src="{qr_src}" alt="QR">
+    {logo_overlay}
   </div>
 </div>
-<div class="actions" style="display:flex;margin-top:14px;width:100mm;">
+<div class="actions" style="display:flex;margin-top:14px;width:60mm;">
   <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
                  border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
           onclick="window.print();setTimeout(()=>window.close(),800);">
