@@ -21,6 +21,7 @@ import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
 import app.zpl as zpl_mod
 import app.print_queue as pq_mod
+import app.estoque as estoque_mod
 
 load_dotenv()
 
@@ -852,6 +853,80 @@ async def report_excel(request: Request, kit_id: str):
 async def report_delete(request: Request, kit_id: str):
     sessions_mod.deletar_kit_record(kit_id)
     return RedirectResponse("/reports?ok=excluido", status_code=302)
+
+
+# ── Estoque ───────────────────────────────────────────────────────────────────
+
+@app.get("/admin/estoque", response_class=HTMLResponse)
+@require_login
+async def admin_estoque(request: Request):
+    itens = estoque_mod.listar_estoque()
+    tipos_com_estoque = {e["item_tipo_id"] for e in itens}
+    tipos_disponiveis = [t for t in items_mod.listar_tipos(apenas_ativos=True)
+                         if t["id"] not in tipos_com_estoque]
+    alertas = estoque_mod.alertas_abaixo_minimo()
+    return render(request, "admin_estoque.html", {
+        "itens": itens,
+        "tipos_disponiveis": tipos_disponiveis,
+        "alertas": alertas,
+    })
+
+
+@app.post("/admin/estoque")
+@require_login
+async def admin_estoque_post(request: Request):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        item_tipo_id = int(form.get("item_tipo_id", 0) or 0)
+        codigo_barra = form.get("codigo_barra", "").strip()
+        quantidade = max(0, int(form.get("quantidade", 0) or 0))
+        quantidade_minima = max(0, int(form.get("quantidade_minima", 0) or 0))
+        if not item_tipo_id or not codigo_barra:
+            raise ValueError("Tipo e código de barras são obrigatórios.")
+        estoque_mod.criar_estoque(item_tipo_id, codigo_barra, quantidade,
+                                   quantidade_minima, user["id"])
+    except Exception as e:
+        itens = estoque_mod.listar_estoque()
+        tipos_com_estoque = {ev["item_tipo_id"] for ev in itens}
+        tipos_disponiveis = [t for t in items_mod.listar_tipos(apenas_ativos=True)
+                             if t["id"] not in tipos_com_estoque]
+        alertas = estoque_mod.alertas_abaixo_minimo()
+        return render(request, "admin_estoque.html", {
+            "itens": itens, "tipos_disponiveis": tipos_disponiveis,
+            "alertas": alertas, "erro": str(e),
+        })
+    return RedirectResponse("/admin/estoque?ok=criado", status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/repor")
+@require_login
+async def admin_estoque_repor(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    quantidade = max(1, int(form.get("quantidade", 1) or 1))
+    observacao = form.get("observacao", "").strip()
+    estoque_mod.repor_estoque(estoque_id, quantidade, user["id"], observacao)
+    return RedirectResponse("/admin/estoque?ok=reposto", status_code=302)
+
+
+@app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)
+@require_login
+async def admin_estoque_historico(request: Request, estoque_id: int):
+    est = estoque_mod.buscar_por_id(estoque_id)
+    if not est:
+        return RedirectResponse("/admin/estoque", status_code=302)
+    historico = estoque_mod.listar_historico(estoque_id)
+    return render(request, "admin_estoque_historico.html", {
+        "est": est, "historico": historico,
+    })
+
+
+@app.post("/admin/estoque/{estoque_id}/delete")
+@require_login
+async def admin_estoque_delete(request: Request, estoque_id: int):
+    estoque_mod.deletar_estoque(estoque_id)
+    return RedirectResponse("/admin/estoque?ok=excluido", status_code=302)
 
 
 # ── Reset do banco (apenas admin) ─────────────────────────────────────────────

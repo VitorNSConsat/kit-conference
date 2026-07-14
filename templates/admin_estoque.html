@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Estoque — Conferência de Kits{% endblock %}
+{% block content %}
+<h1>Controle de Estoque</h1>
+
+{% if request.query_params.get('ok') == 'criado' %}
+<div class="alert alert-success">Item de estoque cadastrado.</div>
+{% elif request.query_params.get('ok') == 'reposto' %}
+<div class="alert alert-success">Estoque reposto com sucesso.</div>
+{% elif request.query_params.get('ok') == 'excluido' %}
+<div class="alert alert-success">Item removido do estoque.</div>
+{% endif %}
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+{% if alertas %}
+<div class="alert alert-danger" style="margin-bottom:16px;">
+    <strong>⚠️ Atenção — Estoque baixo:</strong>
+    {% for a in alertas %}
+    <span style="display:inline-block;margin:4px 8px 0 0;background:rgba(0,0,0,.08);
+                 padding:2px 10px;border-radius:20px;">
+        {{ a.tipo_nome }} — {{ a.quantidade_atual }} / mín. {{ a.quantidade_minima }}
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Tabela de estoque -->
+<div class="card">
+    <h2>Itens em Estoque</h2>
+    {% if itens %}
+    <table>
+        <thead>
+            <tr>
+                <th>Tipo de Item</th>
+                <th>Código de Barras</th>
+                <th>Qtd. Atual</th>
+                <th>Mínimo</th>
+                <th>Status</th>
+                <th>Repor</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in itens %}
+        {% set abaixo = item.quantidade_atual <= item.quantidade_minima %}
+        {% set proximo = item.quantidade_atual <= item.quantidade_minima * 2 and not abaixo %}
+        <tr style="{{ 'background:#fff5f5;' if abaixo else ('background:#fffbea;' if proximo else '') }}">
+            <td><strong>{{ item.tipo_nome }}</strong></td>
+            <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
+            <td style="font-size:18px;font-weight:700;
+                       color:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};">
+                {{ item.quantidade_atual }}
+            </td>
+            <td style="color:#888;">{{ item.quantidade_minima }}</td>
+            <td>
+                {% if abaixo %}
+                <span class="badge badge-danger">🔴 Abaixo do mínimo</span>
+                {% elif proximo %}
+                <span class="badge badge-warning">⚠️ Próximo do mínimo</span>
+                {% else %}
+                <span class="badge badge-success">✅ OK</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" action="/admin/estoque/{{ item.id }}/repor"
+                      style="display:flex;gap:6px;align-items:center;">
+                    <input type="number" name="quantidade" value="1" min="1"
+                           style="width:64px;text-align:center;" required>
+                    <input type="text" name="observacao" placeholder="Obs (opcional)"
+                           style="width:130px;font-size:12px;">
+                    <button type="submit" class="btn btn-sm btn-success">+ Repor</button>
+                </form>
+            </td>
+            <td style="white-space:nowrap;">
+                <a href="/admin/estoque/{{ item.id }}/historico"
+                   class="btn btn-sm btn-primary">📋 Histórico</a>
+                <form method="post" action="/admin/estoque/{{ item.id }}/delete"
+                      style="display:inline;"
+                      onsubmit="return confirm('Remover {{ item.tipo_nome }} do estoque?')">
+                    <button class="btn btn-sm btn-danger">🗑️</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#888;text-align:center;padding:24px;">
+        Nenhum item de estoque cadastrado ainda.
+    </p>
+    {% endif %}
+</div>
+
+<!-- Cadastrar novo item de estoque -->
+<div class="card">
+    <h2>Cadastrar Item de Estoque</h2>
+    <p style="font-size:13px;color:#555;margin-bottom:16px;">
+        Items de estoque possuem <strong>um único código de barras</strong> para o lote inteiro
+        (ex: caixa de parafusos). Ao bipar durante a conferência, a quantidade exigida pelo
+        template é automaticamente abatida.
+    </p>
+    {% if tipos_disponiveis %}
+    <form method="post" action="/admin/estoque">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div class="form-group">
+                <label>Tipo de Item</label>
+                <select name="item_tipo_id" required>
+                    <option value="">— selecione —</option>
+                    {% for t in tipos_disponiveis %}
+                    <option value="{{ t.id }}">{{ t.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Código de Barras da Caixa/Lote</label>
+                <input type="text" name="codigo_barra" required
+                       placeholder="Bipe ou digite o código">
+            </div>
+            <div class="form-group">
+                <label>Quantidade Inicial</label>
+                <input type="number" name="quantidade" value="0" min="0" required>
+            </div>
+            <div class="form-group">
+                <label>Alerta — Quantidade Mínima</label>
+                <input type="number" name="quantidade_minima" value="5" min="0" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Cadastrar</button>
+    </form>
+    {% else %}
+    <p style="color:#888;font-size:13px;">
+        Todos os tipos de item já têm estoque cadastrado, ou não há tipos disponíveis.
+        Crie mais tipos em <a href="/admin/items">Admin → Itens</a>.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 from database import db
 import app.items as items_mod
 import app.kit_templates as templates_mod
+import app.estoque as estoque_mod
 
 
 def deletar_kit_record(kit_id: str):
@@ -244,6 +245,65 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": "Sessão inválida ou já encerrada."}
 
+    # ── Verifica se é um item de estoque ────────────────────────────────────────
+    est = estoque_mod.buscar_por_codigo(codigo_barra)
+    if est:
+        itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+        template_item = next(
+            (i for i in itens_template if i["item_tipo_id"] == est["item_tipo_id"]), None
+        )
+        if not template_item:
+            return {"resultado": "rejeitado",
+                    "mensagem": f"'{est['tipo_nome']}' não pertence a este kit."}
+
+        # Impede registrar o mesmo estoque duas vezes na mesma sessão
+        with db() as conn:
+            ja_registrado = conn.execute(
+                "SELECT 1 FROM estoque_movimentos "
+                "WHERE sessao_id = ? AND estoque_id = ? AND tipo = 'saida'",
+                (sessao_id, est["id"])
+            ).fetchone()
+        if ja_registrado:
+            return {"resultado": "rejeitado",
+                    "mensagem": f"'{est['tipo_nome']}': estoque já registrado nesta sessão."}
+
+        qtd = template_item["quantidade_exigida"]
+        if est["quantidade_atual"] < qtd:
+            return {"resultado": "rejeitado",
+                    "mensagem": (f"'{est['tipo_nome']}': estoque insuficiente "
+                                 f"({est['quantidade_atual']} disponíveis, {qtd} necessários).")}
+
+        with db() as conn:
+            for seq in range(qtd):
+                conn.execute(
+                    "INSERT INTO scan_session_items "
+                    "(sessao_id, codigo_barra, item_tipo_id, status) VALUES (?, ?, ?, 'completo')",
+                    (sessao_id, f"ESTOQUE:{codigo_barra}:{seq}", est["item_tipo_id"])
+                )
+            conn.execute(
+                "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
+                (qtd, est["id"])
+            )
+            conn.execute(
+                "INSERT INTO estoque_movimentos "
+                "(estoque_id, tipo, quantidade, sessao_id, criado_por, observacao) "
+                "VALUES (?, 'saida', ?, ?, ?, 'Kit')",
+                (est["id"], qtd, sessao_id, session["operador_id"])
+            )
+
+        novo_qtd = est["quantidade_atual"] - qtd
+        alerta = (f" ⚠️ Estoque baixo ({novo_qtd} restantes)"
+                  if novo_qtd <= est["quantidade_minima"] else "")
+        return {
+            "resultado": "aceito",
+            "mensagem": f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}",
+            "contagem_atual": qtd,
+            "quantidade_exigida": qtd,
+            "item_tipo_id": est["item_tipo_id"],
+            "descricao": est["tipo_nome"],
+        }
+    # ────────────────────────────────────────────────────────────────────────────
+
     item = items_mod.buscar_item(codigo_barra)
 
     if not item:
@@ -343,6 +403,7 @@ def validate_kit_complete(sessao_id: int) -> dict:
 
 
 def cancel_session(sessao_id: int):
+    estoque_mod.reverter_saidas_sessao(sessao_id)
     with db() as conn:
         conn.execute(
             "UPDATE scan_session SET status = 'cancelado', "

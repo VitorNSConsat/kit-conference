@@ -143,6 +143,29 @@ def init_db():
                 impresso_em DATETIME
             );
         """)
+        # Tabelas de estoque (criadas apenas se não existirem)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS estoque (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_tipo_id INTEGER UNIQUE NOT NULL REFERENCES item_tipo(id),
+                codigo_barra TEXT UNIQUE NOT NULL,
+                quantidade_atual INTEGER NOT NULL DEFAULT 0,
+                quantidade_minima INTEGER NOT NULL DEFAULT 0,
+                criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS estoque_movimentos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                estoque_id INTEGER NOT NULL REFERENCES estoque(id),
+                tipo TEXT NOT NULL,
+                quantidade INTEGER NOT NULL,
+                sessao_id INTEGER REFERENCES scan_session(id),
+                observacao TEXT,
+                criado_por INTEGER REFERENCES users(id),
+                criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
