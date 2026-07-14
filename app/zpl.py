@@ -120,22 +120,22 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
 # ── HTML para impressora normal ───────────────────────────────────────────────
 
 def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
-    """Etiqueta HTML 60×60mm: QR (error=H) com logo sobreposto no centro, descrição acima."""
+    """Etiqueta HTML 60×60mm: descrição em cima, QR no meio, ESTOQUE|LOGO embaixo."""
     logo_b64 = _logo_base64()
 
-    # Error correction H (30%) permite cobrir ~20% da área com o logo
     try:
         import segno
-        qr = segno.make(url_qr, error="h")
+        qr = segno.make(url_qr, error="l")
         buf = io.BytesIO()
         qr.save(buf, kind="png", scale=12, border=3)
         qr_src = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
     except Exception:
         qr_src = ""
 
-    logo_overlay = (
-        f'<img class="logo-over" src="data:image/png;base64,{logo_b64}" alt="logo">'
-        if logo_b64 else ''
+    logo_html = (
+        f'<img class="logo-img" src="data:image/png;base64,{logo_b64}" alt="logo">'
+        if logo_b64
+        else f'<span class="empresa-txt">{EMPRESA_NOME}</span>'
     )
 
     return f"""<!DOCTYPE html>
@@ -159,22 +159,23 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     width: 60mm; height: 60mm;
     overflow: hidden;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 2mm 3mm 2mm 3mm;
-    gap: 2mm;
+    align-items: center;
+    padding: 2.5mm 2mm 1.5mm 2mm;
+    gap: 1.5mm;
     box-shadow: 0 4px 18px rgba(0,0,0,.2);
     border: 1px solid #ccc;
   }}
 
   .descricao {{
-    font-size: 12px; font-weight: 700; color: #1a3a5c;
+    font-size: 11px; font-weight: 900; color: #000;
     text-align: center; line-height: 1.3;
     word-break: break-word; width: 100%;
+    text-transform: uppercase;
+    letter-spacing: .3px;
     flex-shrink: 0;
   }}
 
   .qr-wrap {{
-    position: relative;
     flex: 1; min-height: 0;
     display: flex; align-items: center; justify-content: center;
     width: 100%;
@@ -186,15 +187,32 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     image-rendering: pixelated;
   }}
 
-  .logo-over {{
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20%; height: 20%;
+  .rodape {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex-shrink: 0;
+    width: 100%;
+    padding-top: 1.5mm;
+    border-top: 0.4mm solid #000;
+  }}
+
+  .rodape-txt {{
+    font-size: 9px; font-weight: 900; color: #000;
+    letter-spacing: 2px; text-transform: uppercase;
+  }}
+
+  .sep {{ font-size: 10px; color: #555; }}
+
+  .logo-img {{
+    max-height: 5.5mm; max-width: 16mm;
     object-fit: contain;
-    background: #fff;
-    padding: 2px;
-    border-radius: 2px;
+  }}
+
+  .empresa-txt {{
+    font-size: 9px; font-weight: 900; color: #000;
+    text-transform: uppercase; letter-spacing: 1px;
   }}
 
   @media print {{
@@ -209,7 +227,11 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
   <div class="descricao">{tipo_nome}</div>
   <div class="qr-wrap">
     <img class="qr" src="{qr_src}" alt="QR">
-    {logo_overlay}
+  </div>
+  <div class="rodape">
+    <span class="rodape-txt">Estoque</span>
+    <span class="sep">|</span>
+    {logo_html}
   </div>
 </div>
 <div class="actions" style="display:flex;margin-top:14px;width:60mm;">
