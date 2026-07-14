@@ -911,6 +911,16 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     return RedirectResponse("/admin/estoque?ok=reposto", status_code=302)
 
 
+@app.post("/admin/estoque/{estoque_id}/minimo")
+@require_login
+async def admin_estoque_minimo(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    novo_minimo = max(0, int(form.get("quantidade_minima", 0) or 0))
+    estoque_mod.atualizar_minimo(estoque_id, novo_minimo, user["id"])
+    return RedirectResponse("/admin/estoque?ok=minimo", status_code=302)
+
+
 @app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)
 @require_login
 async def admin_estoque_historico(request: Request, estoque_id: int):

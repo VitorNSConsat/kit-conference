@@ -134,6 +134,27 @@ def alertas_abaixo_minimo() -> list:
     return [dict(r) for r in rows]
 
 
+def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None:
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT quantidade_minima FROM estoque WHERE id = ?", (estoque_id,)
+        ).fetchone()
+        if atual is None:
+            return
+        antigo = atual["quantidade_minima"]
+        conn.execute(
+            "UPDATE estoque SET quantidade_minima = ? WHERE id = ?",
+            (novo_minimo, estoque_id)
+        )
+        conn.execute(
+            "INSERT INTO estoque_movimentos "
+            "(estoque_id, tipo, quantidade, criado_por, observacao) "
+            "VALUES (?, 'ajuste_minimo', ?, ?, ?)",
+            (estoque_id, novo_minimo, criado_por,
+             f"Mínimo alterado: {antigo} → {novo_minimo}")
+        )
+
+
 def deletar_estoque(estoque_id: int) -> None:
     with db() as conn:
         conn.execute("DELETE FROM estoque_movimentos WHERE estoque_id = ?", (estoque_id,))

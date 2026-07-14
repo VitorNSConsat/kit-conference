@@ -9,6 +9,8 @@
 <div class="alert alert-success">Estoque reposto com sucesso.</div>
 {% elif request.query_params.get('ok') == 'excluido' %}
 <div class="alert alert-success">Item removido do estoque.</div>
+{% elif request.query_params.get('ok') == 'minimo' %}
+<div class="alert alert-success">Quantidade mínima atualizada.</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -53,7 +55,16 @@
             </td>
             <td><strong>{{ item.tipo_nome }}</strong></td>
             <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
-            <td style="color:#888;">{{ item.quantidade_minima }}</td>
+            <td>
+                <form method="post" action="/admin/estoque/{{ item.id }}/minimo"
+                      style="display:flex;gap:4px;align-items:center;">
+                    <input type="number" name="quantidade_minima"
+                           value="{{ item.quantidade_minima }}" min="0"
+                           style="width:60px;text-align:center;margin-bottom:0;">
+                    <button type="submit" class="btn btn-sm btn-warning"
+                            title="Salvar mínimo">💾</button>
+                </form>
+            </td>
             <td>
                 {% if abaixo %}
                 <span class="badge badge-danger">🔴 Abaixo do mínimo</span>

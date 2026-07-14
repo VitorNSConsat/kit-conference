@@ -43,6 +43,7 @@
         {% for m in historico %}
         {% set is_entrada = m.tipo == 'entrada' %}
         {% set is_saida = m.tipo == 'saida' %}
+        {% set is_ajuste = m.tipo == 'ajuste_minimo' %}
         <tr>
             <td style="white-space:nowrap;font-size:13px;">{{ m.criado_em }}</td>
             <td>
@@ -50,13 +51,15 @@
                 <span class="badge badge-success">⬆️ Entrada</span>
                 {% elif is_saida %}
                 <span class="badge badge-danger">⬇️ Saída (Kit)</span>
+                {% elif is_ajuste %}
+                <span class="badge badge-warning">✏️ Ajuste Mínimo</span>
                 {% else %}
                 <span class="badge" style="background:#aaa;color:#fff;">↩️ Cancelado</span>
                 {% endif %}
             </td>
             <td style="font-weight:700;font-size:16px;
-                       color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else '#aaa') }};">
-                {{ '+' if is_entrada else ('-' if is_saida else '~') }}{{ m.quantidade }}
+                       color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#e67e22' if is_ajuste else '#aaa')) }};">
+                {% if is_ajuste %}→ {{ m.quantidade }}{% else %}{{ '+' if is_entrada else ('-' if is_saida else '~') }}{{ m.quantidade }}{% endif %}
             </td>
             <td>{{ m.operador_nome or '—' }}</td>
             <td style="font-size:13px;color:#555;">{{ m.observacao or '—' }}</td>
