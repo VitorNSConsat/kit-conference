@@ -53,20 +53,20 @@ def startup():
     ip = _detectar_ip_lan()
     _tem_ssl = os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
 
-    app.state.url_http  = f"http://{ip}:8080"
+    # Porta 80 (sem sufixo na URL) = iOS reconhece automaticamente ao escanear QR.
+    # Porta 8080 mantida como fallback (Android e acesso manual via browser).
+    app.state.url_http  = f"http://{ip}"
     app.state.url_https = f"https://{ip}:8011" if _tem_ssl else None
     app.state.tem_ssl = _tem_ssl
 
     if _tem_ssl:
-        # QR aponta para HTTPS:8011 — iOS funciona direto com cert instalado
-        # Android: aceita aviso "Avançado → Continuar" na primeira vez, depois lembra
         _zpl.SERVIDOR_URL = f"https://{ip}:8011"
         app.state.servidor_url = f"https://{ip}:8011"
         print(f"[KIT] HTTPS (QR + Admin): {app.state.servidor_url}")
-        print(f"[KIT] HTTP  (alternativo): {app.state.url_http}")
+        print(f"[KIT] HTTP  (QR estoque): {app.state.url_http}")
     else:
-        _zpl.SERVIDOR_URL = f"http://{ip}:8080"
-        app.state.servidor_url = f"http://{ip}:8080"
+        _zpl.SERVIDOR_URL = f"http://{ip}"
+        app.state.servidor_url = f"http://{ip}"
         print(f"[KIT] HTTP: {app.state.servidor_url}")
 
 
@@ -1063,9 +1063,15 @@ if __name__ == "__main__":
 
     _tem_ssl = os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
 
+    async def _serve_port80():
+        """Porta 80 (HTTP padrão) — iOS reconhece URLs sem porta ao escanear QR."""
+        try:
+            cfg = uvicorn.Config("main:app", host="0.0.0.0", port=80, reload=False)
+            await uvicorn.Server(cfg).serve()
+        except OSError:
+            print("[KIT] Porta 80 indisponível — iOS pode precisar digitar http:// manualmente")
+
     if _tem_ssl:
-        # HTTPS:8011 (admin, iOS com cert — porta que iOS já "conhece" como segura)
-        # HTTP:8080  (QR codes — porta nova, iOS nunca viu HTTPS aqui, funciona em qualquer device)
         async def _serve_dual():
             cfg_https = uvicorn.Config(
                 "main:app", host="0.0.0.0", port=8011, reload=False,
@@ -1077,8 +1083,14 @@ if __name__ == "__main__":
             await asyncio.gather(
                 uvicorn.Server(cfg_https).serve(),
                 uvicorn.Server(cfg_http).serve(),
+                _serve_port80(),
             )
         asyncio.run(_serve_dual())
     else:
-        # Sem SSL: apenas HTTP:8080
-        uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)
+        async def _serve_http():
+            cfg_8080 = uvicorn.Config("main:app", host="0.0.0.0", port=8080, reload=False)
+            await asyncio.gather(
+                uvicorn.Server(cfg_8080).serve(),
+                _serve_port80(),
+            )
+        asyncio.run(_serve_http())
