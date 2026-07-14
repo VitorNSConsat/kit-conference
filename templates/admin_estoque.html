@@ -85,10 +85,6 @@
                 </form>
             </td>
             <td style="white-space:nowrap;">
-                <button class="btn btn-sm btn-warning"
-                        onclick="abrirQR({{ item.id }}, '{{ item.tipo_nome | e }}')">
-                    📱 QR
-                </button>
                 <a href="/admin/estoque/{{ item.id }}/etiqueta" target="_blank"
                    class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                 <a href="/admin/estoque/{{ item.id }}/historico"
@@ -153,64 +149,4 @@
     </p>
     {% endif %}
 </div>
-{% endblock %}
-{% block scripts %}
-<!-- Modal QR Code -->
-<div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
-     z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:#fff;border-radius:14px;padding:28px 24px;
-                max-width:340px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25);">
-        <h2 id="qr-title" style="margin-bottom:4px;font-size:17px;color:#1a3a5c;"></h2>
-        <p style="font-size:12px;color:#888;margin-bottom:16px;">
-            Escaneie para abrir a página de ajuste de estoque
-        </p>
-        <img id="qr-img" src="" alt="QR Code"
-             style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;">
-        <div style="margin-top:12px;">
-            <a id="qr-link" href="#" target="_blank"
-               style="font-size:12px;color:#1a3a5c;word-break:break-all;"></a>
-        </div>
-        <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;">
-            <button onclick="imprimirQR()" class="btn btn-sm btn-primary">🖨️ Imprimir</button>
-            <button onclick="fecharQR()" class="btn btn-sm btn-danger">Fechar</button>
-        </div>
-    </div>
-</div>
-<script>
-const URL_HTTP_BASE = "{{ url_http_base }}";
-
-function abrirQR(id, nome) {
-    document.getElementById('qr-title').textContent = nome;
-    document.getElementById('qr-img').src = `/admin/estoque/${id}/qrcode.svg`;
-    const link = URL_HTTP_BASE + `/estoque/${id}`;
-    const a = document.getElementById('qr-link');
-    a.href = link;
-    a.textContent = link;
-    document.getElementById('qr-modal').style.display = 'flex';
-}
-
-function fecharQR() {
-    document.getElementById('qr-modal').style.display = 'none';
-    document.getElementById('qr-img').src = '';
-}
-
-function imprimirQR() {
-    const img = document.getElementById('qr-img');
-    const nome = document.getElementById('qr-title').textContent;
-    const link = document.getElementById('qr-link').textContent;
-    const w = window.open('', '_blank');
-    w.document.write(`<!doctype html><html><head><title>QR ${nome}</title>
-        <style>body{font-family:sans-serif;text-align:center;padding:30px;}
-        img{width:260px;height:260px;} p{font-size:13px;color:#555;margin-top:8px;}</style>
-        </head><body><h2>${nome}</h2><img src="${img.src}">
-        <p>${link}</p>
-        <script>window.onload=()=>{window.print();window.close();}<\/script>
-        </body></html>`);
-    w.document.close();
-}
-
-document.getElementById('qr-modal').addEventListener('click', function(e) {
-    if (e.target === this) fecharQR();
-});
-</script>
 {% endblock %}

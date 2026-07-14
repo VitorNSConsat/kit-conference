@@ -121,7 +121,7 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
 
 def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
     """Etiqueta HTML para item de estoque: logo à esquerda, descrição + QR à direita."""
-    qr_img   = _qr_img(url_qr, size_mm=60)
+    qr_img   = _qr_img(url_qr, size_mm=46)
     logo_b64 = _logo_base64()
     logo_html = (
         f'<img src="data:image/png;base64,{logo_b64}" alt="{EMPRESA_NOME}" class="logo-img">'
@@ -185,34 +185,28 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 5mm 5mm 3mm 5mm;
+    align-items: center;
+    justify-content: center;
+    padding: 5mm 5mm 5mm 4mm;
+    gap: 3mm;
   }}
   .descricao {{
-    font-size: 11px; font-weight: 700; color: #1a3a5c;
+    font-size: 15px; font-weight: 700; color: #1a3a5c;
     text-align: center;
-    margin-bottom: 3mm;
     line-height: 1.3;
     word-break: break-word;
   }}
-  .qr-wrap {{
-    flex: 1;
-    display: flex; align-items: center; justify-content: center;
-  }}
   .qr-wrap img {{
     display: block;
-    width: 60mm; height: 60mm;
+    width: 46mm; height: 46mm;
     image-rendering: pixelated;
-  }}
-  .rodape {{
-    font-size: 6px; color: #bbb; text-align: center;
-    margin-top: 2mm; word-break: break-all;
   }}
 
   /* ── Impressão ───────────────────────────── */
   @media print {{
     body {{ background: white; padding: 0; margin: 0; }}
     .label {{ box-shadow: none; border: none; }}
-    .actions {{ display: none; }}
+    .actions {{ display: none !important; }}
   }}
 </style>
 </head>
@@ -225,16 +219,14 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
   <div class="col-right">
     <div class="descricao">{tipo_nome}</div>
     <div class="qr-wrap">{qr_img}</div>
-    <div class="rodape">{codigo_barra}</div>
   </div>
 </div>
-<div style="display:flex;gap:10px;margin-top:14px;width:100mm;">
-  <button style="flex:1;padding:9px;background:#1a3a5c;color:#fff;border:none;
-                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;"
-          onclick="window.print()">🖨️ Imprimir</button>
-  <button style="flex:1;padding:9px;background:#888;color:#fff;border:none;
-                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;"
-          onclick="window.close()">Fechar</button>
+<div class="actions" style="display:flex;margin-top:14px;width:100mm;">
+  <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
+          onclick="window.print();setTimeout(()=>window.close(),800);">
+    🖨️ Imprimir e Fechar
+  </button>
 </div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
 </body>

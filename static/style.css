@@ -7,6 +7,23 @@ body {
     font-size: 15px;
 }
 
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 42vmin;
+    height: 42vmin;
+    background-image: url('/static/logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.05;
+    z-index: 0;
+    pointer-events: none;
+}
+
 .navbar {
     background: linear-gradient(135deg, #1a3a5c 0%, #1e4976 100%);
     color: #fff;
@@ -28,7 +45,9 @@ body {
     margin-right: 18px;
     white-space: nowrap;
     letter-spacing: .2px;
+    text-decoration: none;
 }
+.navbar .brand:hover { color: rgba(255,255,255,.8); }
 
 .nav-links {
     display: flex;
@@ -111,7 +130,7 @@ body {
 }
 .stock-alert-close:hover { background: rgba(0,0,0,.08); }
 
-.container { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+.container { max-width: 1100px; margin: 32px auto; padding: 0 16px; position: relative; z-index: 1; }
 
 .card {
     background: #fff;

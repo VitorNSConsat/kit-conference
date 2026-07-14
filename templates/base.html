@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Conferência de Kits{% endblock %}</title>
-    <link rel="stylesheet" href="/static/style.css?v=2">
+    <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
 {% if user %}
 <nav class="navbar">
-    <span class="brand">📦 Conferência de Kits</span>
+    <a href="/" class="brand">🏠 Início</a>
     <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">☰</button>
     {% set p = request.url.path %}
     <div class="nav-links" id="nav-links">
-        <a href="/" class="{{ 'nav-active' if p == '/' else '' }}">🏠 Início</a>
+        <a href="/" class="{{ 'nav-active' if p == '/' else '' }}">⚡ Bipagem</a>
         <a href="/print-queue" class="{{ 'nav-active' if p.startswith('/print-queue') else '' }}">🖨️ Impressão</a>
         <a href="/admin/items" class="{{ 'nav-active' if p.startswith('/admin/items') else '' }}">📋 Itens</a>
         <a href="/admin/templates" class="{{ 'nav-active' if p.startswith('/admin/templates') else '' }}">📄 Criar Kit</a>
