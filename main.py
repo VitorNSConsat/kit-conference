@@ -943,6 +943,23 @@ async def admin_estoque_delete(request: Request, estoque_id: int):
     return RedirectResponse("/admin/estoque?ok=excluido", status_code=302)
 
 
+@app.get("/admin/estoque/{estoque_id}/etiqueta", response_class=HTMLResponse)
+@require_login
+async def admin_estoque_etiqueta(request: Request, estoque_id: int):
+    import app.zpl as _zpl
+    est = estoque_mod.buscar_por_id(estoque_id)
+    if not est:
+        raise HTTPException(status_code=404)
+    base = getattr(app.state, "url_http", _zpl.SERVIDOR_URL)
+    url_qr = f"{base}/estoque/{estoque_id}"
+    html = _zpl.generate_estoque_html_label(
+        tipo_nome=est["tipo_nome"],
+        codigo_barra=est["codigo_barra"],
+        url_qr=url_qr,
+    )
+    return HTMLResponse(content=html)
+
+
 @app.get("/admin/estoque/{estoque_id}/qrcode.svg")
 @require_login
 async def admin_estoque_qrcode(request: Request, estoque_id: int):

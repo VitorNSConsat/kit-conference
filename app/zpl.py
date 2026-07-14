@@ -119,6 +119,128 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
 
 # ── HTML para impressora normal ───────────────────────────────────────────────
 
+def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
+    """Etiqueta HTML para item de estoque: logo à esquerda, descrição + QR à direita."""
+    qr_img   = _qr_img(url_qr, size_mm=60)
+    logo_b64 = _logo_base64()
+    logo_html = (
+        f'<img src="data:image/png;base64,{logo_b64}" alt="{EMPRESA_NOME}" class="logo-img">'
+        if logo_b64
+        else f'<div class="empresa-fallback">{EMPRESA_NOME}</div>'
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Etiqueta Estoque — {tipo_nome}</title>
+<style>
+  @page {{ size: 100mm 100mm; margin: 0; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+  body {{
+    font-family: Arial, Helvetica, sans-serif;
+    background: #e8e8e8;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px;
+  }}
+
+  .label {{
+    background: #fff;
+    width: 100mm; height: 100mm;
+    overflow: hidden;
+    display: flex;
+    box-shadow: 0 4px 18px rgba(0,0,0,.2);
+    border: 1px solid #ccc;
+  }}
+
+  /* ── Coluna esquerda: logo ─────────────────── */
+  .col-logo {{
+    width: 38mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6mm;
+    border-right: 1px solid #e0e0e0;
+    flex-shrink: 0;
+  }}
+  .logo-img {{
+    max-width: 28mm; max-height: 28mm;
+    object-fit: contain;
+  }}
+  .empresa-fallback {{
+    font-size: 9px; font-weight: 900; color: #1a3a5c;
+    text-align: center; text-transform: uppercase;
+    letter-spacing: .5px; word-break: break-word;
+  }}
+  .col-logo .subtitulo {{
+    font-size: 6px; color: #bbb; text-align: center;
+    margin-top: 4px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }}
+
+  /* ── Coluna direita: descrição + QR ──────── */
+  .col-right {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 5mm 5mm 3mm 5mm;
+  }}
+  .descricao {{
+    font-size: 11px; font-weight: 700; color: #1a3a5c;
+    text-align: center;
+    margin-bottom: 3mm;
+    line-height: 1.3;
+    word-break: break-word;
+  }}
+  .qr-wrap {{
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+  }}
+  .qr-wrap img {{
+    display: block;
+    width: 60mm; height: 60mm;
+    image-rendering: pixelated;
+  }}
+  .rodape {{
+    font-size: 6px; color: #bbb; text-align: center;
+    margin-top: 2mm; word-break: break-all;
+  }}
+
+  /* ── Impressão ───────────────────────────── */
+  @media print {{
+    body {{ background: white; padding: 0; margin: 0; }}
+    .label {{ box-shadow: none; border: none; }}
+    .actions {{ display: none; }}
+  }}
+</style>
+</head>
+<body>
+<div class="label">
+  <div class="col-logo">
+    {logo_html}
+    <div class="subtitulo">Estoque</div>
+  </div>
+  <div class="col-right">
+    <div class="descricao">{tipo_nome}</div>
+    <div class="qr-wrap">{qr_img}</div>
+    <div class="rodape">{codigo_barra}</div>
+  </div>
+</div>
+<div style="display:flex;gap:10px;margin-top:14px;width:100mm;">
+  <button style="flex:1;padding:9px;background:#1a3a5c;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;"
+          onclick="window.print()">🖨️ Imprimir</button>
+  <button style="flex:1;padding:9px;background:#888;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;"
+          onclick="window.close()">Fechar</button>
+</div>
+<script>window.onload = () => setTimeout(() => window.print(), 500);</script>
+</body>
+</html>"""
+
+
 def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
                         operador: str, timestamp: datetime,
                         itens: list[dict],

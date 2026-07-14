@@ -89,6 +89,8 @@
                         onclick="abrirQR({{ item.id }}, '{{ item.tipo_nome | e }}')">
                     📱 QR
                 </button>
+                <a href="/admin/estoque/{{ item.id }}/etiqueta" target="_blank"
+                   class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                 <a href="/admin/estoque/{{ item.id }}/historico"
                    class="btn btn-sm btn-primary">📋 Histórico</a>
                 <form method="post" action="/admin/estoque/{{ item.id }}/delete"
