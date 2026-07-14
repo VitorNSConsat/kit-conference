@@ -1,11 +1,11 @@
-from database import db
+from database import db, now_brt
 
 
 def adicionar(kit_id: str, zpl: str, solicitado_por: int):
     with db() as conn:
         conn.execute(
-            "INSERT INTO print_queue (kit_id, zpl, solicitado_por) VALUES (?, ?, ?)",
-            (kit_id, zpl, solicitado_por)
+            "INSERT INTO print_queue (kit_id, zpl, solicitado_por, solicitado_em) VALUES (?, ?, ?, ?)",
+            (kit_id, zpl, solicitado_por, now_brt())
         )
 
 
@@ -27,8 +27,8 @@ def marcar_impresso(pq_id: int):
     with db() as conn:
         conn.execute(
             "UPDATE print_queue SET status = 'impresso', "
-            "impresso_em = CURRENT_TIMESTAMP WHERE id = ?",
-            (pq_id,)
+            "impresso_em = ? WHERE id = ?",
+            (now_brt(), pq_id)
         )
 
 

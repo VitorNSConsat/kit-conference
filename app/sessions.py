@@ -1,4 +1,4 @@
-from database import db
+from database import db, now_brt
 import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.estoque as estoque_mod
@@ -23,9 +23,9 @@ def start_session(kit_template_id: int, operador_id: int) -> int:
         raise ValueError("Template não encontrado.")
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id) "
-            "VALUES (?, ?, ?)",
-            (kit_template_id, template["versao"], operador_id)
+            "INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id, iniciado_em) "
+            "VALUES (?, ?, ?, ?)",
+            (kit_template_id, template["versao"], operador_id, now_brt())
         )
         sessao_id = cur.lastrowid
     return sessao_id
@@ -212,9 +212,9 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
             adicionar = min(qtd_informada, max(0, exigido - atual))
             for seq in range(adicionar):
                 conn.execute(
-                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status) "
-                    "VALUES (?, ?, ?, 'completo')",
-                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id)
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
+                    "VALUES (?, ?, ?, 'completo', ?)",
+                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id, now_brt())
                 )
             atualizacoes.append({
                 "item_tipo_id": tipo_id,
@@ -277,8 +277,8 @@ def register_scan(sessao_id: int, codigo_barra: str,
             for seq in range(qtd):
                 conn.execute(
                     "INSERT INTO scan_session_items "
-                    "(sessao_id, codigo_barra, item_tipo_id, status) VALUES (?, ?, ?, 'completo')",
-                    (sessao_id, f"ESTOQUE:{codigo_barra}:{seq}", est["item_tipo_id"])
+                    "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em) VALUES (?, ?, ?, 'completo', ?)",
+                    (sessao_id, f"ESTOQUE:{codigo_barra}:{seq}", est["item_tipo_id"], now_brt())
                 )
             conn.execute(
                 "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
@@ -350,10 +350,10 @@ def register_scan(sessao_id: int, codigo_barra: str,
 
     with db() as conn:
         conn.execute(
-            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
             (sessao_id, codigo_barra, item["item_tipo_id"],
-             "aguardando_serial" if requer_serial else "completo")
+             "aguardando_serial" if requer_serial else "completo", now_brt())
         )
 
     if requer_serial:
@@ -407,6 +407,6 @@ def cancel_session(sessao_id: int):
     with db() as conn:
         conn.execute(
             "UPDATE scan_session SET status = 'cancelado', "
-            "finalizado_em = CURRENT_TIMESTAMP WHERE id = ?",
-            (sessao_id,)
+            "finalizado_em = ? WHERE id = ?",
+            (now_brt(), sessao_id)
         )

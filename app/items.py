@@ -1,5 +1,5 @@
 import io
-from database import db
+from database import db, now_brt
 
 
 # ── Tipos de item ──────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ def listar_tipos_para_kit(template_id: int) -> list:
 def criar_tipo(nome: str) -> int:
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO item_tipo (nome) VALUES (?)", (nome.strip(),)
+            "INSERT INTO item_tipo (nome, criado_em) VALUES (?, ?)", (nome.strip(), now_brt())
         )
         return cur.lastrowid
 

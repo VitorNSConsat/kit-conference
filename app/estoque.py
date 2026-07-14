@@ -1,4 +1,4 @@
-from database import db
+from database import db, now_brt
 
 
 def listar_estoque() -> list:
@@ -49,9 +49,9 @@ def criar_estoque(item_tipo_id: int, codigo_barra: str,
         if quantidade_inicial > 0:
             conn.execute(
                 "INSERT INTO estoque_movimentos "
-                "(estoque_id, tipo, quantidade, criado_por, observacao) "
-                "VALUES (?, 'entrada', ?, ?, 'Estoque inicial')",
-                (estoque_id, quantidade_inicial, criado_por)
+                "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+                "VALUES (?, 'entrada', ?, ?, 'Estoque inicial', ?)",
+                (estoque_id, quantidade_inicial, criado_por, now_brt())
             )
     return estoque_id
 
@@ -65,9 +65,9 @@ def repor_estoque(estoque_id: int, quantidade: int,
         )
         conn.execute(
             "INSERT INTO estoque_movimentos "
-            "(estoque_id, tipo, quantidade, criado_por, observacao) "
-            "VALUES (?, 'entrada', ?, ?, ?)",
-            (estoque_id, quantidade, criado_por, observacao or "Reposição")
+            "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+            "VALUES (?, 'entrada', ?, ?, ?, ?)",
+            (estoque_id, quantidade, criado_por, observacao or "Reposição", now_brt())
         )
 
 
@@ -80,9 +80,9 @@ def registrar_saida(estoque_id: int, quantidade: int,
         )
         conn.execute(
             "INSERT INTO estoque_movimentos "
-            "(estoque_id, tipo, quantidade, sessao_id, criado_por, observacao) "
-            "VALUES (?, 'saida', ?, ?, ?, 'Kit')",
-            (estoque_id, quantidade, sessao_id, criado_por)
+            "(estoque_id, tipo, quantidade, sessao_id, criado_por, observacao, criado_em) "
+            "VALUES (?, 'saida', ?, ?, ?, 'Kit', ?)",
+            (estoque_id, quantidade, sessao_id, criado_por, now_brt())
         )
 
 
@@ -148,10 +148,10 @@ def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None
         )
         conn.execute(
             "INSERT INTO estoque_movimentos "
-            "(estoque_id, tipo, quantidade, criado_por, observacao) "
-            "VALUES (?, 'ajuste_minimo', ?, ?, ?)",
+            "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+            "VALUES (?, 'ajuste_minimo', ?, ?, ?, ?)",
             (estoque_id, novo_minimo, criado_por,
-             f"Mínimo alterado: {antigo} → {novo_minimo}")
+             f"Mínimo alterado: {antigo} → {novo_minimo}", now_brt())
         )
 
 

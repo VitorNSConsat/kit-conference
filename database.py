@@ -1,7 +1,15 @@
 import sqlite3
 import os
 from contextlib import contextmanager
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+
+_BRT = timezone(timedelta(hours=-3))
+
+
+def now_brt() -> str:
+    """Retorna o horário atual em BRT (UTC-3) formatado para armazenar no banco."""
+    return datetime.now(tz=_BRT).strftime('%Y-%m-%d %H:%M:%S')
 
 load_dotenv()
 
