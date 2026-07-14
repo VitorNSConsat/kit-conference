@@ -37,6 +37,21 @@
 function toggleNav() {
     document.getElementById('nav-links').classList.toggle('open');
 }
+
+// Leitores de código de barras enviam Enter após o código.
+// Nas páginas admin isso submetia formulários involuntariamente.
+// Na tela de bipagem (/session/) o Enter é necessário — não bloqueia.
+if (!window.location.pathname.startsWith('/session/')) {
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter'
+                && e.target.tagName === 'INPUT'
+                && e.target.type !== 'submit'
+                && e.target.type !== 'button'
+                && e.target.type !== 'checkbox') {
+            e.preventDefault();
+        }
+    });
+}
 </script>
 {% endif %}
 <div class="container">
