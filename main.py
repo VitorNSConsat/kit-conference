@@ -940,6 +940,71 @@ async def admin_estoque_delete(request: Request, estoque_id: int):
     return RedirectResponse("/admin/estoque?ok=excluido", status_code=302)
 
 
+@app.get("/admin/estoque/{estoque_id}/qrcode.svg")
+@require_login
+async def admin_estoque_qrcode(request: Request, estoque_id: int):
+    from fastapi.responses import Response as FResponse
+    est = estoque_mod.buscar_por_id(estoque_id)
+    if not est:
+        raise HTTPException(status_code=404)
+    base = str(request.base_url).rstrip("/")
+    url = f"{base}/estoque/{estoque_id}"
+    import segno, io as _io
+    qr = segno.make(url, error="m")
+    buf = _io.BytesIO()
+    qr.save(buf, kind="svg", scale=8, border=3, xmldecl=True, nl=False)
+    return FResponse(content=buf.getvalue(), media_type="image/svg+xml")
+
+
+# ── Estoque — página mobile (acesso via QR code) ──────────────────────────────
+
+@app.get("/estoque/{estoque_id}", response_class=HTMLResponse)
+@require_login
+async def estoque_mobile(request: Request, estoque_id: int):
+    est = estoque_mod.buscar_por_id(estoque_id)
+    if not est:
+        return RedirectResponse("/", status_code=302)
+    historico = estoque_mod.listar_historico(estoque_id, limit=8)
+    return render(request, "estoque_mobile.html", {
+        "est": est,
+        "historico": historico,
+        "ok": request.query_params.get("ok"),
+    })
+
+
+@app.post("/estoque/{estoque_id}/ajustar")
+@require_login
+async def estoque_mobile_ajustar(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    tipo = (form.get("tipo") or "").strip()
+    motivo = (form.get("motivo") or "").strip()
+    try:
+        quantidade = max(1, int(form.get("quantidade") or 1))
+    except (ValueError, TypeError):
+        quantidade = 1
+
+    def _erro(msg):
+        est = estoque_mod.buscar_por_id(estoque_id)
+        historico = estoque_mod.listar_historico(estoque_id, limit=8)
+        return render(request, "estoque_mobile.html", {
+            "est": est, "historico": historico,
+            "erro": msg, "tipo_sel": tipo, "qtd_sel": quantidade,
+        })
+
+    if tipo not in ("entrada", "saida"):
+        return _erro("Selecione Adicionar ou Subtrair.")
+    if not motivo:
+        return _erro("Motivo é obrigatório.")
+
+    try:
+        estoque_mod.ajustar_quantidade(estoque_id, tipo, quantidade, motivo, user["id"])
+    except ValueError as e:
+        return _erro(str(e))
+
+    return RedirectResponse(f"/estoque/{estoque_id}?ok=1", status_code=302)
+
+
 # ── Reset do banco (apenas admin) ─────────────────────────────────────────────
 
 @app.get("/admin/reset", response_class=HTMLResponse)

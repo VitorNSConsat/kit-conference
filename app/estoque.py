@@ -155,6 +155,32 @@ def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None
         )
 
 
+def ajustar_quantidade(estoque_id: int, tipo: str, quantidade: int,
+                       motivo: str, criado_por: int) -> int:
+    """Ajuste manual (entrada ou saída). Retorna a nova quantidade."""
+    if tipo not in ("entrada", "saida"):
+        raise ValueError("Tipo inválido.")
+    with db() as conn:
+        est = conn.execute("SELECT * FROM estoque WHERE id = ?", (estoque_id,)).fetchone()
+        if not est:
+            raise ValueError("Item não encontrado.")
+        nova = est["quantidade_atual"] + quantidade if tipo == "entrada" \
+               else est["quantidade_atual"] - quantidade
+        if nova < 0:
+            raise ValueError(
+                f"Estoque insuficiente. Disponível: {est['quantidade_atual']}, "
+                f"solicitado: {quantidade}."
+            )
+        conn.execute("UPDATE estoque SET quantidade_atual = ? WHERE id = ?", (nova, estoque_id))
+        conn.execute(
+            "INSERT INTO estoque_movimentos "
+            "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (estoque_id, tipo, quantidade, criado_por, motivo, now_brt())
+        )
+    return nova
+
+
 def deletar_estoque(estoque_id: int) -> None:
     with db() as conn:
         conn.execute("DELETE FROM estoque_movimentos WHERE estoque_id = ?", (estoque_id,))

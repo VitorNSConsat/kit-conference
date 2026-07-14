@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}{{ est.tipo_nome }} — Estoque{% endblock %}
+{% block content %}
+<style>
+.em-header {
+    text-align: center;
+    padding: 12px 0 20px;
+}
+.em-nome {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 6px;
+}
+.em-codigo {
+    font-family: monospace;
+    font-size: 13px;
+    color: #888;
+}
+.em-qty {
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1;
+    margin: 16px 0 4px;
+}
+.em-qty-label {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 4px;
+}
+.em-min {
+    font-size: 14px;
+    color: #aaa;
+    margin-bottom: 20px;
+}
+.em-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.em-btn-op {
+    padding: 18px 8px;
+    border: 3px solid transparent;
+    border-radius: 14px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    background: #f5f5f5;
+    color: #555;
+}
+.em-btn-op.add  { border-color: #27ae60; color: #27ae60; }
+.em-btn-op.sub  { border-color: #e74c3c; color: #e74c3c; }
+.em-btn-op.add.active  { background: #27ae60; color: #fff; }
+.em-btn-op.sub.active  { background: #e74c3c; color: #fff; }
+.em-form {
+    background: #f9f9f9;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 2px solid #e0e0e0;
+    display: none;
+}
+.em-form.show { display: block; }
+.em-form.tipo-entrada { border-color: #27ae60; }
+.em-form.tipo-saida   { border-color: #e74c3c; }
+.em-form label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    display: block;
+    margin-bottom: 6px;
+}
+.em-form input[type=number],
+.em-form input[type=text],
+.em-form textarea {
+    width: 100%;
+    padding: 14px;
+    font-size: 18px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    box-sizing: border-box;
+}
+.em-form textarea { font-size: 15px; min-height: 80px; resize: vertical; }
+.em-submit {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #fff;
+}
+.em-submit.add { background: #27ae60; }
+.em-submit.sub { background: #e74c3c; }
+.em-hist-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+    gap: 8px;
+}
+.em-hist-row:last-child { border-bottom: none; }
+.em-hist-qtd { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.em-hist-meta { color: #888; font-size: 12px; }
+</style>
+
+{% if ok %}
+<div class="alert alert-success" style="text-align:center;font-size:16px;">
+    ✅ Estoque atualizado com sucesso.
+</div>
+{% endif %}
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="card">
+    <div class="em-header">
+        <div class="em-nome">{{ est.tipo_nome }}</div>
+        <div class="em-codigo">{{ est.codigo_barra }}</div>
+        {% set abaixo = est.quantidade_atual <= est.quantidade_minima %}
+        {% set proximo = est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
+        <div class="em-qty-label">Quantidade atual</div>
+        <div class="em-qty" style="color:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};">
+            {{ est.quantidade_atual }}
+        </div>
+        <div class="em-min">mínimo: {{ est.quantidade_minima }}</div>
+    </div>
+
+    <div class="em-btns">
+        <button class="em-btn-op add" id="btn-add" onclick="selecionarTipo('entrada')">
+            ➕ Adicionar
+        </button>
+        <button class="em-btn-op sub" id="btn-sub" onclick="selecionarTipo('saida')">
+            ➖ Subtrair
+        </button>
+    </div>
+
+    <form method="post" action="/estoque/{{ est.id }}/ajustar"
+          class="em-form" id="em-form">
+        <input type="hidden" name="tipo" id="campo-tipo" value="{{ tipo_sel or '' }}">
+
+        <label>Quantidade</label>
+        <input type="number" name="quantidade" id="campo-qtd"
+               value="{{ qtd_sel or 1 }}" min="1" required>
+
+        <label>Motivo <span style="color:#e74c3c;">*</span></label>
+        <textarea name="motivo" id="campo-motivo" required
+                  placeholder="Descreva o motivo da alteração..."></textarea>
+
+        <button type="submit" class="em-submit" id="em-submit">Confirmar</button>
+    </form>
+</div>
+
+{% if historico %}
+<div class="card">
+    <h2 style="margin-bottom:12px;">Últimas movimentações</h2>
+    {% for m in historico %}
+    {% set is_entrada = m.tipo == 'entrada' %}
+    {% set is_saida = m.tipo == 'saida' %}
+    {% set is_ajuste = m.tipo == 'ajuste_minimo' %}
+    <div class="em-hist-row">
+        <div>
+            <div style="font-weight:600;font-size:14px;">
+                {% if is_entrada %}⬆️ Entrada
+                {% elif is_saida %}⬇️ Saída
+                {% elif is_ajuste %}✏️ Ajuste mínimo
+                {% else %}↩️ Cancelado{% endif %}
+            </div>
+            <div class="em-hist-meta">{{ m.criado_em[:16] }} · {{ m.operador_nome or '—' }}</div>
+            {% if m.observacao %}
+            <div style="font-size:12px;color:#555;margin-top:2px;">{{ m.observacao }}</div>
+            {% endif %}
+        </div>
+        <div class="em-hist-qtd"
+             style="color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else '#e67e22') }};">
+            {% if is_ajuste %}→ {{ m.quantidade }}
+            {% else %}{{ '+' if is_entrada else '-' }}{{ m.quantidade }}{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    <div style="text-align:center;margin-top:12px;">
+        <a href="/admin/estoque/{{ est.id }}/historico" class="btn btn-sm btn-primary">
+            Ver histórico completo
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<script>
+const tipoSel = "{{ tipo_sel or '' }}";
+if (tipoSel) selecionarTipo(tipoSel, true);
+
+function selecionarTipo(tipo, manter) {
+    const form = document.getElementById('em-form');
+    const btnAdd = document.getElementById('btn-add');
+    const btnSub = document.getElementById('btn-sub');
+    const submit = document.getElementById('em-submit');
+
+    if (!manter && form.classList.contains('show') &&
+            document.getElementById('campo-tipo').value === tipo) {
+        form.classList.remove('show');
+        btnAdd.classList.remove('active');
+        btnSub.classList.remove('active');
+        return;
+    }
+
+    document.getElementById('campo-tipo').value = tipo;
+    form.className = 'em-form show tipo-' + tipo;
+    btnAdd.classList.toggle('active', tipo === 'entrada');
+    btnSub.classList.toggle('active', tipo === 'saida');
+    submit.className = 'em-submit ' + (tipo === 'entrada' ? 'add' : 'sub');
+    submit.textContent = tipo === 'entrada' ? '✅ Confirmar Adição' : '✅ Confirmar Subtração';
+
+    if (!manter) document.getElementById('campo-qtd').focus();
+}
+</script>
+{% endblock %}
