@@ -95,7 +95,8 @@ def _parse_itens_form(form) -> list[dict]:
 
 def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
-    return jinja.TemplateResponse(template, {"request": request, "user": user, **ctx})
+    alertas_estoque = estoque_mod.alertas_abaixo_minimo() if user else []
+    return jinja.TemplateResponse(template, {"request": request, "user": user, "alertas_estoque": alertas_estoque, **ctx})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

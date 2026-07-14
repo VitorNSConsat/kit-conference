@@ -33,9 +33,9 @@
     <table>
         <thead>
             <tr>
+                <th>Qtd. Atual</th>
                 <th>Tipo de Item</th>
                 <th>Código de Barras</th>
-                <th>Qtd. Atual</th>
                 <th>Mínimo</th>
                 <th>Status</th>
                 <th>Repor</th>
@@ -47,12 +47,12 @@
         {% set abaixo = item.quantidade_atual <= item.quantidade_minima %}
         {% set proximo = item.quantidade_atual <= item.quantidade_minima * 2 and not abaixo %}
         <tr style="{{ 'background:#fff5f5;' if abaixo else ('background:#fffbea;' if proximo else '') }}">
-            <td><strong>{{ item.tipo_nome }}</strong></td>
-            <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
             <td style="font-size:18px;font-weight:700;
                        color:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};">
                 {{ item.quantidade_atual }}
             </td>
+            <td><strong>{{ item.tipo_nome }}</strong></td>
+            <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
             <td style="color:#888;">{{ item.quantidade_minima }}</td>
             <td>
                 {% if abaixo %}
@@ -105,6 +105,14 @@
     <form method="post" action="/admin/estoque">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
             <div class="form-group">
+                <label>Quantidade Inicial</label>
+                <input type="number" name="quantidade" value="0" min="0" required>
+            </div>
+            <div class="form-group">
+                <label>Alerta — Quantidade Mínima</label>
+                <input type="number" name="quantidade_minima" value="5" min="0" required>
+            </div>
+            <div class="form-group">
                 <label>Tipo de Item</label>
                 <select name="item_tipo_id" required>
                     <option value="">— selecione —</option>
@@ -117,14 +125,6 @@
                 <label>Código de Barras da Caixa/Lote</label>
                 <input type="text" name="codigo_barra" required
                        placeholder="Bipe ou digite o código">
-            </div>
-            <div class="form-group">
-                <label>Quantidade Inicial</label>
-                <input type="number" name="quantidade" value="0" min="0" required>
-            </div>
-            <div class="form-group">
-                <label>Alerta — Quantidade Mínima</label>
-                <input type="number" name="quantidade_minima" value="5" min="0" required>
             </div>
         </div>
         <button type="submit" class="btn btn-primary">Cadastrar</button>

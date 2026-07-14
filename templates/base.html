@@ -11,17 +11,28 @@
 <nav class="navbar">
     <span class="brand">📦 Conferência de Kits</span>
     <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">☰</button>
+    {% set p = request.url.path %}
     <div class="nav-links" id="nav-links">
-        <a href="/">Início</a>
-        <a href="/print-queue">Fila de Impressão</a>
-        <a href="/admin/items">Itens</a>
-        <a href="/admin/templates">Templates</a>
-        <a href="/admin/estoque">Estoque</a>
-        <a href="/reports">Relatórios</a>
-        <a href="/rede" title="Endereço do servidor na rede" style="color:#7ecfff;">🌐 Rede</a>
-        <a href="/logout">Sair ({{ user.nome }})</a>
+        <a href="/" class="{{ 'nav-active' if p == '/' else '' }}">🏠 Início</a>
+        <a href="/print-queue" class="{{ 'nav-active' if p.startswith('/print-queue') else '' }}">🖨️ Impressão</a>
+        <a href="/admin/items" class="{{ 'nav-active' if p.startswith('/admin/items') else '' }}">📋 Itens</a>
+        <a href="/admin/templates" class="{{ 'nav-active' if p.startswith('/admin/templates') else '' }}">📄 Templates</a>
+        <a href="/admin/estoque" class="{{ 'nav-active' if p.startswith('/admin/estoque') else '' }}">📦 Estoque</a>
+        <a href="/reports" class="{{ 'nav-active' if p.startswith('/reports') else '' }}">📊 Relatórios</a>
+        <a href="/rede" class="{{ 'nav-active' if p.startswith('/rede') else '' }}" style="color:#7ecfff;">🌐 Rede</a>
+        <a href="/logout" class="nav-logout">🚪 Sair ({{ user.nome }})</a>
     </div>
 </nav>
+{% if alertas_estoque and '/session/' not in request.url.path %}
+<div class="stock-alert-banner" id="stock-alert-banner">
+    <strong>⚠️ Estoque baixo:</strong>
+    {% for a in alertas_estoque %}
+    <span class="stock-alert-chip">{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
+    {% endfor %}
+    <a href="/admin/estoque" class="stock-alert-chip" style="background:#f0ad4e;color:#fff;text-decoration:none;font-weight:600;">Ver Estoque →</a>
+    <button onclick="document.getElementById('stock-alert-banner').style.display='none'" class="stock-alert-close">✕</button>
+</div>
+{% endif %}
 <script>
 function toggleNav() {
     document.getElementById('nav-links').classList.toggle('open');
