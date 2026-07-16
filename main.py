@@ -878,6 +878,86 @@ async def report_delete(request: Request, kit_id: str):
     return RedirectResponse("/reports?ok=excluido", status_code=302)
 
 
+@app.get("/reports/validacoes", response_class=HTMLResponse)
+@require_login
+async def reports_validacoes(request: Request,
+                             data_ini: str = "",
+                             data_fim: str = "",
+                             validador_id: str = ""):
+    rows = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
+    with db() as conn:
+        usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
+    return render(request, "reports_validacoes.html", {
+        "rows": rows,
+        "usuarios": [dict(u) for u in usuarios],
+        "data_ini": data_ini,
+        "data_fim": data_fim,
+        "validador_id": validador_id,
+    })
+
+
+@app.get("/reports/validacoes/export")
+@require_login
+async def reports_validacoes_export(request: Request,
+                                    data_ini: str = "",
+                                    data_fim: str = "",
+                                    validador_id: str = ""):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    rows = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
+
+    azul = "1A3A5C"
+    branco = "FFFFFF"
+    cinza = "F4F7FB"
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Validações"
+
+    headers = [
+        "Kit ID", "Template", "Cliente", "Veículo", "Garagem",
+        "Operador Conferência", "Data Conferência",
+        "Validado Por", "Data Validação", "Observação", "Itens"
+    ]
+    widths = [14, 28, 22, 14, 14, 22, 20, 22, 20, 30, 50]
+
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        c = ws.cell(row=1, column=col, value=h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[ws.cell(1, col).column_letter].width = w
+
+    for i, r in enumerate(rows, 2):
+        ws.cell(i, 1, r["kit_id"][:8].upper())
+        ws.cell(i, 2, r["kit_nome"])
+        ws.cell(i, 3, r["cliente"])
+        ws.cell(i, 4, r.get("veiculo") or "")
+        ws.cell(i, 5, r.get("garagem") or "")
+        ws.cell(i, 6, r["operador_nome"])
+        ws.cell(i, 7, r.get("finalizado_em", ""))
+        ws.cell(i, 8, r["validado_por_nome"])
+        ws.cell(i, 9, r["validado_em"])
+        ws.cell(i, 10, r.get("observacao") or "")
+        ws.cell(i, 11, r.get("itens_resumo") or "")
+        if i % 2 == 0:
+            for col in range(1, 12):
+                ws.cell(i, col).fill = PatternFill("solid", fgColor=cinza)
+
+    ws.freeze_panes = "A2"
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=validacoes.xlsx"},
+    )
+
+
 # ── Estoque ───────────────────────────────────────────────────────────────────
 
 @app.get("/admin/estoque", response_class=HTMLResponse)

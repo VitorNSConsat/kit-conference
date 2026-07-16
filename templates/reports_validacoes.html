@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Relatório de Validações{% endblock %}
+{% block content %}
+<h1>Relatório de Validações</h1>
+
+<div class="card">
+  <h2>Filtros</h2>
+  <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="form-group" style="margin:0;">
+      <label>Data inicial</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Data final</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Validador</label>
+      <select name="validador_id">
+        <option value="">— todos —</option>
+        {% for u in usuarios %}
+        <option value="{{ u.id }}" {{ 'selected' if validador_id == u.id|string }}>{{ u.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <a href="/reports/validacoes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}&validador_id={{ validador_id }}"
+       class="btn btn-success">📥 Exportar Excel</a>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Validações ({{ rows | length }})</h2>
+  {% if rows %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Data Validação</th>
+        <th>Kit</th>
+        <th>Cliente</th>
+        <th>Veículo</th>
+        <th>Operador</th>
+        <th>Validado Por</th>
+        <th>Observação</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td style="white-space:nowrap;">{{ r.validado_em[:16] }}</td>
+      <td><strong>{{ r.kit_nome }}</strong><br>
+          <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.kit_id[:8].upper() }}</span>
+      </td>
+      <td>{{ r.cliente }}</td>
+      <td>{{ r.veiculo or '—' }}</td>
+      <td>{{ r.operador_nome }}</td>
+      <td><strong>{{ r.validado_por_nome }}</strong></td>
+      <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+      <td>
+        <a href="/kit/{{ r.kit_id }}" target="_blank"
+           class="btn btn-sm btn-primary">Ver Kit</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">
+    Nenhuma validação encontrada para os filtros selecionados.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}
