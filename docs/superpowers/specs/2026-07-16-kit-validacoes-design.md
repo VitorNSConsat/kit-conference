@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS kit_validacoes (
 
 A página já existe (pública, sem login). Mudanças:
 
-1. **Usuário não logado**: exibe botão "🔒 Entrar para validar" → `/login?next=/kit/{kit_id}`
+1. **Usuário não logado**: exibe botão "🔒 Entrar para validar" → `/login` (o sistema de login atual não suporta `?next=`; usuário volta ao início e re-escaneia o QR — aceitável para uso interno)
 2. **Usuário logado**: exibe formulário com textarea de observação (opcional) + botão "✅ Confirmar Validação"
 3. `POST /kit/{kit_id}/validar` → grava em `kit_validacoes` usando `now_brt()` → redireciona para `/kit/{kit_id}?ok=validado`
 4. Lista de validações anteriores exibida abaixo do formulário (quem, quando, obs)
