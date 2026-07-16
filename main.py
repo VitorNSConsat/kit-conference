@@ -689,7 +689,8 @@ async def reports(request: Request,
                kr.veiculo, kr.garagem,
                kt.nome AS kit_nome, kt.cliente, kt.versao,
                u.nome AS operador_nome,
-               pq.id AS pq_id
+               pq.id AS pq_id,
+               (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
         FROM kit_record kr
         JOIN kit_template kt ON kt.id = kr.kit_template_id
         JOIN users u ON u.id = kr.operador_id

@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Relatórios — Conferência de Kits{% endblock %}
 {% block content %}
-<h1>Relatório de Kits Finalizados</h1>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+  <h1 style="margin:0;">Relatório de Kits Finalizados</h1>
+  <a href="/reports/validacoes" class="btn btn-primary">
+    📋 Relatório de Validações
+  </a>
+</div>
 
 {% if ok == 'reimpresso' %}
 <div class="alert alert-success" style="margin-bottom:12px;">
@@ -46,6 +51,7 @@
                 <th>Garagem</th>
                 <th>Operador</th>
                 <th>Finalizado em</th>
+                <th>Validações</th>
                 <th>Ações</th>
             </tr>
         </thead>
@@ -64,6 +70,16 @@
             <td>{{ k.garagem or '—' }}</td>
             <td>{{ k.operador_nome }}</td>
             <td style="white-space:nowrap;">{{ k.finalizado_em }}</td>
+            <td style="text-align:center;">
+              {% if k.num_validacoes > 0 %}
+              <a href="/kit/{{ k.kit_id }}" target="_blank"
+                 style="color:#27ae60;font-weight:700;text-decoration:none;">
+                ✅ {{ k.num_validacoes }}
+              </a>
+              {% else %}
+              <span style="color:#ccc;font-size:13px;">⚠️ Nenhuma</span>
+              {% endif %}
+            </td>
             <td>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <a href="/kit/{{ k.kit_id }}" target="_blank"
@@ -94,7 +110,7 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
+        <tr><td colspan="8" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
         {% endfor %}
         </tbody>
     </table>
