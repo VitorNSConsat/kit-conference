@@ -250,22 +250,13 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
                         operador: str, timestamp: datetime,
                         itens: list[dict],
                         veiculo: str = "", garagem: str = "",
-                        servidor_url: str = "",
-                        url_http: str = "") -> str:
+                        servidor_url: str = "") -> str:
 
     data_str  = timestamp.strftime("%d/%m/%Y")
     hora_str  = timestamp.strftime("%H:%M")
     kit_id_curto = kit_id[:8].upper()
-    url_ios     = _kit_url(kit_id)
-    url_android = f"{url_http.rstrip('/')}/kit/{kit_id}" if url_http else url_ios
-    # Dual QR: iOS usa HTTPS (certificado confiável), Android usa HTTP:8080
-    if url_http and url_android != url_ios:
-        qr_ios_svg     = _qr_img(url_ios,     size_mm=45)
-        qr_android_svg = _qr_img(url_android, size_mm=45)
-        qr_svg = None
-    else:
-        qr_svg = _qr_img(url_ios, size_mm=70)
-        qr_ios_svg = qr_android_svg = None
+    url_qr = _kit_url(kit_id)
+    qr_svg = _qr_img(url_qr, size_mm=70)
 
     logo_b64 = _logo_base64()
     empresa_html = (
@@ -363,26 +354,6 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     text-align: center; flex-shrink: 0;
   }}
 
-  /* Dual QR — iOS + Android lado a lado */
-  .qr-dual {{
-    display: flex; align-items: flex-start; justify-content: center;
-    gap: 6px; padding: 4px 6px;
-  }}
-  .qr-col {{
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    flex: 1;
-  }}
-  .qr-col img {{
-    display: block;
-    width: 45mm; height: 45mm;
-    image-rendering: pixelated;
-  }}
-  .qr-os-label {{
-    font-size: 7px; font-weight: 700; color: #555;
-    text-transform: uppercase; letter-spacing: 1px;
-    text-align: center;
-  }}
-
   .check-box {{
     display: flex; align-items: center; justify-content: center; gap: 6px;
     padding: 4px 8px; border-top: 1px solid #ddd; flex-shrink: 0;
@@ -428,10 +399,7 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
   </div>
   {vg_html}
   <div class="qr-section">
-    {f'''<div class="qr-dual">
-      <div class="qr-col">{qr_ios_svg}<span class="qr-os-label">iOS</span></div>
-      <div class="qr-col">{qr_android_svg}<span class="qr-os-label">Android</span></div>
-    </div>''' if qr_ios_svg else f'<div class="qr-wrap">{qr_svg}</div>'}
+    <div class="qr-wrap">{qr_svg}</div>
     <div class="qr-hint">Escaneie na rede Wi-Fi para ver os itens do kit</div>
   </div>
   <div class="check-box">

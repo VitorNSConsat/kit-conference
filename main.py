@@ -501,7 +501,6 @@ async def session_finalize(request: Request, sessao_id: int,
         itens=itens_label,
         veiculo=veiculo.strip(),
         garagem=garagem.strip(),
-        url_http=getattr(app.state, "url_http", ""),
     )
 
     with db() as conn:
