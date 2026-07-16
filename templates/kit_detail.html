@@ -147,6 +147,72 @@
     font-size: 11px;
     color: #bbb;
   }
+
+  /* ── Validação ────────────────────────────── */
+  .val-form {
+    background: #f0f8f2;
+    border: 1.5px solid #27ae60;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .val-form textarea {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    resize: vertical;
+    min-height: 70px;
+    margin: 8px 0 12px;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  .val-btn {
+    width: 100%;
+    padding: 15px;
+    background: #27ae60;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .val-btn:active { background: #1e8449; }
+  .val-login-btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    background: #1a3a5c;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    box-sizing: border-box;
+  }
+  .val-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 10px;
+  }
+  .val-history-row:last-child { border-bottom: none; }
+  .val-who { font-size: 14px; font-weight: 600; color: #1a3a5c; }
+  .val-when { font-size: 12px; color: #999; }
+  .val-obs { font-size: 13px; color: #555; margin-top: 2px; }
+  .val-check { font-size: 22px; flex-shrink: 0; }
+  .alert-success {
+    background: #d4edda; color: #155724;
+    border: 1px solid #c3e6cb; border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 14px;
+    font-size: 14px; font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -220,6 +286,53 @@
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
     {% endfor %}
+  </div>
+
+  {% if ok == 'validado' %}
+  <div class="alert-success">✅ Validação registrada com sucesso.</div>
+  {% endif %}
+
+  <!-- Validação -->
+  <div class="card">
+    <div class="card-title">Validação do Kit</div>
+
+    {% if user %}
+    <div class="val-form">
+      <div style="font-size:14px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
+        Validando como: <strong>{{ user.nome }}</strong>
+      </div>
+      <form method="post" action="/kit/{{ kit.kit_id }}/validar">
+        <textarea name="observacao" placeholder="Observação (opcional)..."></textarea>
+        <button type="submit" class="val-btn">✅ Confirmar Validação</button>
+      </form>
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:#888;margin-bottom:12px;">
+      Faça login para validar este kit.
+    </p>
+    <a href="/login" class="val-login-btn">🔒 Entrar para Validar</a>
+    {% endif %}
+
+    {% if validacoes %}
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:1.5px;color:#888;margin-bottom:8px;">
+        Histórico de validações
+      </div>
+      {% for v in validacoes %}
+      <div class="val-history-row">
+        <div>
+          <div class="val-who">{{ v.user_nome }}</div>
+          <div class="val-when">{{ v.validado_em[:16] }}</div>
+          {% if v.observacao %}
+          <div class="val-obs">{{ v.observacao }}</div>
+          {% endif %}
+        </div>
+        <div class="val-check">✅</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 
 </div>

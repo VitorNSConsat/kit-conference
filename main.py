@@ -22,6 +22,7 @@ import app.sessions as sessions_mod
 import app.zpl as zpl_mod
 import app.print_queue as pq_mod
 import app.estoque as estoque_mod
+import app.validacoes as validacoes_mod
 
 load_dotenv()
 
@@ -622,6 +623,7 @@ async def print_queue_cancelar(request: Request, pq_id: int):
 
 @app.get("/kit/{kit_id}", response_class=HTMLResponse)
 async def kit_detail(request: Request, kit_id: str):
+    user = get_current_user(request)
     with db() as conn:
         kit = conn.execute(
             "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, "
@@ -646,10 +648,32 @@ async def kit_detail(request: Request, kit_id: str):
             (kit["sessao_id"],)
         ).fetchall()
 
+    validacoes = validacoes_mod.listar_por_kit(kit_id)
+    ok = request.query_params.get("ok", "")
+
     return render(request, "kit_detail.html", {
         "kit": kit,
         "itens": [dict(i) for i in itens],
+        "validacoes": validacoes,
+        "ok": ok,
     })
+
+
+@app.post("/kit/{kit_id}/validar")
+async def kit_validar(request: Request, kit_id: str):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    form = await request.form()
+    observacao = str(form.get("observacao", "")).strip()
+    with db() as conn:
+        exists = conn.execute(
+            "SELECT kit_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+        ).fetchone()
+    if not exists:
+        return HTMLResponse("<h2>Kit não encontrado.</h2>", status_code=404)
+    validacoes_mod.registrar(kit_id, user["id"], observacao)
+    return RedirectResponse(f"/kit/{kit_id}?ok=validado", status_code=302)
 
 
 # ── Relatórios ────────────────────────────────────────────────────────────────
