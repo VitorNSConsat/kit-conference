@@ -223,7 +223,7 @@
       <h1>{{ kit.kit_nome }}</h1>
       <div class="subtitulo">{{ kit.cliente }} &nbsp;·&nbsp; v{{ kit.versao }}</div>
     </div>
-    <span class="status-badge">✓ Conferido</span>
+    {% if validacoes %}<span class="status-badge">✓ Validado</span>{% endif %}
   </div>
 
   <!-- Veículo e Garagem direto no header — visíveis imediatamente -->
