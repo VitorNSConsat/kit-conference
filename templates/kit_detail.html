@@ -289,35 +289,35 @@
   </div>
 
   {% if ok == 'validado' %}
-  <div class="alert-success">✅ Validação registrada com sucesso.</div>
+  <div class="alert-success">✅ Verificação registrada com sucesso.</div>
   {% endif %}
 
-  <!-- Validação -->
+  <!-- Verificação -->
   <div class="card">
-    <div class="card-title">Validação do Kit</div>
+    <div class="card-title">Verificação do Kit</div>
 
     {% if user %}
     <div class="val-form">
       <div style="font-size:14px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
-        Validando como: <strong>{{ user.nome }}</strong>
+        Verificando como: <strong>{{ user.nome }}</strong>
       </div>
       <form method="post" action="/kit/{{ kit.kit_id }}/validar">
         <textarea name="observacao" placeholder="Observação (opcional)..."></textarea>
-        <button type="submit" class="val-btn">✅ Confirmar Validação</button>
+        <button type="submit" class="val-btn">✅ Confirmar Verificação</button>
       </form>
     </div>
     {% else %}
     <p style="font-size:13px;color:#888;margin-bottom:12px;">
-      Faça login para validar este kit.
+      Faça login para verificar este kit.
     </p>
-    <a href="/login" class="val-login-btn">🔒 Entrar para Validar</a>
+    <a href="/login" class="val-login-btn">🔒 Entrar para Verificar</a>
     {% endif %}
 
     {% if validacoes %}
     <div style="margin-top:16px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;
                   letter-spacing:1.5px;color:#888;margin-bottom:8px;">
-        Histórico de validações
+        Histórico de verificações
       </div>
       {% for v in validacoes %}
       <div class="val-history-row">

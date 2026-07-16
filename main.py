@@ -919,7 +919,7 @@ async def reports_validacoes_export(request: Request,
     headers = [
         "Kit ID", "Template", "Cliente", "Veículo", "Garagem",
         "Operador Conferência", "Data Conferência",
-        "Validado Por", "Data Validação", "Observação", "Itens"
+        "Verificado Por", "Data Verificação", "Observação", "Itens"
     ]
     widths = [14, 28, 22, 14, 14, 22, 20, 22, 20, 30, 50]
 
@@ -955,7 +955,7 @@ async def reports_validacoes_export(request: Request,
     return _Resp(
         content=buf.read(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=validacoes.xlsx"},
+        headers={"Content-Disposition": "attachment; filename=verificacoes.xlsx"},
     )
 
 
