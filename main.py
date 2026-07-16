@@ -623,7 +623,6 @@ async def print_queue_cancelar(request: Request, pq_id: int):
 
 @app.get("/kit/{kit_id}", response_class=HTMLResponse)
 async def kit_detail(request: Request, kit_id: str):
-    user = get_current_user(request)
     with db() as conn:
         kit = conn.execute(
             "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, "
@@ -660,10 +659,9 @@ async def kit_detail(request: Request, kit_id: str):
 
 
 @app.post("/kit/{kit_id}/validar")
+@require_login
 async def kit_validar(request: Request, kit_id: str):
     user = get_current_user(request)
-    if not user:
-        return RedirectResponse("/login", status_code=302)
     form = await request.form()
     observacao = str(form.get("observacao", "")).strip()
     with db() as conn:

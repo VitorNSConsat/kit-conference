@@ -55,7 +55,7 @@ def listar_relatorio(data_ini: str = "", data_fim: str = "", user_id: str = "") 
     if data_fim:
         query += " AND DATE(kv.validado_em) <= ?"
         params.append(data_fim)
-    if user_id:
+    if user_id and str(user_id).isdigit():
         query += " AND kv.validado_por = ?"
         params.append(int(user_id))
     query += " ORDER BY kv.validado_em DESC LIMIT 500"
