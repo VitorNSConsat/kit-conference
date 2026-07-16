@@ -914,7 +914,7 @@ async def reports_validacoes_export(request: Request,
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Validações"
+    ws.title = "Verificado"
 
     headers = [
         "Kit ID", "Template", "Cliente", "Veículo", "Garagem",
@@ -941,7 +941,9 @@ async def reports_validacoes_export(request: Request,
         ws.cell(i, 8, r["validado_por_nome"])
         ws.cell(i, 9, r["validado_em"])
         ws.cell(i, 10, r.get("observacao") or "")
-        ws.cell(i, 11, r.get("itens_resumo") or "")
+        itens_texto = (r.get("itens_resumo") or "").replace(" | ", "\n")
+        c_itens = ws.cell(i, 11, itens_texto)
+        c_itens.alignment = Alignment(wrap_text=True, vertical="top")
         if i % 2 == 0:
             for col in range(1, 12):
                 ws.cell(i, col).fill = PatternFill("solid", fgColor=cinza)
