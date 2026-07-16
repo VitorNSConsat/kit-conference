@@ -174,6 +174,17 @@ def init_db():
             );
         """)
 
+        # Tabela de validações de kits
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS kit_validacoes (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                kit_id       TEXT    NOT NULL REFERENCES kit_record(kit_id),
+                validado_por INTEGER NOT NULL REFERENCES users(id),
+                validado_em  TEXT    NOT NULL,
+                observacao   TEXT
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
