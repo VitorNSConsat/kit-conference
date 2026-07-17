@@ -196,6 +196,14 @@ def init_db():
             );
         """)
 
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome      TEXT NOT NULL UNIQUE,
+                criado_em TEXT NOT NULL
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
