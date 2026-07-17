@@ -108,11 +108,7 @@ def historico_kits(veiculo_id: int) -> list[dict]:
 
 def clientes_disponiveis() -> list[str]:
     with db() as conn:
-        rows = conn.execute("""
-            SELECT DISTINCT cliente FROM (
-                SELECT cliente FROM kit_template WHERE ativo=1
-                UNION
-                SELECT cliente FROM veiculos WHERE ativo=1
-            ) ORDER BY cliente
-        """).fetchall()
+        rows = conn.execute(
+            "SELECT DISTINCT cliente FROM kit_template WHERE ativo=1 ORDER BY cliente"
+        ).fetchall()
     return [r[0] for r in rows]
