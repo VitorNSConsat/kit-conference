@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Veículos{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1>Veículos</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/veiculos/import" class="btn btn-primary">📥 Importar Excel</a>
+    <a href="/admin/veiculos/modelo.xlsx" class="btn btn-secondary">📄 Baixar Modelo</a>
+  </div>
+</div>
+
+{% if request.query_params.get('ok') %}
+<div class="alert alert-success">✅ Operação realizada com sucesso.</div>
+{% endif %}
+{% if erro is defined and erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<!-- Filtro -->
+<div class="card">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Cliente</label>
+      <select name="cliente">
+        <option value="">— todos —</option>
+        {% for c in clientes %}
+        <option value="{{ c }}" {{ 'selected' if filtro_cliente == c }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+  </form>
+</div>
+
+<!-- Novo veículo -->
+<div class="card">
+  <h2>Novo Veículo</h2>
+  <form method="post" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Número / ID *</label>
+      <input type="text" name="numero" placeholder="ex: VH-042" required>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Cliente *</label>
+      <select name="cliente" required>
+        <option value="">— selecione —</option>
+        {% for c in clientes %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Garagem</label>
+      <input type="text" name="garagem" placeholder="ex: Base Norte">
+    </div>
+    <button type="submit" class="btn btn-success">＋ Adicionar</button>
+  </form>
+</div>
+
+<!-- Lista -->
+<div class="card">
+  <h2>Veículos ({{ veiculos | length }})</h2>
+  {% if veiculos %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Cliente</th>
+        <th>Garagem</th>
+        <th>Kits enviados</th>
+        <th>Último envio</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for v in veiculos %}
+    <tr>
+      <td><strong>{{ v.numero }}</strong></td>
+      <td>{{ v.cliente }}</td>
+      <td>{{ v.garagem or '—' }}</td>
+      <td>
+        {% if v.total_kits > 0 %}
+          <span style="color:#27ae60;font-weight:700;">✅ {{ v.total_kits }}</span>
+        {% else %}
+          <span style="color:#aaa;">⚠️ Nenhum</span>
+        {% endif %}
+      </td>
+      <td style="font-size:12px;color:#888;">{{ v.ultimo_kit_em[:10] if v.ultimo_kit_em else '—' }}</td>
+      <td>
+        <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-primary">Ver</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">Nenhum veículo cadastrado.</p>
+  {% endif %}
+</div>
+{% endblock %}

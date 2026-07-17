@@ -23,6 +23,7 @@ import app.zpl as zpl_mod
 import app.print_queue as pq_mod
 import app.estoque as estoque_mod
 import app.validacoes as validacoes_mod
+import app.veiculos as veiculos_mod
 
 load_dotenv()
 
@@ -1078,6 +1079,71 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
     buf = _io.BytesIO()
     qr.save(buf, kind="svg", scale=8, border=3, xmldecl=True, nl=False)
     return FResponse(content=buf.getvalue(), media_type="image/svg+xml")
+
+
+# ── Veículos ──────────────────────────────────────────────────────────────────
+
+@app.get("/admin/veiculos", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos(request: Request, cliente: str = ""):
+    veiculos = veiculos_mod.listar(cliente=cliente or None)
+    clientes = veiculos_mod.clientes_disponiveis()
+    return render(request, "admin_veiculos.html", {
+        "veiculos": veiculos,
+        "clientes": clientes,
+        "filtro_cliente": cliente,
+    })
+
+
+@app.post("/admin/veiculos", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_post(request: Request):
+    form = await request.form()
+    numero = str(form.get("numero", "")).strip()
+    cliente = str(form.get("cliente", "")).strip()
+    garagem = str(form.get("garagem", "")).strip()
+    if not numero or not cliente:
+        veiculos = veiculos_mod.listar()
+        clientes = veiculos_mod.clientes_disponiveis()
+        return render(request, "admin_veiculos.html", {
+            "veiculos": veiculos, "clientes": clientes,
+            "filtro_cliente": "", "erro": "Número e cliente são obrigatórios.",
+        })
+    veiculos_mod.criar(numero, cliente, garagem)
+    return RedirectResponse("/admin/veiculos?ok=criado", status_code=302)
+
+
+@app.get("/admin/veiculos/{veiculo_id}", response_class=HTMLResponse)
+@require_login
+async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
+    v = veiculos_mod.buscar(veiculo_id)
+    if not v:
+        raise HTTPException(status_code=404)
+    historico = veiculos_mod.historico_kits(veiculo_id)
+    clientes = veiculos_mod.clientes_disponiveis()
+    return render(request, "admin_veiculo_detalhe.html", {
+        "v": v, "historico": historico, "clientes": clientes,
+    })
+
+
+@app.post("/admin/veiculos/{veiculo_id}/editar")
+@require_login
+async def admin_veiculo_editar(request: Request, veiculo_id: int):
+    form = await request.form()
+    veiculos_mod.atualizar(
+        veiculo_id,
+        str(form.get("numero", "")),
+        str(form.get("cliente", "")),
+        str(form.get("garagem", "")),
+    )
+    return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
+
+
+@app.post("/admin/veiculos/{veiculo_id}/desativar")
+@require_login
+async def admin_veiculo_desativar(request: Request, veiculo_id: int):
+    veiculos_mod.desativar(veiculo_id)
+    return RedirectResponse("/admin/veiculos?ok=desativado", status_code=302)
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────

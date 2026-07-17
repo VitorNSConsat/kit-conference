@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Veículo {{ v.numero }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1>Veículo {{ v.numero }}</h1>
+  <a href="/admin/veiculos" class="btn btn-secondary">← Voltar</a>
+</div>
+
+{% if request.query_params.get('ok') %}
+<div class="alert alert-success">✅ Dados atualizados.</div>
+{% endif %}
+
+<!-- Edição -->
+<div class="card">
+  <h2>Dados</h2>
+  <form method="post" action="/admin/veiculos/{{ v.id }}/editar"
+        style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Número / ID</label>
+      <input type="text" name="numero" value="{{ v.numero }}" required>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Cliente</label>
+      <select name="cliente" required>
+        {% for c in clientes %}
+        <option value="{{ c }}" {{ 'selected' if v.cliente == c }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Garagem</label>
+      <input type="text" name="garagem" value="{{ v.garagem }}">
+    </div>
+    <button type="submit" class="btn btn-success">💾 Salvar</button>
+  </form>
+</div>
+
+<!-- Histórico de kits -->
+<div class="card">
+  <h2>Histórico de kits ({{ historico | length }})</h2>
+  {% if historico %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Template</th>
+        <th>Operador</th>
+        <th>Verificado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for h in historico %}
+    <tr>
+      <td style="white-space:nowrap;">{{ h.finalizado_em[:10] if h.finalizado_em else '—' }}</td>
+      <td>{{ h.kit_nome }}</td>
+      <td>{{ h.operador_nome }}</td>
+      <td>{{ '✅' if h.tem_verificacao else '—' }}</td>
+      <td><a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">Nenhum kit vinculado a este veículo.</p>
+  {% endif %}
+</div>
+
+<!-- Desativar -->
+<div class="card" style="border:1px solid #e74c3c;">
+  <h2 style="color:#e74c3c;">Desativar veículo</h2>
+  <p style="color:#555;font-size:13px;">O veículo não aparecerá mais nos dropdowns. O histórico é preservado.</p>
+  <form method="post" action="/admin/veiculos/{{ v.id }}/desativar"
+        onsubmit="return confirm('Desativar este veículo?')">
+    <button type="submit" class="btn btn-danger">Desativar</button>
+  </form>
+</div>
+{% endblock %}
