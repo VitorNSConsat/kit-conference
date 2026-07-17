@@ -1129,7 +1129,7 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 @require_login
 async def admin_veiculos(request: Request, cliente: str = ""):
     veiculos = veiculos_mod.listar(cliente=cliente or None)
-    clientes_filtro = veiculos_mod.clientes_disponiveis()
+    clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
     clientes_cadastrados = clientes_mod.listar()
     return render(request, "admin_veiculos.html", {
         "veiculos": veiculos,
@@ -1148,7 +1148,7 @@ async def admin_veiculos_post(request: Request):
     garagem = str(form.get("garagem", "")).strip()
     if not numero or not cliente:
         veiculos = veiculos_mod.listar()
-        clientes_filtro = veiculos_mod.clientes_disponiveis()
+        clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
         clientes_cadastrados = clientes_mod.listar()
         return render(request, "admin_veiculos.html", {
             "veiculos": veiculos, "clientes": clientes_filtro,

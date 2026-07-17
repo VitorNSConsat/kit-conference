@@ -1,3 +1,5 @@
+import sqlite3
+
 from database import db, now_brt
 
 
@@ -20,5 +22,5 @@ def criar(nome: str) -> int | None:
                 (nome, now_brt())
             )
             return cur.lastrowid
-    except Exception:
+    except sqlite3.IntegrityError:
         return None

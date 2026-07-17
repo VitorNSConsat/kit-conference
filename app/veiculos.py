@@ -52,6 +52,7 @@ def desativar(veiculo_id: int):
 
 def importar_excel(file_bytes: bytes) -> dict:
     import openpyxl, io
+    from app.clientes import criar as criar_cliente
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     ws = wb.active
     headers = [str(c.value or "").strip().lower() for c in next(ws.iter_rows(min_row=1, max_row=1))]
@@ -73,6 +74,7 @@ def importar_excel(file_bytes: bytes) -> dict:
             if not numero or not cliente:
                 ignorados += 1
                 continue
+            criar_cliente(cliente)   # no-op if already exists (returns None on dupe)
             existe = conn.execute(
                 "SELECT id FROM veiculos WHERE numero=? AND cliente=? AND ativo=1",
                 (numero, cliente)

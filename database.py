@@ -216,3 +216,17 @@ def init_db():
                 conn.execute(stmt)
             except Exception:
                 pass
+
+    # Backfill clientes from existing free-text data (no-op when already present)
+    ts = now_brt()
+    with db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO clientes (nome, criado_em) "
+            "SELECT DISTINCT cliente, ? FROM kit_template WHERE cliente != ''",
+            (ts,)
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO clientes (nome, criado_em) "
+            "SELECT DISTINCT cliente, ? FROM veiculos WHERE cliente != ''",
+            (ts,)
+        )
