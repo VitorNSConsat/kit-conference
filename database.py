@@ -185,12 +185,24 @@ def init_db():
             );
         """)
 
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS veiculos (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                numero    TEXT NOT NULL,
+                cliente   TEXT NOT NULL,
+                garagem   TEXT NOT NULL DEFAULT '',
+                ativo     INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
             "ALTER TABLE kit_template_items ADD COLUMN requer_serial BOOLEAN DEFAULT 0",
             "ALTER TABLE scan_session_items ADD COLUMN serial_number TEXT",
             "ALTER TABLE scan_session_items ADD COLUMN status TEXT DEFAULT 'completo'",
+            "ALTER TABLE kit_record ADD COLUMN veiculo_id INTEGER REFERENCES veiculos(id)",
         ]:
             try:
                 conn.execute(stmt)
