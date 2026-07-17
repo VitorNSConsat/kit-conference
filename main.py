@@ -453,9 +453,12 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
 
 @app.post("/session/{sessao_id}/finalize")
 @require_login
-async def session_finalize(request: Request, sessao_id: int,
-                           veiculo: str = Form(""), garagem: str = Form(""),
-                           veiculo_id: int | None = Form(None)):
+async def session_finalize(request: Request, sessao_id: int):
+    form = await request.form()
+    veiculo_id_str = str(form.get("veiculo_id", "")).strip()
+    veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
+    veiculo = str(form.get("veiculo", "")).strip()
+    garagem = str(form.get("garagem", "")).strip()
     user = get_current_user(request)
 
     session_check = sessions_mod.get_session(sessao_id)
@@ -492,8 +495,8 @@ async def session_finalize(request: Request, sessao_id: int,
         operador=session["operador_nome"],
         timestamp=ts,
         itens=itens_label,
-        veiculo=veiculo.strip(),
-        garagem=garagem.strip(),
+        veiculo=veiculo,
+        garagem=garagem,
     )
 
     html_label = zpl_mod.generate_html_label(
@@ -503,8 +506,8 @@ async def session_finalize(request: Request, sessao_id: int,
         operador=session["operador_nome"],
         timestamp=ts,
         itens=itens_label,
-        veiculo=veiculo.strip(),
-        garagem=garagem.strip(),
+        veiculo=veiculo,
+        garagem=garagem,
     )
 
     with db() as conn:
@@ -515,7 +518,7 @@ async def session_finalize(request: Request, sessao_id: int,
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (kit_id, sessao_id, session["kit_template_id"],
              session["kit_template_versao"], user["id"],
-             veiculo.strip(), garagem.strip(), ts_str, veiculo_id or None)
+             veiculo, garagem, ts_str, veiculo_id)
         )
         conn.execute(
             "UPDATE scan_session SET status = 'finalizado', "
@@ -1204,12 +1207,17 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
 @require_login
 async def admin_veiculo_editar(request: Request, veiculo_id: int):
     form = await request.form()
-    veiculos_mod.atualizar(
-        veiculo_id,
-        str(form.get("numero", "")),
-        str(form.get("cliente", "")),
-        str(form.get("garagem", "")),
-    )
+    numero = str(form.get("numero", "")).strip()
+    cliente = str(form.get("cliente", "")).strip()
+    garagem = str(form.get("garagem", "")).strip()
+    if not numero or not cliente:
+        v = veiculos_mod.buscar(veiculo_id)
+        clientes = veiculos_mod.clientes_disponiveis()
+        return render(request, "admin_veiculo_detalhe.html", {
+            "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
+            "clientes": clientes, "erro": "Número e cliente são obrigatórios.",
+        })
+    veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem)
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
 
 

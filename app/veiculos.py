@@ -65,6 +65,9 @@ def importar_excel(file_bytes: bytes) -> dict:
     erros: list[str] = []
     with db() as conn:
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+            if len(row) <= max(col_num, col_cli):
+                ignorados += 1
+                continue
             numero = str(row[col_num] or "").strip()
             cliente = str(row[col_cli] or "").strip()
             if not numero or not cliente:
