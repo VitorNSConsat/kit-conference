@@ -1,26 +1,63 @@
 {% extends "base.html" %}
-{% block title %}Veículos{% endblock %}
+{% block title %}Veículos e Clientes{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-  <h1>Veículos</h1>
+  <h1>Veículos e Clientes</h1>
   <div style="display:flex;gap:8px;">
     <a href="/admin/veiculos/import" class="btn btn-primary">📥 Importar Excel</a>
     <a href="/admin/veiculos/modelo.xlsx" class="btn btn-secondary">📄 Baixar Modelo</a>
   </div>
 </div>
 
-{% if request.query_params.get('ok') %}
+{% if request.query_params.get('ok') == 'cliente' %}
+<div class="alert alert-success">✅ Cliente adicionado com sucesso.</div>
+{% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Operação realizada com sucesso.</div>
+{% endif %}
+{% if request.query_params.get('erro_cliente') == 'duplicado' %}
+<div class="alert alert-danger">⚠️ Este cliente já está cadastrado.</div>
+{% elif request.query_params.get('erro_cliente') == 'vazio' %}
+<div class="alert alert-danger">⚠️ O nome do cliente não pode ser vazio.</div>
 {% endif %}
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
+<!-- Clientes -->
+<div class="card">
+  <h2>Clientes</h2>
+  <form method="post" action="/admin/clientes"
+        style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+      <label>Nome do Cliente</label>
+      <input type="text" name="nome" placeholder="ex: Empresa X" required>
+    </div>
+    <button type="submit" class="btn btn-success">＋ Adicionar</button>
+  </form>
+  {% if clientes_cadastrados %}
+  <table>
+    <thead>
+      <tr><th>Nome</th><th>Cadastrado em</th></tr>
+    </thead>
+    <tbody>
+    {% for c in clientes_cadastrados %}
+    <tr>
+      <td><strong>{{ c.nome }}</strong></td>
+      <td style="font-size:12px;color:#888;">{{ c.criado_em[:10] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
+  {% endif %}
+</div>
+
 <!-- Filtro -->
 <div class="card">
   <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
     <div class="form-group" style="margin:0;">
-      <label>Cliente</label>
+      <label>Filtrar por cliente</label>
       <select name="cliente">
         <option value="">— todos —</option>
         {% for c in clientes %}
@@ -44,8 +81,8 @@
       <label>Cliente *</label>
       <select name="cliente" required>
         <option value="">— selecione —</option>
-        {% for c in clientes %}
-        <option value="{{ c }}">{{ c }}</option>
+        {% for c in clientes_cadastrados %}
+        <option value="{{ c.nome }}">{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -57,7 +94,7 @@
   </form>
 </div>
 
-<!-- Lista -->
+<!-- Lista de veículos -->
 <div class="card">
   <h2>Veículos ({{ veiculos | length }})</h2>
   {% if veiculos %}

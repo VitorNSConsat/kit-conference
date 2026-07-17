@@ -24,6 +24,7 @@ import app.print_queue as pq_mod
 import app.estoque as estoque_mod
 import app.validacoes as validacoes_mod
 import app.veiculos as veiculos_mod
+import app.clientes as clientes_mod
 
 load_dotenv()
 
@@ -1120,10 +1121,12 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 @require_login
 async def admin_veiculos(request: Request, cliente: str = ""):
     veiculos = veiculos_mod.listar(cliente=cliente or None)
-    clientes = veiculos_mod.clientes_disponiveis()
+    clientes_filtro = veiculos_mod.clientes_disponiveis()
+    clientes_cadastrados = clientes_mod.listar()
     return render(request, "admin_veiculos.html", {
         "veiculos": veiculos,
-        "clientes": clientes,
+        "clientes": clientes_filtro,
+        "clientes_cadastrados": clientes_cadastrados,
         "filtro_cliente": cliente,
     })
 
@@ -1137,9 +1140,11 @@ async def admin_veiculos_post(request: Request):
     garagem = str(form.get("garagem", "")).strip()
     if not numero or not cliente:
         veiculos = veiculos_mod.listar()
-        clientes = veiculos_mod.clientes_disponiveis()
+        clientes_filtro = veiculos_mod.clientes_disponiveis()
+        clientes_cadastrados = clientes_mod.listar()
         return render(request, "admin_veiculos.html", {
-            "veiculos": veiculos, "clientes": clientes,
+            "veiculos": veiculos, "clientes": clientes_filtro,
+            "clientes_cadastrados": clientes_cadastrados,
             "filtro_cliente": "", "erro": "Número e cliente são obrigatórios.",
         })
     veiculos_mod.criar(numero, cliente, garagem)
@@ -1197,9 +1202,9 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
     if not v:
         raise HTTPException(status_code=404)
     historico = veiculos_mod.historico_kits(veiculo_id)
-    clientes = veiculos_mod.clientes_disponiveis()
+    clientes_cadastrados = clientes_mod.listar()
     return render(request, "admin_veiculo_detalhe.html", {
-        "v": v, "historico": historico, "clientes": clientes,
+        "v": v, "historico": historico, "clientes": clientes_cadastrados,
     })
 
 
@@ -1226,6 +1231,19 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
 async def admin_veiculo_desativar(request: Request, veiculo_id: int):
     veiculos_mod.desativar(veiculo_id)
     return RedirectResponse("/admin/veiculos?ok=desativado", status_code=302)
+
+
+@app.post("/admin/clientes")
+@require_login
+async def admin_clientes_post(request: Request):
+    form = await request.form()
+    nome = str(form.get("nome", "")).strip()
+    if not nome:
+        return RedirectResponse("/admin/veiculos?erro_cliente=vazio", status_code=302)
+    resultado = clientes_mod.criar(nome)
+    if resultado is None:
+        return RedirectResponse("/admin/veiculos?erro_cliente=duplicado", status_code=302)
+    return RedirectResponse("/admin/veiculos?ok=cliente", status_code=302)
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────
