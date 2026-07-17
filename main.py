@@ -689,6 +689,9 @@ async def reports(request: Request,
     query = """
         SELECT kr.kit_id, kr.finalizado_em, kr.status,
                kr.veiculo, kr.garagem,
+               kr.veiculo_id,
+               COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
+               v.id AS v_id,
                kt.nome AS kit_nome, kt.cliente, kt.versao,
                u.nome AS operador_nome,
                pq.id AS pq_id,
@@ -697,6 +700,7 @@ async def reports(request: Request,
         JOIN kit_template kt ON kt.id = kr.kit_template_id
         JOIN users u ON u.id = kr.operador_id
         LEFT JOIN print_queue pq ON pq.kit_id = kr.kit_id
+        LEFT JOIN veiculos v ON v.id = kr.veiculo_id
         WHERE 1=1
     """
     params = []
@@ -715,6 +719,7 @@ async def reports(request: Request,
         rows = conn.execute(query, params).fetchall()
         usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
 
+    veiculos_todos = veiculos_mod.listar()
     return render(request, "reports.html", {
         "kits": [dict(r) for r in rows],
         "usuarios": [dict(u) for u in usuarios],
@@ -722,7 +727,29 @@ async def reports(request: Request,
         "data_fim": data_fim,
         "operador_id": operador_id,
         "ok": request.query_params.get("ok", ""),
+        "veiculos_todos": veiculos_todos,
     })
+
+
+@app.post("/kit-record/{kit_id}/veiculo")
+@require_login
+async def kit_record_vincular_veiculo(request: Request, kit_id: str):
+    form = await request.form()
+    veiculo_id_str = str(form.get("veiculo_id", "")).strip()
+    veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
+    veiculo_texto = ""
+    garagem_texto = ""
+    if veiculo_id:
+        v = veiculos_mod.buscar(veiculo_id)
+        if v:
+            veiculo_texto = v["numero"]
+            garagem_texto = v["garagem"]
+    with db() as conn:
+        conn.execute(
+            "UPDATE kit_record SET veiculo_id=?, veiculo=?, garagem=? WHERE kit_id=?",
+            (veiculo_id, veiculo_texto, garagem_texto, kit_id)
+        )
+    return RedirectResponse("/reports?ok=veiculo", status_code=302)
 
 
 @app.post("/reports/reprint/{kit_id}")

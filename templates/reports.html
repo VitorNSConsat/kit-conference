@@ -66,7 +66,23 @@
                 </a>
             </td>
             <td>{{ k.cliente }}</td>
-            <td>{{ k.veiculo or '—' }}</td>
+            <td>
+              {% if k.v_id %}
+                <a href="/admin/veiculos/{{ k.v_id }}" style="font-weight:700;color:#1a3a5c;">
+                  {{ k.veiculo_exibido }}
+                </a>
+              {% elif k.veiculo_exibido %}
+                {{ k.veiculo_exibido }}
+              {% else %}
+                <span style="color:#aaa;">—</span>
+              {% endif %}
+              <br>
+              <button class="btn btn-sm btn-secondary"
+                      style="font-size:10px;padding:2px 6px;margin-top:2px;"
+                      onclick="abrirModalVeiculo('{{ k.kit_id }}', {{ k.v_id or 'null' }})">
+                🔗
+              </button>
+            </td>
             <td>{{ k.garagem or '—' }}</td>
             <td>{{ k.operador_nome }}</td>
             <td style="white-space:nowrap;">{{ k.finalizado_em }}</td>
@@ -115,4 +131,39 @@
         </tbody>
     </table>
 </div>
+
+<!-- Modal de vínculo de veículo -->
+<div id="modal-veiculo" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+     background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;">
+    <h3 style="margin-top:0;">Vincular Veículo</h3>
+    <form id="form-veiculo" method="post">
+      <div class="form-group">
+        <label>Veículo</label>
+        <select name="veiculo_id" id="modal-select-veiculo">
+          <option value="">— sem veículo —</option>
+          {% for v in veiculos_todos %}
+          <option value="{{ v.id }}">{{ v.numero }} · {{ v.cliente }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button type="button" onclick="fecharModalVeiculo()" class="btn btn-secondary">Cancelar</button>
+        <button type="submit" class="btn btn-success">💾 Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function abrirModalVeiculo(kitId, veiculoId) {
+    document.getElementById('form-veiculo').action = '/kit-record/' + kitId + '/veiculo';
+    var sel = document.getElementById('modal-select-veiculo');
+    sel.value = veiculoId || '';
+    document.getElementById('modal-veiculo').style.display = 'flex';
+}
+function fecharModalVeiculo() {
+    document.getElementById('modal-veiculo').style.display = 'none';
+}
+</script>
 {% endblock %}
