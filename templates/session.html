@@ -110,23 +110,32 @@
     </div>
 </div>
 
-<!-- ── Modal de Finalização (veículo + garagem) ───────────────────────────── -->
+<!-- ── Modal de Finalização ───────────────────────────────────────────────── -->
 <div id="modal-finalizar" class="modal-overlay" style="display:none;">
     <div class="modal-box">
         <h2 style="margin-top:0; margin-bottom:8px;">Finalizar Kit</h2>
         <p style="color:#555; font-size:14px; margin-bottom:20px;">
-            Informe o veículo e a garagem para impressão na etiqueta.
+            Selecione o veículo para este kit (opcional).
         </p>
         <form method="post" action="/session/{{ session.id }}/finalize">
+            <input type="hidden" name="veiculo" id="input-veiculo-texto">
             <div class="form-group">
                 <label>Veículo</label>
-                <input type="text" name="veiculo" id="input-veiculo"
-                       placeholder="ex: Clio 2019 — ABC-1234" autocomplete="off">
+                <select id="select-veiculo" name="veiculo_id" onchange="onVeiculoChange()">
+                    <option value="">— sem veículo definido —</option>
+                    {% for v in veiculos_lista %}
+                    <option value="{{ v.id }}"
+                            data-garagem="{{ v.garagem }}"
+                            data-numero="{{ v.numero }}">
+                        {{ v.numero }}{% if v.garagem %} · {{ v.garagem }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="form-group">
                 <label>Garagem</label>
                 <input type="text" name="garagem" id="input-garagem"
-                       placeholder="ex: Garagem Norte — Vaga 12" autocomplete="off">
+                       placeholder="ex: Garagem Norte" autocomplete="off">
             </div>
             <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
                 <button type="button" onclick="fecharModalFinalizar()" class="btn btn-danger">Cancelar</button>
@@ -178,7 +187,7 @@ initScanner({{ session.id }});
 
 function abrirModalFinalizacao() {
     document.getElementById("modal-finalizar").style.display = "flex";
-    document.getElementById("input-veiculo").focus();
+    document.getElementById("select-veiculo").focus();
 }
 function fecharModalFinalizar() {
     document.getElementById("modal-finalizar").style.display = "none";
@@ -190,5 +199,13 @@ document.addEventListener("keydown", (e) => {
         fecharModalComponente();
     }
 });
+</script>
+<script>
+function onVeiculoChange() {
+    var sel = document.getElementById('select-veiculo');
+    var opt = sel.options[sel.selectedIndex];
+    document.getElementById('input-veiculo-texto').value = opt.dataset.numero || '';
+    document.getElementById('input-garagem').value = opt.dataset.garagem || '';
+}
 </script>
 {% endblock %}

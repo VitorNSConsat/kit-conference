@@ -391,10 +391,12 @@ async def session_page(request: Request, sessao_id: int):
         return RedirectResponse("/", status_code=302)
     itens = templates_mod.get_itens_template(session["kit_template_id"])
     contagem = sessions_mod.get_contagem(sessao_id)
+    veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
     return render(request, "session.html", {
         "session": session,
         "itens": itens,
         "contagem": contagem,
+        "veiculos_lista": veiculos_lista,
     })
 
 
@@ -452,7 +454,8 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
 @app.post("/session/{sessao_id}/finalize")
 @require_login
 async def session_finalize(request: Request, sessao_id: int,
-                           veiculo: str = Form(""), garagem: str = Form("")):
+                           veiculo: str = Form(""), garagem: str = Form(""),
+                           veiculo_id: int | None = Form(None)):
     user = get_current_user(request)
 
     session_check = sessions_mod.get_session(sessao_id)
@@ -508,11 +511,11 @@ async def session_finalize(request: Request, sessao_id: int,
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
             "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, "
-            "kit_template_versao, operador_id, veiculo, garagem, finalizado_em) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "kit_template_versao, operador_id, veiculo, garagem, finalizado_em, veiculo_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (kit_id, sessao_id, session["kit_template_id"],
              session["kit_template_versao"], user["id"],
-             veiculo.strip(), garagem.strip(), ts_str)
+             veiculo.strip(), garagem.strip(), ts_str, veiculo_id or None)
         )
         conn.execute(
             "UPDATE scan_session SET status = 'finalizado', "
