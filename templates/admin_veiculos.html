@@ -42,13 +42,14 @@
     </div>
     <div class="form-group" style="margin:0;">
       <label>Cliente *</label>
-      <select name="cliente" required>
-        <option value="">— selecione —</option>
-        {% for c in clientes %}
-        <option value="{{ c }}">{{ c }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" name="cliente" list="lista-clientes"
+             placeholder="Selecione ou digite novo..." required autocomplete="off">
     </div>
+    <datalist id="lista-clientes">
+      {% for c in clientes %}
+      <option value="{{ c }}">
+      {% endfor %}
+    </datalist>
     <div class="form-group" style="margin:0;">
       <label>Garagem</label>
       <input type="text" name="garagem" placeholder="ex: Base Norte">
