@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Importar Veículos{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1>Importar Veículos</h1>
+  <a href="/admin/veiculos" class="btn btn-secondary">← Voltar</a>
+</div>
+
+{% if resultado is defined %}
+<div class="card">
+  <h2>Resultado da importação</h2>
+  <p>✅ <strong>{{ resultado.inseridos }}</strong> veículos inseridos</p>
+  <p>⏭️ <strong>{{ resultado.ignorados }}</strong> ignorados (já existentes ou linha vazia)</p>
+  {% if resultado.erros %}
+  <div style="color:#e74c3c;margin-top:8px;">
+    {% for e in resultado.erros %}<p>⚠️ {{ e }}</p>{% endfor %}
+  </div>
+  {% endif %}
+  <a href="/admin/veiculos" class="btn btn-primary" style="margin-top:12px;">Ver lista</a>
+</div>
+{% endif %}
+
+{% if erro is defined and erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="card">
+  <h2>Arquivo Excel</h2>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">
+    A planilha deve ter as colunas <strong>Número do Veículo</strong> e <strong>Cliente</strong>.
+    <a href="/admin/veiculos/modelo.xlsx">📄 Baixar modelo</a>
+  </p>
+  <form method="post" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>Planilha (.xlsx)</label>
+      <input type="file" name="arquivo" accept=".xlsx" required>
+    </div>
+    <button type="submit" class="btn btn-success">📥 Importar</button>
+  </form>
+</div>
+{% endblock %}

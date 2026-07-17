@@ -1113,6 +1113,50 @@ async def admin_veiculos_post(request: Request):
     return RedirectResponse("/admin/veiculos?ok=criado", status_code=302)
 
 
+@app.get("/admin/veiculos/modelo.xlsx")
+@require_login
+async def admin_veiculos_modelo(request: Request):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+    from io import BytesIO
+    from fastapi.responses import Response as _Resp
+    azul, branco = "1A3A5C", "FFFFFF"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Veículos"
+    for col, h in enumerate(["Número do Veículo", "Cliente"], 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        ws.column_dimensions[ws.cell(1, col).column_letter].width = 28
+    ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente")
+    ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente")
+    buf = BytesIO()
+    wb.save(buf); buf.seek(0)
+    return _Resp(content=buf.read(),
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": "attachment; filename=modelo_veiculos.xlsx"})
+
+
+@app.get("/admin/veiculos/import", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_import_form(request: Request):
+    return render(request, "admin_veiculos_import.html", {})
+
+
+@app.post("/admin/veiculos/import", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_import_post(request: Request):
+    form = await request.form()
+    arquivo = form.get("arquivo")
+    if not arquivo or not arquivo.filename:
+        return render(request, "admin_veiculos_import.html",
+                      {"erro": "Selecione um arquivo .xlsx."})
+    file_bytes = await arquivo.read()
+    resultado = veiculos_mod.importar_excel(file_bytes)
+    return render(request, "admin_veiculos_import.html", {"resultado": resultado})
+
+
 @app.get("/admin/veiculos/{veiculo_id}", response_class=HTMLResponse)
 @require_login
 async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
