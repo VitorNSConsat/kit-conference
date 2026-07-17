@@ -308,6 +308,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
     # ────────────────────────────────────────────────────────────────────────────
 
     item = items_mod.buscar_item(codigo_barra)
+    item_recem_criado = False
 
     if not item:
         if item_tipo_id is None:
@@ -324,6 +325,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
                     "mensagem": "Tipo selecionado não pertence a este kit."}
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
+        item_recem_criado = True
 
     itens_template = templates_mod.get_itens_template(session["kit_template_id"])
     template_item = next(
@@ -345,7 +347,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já foi bipado nesta sessão."}
 
-    if _barcode_em_kit_ativo(codigo_barra):
+    if not item_recem_criado and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 
