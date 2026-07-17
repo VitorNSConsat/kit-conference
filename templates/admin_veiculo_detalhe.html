@@ -27,7 +27,7 @@
       <label>Cliente</label>
       <select name="cliente" required>
         {% for c in clientes %}
-        <option value="{{ c }}" {{ 'selected' if v.cliente == c }}>{{ c }}</option>
+        <option value="{{ c.nome }}" {{ 'selected' if v.cliente == c.nome }}>{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>

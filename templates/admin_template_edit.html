@@ -19,7 +19,12 @@
             </div>
             <div class="form-group">
                 <label>Cliente</label>
-                <input type="text" name="cliente" required value="{{ template.cliente }}">
+                <select name="cliente" required>
+                    <option value="">— selecione —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.nome }}" {{ 'selected' if template.cliente == c.nome }}>{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
 

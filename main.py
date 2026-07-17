@@ -294,8 +294,10 @@ async def admin_items_delete(request: Request, item_id: int):
 async def admin_templates(request: Request):
     todos = templates_mod.listar_todos()
     tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+    clientes = clientes_mod.listar()
     return render(request, "admin_templates.html",
-                  {"templates": todos, "tipos_catalogo": tipos_ativos})
+                  {"templates": todos, "tipos_catalogo": tipos_ativos,
+                   "clientes": clientes})
 
 
 @app.post("/admin/templates")
@@ -309,8 +311,10 @@ async def admin_templates_post(request: Request):
     if not nome or not cliente or not itens:
         todos = templates_mod.listar_todos()
         tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+        clientes = clientes_mod.listar()
         return render(request, "admin_templates.html",
                       {"templates": todos, "tipos_catalogo": tipos_ativos,
+                       "clientes": clientes,
                        "erro": "Preencha nome, cliente e ao menos 1 item."})
     templates_mod.criar_template(nome, cliente, user["id"], itens)
     return RedirectResponse("/admin/templates?ok=1", status_code=302)
@@ -324,10 +328,12 @@ async def admin_template_edit_page(request: Request, template_id: int):
         return RedirectResponse("/admin/templates", status_code=302)
     itens = templates_mod.get_itens_template(template_id)
     tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+    clientes = clientes_mod.listar()
     return render(request, "admin_template_edit.html", {
         "template": template,
         "itens": itens,
         "tipos_catalogo": tipos_ativos,
+        "clientes": clientes,
     })
 
 
@@ -342,9 +348,11 @@ async def admin_template_edit_post(request: Request, template_id: int):
         template = templates_mod.buscar_template(template_id)
         itens_atuais = templates_mod.get_itens_template(template_id)
         tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+        clientes = clientes_mod.listar()
         return render(request, "admin_template_edit.html", {
             "template": template, "itens": itens_atuais,
             "tipos_catalogo": tipos_ativos,
+            "clientes": clientes,
             "erro": "Preencha nome, cliente e ao menos 1 item.",
         })
     templates_mod.atualizar_template(template_id, nome, cliente, itens)
@@ -1217,7 +1225,7 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
     garagem = str(form.get("garagem", "")).strip()
     if not numero or not cliente:
         v = veiculos_mod.buscar(veiculo_id)
-        clientes = veiculos_mod.clientes_disponiveis()
+        clientes = clientes_mod.listar()
         return render(request, "admin_veiculo_detalhe.html", {
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
             "clientes": clientes, "erro": "Número e cliente são obrigatórios.",
