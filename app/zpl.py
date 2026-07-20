@@ -302,36 +302,36 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
   }}
 
   .topo {{
-    background: #1a3a5c; color: #fff; text-align: center;
+    background: #000; color: #fff; text-align: center;
     padding: 5px 8px; font-size: 11px; font-weight: bold;
     letter-spacing: 1.5px; flex-shrink: 0;
   }}
   .empresa {{
     text-align: center; padding: 6px 8px 4px;
-    border-bottom: 1.5px solid #e0e0e0; flex-shrink: 0;
+    border-bottom: 1.5px solid #ccc; flex-shrink: 0;
   }}
-  .logo-img {{ max-height: 38px; max-width: 160px; object-fit: contain; }}
+  .logo-img {{ max-height: 38px; max-width: 160px; object-fit: contain; filter: grayscale(100%); }}
   .empresa-nome {{
-    font-size: 14px; font-weight: 900; color: #1a3a5c;
+    font-size: 14px; font-weight: 900; color: #000;
     letter-spacing: 1px; text-transform: uppercase;
   }}
   .subtitulo {{
-    font-size: 7px; color: #999; margin-top: 2px;
+    font-size: 7px; color: #666; margin-top: 2px;
     letter-spacing: 2px; text-transform: uppercase;
   }}
 
   .vg-block {{
-    padding: 3px 8px; border-bottom: 2px solid #1a3a5c;
-    background: #f4f7fb; flex-shrink: 0;
+    padding: 3px 8px; border-bottom: 2px solid #000;
+    background: #f0f0f0; flex-shrink: 0;
   }}
   .vg-linha {{
     display: flex; justify-content: space-between; align-items: center; padding: 2px 0;
   }}
   .vg-label {{
-    font-weight: 700; color: #1a3a5c; text-transform: uppercase;
+    font-weight: 700; color: #000; text-transform: uppercase;
     font-size: 8px; letter-spacing: 1px;
   }}
-  .vg-val {{ font-size: 12px; font-weight: 700; color: #111; }}
+  .vg-val {{ font-size: 12px; font-weight: 700; color: #000; }}
 
   /* QR — ocupa o espaço restante, PNG com tamanho fixo em mm */
   .qr-section {{
@@ -355,21 +355,27 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
   }}
 
   .check-box {{
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 4px 8px; border-top: 1px solid #ddd; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 4px 8px; border-top: 1px solid #ccc; flex-shrink: 0;
+  }}
+  .check-item {{
+    display: flex; align-items: center; gap: 5px;
   }}
   .check-square {{
     width: 12mm; height: 5mm;
-    border: 1.5px solid #333; border-radius: 1px; flex-shrink: 0;
+    border: 1.5px solid #000; border-radius: 1px; flex-shrink: 0;
   }}
   .check-label {{
-    font-size: 8px; font-weight: 700; color: #333;
+    font-size: 8px; font-weight: 700; color: #000;
     text-transform: uppercase; letter-spacing: 1px;
+  }}
+  .check-sep {{
+    width: 1px; height: 8mm; background: #ccc; flex-shrink: 0;
   }}
   .rodape {{
     text-align: center; padding: 2px 8px; font-size: 7px;
-    color: #bbb; letter-spacing: 1px;
-    border-top: 1px solid #f0f0f0; flex-shrink: 0;
+    color: #888; letter-spacing: 1px;
+    border-top: 1px solid #e0e0e0; flex-shrink: 0;
   }}
 
   .actions {{ display: flex; gap: 10px; margin-top: 14px; width: 100mm; }}
@@ -377,7 +383,7 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     flex: 1; padding: 9px; border: none; border-radius: 6px;
     cursor: pointer; font-size: 13px; font-weight: bold;
   }}
-  .btn-print {{ background: #1a3a5c; color: white; }}
+  .btn-print {{ background: #000; color: white; }}
   .btn-close  {{ background: #888; color: white; }}
 
   @media print {{
@@ -403,8 +409,15 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     <div class="qr-hint">Escaneie na rede Wi-Fi para ver os itens do kit</div>
   </div>
   <div class="check-box">
-    <div class="check-square"></div>
-    <span class="check-label">Verificado</span>
+    <div class="check-item">
+      <div class="check-square"></div>
+      <span class="check-label">Verificado</span>
+    </div>
+    <div class="check-sep"></div>
+    <div class="check-item">
+      <div class="check-square"></div>
+      <span class="check-label">Verificado</span>
+    </div>
   </div>
   <div class="rodape">ID: {kit_id_curto}</div>
 </div>
