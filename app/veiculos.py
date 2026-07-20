@@ -55,6 +55,11 @@ def reativar(veiculo_id: int):
         conn.execute("UPDATE veiculos SET ativo=1 WHERE id=?", (veiculo_id,))
 
 
+def deletar(veiculo_id: int):
+    with db() as conn:
+        conn.execute("DELETE FROM veiculos WHERE id=?", (veiculo_id,))
+
+
 def importar_excel(file_bytes: bytes) -> dict:
     import openpyxl, io
     from app.clientes import criar as criar_cliente

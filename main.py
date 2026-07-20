@@ -1377,6 +1377,13 @@ async def admin_veiculo_reativar(request: Request, veiculo_id: int):
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=reativado", status_code=302)
 
 
+@app.post("/admin/veiculos/{veiculo_id}/delete")
+@require_login
+async def admin_veiculo_delete(request: Request, veiculo_id: int):
+    veiculos_mod.deletar(veiculo_id)
+    return RedirectResponse("/admin/veiculos?ok=excluido", status_code=302)
+
+
 @app.post("/admin/clientes")
 @require_login
 async def admin_clientes_post(request: Request):
