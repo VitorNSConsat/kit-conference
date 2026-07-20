@@ -56,13 +56,11 @@
             <td><strong>{{ item.tipo_nome }}</strong></td>
             <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
             <td>
-                <form method="post" action="/admin/estoque/{{ item.id }}/minimo"
-                      style="display:flex;gap:4px;align-items:center;">
+                <form id="form-min-{{ item.id }}" method="post"
+                      action="/admin/estoque/{{ item.id }}/minimo">
                     <input type="number" name="quantidade_minima"
                            value="{{ item.quantidade_minima }}" min="0"
                            style="width:60px;text-align:center;margin-bottom:0;">
-                    <button type="submit" class="btn btn-sm btn-warning"
-                            title="Salvar mínimo">💾</button>
                 </form>
             </td>
             <td>
@@ -85,6 +83,8 @@
                 </form>
             </td>
             <td style="white-space:nowrap;">
+                <button type="submit" form="form-min-{{ item.id }}"
+                        class="btn btn-sm btn-warning" title="Salvar mínimo">💾</button>
                 <a href="/admin/estoque/{{ item.id }}/etiqueta" target="_blank"
                    class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                 <a href="/admin/estoque/{{ item.id }}/historico"
