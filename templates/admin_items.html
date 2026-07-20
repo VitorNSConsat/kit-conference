@@ -84,11 +84,14 @@
         <tr>
             <td>{{ tipo.nome }}</td>
             <td>
-                {% if tipo.unidade == 'm' %}
-                <span class="badge" style="background:#0984e3;color:#fff;">📏 Metro</span>
-                {% else %}
-                <span class="badge badge-success">📦 Unidade</span>
-                {% endif %}
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade"
+                      style="display:inline;">
+                    <button type="submit" class="btn btn-sm"
+                            style="{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}"
+                            title="Clique para alternar entre Unidade e Metro">
+                        {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
+                    </button>
+                </form>
             </td>
             <td>
                 <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">

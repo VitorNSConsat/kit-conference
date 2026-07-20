@@ -39,6 +39,14 @@ def criar_tipo(nome: str, unidade: str = "un") -> int:
         return cur.lastrowid
 
 
+def alternar_unidade_tipo(tipo_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE item_tipo SET unidade = CASE WHEN unidade = 'm' THEN 'un' ELSE 'm' END WHERE id = ?",
+            (tipo_id,)
+        )
+
+
 def deletar_tipo(tipo_id: int):
     with db() as conn:
         conn.execute("DELETE FROM item_tipo WHERE id = ?", (tipo_id,))

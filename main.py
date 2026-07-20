@@ -261,6 +261,13 @@ async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(
     return RedirectResponse(f"/admin/items?{params}", status_code=302)
 
 
+@app.post("/admin/tipos/{tipo_id}/toggle-unidade")
+@require_login
+async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
+    items_mod.alternar_unidade_tipo(tipo_id)
+    return RedirectResponse("/admin/items", status_code=302)
+
+
 @app.post("/admin/tipos/{tipo_id}/delete")
 @require_login
 async def admin_tipo_delete(request: Request, tipo_id: int):
