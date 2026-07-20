@@ -30,7 +30,8 @@ def buscar_template(template_id: int) -> dict | None:
 def get_itens_template(template_id: int) -> list:
     with db() as conn:
         rows = conn.execute(
-            "SELECT ki.*, COALESCE(it.nome, '[Tipo removido]') AS descricao "
+            "SELECT ki.*, COALESCE(it.nome, '[Tipo removido]') AS descricao, "
+            "COALESCE(it.unidade, 'un') AS unidade "
             "FROM kit_template_items ki "
             "LEFT JOIN item_tipo it ON it.id = ki.item_tipo_id "
             "WHERE ki.kit_template_id = ? "

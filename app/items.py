@@ -29,10 +29,12 @@ def listar_tipos_para_kit(template_id: int) -> list:
     return [dict(r) for r in rows]
 
 
-def criar_tipo(nome: str) -> int:
+def criar_tipo(nome: str, unidade: str = "un") -> int:
+    unidade = unidade if unidade in ("un", "m") else "un"
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO item_tipo (nome, criado_em) VALUES (?, ?)", (nome.strip(), now_brt())
+            "INSERT INTO item_tipo (nome, unidade, criado_em) VALUES (?, ?, ?)",
+            (nome.strip(), unidade, now_brt())
         )
         return cur.lastrowid
 

@@ -37,9 +37,13 @@
         Na hora do bip, o operador selecionará de qual tipo é o patrimônio escaneado.
     </p>
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <form method="post" action="/admin/tipos" style="display:flex;gap:8px;flex:1;min-width:240px;">
-            <input type="text" name="nome" required placeholder="Nome do tipo (ex: Antena 5dBi)"
-                   style="flex:1;margin-bottom:0;">
+        <form method="post" action="/admin/tipos" style="display:flex;gap:8px;flex:1;min-width:240px;flex-wrap:wrap;">
+            <input type="text" name="nome" required placeholder="Nome do tipo (ex: Antena 5dBi, Cabo UTP)"
+                   style="flex:1;min-width:160px;margin-bottom:0;">
+            <select name="unidade" style="margin-bottom:0;min-width:110px;" title="Como este item é medido">
+                <option value="un">📦 Unidade</option>
+                <option value="m">📏 Metro (m)</option>
+            </select>
             <button type="submit" class="btn btn-primary">Adicionar</button>
         </form>
         <button type="button" class="btn btn-success"
@@ -73,12 +77,19 @@
     {% if tipos %}
     <table>
         <thead>
-            <tr><th>Nome</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Unidade</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
         {% for tipo in tipos %}
         <tr>
             <td>{{ tipo.nome }}</td>
+            <td>
+                {% if tipo.unidade == 'm' %}
+                <span class="badge" style="background:#0984e3;color:#fff;">📏 Metro</span>
+                {% else %}
+                <span class="badge badge-success">📦 Unidade</span>
+                {% endif %}
+            </td>
             <td>
                 <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
                     {{ 'Ativo' if tipo.ativo else 'Inativo' }}

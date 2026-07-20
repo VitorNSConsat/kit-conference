@@ -213,6 +213,7 @@ def init_db():
             "ALTER TABLE kit_record ADD COLUMN veiculo_id INTEGER REFERENCES veiculos(id)",
             "ALTER TABLE scan_session_items ADD COLUMN observacao TEXT",
             "ALTER TABLE scan_session_items ADD COLUMN quantidade INTEGER DEFAULT 1",
+            "ALTER TABLE item_tipo ADD COLUMN unidade TEXT DEFAULT 'un'",
         ]:
             try:
                 conn.execute(stmt)

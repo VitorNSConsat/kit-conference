@@ -85,12 +85,20 @@ function adicionarEvento(data) {
     while (feed.children.length > 50) feed.removeChild(feed.lastChild);
 }
 
+function _fmtQtd(n) {
+    const f = Math.round(parseFloat(n) * 100) / 100;
+    return Number.isInteger(f) ? f.toString() : f.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
 function atualizarContagem(itemTipoId, atual, _exigido) {
     let scrollAlvo = null;
     document.querySelectorAll(`.item-row[data-tipo-id="${itemTipoId}"]`).forEach(el => {
-        const exigido = parseInt(el.dataset.exigido);
-        el.querySelector(".count").textContent = `${atual}/${exigido}`;
-        if (atual >= exigido) {
+        const exigido = parseFloat(el.dataset.exigido);
+        const unidade = el.dataset.unidade || 'un';
+        const sufixo = unidade === 'm' ? 'm' : '';
+        el.querySelector(".count").textContent =
+            `${_fmtQtd(atual)}${sufixo}/${_fmtQtd(exigido)}${sufixo}`;
+        if (parseFloat(atual) >= exigido - 0.001) {
             el.classList.remove("pending");
             el.classList.add("done");
             el.querySelector(".check").textContent = "✅";
@@ -246,22 +254,31 @@ function mostrarModalQuantidade(data) {
     _codigoQuantidadePendente = data.codigo_barra;
     _aguardandoIdentificacao = true;
     buffer = "";
+    const isMeter = (data.unidade === 'm');
+    const sufixo = isMeter ? 'm' : '';
+    document.getElementById("qtd-titulo").textContent =
+        isMeter ? "📏 Metragem" : "📦 Quantidade de Unidades";
+    document.getElementById("qtd-label").textContent =
+        isMeter ? "Quantos metros você está adicionando?" : "Quantas unidades você está adicionando?";
     document.getElementById("qtd-mensagem").innerHTML =
         `<strong>${data.descricao}</strong> — ` +
         `<code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;">${data.codigo_barra}</code>`;
     document.getElementById("qtd-info").textContent =
-        `Kit exige ${data.exigido} unidades · ${data.atual} já bipadas · restam ${data.restante}`;
+        `Kit exige ${_fmtQtd(data.exigido)}${sufixo} · ${_fmtQtd(data.atual)}${sufixo} já adicionados · restam ${_fmtQtd(data.restante)}${sufixo}`;
+    document.getElementById("qtd-sufixo").textContent = sufixo;
     const input = document.getElementById("qtd-valor");
     input.max = data.restante;
-    input.value = data.restante;
+    input.value = _fmtQtd(data.restante);
+    input.step = isMeter ? "0.01" : "1";
+    input.min = isMeter ? "0.01" : "1";
     document.getElementById("modal-quantidade").style.display = "flex";
     input.select();
     input.focus();
 }
 
 function confirmarQuantidade() {
-    const qtd = parseInt(document.getElementById("qtd-valor").value) || 0;
-    if (qtd < 1) { document.getElementById("qtd-valor").focus(); return; }
+    const qtd = parseFloat(document.getElementById("qtd-valor").value) || 0;
+    if (qtd <= 0) { document.getElementById("qtd-valor").focus(); return; }
     if (ws && ws.readyState === WebSocket.OPEN && _codigoQuantidadePendente) {
         ws.send(JSON.stringify({
             acao: "confirmar_quantidade",

@@ -47,19 +47,22 @@
         {% for item in itens %}
         {% set atual = contagem.get(item.item_tipo_id, 0) %}
         {% set completo = atual >= item.quantidade_exigida %}
+        {% set sufixo = 'm' if item.unidade == 'm' else '' %}
         <div class="item-row {{ 'done' if completo else 'pending' }}"
              id="item-ki-{{ item.id }}"
              data-tipo-id="{{ item.item_tipo_id }}"
              data-exigido="{{ item.quantidade_exigida }}"
+             data-unidade="{{ item.unidade | default('un') }}"
              data-obrigatorio="{{ 'true' if item.obrigatorio else 'false' }}">
             <div>
                 <strong>{{ item.descricao }}</strong>
+                {% if item.unidade == 'm' %}<span class="badge" style="margin-left:6px;background:#0984e3;color:#fff;">📏 m</span>{% endif %}
                 {% if item.requer_serial %}<span class="badge" style="margin-left:6px;background:#6c5ce7;color:#fff;">📟 Serial</span>{% endif %}
                 {% if item.componente_codigo %}<span class="badge badge-warning" style="margin-left:6px;">📦 {{ item.componente_codigo }}</span>{% endif %}
                 {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
-                <span class="count">{{ atual }}/{{ item.quantidade_exigida }}</span>
+                <span class="count">{{ atual }}{{ sufixo }}/{{ item.quantidade_exigida }}{{ sufixo }}</span>
                 <span class="check">{{ '✅' if completo else '⬜' }}</span>
             </div>
         </div>
@@ -113,18 +116,20 @@
     </div>
 </div>
 
-<!-- ── Modal de Quantidade (item com múltiplas unidades) ─────────────────── -->
+<!-- ── Modal de Quantidade (item com múltiplas unidades ou metros) ────────── -->
 <div id="modal-quantidade" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:420px;">
-        <h2 style="margin-top:0; margin-bottom:6px;">📦 Quantidade de Unidades</h2>
+        <h2 id="qtd-titulo" style="margin-top:0; margin-bottom:6px;">📦 Quantidade de Unidades</h2>
         <p id="qtd-mensagem" style="color:#555; font-size:14px; margin-bottom:4px;"></p>
         <p id="qtd-info" style="color:#888; font-size:12px; margin-bottom:16px;"></p>
         <div class="form-group" style="margin-bottom:0;">
-            <label style="font-weight:600;">Quantas unidades você está adicionando?</label>
-            <input type="number" id="qtd-valor" min="1" value="1"
-                   style="width:100%;box-sizing:border-box;font-size:22px;font-weight:700;
-                          text-align:center;padding:10px;"
-                   onkeydown="if(event.key==='Enter'){confirmarQuantidade();}">
+            <label id="qtd-label" style="font-weight:600;">Quantas unidades você está adicionando?</label>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+                <input type="number" id="qtd-valor" min="0.01" value="1"
+                       style="flex:1;font-size:22px;font-weight:700;text-align:center;padding:10px;"
+                       onkeydown="if(event.key==='Enter'){confirmarQuantidade();}">
+                <span id="qtd-sufixo" style="font-size:20px;font-weight:700;color:#1a3a5c;min-width:24px;"></span>
+            </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
             <button onclick="fecharModalQuantidade()" class="btn btn-danger">Cancelar</button>

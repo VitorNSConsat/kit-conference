@@ -217,9 +217,11 @@ async def session_start(request: Request, kit_template_id: int = Form(...)):
 
 @app.post("/admin/tipos")
 @require_login
-async def admin_tipos_post(request: Request, nome: str = Form(...)):
+async def admin_tipos_post(request: Request,
+                            nome: str = Form(...),
+                            unidade: str = Form("un")):
     try:
-        items_mod.criar_tipo(nome.strip())
+        items_mod.criar_tipo(nome.strip(), unidade)
     except Exception as e:
         itens = items_mod.listar_itens()
         tipos = items_mod.listar_tipos()
@@ -508,7 +510,7 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     )
                 elif msg.get("acao") == "confirmar_quantidade":
                     result = sessions_mod.confirmar_quantidade(
-                        sessao_id, msg["codigo_barra"], int(msg.get("quantidade", 1))
+                        sessao_id, msg["codigo_barra"], float(msg.get("quantidade", 1))
                     )
                 elif msg.get("acao") == "confirmar_substituicao":
                     result = sessions_mod.confirmar_substituicao(

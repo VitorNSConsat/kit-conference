@@ -118,8 +118,10 @@
             {% for tipo in tipos_catalogo %}
             <button type="button" class="tipo-card-admin"
                     data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
+                    data-unidade="{{ tipo.unidade | default('un') }}"
                     onclick="adicionarTipoFromCard(this)">
                 {{ tipo.nome }}
+                {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
             </button>
             {% endfor %}
         </div>
@@ -183,19 +185,23 @@ let idx = 0;
 const catalogo = {{ tipos_catalogo | tojson }};
 
 function adicionarTipoFromCard(btn) {
-    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome);
+    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un');
 }
 
-function adicionarTipo(tipoId, tipoNome) {
+function adicionarTipo(tipoId, tipoNome, tipoUnidade) {
+    const isMeter = (tipoUnidade === 'm');
     const container = document.getElementById('itens-container');
     const div = document.createElement('div');
     div.className = 'item-sel';
     div.innerHTML =
-        `<div class="item-sel-nome">${tipoNome}</div>` +
+        `<div class="item-sel-nome">${tipoNome}` +
+            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>` : '') +
+        `</div>` +
         `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
         `<div class="item-sel-campos">` +
-          `<label style="font-size:12px;color:#555;">Qtd</label>` +
-          `<input type="number" name="qtd_${idx}" value="1" min="1" style="width:55px;text-align:center;">` +
+          `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
+          `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
+               `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
           `<label style="font-size:12px;color:#555;">Componente</label>` +
           `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
@@ -212,7 +218,7 @@ function adicionarTipo(tipoId, tipoNome) {
 }
 
 function adicionarTodos() {
-    catalogo.forEach(t => adicionarTipo(t.id, t.nome));
+    catalogo.forEach(t => adicionarTipo(t.id, t.nome, t.unidade || 'un'));
 }
 
 function removerItem(btn) {

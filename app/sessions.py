@@ -368,19 +368,22 @@ def register_scan(sessao_id: int, codigo_barra: str,
                 "mensagem": f"'{item['descricao']}': quantidade máxima ({exigido}) já atingida."}
 
     requer_serial = bool(template_item.get("requer_serial"))
+    unidade = template_item.get("unidade", "un")
 
-    # Multi-unit: show quantity modal when more than 1 unit is still needed and no serial
-    if exigido - atual > 1 and not requer_serial:
+    # Metro items always ask for quantity; unit items ask when > 1 needed
+    if (unidade == "m" or exigido - atual > 1) and not requer_serial:
+        sufixo = "m" if unidade == "m" else " unidade(s)"
         return {
             "resultado": "quantidade_pendente",
-            "mensagem": (f"'{item['descricao']}' precisa de {exigido} unidades no kit "
-                         f"({atual} já bipadas). Quantas você está adicionando?"),
+            "mensagem": (f"'{item['descricao']}' precisa de {exigido}{sufixo} no kit "
+                         f"({atual}{sufixo} já bipada(s)). Quanto você está adicionando?"),
             "codigo_barra": codigo_barra,
             "item_tipo_id": item["item_tipo_id"],
             "descricao": item["descricao"],
             "exigido": exigido,
             "atual": atual,
             "restante": exigido - atual,
+            "unidade": unidade,
         }
 
     if _barcode_em_sessao(sessao_id, codigo_barra):
@@ -484,13 +487,13 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> di
     }
 
 
-def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: int) -> dict:
-    """Registra N unidades de um item de uma só vez (fluxo multi-unit)."""
+def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float) -> dict:
+    """Registra N unidades ou metros de um item de uma só vez."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
 
-    if quantidade < 1:
+    if quantidade <= 0:
         return {"resultado": "rejeitado", "mensagem": "Quantidade inválida."}
 
     item = items_mod.buscar_item(codigo_barra)
@@ -509,13 +512,15 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: int) -> 
     contagem = get_contagem(sessao_id)
     atual = contagem.get(item["item_tipo_id"], 0)
     exigido = template_item["quantidade_exigida"]
+    unidade = template_item.get("unidade", "un")
     quantidade = min(quantidade, exigido - atual)
 
     if quantidade <= 0:
         return {"resultado": "rejeitado",
                 "mensagem": f"'{item['descricao']}': quantidade máxima já atingida."}
 
-    if _barcode_em_kit_ativo(codigo_barra):
+    # Itens em metros podem ser usados de um mesmo rolo em vários kits
+    if unidade != "m" and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 
@@ -528,14 +533,23 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: int) -> 
         )
 
     novo_atual = atual + quantidade
+
+    def _fmt(n: float) -> str:
+        f = round(float(n), 2)
+        return str(int(f)) if f == int(f) else str(f)
+
+    sufixo = "m" if unidade == "m" else ""
+    label = "metro(s)" if unidade == "m" else "unidade(s)"
     return {
         "resultado": "aceito",
-        "mensagem": f"✅ '{item['descricao']}': {quantidade} unidade(s) adicionada(s). ({novo_atual}/{exigido})",
+        "mensagem": (f"✅ '{item['descricao']}': {_fmt(quantidade)}{sufixo} {label} adicionado(s). "
+                     f"({_fmt(novo_atual)}{sufixo}/{_fmt(exigido)}{sufixo})"),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
         "item_tipo_id": item["item_tipo_id"],
         "descricao": item["descricao"],
+        "unidade": unidade,
     }
 
 
