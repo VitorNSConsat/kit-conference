@@ -91,6 +91,11 @@ def deletar_tipo_cascade(tipo_id: int):
         conn.execute("DELETE FROM item_tipo WHERE id = ?", (tipo_id,))
 
 
+def renomear_tipo(tipo_id: int, novo_nome: str):
+    with db() as conn:
+        conn.execute("UPDATE item_tipo SET nome = ? WHERE id = ?", (novo_nome.strip(), tipo_id))
+
+
 def deletar_tipo(tipo_id: int):
     with db() as conn:
         conn.execute("DELETE FROM item_tipo WHERE id = ?", (tipo_id,))

@@ -275,6 +275,19 @@ async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
     return RedirectResponse("/admin/items", status_code=302)
 
 
+@app.post("/admin/tipos/{tipo_id}/renomear")
+@require_login
+async def admin_tipo_renomear(request: Request, tipo_id: int):
+    form = await request.form()
+    novo_nome = (form.get("nome") or "").strip()
+    if novo_nome:
+        try:
+            items_mod.renomear_tipo(tipo_id, novo_nome)
+        except Exception:
+            pass
+    return RedirectResponse("/admin/items", status_code=302)
+
+
 @app.post("/admin/tipos/{tipo_id}/delete")
 @require_login
 async def admin_tipo_delete(request: Request, tipo_id: int):

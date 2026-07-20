@@ -106,7 +106,22 @@
         <tbody>
         {% for tipo in tipos %}
         <tr>
-            <td>{{ tipo.nome }}</td>
+            <td>
+                <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
+                <form id="nome-form-{{ tipo.id }}" method="post"
+                      action="/admin/tipos/{{ tipo.id }}/renomear"
+                      style="display:none;margin:0;">
+                    <div style="display:flex;gap:4px;align-items:center;">
+                        <input type="text" name="nome" value="{{ tipo.nome }}"
+                               style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
+                               onkeydown="if(event.key==='Enter'){this.form.submit();}
+                                          if(event.key==='Escape'){cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}');}">
+                        <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+                        <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
+                                onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">✕</button>
+                    </div>
+                </form>
+            </td>
             <td>
                 <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade"
                       style="display:inline;">
@@ -222,5 +237,28 @@ function toggleForm(id) {
     const el = document.getElementById(id);
     el.style.display = el.style.display === 'none' ? 'flex' : 'none';
 }
+
+function editarNome(tipoId) {
+    document.getElementById('nome-texto-' + tipoId).style.display = 'none';
+    const form = document.getElementById('nome-form-' + tipoId);
+    form.style.display = 'block';
+    form.querySelector('input[name="nome"]').focus();
+    form.querySelector('input[name="nome"]').select();
+}
+
+function cancelarEdicao(tipoId, nomeOriginal) {
+    document.getElementById('nome-form-' + tipoId).style.display = 'none';
+    const span = document.getElementById('nome-texto-' + tipoId);
+    span.style.display = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[id^="nome-texto-"]').forEach(function(span) {
+        span.addEventListener('click', function() {
+            const tipoId = this.id.replace('nome-texto-', '');
+            editarNome(tipoId);
+        });
+    });
+});
 </script>
 {% endblock %}
