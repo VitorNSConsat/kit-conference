@@ -6,6 +6,7 @@ let buffer = "";
 let _aguardandoIdentificacao = false;
 let _codigoPendente = null;
 let _aguardandoSerial = false;
+let _codigoSubstituicaoPendente = null;
 
 function initScanner(sessaoId) {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -45,6 +46,8 @@ function initScanner(sessaoId) {
             data.atualizacoes.forEach(u => {
                 atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
             });
+        } else if (data.resultado === "substituicao_pendente") {
+            mostrarModalSubstituicao(data);
         } else if (data.resultado === "desconhecido") {
             mostrarModalIdentificacao(data.codigo_barra, data.tipos);
         }
@@ -80,7 +83,7 @@ function adicionarEvento(data) {
 }
 
 function atualizarContagem(itemTipoId, atual, _exigido) {
-    // Atualiza todas as linhas com este tipo (pode aparecer mais de uma vez no template)
+    let scrollAlvo = null;
     document.querySelectorAll(`.item-row[data-tipo-id="${itemTipoId}"]`).forEach(el => {
         const exigido = parseInt(el.dataset.exigido);
         el.querySelector(".count").textContent = `${atual}/${exigido}`;
@@ -89,7 +92,9 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
             el.classList.add("done");
             el.querySelector(".check").textContent = "✅";
         }
+        if (!scrollAlvo) scrollAlvo = el;
     });
+    if (scrollAlvo) scrollAlvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
 }
@@ -227,6 +232,45 @@ function confirmarTipo(tipoId) {
 function fecharModal() {
     document.getElementById("modal-identificar").style.display = "none";
     _codigoPendente = null;
+    _aguardandoIdentificacao = false;
+    buffer = "";
+    document.getElementById("scan-buffer").textContent = "";
+}
+
+// ── Modal de substituição de patrimônio ──────────────────────────────────────
+
+function mostrarModalSubstituicao(data) {
+    _codigoSubstituicaoPendente = data.codigo_barra;
+    _aguardandoIdentificacao = true;
+    buffer = "";
+    document.getElementById("subs-mensagem").innerHTML =
+        `Patrimônio <code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;">${data.codigo_barra}</code> ` +
+        `foi utilizado no kit <strong>${data.kit_id}</strong>.<br>` +
+        `Informe o motivo da substituição para continuar.`;
+    document.getElementById("subs-motivo").value = "";
+    document.getElementById("modal-substituicao").style.display = "flex";
+    document.getElementById("subs-motivo").focus();
+}
+
+function confirmarSubstituicao() {
+    const motivo = document.getElementById("subs-motivo").value.trim();
+    if (!motivo) {
+        document.getElementById("subs-motivo").focus();
+        return;
+    }
+    if (ws && ws.readyState === WebSocket.OPEN && _codigoSubstituicaoPendente) {
+        ws.send(JSON.stringify({
+            acao: "confirmar_substituicao",
+            codigo_barra: _codigoSubstituicaoPendente,
+            motivo: motivo
+        }));
+    }
+    fecharModalSubstituicao();
+}
+
+function fecharModalSubstituicao() {
+    document.getElementById("modal-substituicao").style.display = "none";
+    _codigoSubstituicaoPendente = null;
     _aguardandoIdentificacao = false;
     buffer = "";
     document.getElementById("scan-buffer").textContent = "";

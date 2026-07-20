@@ -437,6 +437,10 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                         sessao_id, msg["codigo"],
                         item_tipo_id=int(msg["item_tipo_id"])
                     )
+                elif msg.get("acao") == "confirmar_substituicao":
+                    result = sessions_mod.confirmar_substituicao(
+                        sessao_id, msg["codigo_barra"], msg.get("motivo", "")
+                    )
                 elif msg.get("acao") == "confirmar_componente":
                     result = sessions_mod.confirmar_componente(
                         sessao_id, msg["codigo_barra"], msg.get("quantidades", {})

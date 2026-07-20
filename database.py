@@ -211,6 +211,7 @@ def init_db():
             "ALTER TABLE scan_session_items ADD COLUMN serial_number TEXT",
             "ALTER TABLE scan_session_items ADD COLUMN status TEXT DEFAULT 'completo'",
             "ALTER TABLE kit_record ADD COLUMN veiculo_id INTEGER REFERENCES veiculos(id)",
+            "ALTER TABLE scan_session_items ADD COLUMN observacao TEXT",
         ]:
             try:
                 conn.execute(stmt)

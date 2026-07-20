@@ -110,6 +110,25 @@
     </div>
 </div>
 
+<!-- ── Modal de Substituição de Patrimônio ───────────────────────────────── -->
+<div id="modal-substituicao" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;">
+        <h2 style="margin-top:0; margin-bottom:8px; color:#e67e22;">⚠️ Patrimônio em Kit Ativo</h2>
+        <p id="subs-mensagem" style="color:#555; font-size:14px; margin-bottom:16px;"></p>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-weight:600;">Motivo da substituição *</label>
+            <input type="text" id="subs-motivo"
+                   placeholder="ex: Equipamento defeituoso, substituído por novo"
+                   style="width:100%;box-sizing:border-box;" autocomplete="off"
+                   onkeydown="if(event.key==='Enter'){confirmarSubstituicao();}">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+            <button onclick="fecharModalSubstituicao()" class="btn btn-danger">Cancelar</button>
+            <button onclick="confirmarSubstituicao()" class="btn btn-success">✅ Confirmar Substituição</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Modal de Finalização ───────────────────────────────────────────────── -->
 <div id="modal-finalizar" class="modal-overlay" style="display:none;">
     <div class="modal-box">
@@ -197,6 +216,7 @@ document.addEventListener("keydown", (e) => {
         fecharModalFinalizar();
         fecharModal();
         fecharModalComponente();
+        fecharModalSubstituicao();
     }
 });
 </script>

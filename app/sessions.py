@@ -150,6 +150,21 @@ def _barcode_em_kit_ativo(codigo_barra: str) -> bool:
     return row is not None
 
 
+def _historico_kit_ativo(codigo_barra: str) -> dict | None:
+    """Retorna o kit ativo mais recente que contém este código de barras, ou None."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT kr.kit_id, kr.finalizado_em "
+            "FROM scan_session_items si "
+            "JOIN scan_session s ON s.id = si.sessao_id "
+            "JOIN kit_record kr ON kr.sessao_id = s.id "
+            "WHERE si.codigo_barra = ? AND kr.status = 'ativo' "
+            "ORDER BY kr.finalizado_em DESC LIMIT 1",
+            (codigo_barra,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
     """Verifica se o código é um componente e retorna itens + contagem atual para o modal.
     NÃO registra nada. Retorna None se o código não é um componente."""
@@ -326,6 +341,15 @@ def register_scan(sessao_id: int, codigo_barra: str,
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
         item_recem_criado = True
+        kit_ant = _historico_kit_ativo(codigo_barra)
+        if kit_ant:
+            return {
+                "resultado": "substituicao_pendente",
+                "mensagem": (f"Patrimônio já utilizado no kit {kit_ant['kit_id']}. "
+                             "Confirme a substituição e informe o motivo."),
+                "codigo_barra": codigo_barra,
+                "kit_id": kit_ant["kit_id"],
+            }
 
     itens_template = templates_mod.get_itens_template(session["kit_template_id"])
     template_item = next(
@@ -374,6 +398,70 @@ def register_scan(sessao_id: int, codigo_barra: str,
     return {
         "resultado": "aceito",
         "mensagem": f"'{item['descricao']}' aceito. ({novo_atual}/{exigido})",
+        "contagem_atual": novo_atual,
+        "quantidade_exigida": exigido,
+        "codigo_barra": codigo_barra,
+        "item_tipo_id": item["item_tipo_id"],
+        "descricao": item["descricao"],
+    }
+
+
+def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> dict:
+    """Registra bip de patrimônio em substituição, ignorando o histórico de kits anteriores."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    item = items_mod.buscar_item(codigo_barra)
+    if not item:
+        return {"resultado": "rejeitado",
+                "mensagem": f"Item '{codigo_barra}' não encontrado. Bipe novamente."}
+
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    template_item = next(
+        (i for i in itens_template if i["item_tipo_id"] == item["item_tipo_id"]), None
+    )
+    if not template_item:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{item['descricao']}' não pertence a este kit."}
+
+    contagem = get_contagem(sessao_id)
+    atual = contagem.get(item["item_tipo_id"], 0)
+    exigido = template_item["quantidade_exigida"]
+    if atual >= exigido:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{item['descricao']}': quantidade máxima ({exigido}) já atingida."}
+
+    if _barcode_em_sessao(sessao_id, codigo_barra):
+        return {"resultado": "rejeitado",
+                "mensagem": f"Patrimônio '{codigo_barra}' já foi bipado nesta sessão."}
+
+    requer_serial = bool(template_item.get("requer_serial"))
+    obs = motivo.strip() or None
+
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO scan_session_items "
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, observacao) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (sessao_id, codigo_barra, item["item_tipo_id"],
+             "aguardando_serial" if requer_serial else "completo", now_brt(), obs)
+        )
+
+    if requer_serial:
+        return {
+            "resultado": "aguardando_serial",
+            "mensagem": f"'{item['descricao']}' (substituição) bipado. Agora bipe o serial number.",
+            "codigo_barra": codigo_barra,
+            "item_tipo_id": item["item_tipo_id"],
+            "descricao": item["descricao"],
+        }
+
+    novo_atual = atual + 1
+    motivo_texto = motivo.strip() or "—"
+    return {
+        "resultado": "aceito",
+        "mensagem": f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})",
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
