@@ -72,7 +72,8 @@
   {% endif %}
 </div>
 
-<!-- Desativar -->
+<!-- Ativar / Desativar -->
+{% if v.ativo %}
 <div class="card" style="border:1px solid #e74c3c;">
   <h2 style="color:#e74c3c;">Desativar veículo</h2>
   <p style="color:#555;font-size:13px;">O veículo não aparecerá mais nos dropdowns. O histórico é preservado.</p>
@@ -81,4 +82,14 @@
     <button type="submit" class="btn btn-danger">Desativar</button>
   </form>
 </div>
+{% else %}
+<div class="card" style="border:1px solid #27ae60;">
+  <h2 style="color:#27ae60;">Veículo inativo</h2>
+  <p style="color:#555;font-size:13px;">Este veículo está desativado e não aparece nos dropdowns.</p>
+  <form method="post" action="/admin/veiculos/{{ v.id }}/reativar"
+        onsubmit="return confirm('Reativar este veículo?')">
+    <button type="submit" class="btn btn-success">✅ Reativar</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}

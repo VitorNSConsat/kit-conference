@@ -11,6 +11,11 @@ def listar() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def deletar(cliente_id: int):
+    with db() as conn:
+        conn.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+
+
 def criar(nome: str) -> int | None:
     nome = nome.strip()
     if not nome:

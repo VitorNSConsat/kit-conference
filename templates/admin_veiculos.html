@@ -11,6 +11,8 @@
 
 {% if request.query_params.get('ok') == 'cliente' %}
 <div class="alert alert-success">✅ Cliente adicionado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'cliente_excluido' %}
+<div class="alert alert-success">✅ Cliente excluído.</div>
 {% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Operação realizada com sucesso.</div>
 {% endif %}
@@ -37,13 +39,19 @@
   {% if clientes_cadastrados %}
   <table>
     <thead>
-      <tr><th>Nome</th><th>Cadastrado em</th></tr>
+      <tr><th>Nome</th><th>Cadastrado em</th><th></th></tr>
     </thead>
     <tbody>
     {% for c in clientes_cadastrados %}
     <tr>
       <td><strong>{{ c.nome }}</strong></td>
       <td style="font-size:12px;color:#888;">{{ c.criado_em[:10] }}</td>
+      <td>
+        <form method="post" action="/admin/clientes/{{ c.id }}/delete"
+              onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'? Esta ação não afeta os kits já criados.')">
+          <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+        </form>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -136,4 +144,34 @@
   <p style="color:#888;text-align:center;padding:24px;">Nenhum veículo cadastrado.</p>
   {% endif %}
 </div>
+
+{% if veiculos_inativos %}
+<div class="card" style="opacity:0.75;">
+  <h2 style="color:#888;">Veículos inativos ({{ veiculos_inativos | length }})</h2>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Número</th>
+        <th>Cliente</th>
+        <th>Garagem</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for v in veiculos_inativos %}
+    <tr style="color:#aaa;">
+      <td><strong style="color:#888;">{{ v.numero }}</strong></td>
+      <td>{{ v.cliente }}</td>
+      <td>{{ v.garagem or '—' }}</td>
+      <td>
+        <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Reativar</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

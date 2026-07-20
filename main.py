@@ -1255,11 +1255,13 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 @app.get("/admin/veiculos", response_class=HTMLResponse)
 @require_login
 async def admin_veiculos(request: Request, cliente: str = ""):
-    veiculos = veiculos_mod.listar(cliente=cliente or None)
+    veiculos = veiculos_mod.listar(cliente=cliente or None, ativo=True)
+    veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
     clientes_cadastrados = clientes_mod.listar()
     return render(request, "admin_veiculos.html", {
         "veiculos": veiculos,
+        "veiculos_inativos": veiculos_inativos,
         "clientes": clientes_filtro,
         "clientes_cadastrados": clientes_cadastrados,
         "filtro_cliente": cliente,
@@ -1368,6 +1370,13 @@ async def admin_veiculo_desativar(request: Request, veiculo_id: int):
     return RedirectResponse("/admin/veiculos?ok=desativado", status_code=302)
 
 
+@app.post("/admin/veiculos/{veiculo_id}/reativar")
+@require_login
+async def admin_veiculo_reativar(request: Request, veiculo_id: int):
+    veiculos_mod.reativar(veiculo_id)
+    return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=reativado", status_code=302)
+
+
 @app.post("/admin/clientes")
 @require_login
 async def admin_clientes_post(request: Request):
@@ -1379,6 +1388,13 @@ async def admin_clientes_post(request: Request):
     if resultado is None:
         return RedirectResponse("/admin/veiculos?erro_cliente=duplicado", status_code=302)
     return RedirectResponse("/admin/veiculos?ok=cliente", status_code=302)
+
+
+@app.post("/admin/clientes/{cliente_id}/delete")
+@require_login
+async def admin_cliente_delete(request: Request, cliente_id: int):
+    clientes_mod.deletar(cliente_id)
+    return RedirectResponse("/admin/veiculos?ok=cliente_excluido", status_code=302)
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────
