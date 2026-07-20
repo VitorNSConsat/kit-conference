@@ -80,10 +80,7 @@ def buscar_dependencias_tipo(tipo_id: int) -> dict:
 
 def deletar_tipo_cascade(tipo_id: int):
     with db() as conn:
-        conn.execute(
-            "DELETE FROM scan_session_items WHERE codigo_barra IN "
-            "(SELECT codigo_barra FROM item_master WHERE item_tipo_id = ?)", (tipo_id,)
-        )
+        conn.execute("DELETE FROM scan_session_items WHERE item_tipo_id = ?", (tipo_id,))
         conn.execute(
             "DELETE FROM estoque_movimentos WHERE estoque_id IN "
             "(SELECT id FROM estoque WHERE item_tipo_id = ?)", (tipo_id,)
