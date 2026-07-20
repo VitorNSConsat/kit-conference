@@ -196,8 +196,13 @@ async def ping():
 @app.get("/", response_class=HTMLResponse)
 @require_login
 async def home(request: Request):
+    user = get_current_user(request)
     templates_ativos = templates_mod.listar_templates_ativos()
-    return render(request, "index.html", {"templates_ativos": templates_ativos})
+    sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento(operador_id=user["id"])
+    return render(request, "index.html", {
+        "templates_ativos": templates_ativos,
+        "sessoes_em_andamento": sessoes_em_andamento,
+    })
 
 
 @app.post("/session/start")
@@ -379,11 +384,13 @@ async def admin_template_edit_page(request: Request, template_id: int):
     itens = templates_mod.get_itens_template(template_id)
     tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
     clientes = clientes_mod.listar()
+    sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento(template_id=template_id)
     return render(request, "admin_template_edit.html", {
         "template": template,
         "itens": itens,
         "tipos_catalogo": tipos_ativos,
         "clientes": clientes,
+        "sessoes_em_andamento": sessoes_em_andamento,
     })
 
 
@@ -464,6 +471,18 @@ async def session_page(request: Request, sessao_id: int):
 async def session_cancel(request: Request, sessao_id: int):
     sessions_mod.cancel_session(sessao_id)
     return RedirectResponse("/", status_code=302)
+
+
+@app.post("/admin/sessoes/{sessao_id}/cancelar")
+@require_login
+async def admin_sessao_cancelar(request: Request, sessao_id: int):
+    """Admin cancela uma sessão em andamento para liberar template para edição/exclusão."""
+    session = sessions_mod.get_session(sessao_id)
+    template_id = session["kit_template_id"] if session else None
+    sessions_mod.cancel_session(sessao_id)
+    if template_id:
+        return RedirectResponse(f"/admin/templates/{template_id}/edit?cancelou=1", status_code=302)
+    return RedirectResponse("/admin/templates", status_code=302)
 
 
 @app.websocket("/ws/session/{sessao_id}")

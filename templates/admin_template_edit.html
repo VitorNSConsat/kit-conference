@@ -6,6 +6,35 @@
     <h1 style="margin:0;">Editar Template</h1>
 </div>
 
+{% if sessoes_em_andamento %}
+<div class="alert alert-warning" style="border:1px solid #f0a500;">
+    ⚠️ <strong>{{ sessoes_em_andamento | length }} sessão(ões) em andamento</strong> neste template.
+    Cancele-as abaixo para poder excluir o template, ou aguarde o operador finalizar.
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
+        {% for s in sessoes_em_andamento %}
+        <div style="display:flex; align-items:center; gap:10px; background:#fffbe6;
+                    padding:8px 12px; border-radius:6px; flex-wrap:wrap;">
+            <span style="flex:1; font-size:13px;">
+                Operador: <strong>{{ s.operador_nome }}</strong>
+                <span style="color:#888; margin-left:6px; font-size:12px;">
+                    — iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
+                </span>
+            </span>
+            <a href="/session/{{ s.id }}" class="btn btn-sm btn-primary" target="_blank">▶ Ver Sessão</a>
+            <form method="post" action="/admin/sessoes/{{ s.id }}/cancelar"
+                  onsubmit="return confirm('Cancelar a sessão do operador {{ s.operador_nome }}? Os itens bipados serão descartados.')">
+                <button type="submit" class="btn btn-sm btn-danger">Cancelar Sessão</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if request.query_params.get('cancelou') %}
+<div class="alert alert-success">Sessão cancelada. Você pode excluir o template agora se não houver mais sessões em andamento.</div>
+{% endif %}
+
 {% if request.query_params.get('ok') == 'bom' %}
 <div class="alert alert-success">
     ✅ Kit criado a partir do BOM:

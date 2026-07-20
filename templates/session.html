@@ -16,10 +16,13 @@
             <span id="ws-status">⏳ Conectando...</span>
         </span>
     </div>
-    <form method="post" action="/session/{{ session.id }}/cancel"
-          onsubmit="return confirm('Cancelar a sessão? Os itens bipados serão descartados.')">
-        <button type="submit" class="btn btn-danger">Cancelar Sessão</button>
-    </form>
+    <div style="display:flex; gap:8px;">
+        <a href="/" class="btn btn-warning">💾 Salvar e Sair</a>
+        <form method="post" action="/session/{{ session.id }}/cancel"
+              onsubmit="return confirm('Cancelar a sessão? Todos os itens bipados serão descartados.')">
+            <button type="submit" class="btn btn-danger">🗑 Cancelar Sessão</button>
+        </form>
+    </div>
 </div>
 
 <div class="scan-buffer" id="scan-buffer">Aguardando bipagem...</div>

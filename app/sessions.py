@@ -564,6 +564,30 @@ def validate_kit_complete(sessao_id: int) -> dict:
     }
 
 
+def listar_sessoes_em_andamento(template_id: int | None = None,
+                                operador_id: int | None = None) -> list:
+    """Lista sessões em andamento, opcionalmente filtradas por template ou operador."""
+    with db() as conn:
+        conditions = ["s.status = 'em_andamento'"]
+        params: list = []
+        if template_id is not None:
+            conditions.append("s.kit_template_id = ?")
+            params.append(template_id)
+        if operador_id is not None:
+            conditions.append("s.operador_id = ?")
+            params.append(operador_id)
+        where = " AND ".join(conditions)
+        rows = conn.execute(
+            f"SELECT s.*, t.nome AS kit_nome, t.cliente, u.nome AS operador_nome "
+            f"FROM scan_session s "
+            f"JOIN kit_template t ON t.id = s.kit_template_id "
+            f"JOIN users u ON u.id = s.operador_id "
+            f"WHERE {where} ORDER BY s.iniciado_em DESC",
+            params
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def cancel_session(sessao_id: int):
     estoque_mod.reverter_saidas_sessao(sessao_id)
     with db() as conn:
