@@ -57,7 +57,7 @@
             <div>
                 <strong>{{ item.descricao }}</strong>
                 {% if item.unidade == 'm' %}<span class="badge" style="margin-left:6px;background:#0984e3;color:#fff;">📏 m</span>{% endif %}
-                {% if item.reutilizavel %}<span class="badge" style="margin-left:6px;background:#6c5ce7;color:#fff;">♻️ Reutilizável</span>{% endif %}
+                {% if item.reutilizavel %}<span title="Item reutilizável" style="margin-left:4px;">♻️</span>{% endif %}
                 {% if item.requer_serial %}<span class="badge" style="margin-left:6px;background:#6c5ce7;color:#fff;">📟 Serial</span>{% endif %}
                 {% if item.componente_codigo %}<span class="badge badge-warning" style="margin-left:6px;">📦 {{ item.componente_codigo }}</span>{% endif %}
                 {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}

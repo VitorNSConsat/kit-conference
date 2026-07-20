@@ -280,9 +280,15 @@ async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
 async def admin_tipo_delete(request: Request, tipo_id: int):
     try:
         items_mod.deletar_tipo(tipo_id)
+        return RedirectResponse("/admin/items", status_code=302)
     except Exception:
-        pass
-    return RedirectResponse("/admin/items", status_code=302)
+        itens = items_mod.listar_itens()
+        tipos = items_mod.listar_tipos()
+        return render(request, "admin_items.html", {
+            "itens": itens, "tipos": tipos,
+            "erro": "Não foi possível excluir o tipo: existem patrimônios, templates de kit ou "
+                    "registros de estoque vinculados a ele. Exclua-os primeiro.",
+        })
 
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
@@ -322,8 +328,16 @@ async def admin_items_clear(request: Request):
 @app.post("/admin/items/{item_id}/delete")
 @require_login
 async def admin_items_delete(request: Request, item_id: int):
-    items_mod.deletar_item(item_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    try:
+        items_mod.deletar_item(item_id)
+        return RedirectResponse("/admin/items", status_code=302)
+    except Exception:
+        itens = items_mod.listar_itens()
+        tipos = items_mod.listar_tipos()
+        return render(request, "admin_items.html", {
+            "itens": itens, "tipos": tipos,
+            "erro": "Não foi possível excluir o patrimônio.",
+        })
 
 
 # ── Admin: Templates ──────────────────────────────────────────────────────────
