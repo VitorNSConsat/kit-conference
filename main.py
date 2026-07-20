@@ -284,11 +284,18 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
     except Exception:
         itens = items_mod.listar_itens()
         tipos = items_mod.listar_tipos()
+        deps = items_mod.buscar_dependencias_tipo(tipo_id)
         return render(request, "admin_items.html", {
             "itens": itens, "tipos": tipos,
-            "erro": "Não foi possível excluir o tipo: existem patrimônios, templates de kit ou "
-                    "registros de estoque vinculados a ele. Exclua-os primeiro.",
+            "tipo_com_erro": deps,
         })
+
+
+@app.post("/admin/tipos/{tipo_id}/delete-force")
+@require_login
+async def admin_tipo_delete_force(request: Request, tipo_id: int):
+    items_mod.deletar_tipo_cascade(tipo_id)
+    return RedirectResponse("/admin/items", status_code=302)
 
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────

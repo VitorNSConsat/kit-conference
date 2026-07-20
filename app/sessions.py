@@ -13,6 +13,7 @@ def deletar_kit_record(kit_id: str):
         # Ordem respeita as FKs: filhos antes dos pais
         if sessao:
             conn.execute("DELETE FROM scan_session_items WHERE sessao_id = ?", (sessao[0],))
+            conn.execute("DELETE FROM estoque_movimentos WHERE sessao_id = ?", (sessao[0],))
         conn.execute("DELETE FROM kit_validacoes WHERE kit_id = ?", (kit_id,))
         conn.execute("DELETE FROM print_queue WHERE kit_id = ?", (kit_id,))
         conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))

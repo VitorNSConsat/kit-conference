@@ -132,10 +132,12 @@ def deletar_template(template_id: int):
         ).fetchall()]
         for sid in sessao_ids:
             conn.execute("DELETE FROM scan_session_items WHERE sessao_id = ?", (sid,))
+            conn.execute("DELETE FROM estoque_movimentos WHERE sessao_id = ?", (sid,))
         kit_ids = [r[0] for r in conn.execute(
             "SELECT kit_id FROM kit_record WHERE kit_template_id = ?", (template_id,)
         ).fetchall()]
         for kid in kit_ids:
+            conn.execute("DELETE FROM kit_validacoes WHERE kit_id = ?", (kid,))
             conn.execute("DELETE FROM print_queue WHERE kit_id = ?", (kid,))
         conn.execute("DELETE FROM kit_record WHERE kit_template_id = ?", (template_id,))
         conn.execute("DELETE FROM scan_session WHERE kit_template_id = ?", (template_id,))

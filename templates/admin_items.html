@@ -28,6 +28,30 @@
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
+{% if tipo_com_erro %}
+<div class="alert alert-warning" style="border:1px solid #f0a500;">
+    <strong>⚠️ Não foi possível excluir "{{ tipo_com_erro.tipo_nome }}"</strong> — ele está em uso:
+    <ul style="margin:8px 0 8px 16px; font-size:13px;">
+        {% if tipo_com_erro.patrimonios %}
+        <li>{{ tipo_com_erro.patrimonios }} patrimônio(s) cadastrado(s)</li>
+        {% endif %}
+        {% if tipo_com_erro.templates %}
+        <li>Templates de kit: <strong>{{ tipo_com_erro.templates | join(', ') }}</strong></li>
+        {% endif %}
+        {% if tipo_com_erro.estoque %}
+        <li>Registros de estoque vinculados</li>
+        {% endif %}
+    </ul>
+    <p style="font-size:13px;margin:4px 0 10px;">
+        A exclusão forçada remove o tipo e todos os dados vinculados permanentemente
+        (patrimônios, entradas em templates, estoque e histórico de bipagem).
+    </p>
+    <form method="post" action="/admin/tipos/{{ tipo_com_erro.tipo_id }}/delete-force"
+          onsubmit="return confirm('Excluir permanentemente o tipo \'{{ tipo_com_erro.tipo_nome }}\' e todos os dados vinculados? Esta ação não pode ser desfeita.')">
+        <button type="submit" class="btn btn-sm btn-danger">🗑 Forçar exclusão total</button>
+    </form>
+</div>
+{% endif %}
 
 <!-- ── Tipos de Item ─────────────────────────────────────────────────────── -->
 <div class="card">

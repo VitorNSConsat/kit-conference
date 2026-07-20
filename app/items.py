@@ -55,6 +55,45 @@ def alternar_unidade_tipo(tipo_id: int):
         )
 
 
+def buscar_dependencias_tipo(tipo_id: int) -> dict:
+    with db() as conn:
+        tipo = conn.execute("SELECT nome FROM item_tipo WHERE id = ?", (tipo_id,)).fetchone()
+        patrimonios = conn.execute(
+            "SELECT COUNT(*) AS n FROM item_master WHERE item_tipo_id = ?", (tipo_id,)
+        ).fetchone()["n"]
+        templates_rows = conn.execute(
+            "SELECT DISTINCT kt.nome FROM kit_template_items ki "
+            "JOIN kit_template kt ON kt.id = ki.kit_template_id "
+            "WHERE ki.item_tipo_id = ?", (tipo_id,)
+        ).fetchall()
+        estoque_n = conn.execute(
+            "SELECT COUNT(*) AS n FROM estoque WHERE item_tipo_id = ?", (tipo_id,)
+        ).fetchone()["n"]
+    return {
+        "tipo_id": tipo_id,
+        "tipo_nome": tipo["nome"] if tipo else "?",
+        "patrimonios": patrimonios,
+        "templates": [r["nome"] for r in templates_rows],
+        "estoque": estoque_n,
+    }
+
+
+def deletar_tipo_cascade(tipo_id: int):
+    with db() as conn:
+        conn.execute(
+            "DELETE FROM scan_session_items WHERE codigo_barra IN "
+            "(SELECT codigo_barra FROM item_master WHERE item_tipo_id = ?)", (tipo_id,)
+        )
+        conn.execute(
+            "DELETE FROM estoque_movimentos WHERE estoque_id IN "
+            "(SELECT id FROM estoque WHERE item_tipo_id = ?)", (tipo_id,)
+        )
+        conn.execute("DELETE FROM item_master WHERE item_tipo_id = ?", (tipo_id,))
+        conn.execute("DELETE FROM kit_template_items WHERE item_tipo_id = ?", (tipo_id,))
+        conn.execute("DELETE FROM estoque WHERE item_tipo_id = ?", (tipo_id,))
+        conn.execute("DELETE FROM item_tipo WHERE id = ?", (tipo_id,))
+
+
 def deletar_tipo(tipo_id: int):
     with db() as conn:
         conn.execute("DELETE FROM item_tipo WHERE id = ?", (tipo_id,))
