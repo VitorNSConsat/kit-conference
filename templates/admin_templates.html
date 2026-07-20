@@ -122,6 +122,7 @@
                     onclick="adicionarTipoFromCard(this)">
                 {{ tipo.nome }}
                 {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
+                {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
             </button>
             {% endfor %}
         </div>

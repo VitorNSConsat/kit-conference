@@ -390,7 +390,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já foi bipado nesta sessão."}
 
-    if not item_recem_criado and _barcode_em_kit_ativo(codigo_barra):
+    if not item_recem_criado and not item.get("reutilizavel") and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 
@@ -519,8 +519,8 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float) -
         return {"resultado": "rejeitado",
                 "mensagem": f"'{item['descricao']}': quantidade máxima já atingida."}
 
-    # Itens em metros podem ser usados de um mesmo rolo em vários kits
-    if unidade != "m" and _barcode_em_kit_ativo(codigo_barra):
+    # Itens em metros ou reutilizáveis podem aparecer em múltiplos kits ativos
+    if unidade != "m" and not item.get("reutilizavel") and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 

@@ -39,6 +39,14 @@ def criar_tipo(nome: str, unidade: str = "un") -> int:
         return cur.lastrowid
 
 
+def alternar_reutilizavel_tipo(tipo_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE item_tipo SET reutilizavel = 1 - COALESCE(reutilizavel, 0) WHERE id = ?",
+            (tipo_id,)
+        )
+
+
 def alternar_unidade_tipo(tipo_id: int):
     with db() as conn:
         conn.execute(
@@ -100,7 +108,9 @@ def listar_itens() -> list:
 def buscar_item(codigo_barra: str) -> dict | None:
     with db() as conn:
         row = conn.execute(
-            "SELECT i.*, t.nome AS descricao "
+            "SELECT i.*, t.nome AS descricao, "
+            "COALESCE(t.unidade, 'un') AS unidade, "
+            "COALESCE(t.reutilizavel, 0) AS reutilizavel "
             "FROM item_master i "
             "JOIN item_tipo t ON t.id = i.item_tipo_id "
             "WHERE i.codigo_barra = ? AND i.ativo = 1",

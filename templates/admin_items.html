@@ -77,7 +77,7 @@
     {% if tipos %}
     <table>
         <thead>
-            <tr><th>Nome</th><th>Unidade</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Unidade</th><th>Reutilizável</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
         {% for tipo in tipos %}
@@ -90,6 +90,16 @@
                             style="{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}"
                             title="Clique para alternar entre Unidade e Metro">
                         {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
+                    </button>
+                </form>
+            </td>
+            <td>
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel"
+                      style="display:inline;">
+                    <button type="submit" class="btn btn-sm"
+                            style="{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}"
+                            title="Itens reutilizáveis podem aparecer em múltiplos kits ativos ao mesmo tempo">
+                        {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
                     </button>
                 </form>
             </td>
