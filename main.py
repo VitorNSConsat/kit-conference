@@ -318,6 +318,38 @@ async def admin_templates(request: Request):
                    "clientes": clientes})
 
 
+@app.post("/admin/templates/import-bom")
+@require_login
+async def admin_templates_import_bom(request: Request,
+                                      nome: str = Form(""),
+                                      cliente: str = Form(""),
+                                      arquivo: UploadFile = File(...)):
+    user = get_current_user(request)
+    nome, cliente = nome.strip(), cliente.strip()
+    if not nome or not cliente:
+        todos = templates_mod.listar_todos()
+        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+        clientes = clientes_mod.listar()
+        return render(request, "admin_templates.html",
+                      {"templates": todos, "tipos_catalogo": tipos_ativos,
+                       "clientes": clientes,
+                       "erro": "Preencha nome e cliente antes de importar o BOM."})
+    try:
+        conteudo = await arquivo.read()
+        template_id, stats = templates_mod.criar_template_do_bom(
+            nome, cliente, user["id"], conteudo
+        )
+        q = f"ok=bom&itens={stats['itens_adicionados']}&tipos={stats['tipos_criados']}"
+        return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
+    except ValueError as e:
+        todos = templates_mod.listar_todos()
+        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
+        clientes = clientes_mod.listar()
+        return render(request, "admin_templates.html",
+                      {"templates": todos, "tipos_catalogo": tipos_ativos,
+                       "clientes": clientes, "erro": str(e)})
+
+
 @app.post("/admin/templates")
 @require_login
 async def admin_templates_post(request: Request):

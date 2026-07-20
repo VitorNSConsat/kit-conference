@@ -16,6 +16,40 @@
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
+<!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
+<div class="card" style="border:1px solid #b0c4de;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+        <div>
+            <h2 style="margin:0;">📋 Criar Kit a partir do BOM</h2>
+            <p style="margin:4px 0 0;font-size:13px;color:#666;">
+                Importa Description e Quantity da planilha e cria o template já com todos os itens.
+                Após a criação você pode editar livremente.
+            </p>
+        </div>
+    </div>
+    <form method="post" action="/admin/templates/import-bom" enctype="multipart/form-data">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="form-group" style="margin:0;">
+                <label>Nome do Kit *</label>
+                <input type="text" name="nome" required placeholder="ex: Kit VW 2025">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>Cliente *</label>
+                <select name="cliente" required>
+                    <option value="">— selecione —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.nome }}">{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
+            <button type="submit" class="btn btn-primary">📥 Importar e Criar Kit</button>
+        </div>
+    </form>
+</div>
+
 <div class="card">
     <h2>Kits Cadastrados</h2>
     <table>

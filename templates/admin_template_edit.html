@@ -6,6 +6,18 @@
     <h1 style="margin:0;">Editar Template</h1>
 </div>
 
+{% if request.query_params.get('ok') == 'bom' %}
+<div class="alert alert-success">
+    ✅ Kit criado a partir do BOM:
+    <strong>{{ request.query_params.get('itens') }} item(ns)</strong> adicionados
+    {% if request.query_params.get('tipos', '0') != '0' %}
+    · <strong>{{ request.query_params.get('tipos') }} tipo(s) novo(s)</strong> criados automaticamente
+    {% endif %}
+    — revise e salve abaixo.
+</div>
+{% elif request.query_params.get('ok') %}
+<div class="alert alert-success">Template atualizado com sucesso.</div>
+{% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}

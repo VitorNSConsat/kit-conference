@@ -1,4 +1,5 @@
-from database import db
+import io
+from database import db, now_brt
 
 
 def listar_templates_ativos() -> list:
@@ -145,3 +146,78 @@ def toggle_ativo(template_id: int):
         conn.execute(
             "UPDATE kit_template SET ativo = 1 - ativo WHERE id = ?", (template_id,)
         )
+
+
+def criar_template_do_bom(nome: str, cliente: str, criado_por: int,
+                           conteudo: bytes) -> tuple[int, dict]:
+    """Cria um kit_template a partir de um BOM Excel.
+
+    Detecta automaticamente o cabeçalho ('Description' e 'Quantity').
+    Cria item_tipo caso ainda não exista. Retorna (template_id, stats).
+    """
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
+    ws = wb.active
+
+    col_desc = col_qty = None
+    past_header = False
+    itens: list[dict] = []
+    tipos_criados = 0
+
+    with db() as conn:
+        for row in ws.iter_rows(values_only=True):
+            cells = [str(c).strip().lower() if c else "" for c in row]
+
+            if not past_header:
+                if "description" in cells:
+                    col_desc = next(i for i, c in enumerate(cells) if c == "description")
+                    for label in ("quantity", "qty", "quantidade", "qtd"):
+                        if label in cells:
+                            col_qty = next(i for i, c in enumerate(cells) if c == label)
+                            break
+                    past_header = True
+                continue
+
+            if col_desc is None or col_desc >= len(row):
+                continue
+            desc = str(row[col_desc]).strip() if row[col_desc] else ""
+            if not desc or desc.lower() == "none":
+                continue
+
+            qty_raw = (row[col_qty] if col_qty is not None and col_qty < len(row)
+                       and row[col_qty] is not None else None)
+            try:
+                qty = max(1, int(float(str(qty_raw)))) if qty_raw is not None else 1
+            except (ValueError, TypeError):
+                qty = 1
+
+            existing = conn.execute(
+                "SELECT id FROM item_tipo WHERE nome = ?", (desc,)
+            ).fetchone()
+            if existing:
+                tipo_id = existing["id"]
+            else:
+                cur = conn.execute(
+                    "INSERT INTO item_tipo (nome, criado_em) VALUES (?, ?)",
+                    (desc, now_brt())
+                )
+                tipo_id = cur.lastrowid
+                tipos_criados += 1
+
+            itens.append({
+                "item_tipo_id": tipo_id,
+                "quantidade_exigida": qty,
+                "obrigatorio": True,
+                "componente_codigo": None,
+                "requer_serial": False,
+            })
+
+    wb.close()
+
+    if not past_header:
+        raise ValueError("Cabeçalho 'Description' não encontrado na planilha.")
+    if not itens:
+        raise ValueError("Nenhum item válido encontrado na planilha.")
+
+    template_id = criar_template(nome, cliente, criado_por, itens)
+    return template_id, {"itens_adicionados": len(itens), "tipos_criados": tipos_criados}
