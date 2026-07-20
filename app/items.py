@@ -124,3 +124,86 @@ def toggle_item(item_id: int):
         conn.execute(
             "UPDATE item_master SET ativo = 1 - ativo WHERE id = ?", (item_id,)
         )
+
+
+def importar_bom_xlsx(conteudo: bytes, criado_por: int) -> dict:
+    """Importa tipos e patrimônios a partir de um BOM Excel.
+
+    Detecta automaticamente a linha de cabeçalho procurando por 'Description'.
+    Colunas usadas: Code → item_master.codigo_barra, Description → item_tipo.nome.
+    Rows without a description are skipped; rows without a code create only the tipo.
+    """
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
+    ws = wb.active
+
+    # Detecta header row e índices de colunas
+    header_row = None
+    col_desc = col_code = None
+    for row in ws.iter_rows(values_only=True):
+        cells = [str(c).strip().lower() if c else "" for c in row]
+        if "description" in cells:
+            header_row = True
+            col_desc = next(i for i, c in enumerate(cells) if c == "description")
+            # Code pode se chamar 'code', 'part number', 'código', etc.
+            for label in ("code", "part number", "código", "codigo", "part no"):
+                if label in cells:
+                    col_code = next(i for i, c in enumerate(cells) if c == label)
+                    break
+            break
+
+    if header_row is None:
+        wb.close()
+        return {"tipos_criados": 0, "itens_criados": 0, "ignorados": 0,
+                "erro": "Cabeçalho 'Description' não encontrado na planilha."}
+
+    tipos_criados = itens_criados = ignorados = 0
+
+    with db() as conn:
+        past_header = False
+        for row in ws.iter_rows(values_only=True):
+            cells = [str(c).strip().lower() if c else "" for c in row]
+            # Pula até depois do header
+            if not past_header:
+                if "description" in cells:
+                    past_header = True
+                continue
+
+            desc = str(row[col_desc]).strip() if col_desc is not None and row[col_desc] else ""
+            code = (str(row[col_code]).strip() if col_code is not None and row[col_code] else "")
+            # Limpa values como "None" ou "no part number"
+            if desc.lower() in ("none", "") or not desc:
+                continue
+            if code.lower() in ("none", "no part number", "n/a", ""):
+                code = ""
+
+            # Cria ou recupera o tipo
+            existing_tipo = conn.execute(
+                "SELECT id FROM item_tipo WHERE nome = ?", (desc,)
+            ).fetchone()
+            if existing_tipo:
+                tipo_id = existing_tipo["id"]
+                ignorados += 1
+            else:
+                cur = conn.execute(
+                    "INSERT INTO item_tipo (nome, criado_em) VALUES (?, ?)",
+                    (desc, now_brt())
+                )
+                tipo_id = cur.lastrowid
+                tipos_criados += 1
+
+            # Cria patrimônio se houver código
+            if code:
+                exists = conn.execute(
+                    "SELECT 1 FROM item_master WHERE codigo_barra = ?", (code,)
+                ).fetchone()
+                if not exists:
+                    conn.execute(
+                        "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por) "
+                        "VALUES (?, ?, ?)",
+                        (code, tipo_id, criado_por)
+                    )
+                    itens_criados += 1
+
+    wb.close()
+    return {"tipos_criados": tipos_criados, "itens_criados": itens_criados, "ignorados": ignorados}

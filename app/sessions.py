@@ -48,10 +48,10 @@ def get_session(sessao_id: int) -> dict | None:
 
 
 def get_contagem(sessao_id: int) -> dict:
-    """Retorna {item_tipo_id: quantidade_bipada} — conta apenas itens com serial completo."""
+    """Retorna {item_tipo_id: quantidade_bipada} — usa SUM(quantidade) para multi-unit."""
     with db() as conn:
         rows = conn.execute(
-            "SELECT item_tipo_id, COUNT(*) as qtd FROM scan_session_items "
+            "SELECT item_tipo_id, SUM(COALESCE(quantidade, 1)) as qtd FROM scan_session_items "
             "WHERE sessao_id = ? AND (status IS NULL OR status = 'completo') "
             "GROUP BY item_tipo_id",
             (sessao_id,)
@@ -367,6 +367,22 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": f"'{item['descricao']}': quantidade máxima ({exigido}) já atingida."}
 
+    requer_serial = bool(template_item.get("requer_serial"))
+
+    # Multi-unit: show quantity modal when more than 1 unit is still needed and no serial
+    if exigido - atual > 1 and not requer_serial:
+        return {
+            "resultado": "quantidade_pendente",
+            "mensagem": (f"'{item['descricao']}' precisa de {exigido} unidades no kit "
+                         f"({atual} já bipadas). Quantas você está adicionando?"),
+            "codigo_barra": codigo_barra,
+            "item_tipo_id": item["item_tipo_id"],
+            "descricao": item["descricao"],
+            "exigido": exigido,
+            "atual": atual,
+            "restante": exigido - atual,
+        }
+
     if _barcode_em_sessao(sessao_id, codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já foi bipado nesta sessão."}
@@ -374,8 +390,6 @@ def register_scan(sessao_id: int, codigo_barra: str,
     if not item_recem_criado and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
-
-    requer_serial = bool(template_item.get("requer_serial"))
 
     with db() as conn:
         conn.execute(
@@ -462,6 +476,61 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> di
     return {
         "resultado": "aceito",
         "mensagem": f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})",
+        "contagem_atual": novo_atual,
+        "quantidade_exigida": exigido,
+        "codigo_barra": codigo_barra,
+        "item_tipo_id": item["item_tipo_id"],
+        "descricao": item["descricao"],
+    }
+
+
+def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: int) -> dict:
+    """Registra N unidades de um item de uma só vez (fluxo multi-unit)."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    if quantidade < 1:
+        return {"resultado": "rejeitado", "mensagem": "Quantidade inválida."}
+
+    item = items_mod.buscar_item(codigo_barra)
+    if not item:
+        return {"resultado": "rejeitado",
+                "mensagem": f"Item '{codigo_barra}' não encontrado. Bipe novamente."}
+
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    template_item = next(
+        (i for i in itens_template if i["item_tipo_id"] == item["item_tipo_id"]), None
+    )
+    if not template_item:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{item['descricao']}' não pertence a este kit."}
+
+    contagem = get_contagem(sessao_id)
+    atual = contagem.get(item["item_tipo_id"], 0)
+    exigido = template_item["quantidade_exigida"]
+    quantidade = min(quantidade, exigido - atual)
+
+    if quantidade <= 0:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{item['descricao']}': quantidade máxima já atingida."}
+
+    if _barcode_em_kit_ativo(codigo_barra):
+        return {"resultado": "rejeitado",
+                "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
+
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO scan_session_items "
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade) "
+            "VALUES (?, ?, ?, 'completo', ?, ?)",
+            (sessao_id, codigo_barra, item["item_tipo_id"], now_brt(), quantidade)
+        )
+
+    novo_atual = atual + quantidade
+    return {
+        "resultado": "aceito",
+        "mensagem": f"✅ '{item['descricao']}': {quantidade} unidade(s) adicionada(s). ({novo_atual}/{exigido})",
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,

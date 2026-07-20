@@ -7,6 +7,7 @@ let _aguardandoIdentificacao = false;
 let _codigoPendente = null;
 let _aguardandoSerial = false;
 let _codigoSubstituicaoPendente = null;
+let _codigoQuantidadePendente = null;
 
 function initScanner(sessaoId) {
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -46,6 +47,8 @@ function initScanner(sessaoId) {
             data.atualizacoes.forEach(u => {
                 atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
             });
+        } else if (data.resultado === "quantidade_pendente") {
+            mostrarModalQuantidade(data);
         } else if (data.resultado === "substituicao_pendente") {
             mostrarModalSubstituicao(data);
         } else if (data.resultado === "desconhecido") {
@@ -232,6 +235,46 @@ function confirmarTipo(tipoId) {
 function fecharModal() {
     document.getElementById("modal-identificar").style.display = "none";
     _codigoPendente = null;
+    _aguardandoIdentificacao = false;
+    buffer = "";
+    document.getElementById("scan-buffer").textContent = "";
+}
+
+// ── Modal de quantidade (item com múltiplas unidades) ────────────────────────
+
+function mostrarModalQuantidade(data) {
+    _codigoQuantidadePendente = data.codigo_barra;
+    _aguardandoIdentificacao = true;
+    buffer = "";
+    document.getElementById("qtd-mensagem").innerHTML =
+        `<strong>${data.descricao}</strong> — ` +
+        `<code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;">${data.codigo_barra}</code>`;
+    document.getElementById("qtd-info").textContent =
+        `Kit exige ${data.exigido} unidades · ${data.atual} já bipadas · restam ${data.restante}`;
+    const input = document.getElementById("qtd-valor");
+    input.max = data.restante;
+    input.value = data.restante;
+    document.getElementById("modal-quantidade").style.display = "flex";
+    input.select();
+    input.focus();
+}
+
+function confirmarQuantidade() {
+    const qtd = parseInt(document.getElementById("qtd-valor").value) || 0;
+    if (qtd < 1) { document.getElementById("qtd-valor").focus(); return; }
+    if (ws && ws.readyState === WebSocket.OPEN && _codigoQuantidadePendente) {
+        ws.send(JSON.stringify({
+            acao: "confirmar_quantidade",
+            codigo_barra: _codigoQuantidadePendente,
+            quantidade: qtd
+        }));
+    }
+    fecharModalQuantidade();
+}
+
+function fecharModalQuantidade() {
+    document.getElementById("modal-quantidade").style.display = "none";
+    _codigoQuantidadePendente = null;
     _aguardandoIdentificacao = false;
     buffer = "";
     document.getElementById("scan-buffer").textContent = "";

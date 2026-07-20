@@ -236,6 +236,24 @@ async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)
     return RedirectResponse(f"/admin/items?{params}", status_code=302)
 
 
+@app.post("/admin/tipos/importar-bom")
+@require_login
+async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(...)):
+    user = get_current_user(request)
+    conteudo = await arquivo.read()
+    try:
+        resultado = items_mod.importar_bom_xlsx(conteudo, user["id"])
+        if "erro" in resultado:
+            params = f"erro_import={quote(resultado['erro'])}"
+        else:
+            t, i = resultado["tipos_criados"], resultado["itens_criados"]
+            ign = resultado["ignorados"]
+            params = f"importado_bom=1&tipos={t}&itens={i}&ignorado={ign}"
+    except Exception as e:
+        params = f"erro_import={quote(str(e))}"
+    return RedirectResponse(f"/admin/items?{params}", status_code=302)
+
+
 @app.post("/admin/tipos/{tipo_id}/delete")
 @require_login
 async def admin_tipo_delete(request: Request, tipo_id: int):
@@ -436,6 +454,10 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     result = sessions_mod.register_scan(
                         sessao_id, msg["codigo"],
                         item_tipo_id=int(msg["item_tipo_id"])
+                    )
+                elif msg.get("acao") == "confirmar_quantidade":
+                    result = sessions_mod.confirmar_quantidade(
+                        sessao_id, msg["codigo_barra"], int(msg.get("quantidade", 1))
                     )
                 elif msg.get("acao") == "confirmar_substituicao":
                     result = sessions_mod.confirmar_substituicao(

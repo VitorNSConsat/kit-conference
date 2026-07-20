@@ -14,6 +14,14 @@
     · {{ request.query_params.get('ignorado') }} ignorado(s) (já existiam)
     {% endif %}
 </div>
+{% elif request.query_params.get('importado_bom') %}
+<div class="alert alert-success">
+    BOM importado: <strong>{{ request.query_params.get('tipos') }} tipo(s) criado(s)</strong>
+    · <strong>{{ request.query_params.get('itens') }} patrimônio(s) criado(s)</strong>
+    {% if request.query_params.get('ignorado', '0') != '0' %}
+    · {{ request.query_params.get('ignorado') }} tipo(s) já existiam
+    {% endif %}
+</div>
 {% elif request.query_params.get('erro_import') %}
 <div class="alert alert-danger">Erro na importação: {{ request.query_params.get('erro_import') }}</div>
 {% endif %}
@@ -35,8 +43,12 @@
             <button type="submit" class="btn btn-primary">Adicionar</button>
         </form>
         <button type="button" class="btn btn-success"
-                onclick="document.getElementById('form-importar').style.display = document.getElementById('form-importar').style.display === 'none' ? 'flex' : 'none'">
-            📥 Importar Excel
+                onclick="toggleForm('form-importar')">
+            📥 Importar Lista Simples
+        </button>
+        <button type="button" class="btn btn-primary"
+                onclick="toggleForm('form-importar-bom')">
+            📋 Importar BOM
         </button>
     </div>
 
@@ -51,6 +63,28 @@
         <input type="file" name="arquivo" accept=".xlsx" required
                style="flex:1;min-width:200px;margin-bottom:0;">
         <button type="submit" class="btn btn-primary">Importar</button>
+    </form>
+
+    <form id="form-importar-bom" method="post" action="/admin/tipos/importar-bom"
+          enctype="multipart/form-data"
+          style="display:none;align-items:flex-start;gap:12px;flex-wrap:wrap;
+                 background:#f0f4f8;padding:14px 16px;border-radius:8px;margin-bottom:16px;
+                 border:1px solid #b0c4de;">
+        <div style="flex:1;min-width:260px;">
+            <div style="font-size:13px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
+                📋 Importar BOM (Bill of Materials)
+            </div>
+            <div style="font-size:12px;color:#555;line-height:1.5;">
+                Planilha com colunas <strong>Description</strong> (tipo do item) e
+                <strong>Code</strong> (código de barras, opcional).<br>
+                Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <input type="file" name="arquivo" accept=".xlsx" required
+                   style="margin-bottom:0;min-width:200px;">
+            <button type="submit" class="btn btn-primary">Importar</button>
+        </div>
     </form>
 
     {% if tipos %}
@@ -150,4 +184,14 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleForm(id) {
+    const el = document.getElementById(id);
+    const other = id === 'form-importar' ? 'form-importar-bom' : 'form-importar';
+    document.getElementById(other).style.display = 'none';
+    el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+</script>
 {% endblock %}
