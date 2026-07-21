@@ -438,15 +438,17 @@ function onVeiculoChange() {
                 video: { facingMode: { ideal: 'environment' },
                          width: { ideal: 1920 }, height: { ideal: 1080 } }
             });
-            video.srcObject = _stream;
-            await video.play();
 
             if (!_detector) _detector = await _initDetector();
 
             if (_detector) {
+                // BarcodeDetector: gerenciamos o vídeo diretamente
+                video.srcObject = _stream;
+                await video.play();
                 status.textContent = 'Aponte para o código de barras';
                 _loop = requestAnimationFrame(_frame);
             } else if (typeof ZXing !== 'undefined') {
+                // ZXing: decodeFromStream define srcObject e dispara loadedmetadata internamente
                 status.textContent = 'Aponte para o código de barras';
                 _iniciarZXingVideo(video);
             } else {
@@ -530,13 +532,15 @@ function onVeiculoChange() {
     };
 
     // ── ZXing live (fallback quando BarcodeDetector indisponível) ──────────────
+    // Usa decodeFromStream para que o ZXing defina srcObject por conta própria,
+    // disparando loadedmetadata corretamente antes de iniciar o loop de decodificação.
     async function _iniciarZXingVideo(video) {
         const hints = new Map();
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
         const zxReader = new ZXing.BrowserMultiFormatReader(hints, 400);
         try {
-            _zxingControls = await zxReader.decodeFromVideoElementContinuously(
-                video,
+            _zxingControls = await zxReader.decodeFromStream(
+                _stream, video,
                 function (result) {
                     if (!_ativo || _pausado) return;
                     if (result) {
