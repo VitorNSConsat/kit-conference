@@ -205,16 +205,15 @@
     </div>
 </div>
 
-<!-- ── Botão câmera flutuante (mobile) ───────────────────────────────────── -->
-<button id="btn-cam-scanner" onclick="abrirScannerCamera()"
-        title="Usar câmera para bipar"
-        style="display:none; position:fixed; bottom:22px; right:22px; z-index:500;
-               width:62px; height:62px; background:#1a3a5c; color:#fff; border:none;
-               border-radius:50%; font-size:26px;
-               box-shadow:0 4px 14px rgba(0,0,0,.35);
-               cursor:pointer; align-items:center; justify-content:center;">
-    📷
-</button>
+<!-- ── Barra de bipagem mobile (só visível em telas pequenas) ────────────── -->
+<div id="mobile-scan-bar">
+  <button id="btn-cam-mobile" onclick="abrirScannerCamera()" title="Bipar com câmera">📷</button>
+  <input type="text" id="mobile-barcode-input"
+         placeholder="Código (Bluetooth ou manual)..."
+         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+         onkeydown="if(event.key==='Enter'){_enviarInputMobile();}">
+  <button id="btn-send-mobile" onclick="_enviarInputMobile()">✓</button>
+</div>
 
 <!-- ── Overlay câmera ────────────────────────────────────────────────────── -->
 <div id="cam-overlay" style="display:none; position:fixed; top:0; left:0;
@@ -251,6 +250,54 @@
 
 {% block scripts %}
 <style>
+/* ── Barra de bipagem mobile ── */
+#mobile-scan-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 400;
+  background: #1a3a5c;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 -3px 12px rgba(0,0,0,.35);
+}
+@media (max-width: 640px) {
+  #mobile-scan-bar { display: flex; }
+  .container { padding-bottom: 72px; }
+}
+#btn-cam-mobile {
+  flex-shrink: 0;
+  width: 46px; height: 46px;
+  background: rgba(255,255,255,.15);
+  color: #fff; border: none;
+  border-radius: 10px; font-size: 22px;
+  cursor: pointer;
+}
+#btn-cam-mobile:active { background: rgba(255,255,255,.3); }
+#mobile-barcode-input {
+  flex: 1;
+  padding: 11px 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  outline: none;
+  min-width: 0;
+}
+#mobile-barcode-input::placeholder { color: rgba(255,255,255,.45); }
+#mobile-barcode-input:focus { background: rgba(255,255,255,.2); }
+#btn-send-mobile {
+  flex-shrink: 0;
+  width: 46px; height: 46px;
+  background: #27ae60;
+  color: #fff; border: none;
+  border-radius: 10px; font-size: 20px; font-weight: 700;
+  cursor: pointer;
+}
+#btn-send-mobile:active { background: #1e8449; }
+
 /* câmera — guias de canto */
 .cam-c {
   position:absolute; width:32px; height:32px;
@@ -345,11 +392,6 @@ function onVeiculoChange() {
     let _ativo    = false;
     let _pausado  = false; // pausa breve após leitura
 
-    // Exibe botão câmera apenas se o navegador suportar câmera
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        document.getElementById('btn-cam-scanner').style.display = 'flex';
-    }
-
     // Inicializa BarcodeDetector com os formatos disponíveis
     async function _initDetector() {
         if (!('BarcodeDetector' in window)) return null;
@@ -368,10 +410,16 @@ function onVeiculoChange() {
         const status  = document.getElementById('cam-status');
 
         overlay.style.display = 'flex';
-        status.textContent = 'Abrindo câmera…';
         _ativo = true;
         _pausado = false;
 
+        // HTTP bloqueia getUserMedia em mobile — orienta usar HTTPS
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            status.textContent = '⚠️ Câmera requer HTTPS. Acesse via https:// ou use o campo de texto abaixo.';
+            return;
+        }
+
+        status.textContent = 'Abrindo câmera…';
         try {
             _stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: 'environment' },
@@ -402,6 +450,18 @@ function onVeiculoChange() {
         document.getElementById('cam-overlay').style.display = 'none';
         document.getElementById('cam-status').textContent = 'Aponte para o código de barras';
         document.getElementById('cam-ultimo').textContent = '';
+    };
+
+    // Input manual / Bluetooth da barra inferior
+    window._enviarInputMobile = function () {
+        const input = document.getElementById('mobile-barcode-input');
+        const codigo = (input.value || '').trim();
+        if (!codigo) return;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(codigo);
+        }
+        input.value = '';
+        input.focus();
     };
 
     async function _frame() {
