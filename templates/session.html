@@ -356,6 +356,7 @@
     background: #f0f4f8;
 }
 </style>
+<script src="/static/zxing.min.js"></script>
 <script src="/static/app.js"></script>
 <script>
 initScanner({{ session.id }});
@@ -460,33 +461,44 @@ function onVeiculoChange() {
         if (!file) return;
 
         _mostrarToast('⏳ Lendo código…');
+        let codigo = null;
 
-        try {
-            if (!('BarcodeDetector' in window)) {
-                _mostrarToast('⚠️ BarcodeDetector indisponível. Use o campo de texto.');
-                input.value = '';
-                return;
-            }
-
-            const bitmap = await createImageBitmap(file);
-            let detector = _detector;
-            if (!detector) { detector = await _initDetector(); _detector = detector; }
-
-            const resultados = detector ? await detector.detect(bitmap) : [];
-            bitmap.close();
-
-            if (resultados.length > 0) {
-                const codigo = resultados[0].rawValue.trim();
-                if (codigo) {
-                    if (navigator.vibrate) navigator.vibrate([60]);
-                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(codigo);
-                    _mostrarToast('✅ ' + codigo, 2000);
+        // Tentativa 1: BarcodeDetector nativo (requer contexto seguro confiável)
+        if ('BarcodeDetector' in window) {
+            try {
+                let det = _detector;
+                if (!det) { det = await _initDetector(); _detector = det; }
+                if (det) {
+                    const bitmap = await createImageBitmap(file);
+                    const res = await det.detect(bitmap);
+                    bitmap.close();
+                    if (res.length > 0) codigo = res[0].rawValue.trim();
                 }
-            } else {
-                _mostrarToast('⚠️ Nenhum código detectado — tente novamente', 2500);
+            } catch (e) { /* ignora — cai para ZXing */ }
+        }
+
+        // Tentativa 2: ZXing-js (puro JS, funciona sem cert instalado)
+        if (!codigo && typeof ZXing !== 'undefined') {
+            const url = URL.createObjectURL(file);
+            try {
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                const reader = new ZXing.BrowserMultiFormatReader(hints);
+                const result = await reader.decodeFromImageUrl(url);
+                codigo = result.getText().trim();
+            } catch (e) {
+                /* NotFoundException = nenhum código na foto */
+            } finally {
+                URL.revokeObjectURL(url);
             }
-        } catch (e) {
-            _mostrarToast('❌ ' + e.message, 3000);
+        }
+
+        if (codigo) {
+            if (navigator.vibrate) navigator.vibrate([60]);
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(codigo);
+            _mostrarToast('✅ ' + codigo, 2000);
+        } else {
+            _mostrarToast('⚠️ Código não detectado — tente com mais luz ou mais perto', 2500);
         }
 
         input.value = '';
