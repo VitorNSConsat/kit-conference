@@ -206,6 +206,10 @@
 </div>
 
 <!-- ── Barra de bipagem mobile (só visível em telas pequenas) ────────────── -->
+<!-- input hidden para captura de foto (fallback sem getUserMedia) -->
+<input type="file" id="cam-foto-input" accept="image/*" capture="environment"
+       style="display:none" onchange="_processarFotoCapturada(this)">
+
 <div id="mobile-scan-bar">
   <button id="btn-cam-mobile" onclick="abrirScannerCamera()" title="Bipar com câmera">📷</button>
   <input type="text" id="mobile-barcode-input"
@@ -213,6 +217,12 @@
          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
          onkeydown="if(event.key==='Enter'){_enviarInputMobile();}">
   <button id="btn-send-mobile" onclick="_enviarInputMobile()">✓</button>
+</div>
+<!-- toast de feedback para captura de foto -->
+<div id="mobile-toast" style="display:none; position:fixed; bottom:72px; left:50%;
+     transform:translateX(-50%); background:#1a3a5c; color:#fff; font-size:13px;
+     font-weight:600; padding:10px 20px; border-radius:24px; z-index:401;
+     white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,.3);">
 </div>
 
 <!-- ── Overlay câmera ────────────────────────────────────────────────────── -->
@@ -405,6 +415,13 @@ function onVeiculoChange() {
     }
 
     window.abrirScannerCamera = async function () {
+        // Câmera ao vivo requer contexto seguro com certificado confiável.
+        // Se indisponível, cai para captura de foto (funciona sem cert instalado).
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('cam-foto-input').click();
+            return;
+        }
+
         const overlay = document.getElementById('cam-overlay');
         const video   = document.getElementById('cam-video');
         const status  = document.getElementById('cam-status');
@@ -412,14 +429,8 @@ function onVeiculoChange() {
         overlay.style.display = 'flex';
         _ativo = true;
         _pausado = false;
-
-        // HTTP bloqueia getUserMedia em mobile — orienta usar HTTPS
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            status.textContent = '⚠️ Câmera requer HTTPS. Acesse via https:// ou use o campo de texto abaixo.';
-            return;
-        }
-
         status.textContent = 'Abrindo câmera…';
+
         try {
             _stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: 'environment' },
@@ -437,9 +448,58 @@ function onVeiculoChange() {
                 status.textContent = '⚠️ Detecção automática indisponível neste navegador.';
             }
         } catch (e) {
-            status.textContent = '❌ ' + e.message;
+            // Se getUserMedia falhar mesmo com mediaDevices presente, cai para foto
+            fecharScannerCamera();
+            document.getElementById('cam-foto-input').click();
         }
     };
+
+    // ── Captura de foto (fallback sem getUserMedia / cert não instalado) ────────
+    window._processarFotoCapturada = async function (input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        _mostrarToast('⏳ Lendo código…');
+
+        try {
+            if (!('BarcodeDetector' in window)) {
+                _mostrarToast('⚠️ BarcodeDetector indisponível. Use o campo de texto.');
+                input.value = '';
+                return;
+            }
+
+            const bitmap = await createImageBitmap(file);
+            let detector = _detector;
+            if (!detector) { detector = await _initDetector(); _detector = detector; }
+
+            const resultados = detector ? await detector.detect(bitmap) : [];
+            bitmap.close();
+
+            if (resultados.length > 0) {
+                const codigo = resultados[0].rawValue.trim();
+                if (codigo) {
+                    if (navigator.vibrate) navigator.vibrate([60]);
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(codigo);
+                    _mostrarToast('✅ ' + codigo, 2000);
+                }
+            } else {
+                _mostrarToast('⚠️ Nenhum código detectado — tente novamente', 2500);
+            }
+        } catch (e) {
+            _mostrarToast('❌ ' + e.message, 3000);
+        }
+
+        input.value = '';
+    };
+
+    function _mostrarToast(msg, dur) {
+        const t = document.getElementById('mobile-toast');
+        if (!t) return;
+        t.textContent = msg;
+        t.style.display = 'block';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => { t.style.display = 'none'; }, dur || 2000);
+    }
 
     window.fecharScannerCamera = function () {
         _ativo = false;
