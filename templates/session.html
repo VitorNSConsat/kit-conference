@@ -397,12 +397,12 @@ function onVeiculoChange() {
         'qr_code','data_matrix','pdf417','itf','aztec'
     ];
 
-    let _stream      = null;
-    let _detector    = null;
-    let _loop        = null;
-    let _zxingTimer  = null;
-    let _ativo       = false;
-    let _pausado     = false;
+    let _stream        = null;
+    let _detector      = null;
+    let _loop          = null;
+    let _zxingControls = null;
+    let _ativo         = false;
+    let _pausado       = false;
 
     // Inicializa BarcodeDetector com os formatos disponíveis
     async function _initDetector() {
@@ -519,8 +519,8 @@ function onVeiculoChange() {
 
     window.fecharScannerCamera = function () {
         _ativo = false;
-        if (_loop)       { cancelAnimationFrame(_loop); _loop = null; }
-        if (_zxingTimer) { clearTimeout(_zxingTimer); _zxingTimer = null; }
+        if (_loop)          { cancelAnimationFrame(_loop); _loop = null; }
+        if (_zxingControls) { try { _zxingControls.stop(); } catch(e){} _zxingControls = null; }
         if (_stream)     { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
         const video = document.getElementById('cam-video');
         if (video) video.srcObject = null;
@@ -529,29 +529,25 @@ function onVeiculoChange() {
         document.getElementById('cam-ultimo').textContent = '';
     };
 
-    // ── ZXing via canvas (fallback quando BarcodeDetector indisponível) ─────────
-    function _iniciarZXingVideo(video) {
-        const canvas = document.createElement('canvas');
-        const ctx    = canvas.getContext('2d', { willReadFrequently: true });
-        const hints  = new Map();
+    // ── ZXing live (fallback quando BarcodeDetector indisponível) ──────────────
+    async function _iniciarZXingVideo(video) {
+        const hints = new Map();
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        const zxReader = new ZXing.BrowserMultiFormatReader(hints);
-
-        function tick() {
-            if (!_ativo) return;
-            if (!_pausado && video.readyState >= 2 && video.videoWidth > 0) {
-                canvas.width  = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
-                try {
-                    const result = zxReader.decodeFromCanvas(canvas);
-                    const codigo = result.getText().trim();
-                    if (codigo) { _onCodigoDetectado(codigo); return; }
-                } catch (e) { /* NotFoundException = frame sem código */ }
-            }
-            _zxingTimer = setTimeout(tick, 300);
+        const zxReader = new ZXing.BrowserMultiFormatReader(hints, 400);
+        try {
+            _zxingControls = await zxReader.decodeFromVideoElementContinuously(
+                video,
+                function (result) {
+                    if (!_ativo || _pausado) return;
+                    if (result) {
+                        const codigo = result.getText().trim();
+                        if (codigo) _onCodigoDetectado(codigo);
+                    }
+                }
+            );
+        } catch (e) {
+            document.getElementById('cam-status').textContent = '⚠️ Erro ao iniciar scanner: ' + e.message;
         }
-        tick();
     }
 
     // Input manual / Bluetooth da barra inferior
@@ -610,7 +606,7 @@ function onVeiculoChange() {
 
         // Pausa 1.4 s antes de continuar para evitar dupla leitura
         _pausado = true;
-        _loop = requestAnimationFrame(_frame);
+        if (_detector) _loop = requestAnimationFrame(_frame); // só no modo BarcodeDetector
         setTimeout(() => {
             if (_ativo) {
                 document.getElementById('cam-status').textContent = 'Aponte para o próximo código';
