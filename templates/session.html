@@ -397,11 +397,12 @@ function onVeiculoChange() {
         'qr_code','data_matrix','pdf417','itf','aztec'
     ];
 
-    let _stream   = null;
-    let _detector = null;
-    let _loop     = null;
-    let _ativo    = false;
-    let _pausado  = false; // pausa breve após leitura
+    let _stream      = null;
+    let _detector    = null;
+    let _loop        = null;
+    let _zxingTimer  = null;
+    let _ativo       = false;
+    let _pausado     = false;
 
     // Inicializa BarcodeDetector com os formatos disponíveis
     async function _initDetector() {
@@ -445,8 +446,11 @@ function onVeiculoChange() {
             if (_detector) {
                 status.textContent = 'Aponte para o código de barras';
                 _loop = requestAnimationFrame(_frame);
+            } else if (typeof ZXing !== 'undefined') {
+                status.textContent = 'Aponte para o código de barras';
+                _iniciarZXingVideo(video);
             } else {
-                status.textContent = '⚠️ Detecção automática indisponível neste navegador.';
+                status.textContent = '⚠️ Scanner não disponível neste navegador.';
             }
         } catch (e) {
             // Se getUserMedia falhar mesmo com mediaDevices presente, cai para foto
@@ -515,14 +519,40 @@ function onVeiculoChange() {
 
     window.fecharScannerCamera = function () {
         _ativo = false;
-        if (_loop) { cancelAnimationFrame(_loop); _loop = null; }
-        if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
+        if (_loop)       { cancelAnimationFrame(_loop); _loop = null; }
+        if (_zxingTimer) { clearTimeout(_zxingTimer); _zxingTimer = null; }
+        if (_stream)     { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
         const video = document.getElementById('cam-video');
         if (video) video.srcObject = null;
         document.getElementById('cam-overlay').style.display = 'none';
         document.getElementById('cam-status').textContent = 'Aponte para o código de barras';
         document.getElementById('cam-ultimo').textContent = '';
     };
+
+    // ── ZXing via canvas (fallback quando BarcodeDetector indisponível) ─────────
+    function _iniciarZXingVideo(video) {
+        const canvas = document.createElement('canvas');
+        const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+        const hints  = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        const zxReader = new ZXing.BrowserMultiFormatReader(hints);
+
+        function tick() {
+            if (!_ativo) return;
+            if (!_pausado && video.readyState >= 2 && video.videoWidth > 0) {
+                canvas.width  = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
+                try {
+                    const result = zxReader.decodeFromCanvas(canvas);
+                    const codigo = result.getText().trim();
+                    if (codigo) { _onCodigoDetectado(codigo); return; }
+                } catch (e) { /* NotFoundException = frame sem código */ }
+            }
+            _zxingTimer = setTimeout(tick, 300);
+        }
+        tick();
+    }
 
     // Input manual / Bluetooth da barra inferior
     window._enviarInputMobile = function () {
