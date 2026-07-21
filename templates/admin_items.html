@@ -101,13 +101,20 @@
     {% if tipos %}
     <table>
         <thead>
-            <tr><th>Nome</th><th>Unidade</th><th>Reutilizável</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Status</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
         </thead>
         <tbody>
         {% for tipo in tipos %}
         <tr>
             <td>
                 <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
+                {% if tipo.codigo_fixo %}
+                <span title="Código fixo: {{ tipo.codigo_fixo }}"
+                      style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
+                             padding:1px 6px;border-radius:10px;font-family:monospace;">
+                    📌 fixo
+                </span>
+                {% endif %}
                 <form id="nome-form-{{ tipo.id }}" method="post"
                       action="/admin/tipos/{{ tipo.id }}/renomear"
                       style="display:none;margin:0;">
@@ -123,31 +130,18 @@
                 </form>
             </td>
             <td>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade"
-                      style="display:inline;">
-                    <button type="submit" class="btn btn-sm"
-                            style="{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}"
-                            title="Clique para alternar entre Unidade e Metro">
-                        {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
-                    </button>
-                </form>
-            </td>
-            <td>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel"
-                      style="display:inline;">
-                    <button type="submit" class="btn btn-sm"
-                            style="{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}"
-                            title="Itens reutilizáveis podem aparecer em múltiplos kits ativos ao mesmo tempo">
-                        {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
-                    </button>
-                </form>
-            </td>
-            <td>
                 <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
                     {{ 'Ativo' if tipo.ativo else 'Inativo' }}
                 </span>
             </td>
-            <td style="display:flex;gap:6px;">
+            <td style="text-align:center;">
+                <button type="button" id="gear-{{ tipo.id }}" class="btn btn-sm"
+                        style="padding:3px 10px;font-size:13px;"
+                        onclick="abrirPopup(event, {{ tipo.id }})" title="Configurações">
+                    ⚙️
+                </button>
+            </td>
+            <td>
                 <form method="post" action="/admin/tipos/{{ tipo.id }}/delete"
                       onsubmit="return confirm('Excluir o tipo \'{{ tipo.nome }}\'? Esta ação não pode ser desfeita.')">
                     <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
@@ -157,6 +151,75 @@
         {% endfor %}
         </tbody>
     </table>
+
+    <!-- Popovers de configuração por tipo (ocultos, posicionados via JS) -->
+    {% for tipo in tipos %}
+    <div id="popup-{{ tipo.id }}" class="config-popup">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <strong style="font-size:13px;color:#1a3a5c;">⚙️ {{ tipo.nome }}</strong>
+            <button type="button" onclick="fecharPopup()"
+                    style="background:none;border:none;cursor:pointer;font-size:16px;color:#aaa;
+                           line-height:1;padding:0 2px;">&times;</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <!-- Medida -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <span style="font-size:13px;color:#555;">Medida</span>
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
+                    <button type="submit" class="btn btn-sm"
+                            style="min-width:100px;{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}">
+                        {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
+                    </button>
+                </form>
+            </div>
+            <!-- Reutilizável -->
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <span style="font-size:13px;color:#555;">Reutilizável
+                    <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">múltiplos kits ao mesmo tempo</span>
+                </span>
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
+                    <button type="submit" class="btn btn-sm"
+                            style="min-width:100px;{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                        {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
+                    </button>
+                </form>
+            </div>
+            <!-- Separador -->
+            <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
+            <!-- Código fixo -->
+            <div>
+                <div style="font-size:13px;color:#555;margin-bottom:6px;">
+                    Código Fixo
+                    <span style="font-size:11px;color:#aaa;margin-left:4px;"
+                          title="Ao bipar este código o sistema pede o patrimônio em seguida">ⓘ</span>
+                </div>
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
+                      style="display:flex;gap:6px;">
+                    <input type="text" name="codigo_fixo"
+                           value="{{ tipo.codigo_fixo or '' }}"
+                           placeholder="ex: 10ID000700X1"
+                           style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
+                    <button type="submit" class="btn btn-sm btn-success">💾</button>
+                </form>
+                {% if tipo.codigo_fixo %}
+                <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
+                      style="margin-top:5px;">
+                    <input type="hidden" name="codigo_fixo" value="">
+                    <button type="submit" class="btn btn-sm" style="font-size:11px;color:#e74c3c;
+                            background:none;border:1px solid #e74c3c;padding:2px 8px;">
+                        ✕ Remover código fixo
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Overlay transparente para fechar popup ao clicar fora -->
+    <div id="popup-overlay" onclick="fecharPopup()"
+         style="display:none;position:fixed;inset:0;z-index:98;"></div>
+
     {% else %}
     <p style="color:#888;">Nenhum tipo cadastrado ainda. Adicione os tipos acima.</p>
     {% endif %}
@@ -232,7 +295,58 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<style>
+.config-popup {
+    display: none;
+    position: fixed;
+    z-index: 99;
+    background: #fff;
+    border: 1px solid #e0e7ef;
+    border-radius: 12px;
+    padding: 16px;
+    width: 300px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.13);
+    animation: popIn .12s ease;
+}
+@keyframes popIn {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+</style>
 <script>
+let _popupAberto = null;
+
+function abrirPopup(event, tipoId) {
+    event.stopPropagation();
+    if (_popupAberto === tipoId) { fecharPopup(); return; }
+    fecharPopup();
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const popup = document.getElementById('popup-' + tipoId);
+    popup.style.display = 'block';
+    // Position: below the button, right-aligned to it
+    const pw = 300;
+    let left = rect.right - pw;
+    if (left < 8) left = 8;
+    let top = rect.bottom + 6;
+    // If it would go off the bottom, open upward instead
+    if (top + 260 > window.innerHeight) top = rect.top - 260 - 6;
+    popup.style.left = left + 'px';
+    popup.style.top  = top  + 'px';
+    document.getElementById('popup-overlay').style.display = 'block';
+    _popupAberto = tipoId;
+}
+
+function fecharPopup() {
+    if (_popupAberto !== null) {
+        document.getElementById('popup-' + _popupAberto).style.display = 'none';
+        _popupAberto = null;
+    }
+    document.getElementById('popup-overlay').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });
+
 function toggleForm(id) {
     const el = document.getElementById(id);
     el.style.display = el.style.display === 'none' ? 'flex' : 'none';

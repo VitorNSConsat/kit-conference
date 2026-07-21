@@ -6,6 +6,7 @@ let buffer = "";
 let _aguardandoIdentificacao = false;
 let _codigoPendente = null;
 let _aguardandoSerial = false;
+let _aguardandoPatrimonioFixo = false;
 let _codigoSubstituicaoPendente = null;
 let _codigoQuantidadePendente = null;
 
@@ -24,7 +25,18 @@ function initScanner(sessaoId) {
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
+        if (data.resultado === "aguardando_patrimonio_fixo") {
+            mostrarBannerPatrimonioFixo(data);
+            adicionarEvento(data);
+            return;
+        }
+        if (data.resultado === "cancelado_patrimonio_fixo") {
+            ocultarBannerPatrimonioFixo();
+            adicionarEvento(data);
+            return;
+        }
         if (data.resultado === "aguardando_serial") {
+            ocultarBannerPatrimonioFixo();
             mostrarBannerSerial(data);
             adicionarEvento(data);
             return;
@@ -40,6 +52,7 @@ function initScanner(sessaoId) {
         if (data.resultado === "aceito") {
             atualizarContagem(data.item_tipo_id, data.contagem_atual, data.quantidade_exigida);
             if (data.serial_number) ocultarBannerSerial();
+            ocultarBannerPatrimonioFixo();
         } else if (data.resultado === "componente_pendente") {
             mostrarModalComponente(data);
             return;
@@ -108,6 +121,27 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
     if (scrollAlvo) scrollAlvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
+}
+
+// ── Banner de patrimônio fixo ─────────────────────────────────────────────────
+
+function mostrarBannerPatrimonioFixo(data) {
+    _aguardandoPatrimonioFixo = true;
+    document.getElementById("banner-fixo-nome").textContent = data.tipo_nome;
+    document.getElementById("banner-fixo").style.display = "flex";
+}
+
+function ocultarBannerPatrimonioFixo() {
+    _aguardandoPatrimonioFixo = false;
+    document.getElementById("banner-fixo").style.display = "none";
+    document.getElementById("banner-fixo-nome").textContent = "";
+}
+
+function cancelarPatrimonioFixo() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({acao: "cancelar_patrimonio_fixo"}));
+    }
+    ocultarBannerPatrimonioFixo();
 }
 
 // ── Banner de serial number ───────────────────────────────────────────────────

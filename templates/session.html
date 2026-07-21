@@ -27,6 +27,18 @@
 
 <div class="scan-buffer" id="scan-buffer">Aguardando bipagem...</div>
 
+<!-- Banner patrimônio fixo — aparece quando código fixo é bipado -->
+<div id="banner-fixo" style="display:none; background:#fff3e0; border:2px solid #e67e22;
+     border-radius:10px; padding:14px 18px; margin-bottom:12px;
+     align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <div>
+        <strong style="color:#e67e22;">📦 Código Fixo Detectado</strong>
+        — Bipe o patrimônio de:
+        <strong id="banner-fixo-nome"></strong>
+    </div>
+    <button onclick="cancelarPatrimonioFixo()" class="btn btn-sm btn-danger">Cancelar</button>
+</div>
+
 <!-- Banner serial number — aparece quando o item bipado exige serial -->
 <div id="banner-serial" style="display:none; background:#f0eaff; border:2px solid #6c5ce7;
      border-radius:10px; padding:14px 18px; margin-bottom:12px;
@@ -192,10 +204,68 @@
         </form>
     </div>
 </div>
+
+<!-- ── Botão câmera flutuante (mobile) ───────────────────────────────────── -->
+<button id="btn-cam-scanner" onclick="abrirScannerCamera()"
+        title="Usar câmera para bipar"
+        style="display:none; position:fixed; bottom:22px; right:22px; z-index:500;
+               width:62px; height:62px; background:#1a3a5c; color:#fff; border:none;
+               border-radius:50%; font-size:26px;
+               box-shadow:0 4px 14px rgba(0,0,0,.35);
+               cursor:pointer; align-items:center; justify-content:center;">
+    📷
+</button>
+
+<!-- ── Overlay câmera ────────────────────────────────────────────────────── -->
+<div id="cam-overlay" style="display:none; position:fixed; top:0; left:0;
+     width:100%; height:100%; background:#000; z-index:900;
+     flex-direction:column; overflow:hidden;">
+
+  <div style="position:relative; flex:1; overflow:hidden;">
+    <video id="cam-video" playsinline muted autoplay
+           style="width:100%; height:100%; object-fit:cover;"></video>
+    <!-- guias de canto -->
+    <div class="cam-c tl"></div>
+    <div class="cam-c tr"></div>
+    <div class="cam-c bl"></div>
+    <div class="cam-c br"></div>
+    <div id="cam-scanline"></div>
+    <!-- feedback de leitura -->
+    <div id="cam-flash" style="position:absolute;top:0;left:0;width:100%;height:100%;
+         background:rgba(255,255,255,.45);display:none;pointer-events:none;"></div>
+  </div>
+
+  <div style="background:#111; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+    <div style="flex:1;">
+      <div id="cam-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código de barras</div>
+      <div id="cam-ultimo" style="color:#aaa; font-size:12px; margin-top:2px; font-family:monospace;"></div>
+    </div>
+    <button onclick="fecharScannerCamera()"
+            style="background:#c0392b; color:#fff; border:none; padding:11px 18px;
+                   border-radius:8px; font-size:14px; font-weight:700; flex-shrink:0;">
+      ✕ Fechar
+    </button>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <style>
+/* câmera — guias de canto */
+.cam-c {
+  position:absolute; width:32px; height:32px;
+  border-color:#fff; border-style:solid; opacity:.85; pointer-events:none;
+}
+.cam-c.tl { top:16px;  left:16px;  border-width:3px 0 0 3px; border-radius:4px 0 0 0; }
+.cam-c.tr { top:16px;  right:16px; border-width:3px 3px 0 0; border-radius:0 4px 0 0; }
+.cam-c.bl { bottom:16px; left:16px;  border-width:0 0 3px 3px; border-radius:0 0 0 4px; }
+.cam-c.br { bottom:16px; right:16px; border-width:0 3px 3px 0; border-radius:0 0 4px 0; }
+#cam-scanline {
+  position:absolute; left:16px; right:16px; height:2px;
+  background:linear-gradient(90deg,transparent,#27ae60,transparent);
+  animation:camScan 2s linear infinite; pointer-events:none;
+}
+@keyframes camScan { 0%{top:16px} 100%{top:calc(100% - 16px)} }
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.55); z-index: 1000;
@@ -247,6 +317,8 @@ document.addEventListener("keydown", (e) => {
         fecharModalComponente();
         fecharModalSubstituicao();
         fecharModalQuantidade();
+        cancelarPatrimonioFixo();
+        if (typeof fecharScannerCamera === 'function') fecharScannerCamera();
     }
 });
 </script>
@@ -257,5 +329,133 @@ function onVeiculoChange() {
     document.getElementById('input-veiculo-texto').value = opt.dataset.numero || '';
     document.getElementById('input-garagem').value = opt.dataset.garagem || '';
 }
+</script>
+
+<script>
+// ── Scanner via câmera (mobile) ───────────────────────────────────────────────
+(function () {
+    const FORMATOS_DESEJADOS = [
+        'code_128','code_39','code_93','ean_13','ean_8',
+        'qr_code','data_matrix','pdf417','itf','aztec'
+    ];
+
+    let _stream   = null;
+    let _detector = null;
+    let _loop     = null;
+    let _ativo    = false;
+    let _pausado  = false; // pausa breve após leitura
+
+    // Exibe botão câmera apenas se o navegador suportar câmera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        document.getElementById('btn-cam-scanner').style.display = 'flex';
+    }
+
+    // Inicializa BarcodeDetector com os formatos disponíveis
+    async function _initDetector() {
+        if (!('BarcodeDetector' in window)) return null;
+        try {
+            const suportados = await BarcodeDetector.getSupportedFormats();
+            const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
+            return new BarcodeDetector({ formats: formatos.length ? formatos : suportados });
+        } catch (e) {
+            return new BarcodeDetector({ formats: ['code_128','qr_code'] });
+        }
+    }
+
+    window.abrirScannerCamera = async function () {
+        const overlay = document.getElementById('cam-overlay');
+        const video   = document.getElementById('cam-video');
+        const status  = document.getElementById('cam-status');
+
+        overlay.style.display = 'flex';
+        status.textContent = 'Abrindo câmera…';
+        _ativo = true;
+        _pausado = false;
+
+        try {
+            _stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' },
+                         width: { ideal: 1920 }, height: { ideal: 1080 } }
+            });
+            video.srcObject = _stream;
+            await video.play();
+
+            if (!_detector) _detector = await _initDetector();
+
+            if (_detector) {
+                status.textContent = 'Aponte para o código de barras';
+                _loop = requestAnimationFrame(_frame);
+            } else {
+                status.textContent = '⚠️ Detecção automática indisponível neste navegador.';
+            }
+        } catch (e) {
+            status.textContent = '❌ ' + e.message;
+        }
+    };
+
+    window.fecharScannerCamera = function () {
+        _ativo = false;
+        if (_loop) { cancelAnimationFrame(_loop); _loop = null; }
+        if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
+        const video = document.getElementById('cam-video');
+        if (video) video.srcObject = null;
+        document.getElementById('cam-overlay').style.display = 'none';
+        document.getElementById('cam-status').textContent = 'Aponte para o código de barras';
+        document.getElementById('cam-ultimo').textContent = '';
+    };
+
+    async function _frame() {
+        if (!_ativo) return;
+        if (_pausado) { _loop = requestAnimationFrame(_frame); return; }
+
+        const video = document.getElementById('cam-video');
+        if (!video || video.readyState < 2) {
+            _loop = requestAnimationFrame(_frame);
+            return;
+        }
+
+        try {
+            const resultados = await _detector.detect(video);
+            if (resultados.length > 0) {
+                const codigo = resultados[0].rawValue.trim();
+                if (codigo) {
+                    _onCodigoDetectado(codigo);
+                    return; // _frame será agendado novamente após a pausa
+                }
+            }
+        } catch (e) { /* ignora frames com erro */ }
+
+        _loop = requestAnimationFrame(_frame);
+    }
+
+    function _onCodigoDetectado(codigo) {
+        // Feedback visual: flash branco
+        const flash = document.getElementById('cam-flash');
+        flash.style.display = 'block';
+        setTimeout(() => { flash.style.display = 'none'; }, 120);
+
+        // Feedback háptico
+        if (navigator.vibrate) navigator.vibrate([60]);
+
+        // Atualiza UI
+        document.getElementById('cam-status').textContent = '✅ Lido!';
+        document.getElementById('cam-ultimo').textContent = codigo;
+
+        // Envia pelo WebSocket (mesmo mecanismo do leitor físico)
+        if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(codigo);
+        }
+
+        // Pausa 1.4 s antes de continuar para evitar dupla leitura
+        _pausado = true;
+        _loop = requestAnimationFrame(_frame);
+        setTimeout(() => {
+            if (_ativo) {
+                document.getElementById('cam-status').textContent = 'Aponte para o próximo código';
+                _pausado = false;
+            }
+        }, 1400);
+    }
+})();
 </script>
 {% endblock %}

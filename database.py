@@ -215,6 +215,7 @@ def init_db():
             "ALTER TABLE scan_session_items ADD COLUMN quantidade INTEGER DEFAULT 1",
             "ALTER TABLE item_tipo ADD COLUMN unidade TEXT DEFAULT 'un'",
             "ALTER TABLE item_tipo ADD COLUMN reutilizavel BOOLEAN DEFAULT 0",
+            "ALTER TABLE item_tipo ADD COLUMN codigo_fixo TEXT",
         ]:
             try:
                 conn.execute(stmt)

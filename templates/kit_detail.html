@@ -113,8 +113,20 @@
     padding: 12px 0;
     border-bottom: 1px solid #f0f0f0;
     gap: 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background .12s;
+    user-select: none;
+    -webkit-user-select: none;
   }
   .item-row:last-child { border-bottom: none; }
+  .item-row:active { background: #f0f2f5; }
+  .item-row.checked {
+    background: #f0fff4;
+  }
+  .item-row.checked .item-qtd {
+    background: #27ae60;
+  }
   .item-qtd {
     min-width: 36px;
     height: 36px;
@@ -127,6 +139,7 @@
     font-size: 14px;
     font-weight: 800;
     flex-shrink: 0;
+    transition: background .2s;
   }
   .item-info { flex: 1; min-width: 0; }
   .item-tipo { font-size: 15px; font-weight: 600; color: #222; }
@@ -138,6 +151,38 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .item-check-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+    transition: transform .15s;
+  }
+  .item-row.checked .item-check-icon { transform: scale(1.15); }
+
+  /* ── Barra de progresso ───────────────────── */
+  .progress-wrap {
+    margin-bottom: 12px;
+  }
+  .progress-track {
+    height: 6px;
+    background: #eee;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #27ae60;
+    border-radius: 99px;
+    transition: width .25s ease;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #888;
   }
 
   /* ── Rodapé ───────────────────────────────── */
@@ -273,8 +318,21 @@
   <!-- Composição do kit -->
   <div class="card">
     <div class="card-title">Composição do Kit ({{ itens | length }} tipo{{ 's' if itens | length != 1 else '' }})</div>
+
+    {% if itens %}
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Toque nos itens para confirmar</span>
+        <span id="progress-text">0/{{ itens | length }}</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+    {% endif %}
+
     {% for item in itens %}
-    <div class="item-row">
+    <div class="item-row" onclick="toggleItem(this)">
       <div class="item-qtd">{{ item.quantidade }}</div>
       <div class="item-info">
         <div class="item-tipo">{{ item.tipo_nome }}</div>
@@ -282,6 +340,7 @@
         <div class="item-barcodes">{{ item.barcodes }}</div>
         {% endif %}
       </div>
+      <div class="item-check-icon">⬜</div>
     </div>
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
@@ -296,21 +355,30 @@
   <div class="card">
     <div class="card-title">Verificação do Kit</div>
 
+    {% if itens %}
+    <div id="aviso-checklist" style="font-size:13px;color:#e67e22;font-weight:600;
+         text-align:center;padding:10px 0 4px;">
+      ☝️ Confirme todos os itens acima antes de verificar
+    </div>
+    {% endif %}
+
     {% if user %}
-    <div class="val-form">
+    <div class="val-form" id="val-form-wrap" style="{% if itens %}opacity:.45;pointer-events:none;{% endif %}">
       <div style="font-size:14px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
         Verificando como: <strong>{{ user.nome }}</strong>
       </div>
       <form method="post" action="/kit/{{ kit.kit_id }}/validar">
         <textarea name="observacao" placeholder="Observação (opcional)..."></textarea>
-        <button type="submit" class="val-btn">✅ Confirmar Verificação</button>
+        <button type="submit" class="val-btn" id="btn-validar">✅ Confirmar Verificação</button>
       </form>
     </div>
     {% else %}
-    <p style="font-size:13px;color:#888;margin-bottom:12px;">
-      Faça login para verificar este kit.
-    </p>
-    <a href="/login" class="val-login-btn">🔒 Entrar para Verificar</a>
+    <div id="val-form-wrap" style="{% if itens %}opacity:.45;pointer-events:none;{% endif %}">
+      <p style="font-size:13px;color:#888;margin-bottom:12px;">
+        Faça login para verificar este kit.
+      </p>
+      <a href="/login?next=/kit/{{ kit.kit_id }}" class="val-login-btn">🔒 Entrar para Verificar</a>
+    </div>
     {% endif %}
 
     {% if validacoes %}
@@ -340,6 +408,36 @@
 <div class="footer">
   Conferência de Kits &nbsp;·&nbsp; {{ kit.kit_id }}
 </div>
+
+<script>
+const totalItens = {{ itens | length }};
+
+function toggleItem(row) {
+  row.classList.toggle('checked');
+  const icon = row.querySelector('.item-check-icon');
+  icon.textContent = row.classList.contains('checked') ? '✅' : '⬜';
+  atualizarProgresso();
+}
+
+function atualizarProgresso() {
+  const marcados = document.querySelectorAll('.item-row.checked').length;
+  const todos = marcados >= totalItens;
+
+  document.getElementById('progress-text').textContent = marcados + '/' + totalItens;
+  document.getElementById('progress-fill').style.width = (totalItens ? (marcados / totalItens * 100) : 0) + '%';
+
+  const aviso = document.getElementById('aviso-checklist');
+  const wrap  = document.getElementById('val-form-wrap');
+
+  if (todos) {
+    if (aviso) aviso.style.display = 'none';
+    if (wrap)  { wrap.style.opacity = '1'; wrap.style.pointerEvents = 'auto'; }
+  } else {
+    if (aviso) aviso.style.display = 'block';
+    if (wrap)  { wrap.style.opacity = '.45'; wrap.style.pointerEvents = 'none'; }
+  }
+}
+</script>
 
 </body>
 </html>

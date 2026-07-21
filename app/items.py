@@ -18,15 +18,34 @@ def listar_tipos(apenas_ativos: bool = False) -> list:
 
 
 def listar_tipos_para_kit(template_id: int) -> list:
-    """Retorna apenas os tipos presentes no template (para o modal de identificação)."""
+    """Retorna apenas os tipos presentes no template, excluindo tipos com código fixo."""
     with db() as conn:
         rows = conn.execute(
             "SELECT it.id, it.nome FROM item_tipo it "
             "JOIN kit_template_items ki ON ki.item_tipo_id = it.id "
-            "WHERE ki.kit_template_id = ? AND it.ativo = 1 ORDER BY it.nome",
+            "WHERE ki.kit_template_id = ? AND it.ativo = 1 "
+            "AND (it.codigo_fixo IS NULL OR it.codigo_fixo = '') "
+            "ORDER BY it.nome",
             (template_id,)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def buscar_tipo_por_codigo_fixo(codigo: str) -> dict | None:
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, nome, reutilizavel FROM item_tipo WHERE codigo_fixo = ? AND ativo = 1",
+            (codigo,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def definir_codigo_fixo(tipo_id: int, codigo: str | None):
+    valor = codigo.strip() if codigo and codigo.strip() else None
+    with db() as conn:
+        conn.execute(
+            "UPDATE item_tipo SET codigo_fixo = ? WHERE id = ?", (valor, tipo_id)
+        )
 
 
 def criar_tipo(nome: str, unidade: str = "un") -> int:

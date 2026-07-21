@@ -118,6 +118,107 @@ def registrar_serial(sessao_id: int, serial_barra: str) -> dict:
     }
 
 
+def get_pendente_patrimonio_fixo(sessao_id: int) -> dict | None:
+    """Retorna o tipo aguardando patrimônio após código fixo detectado, ou None."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT ssi.id, ssi.codigo_barra AS codigo_fixo, ssi.item_tipo_id, it.nome AS descricao "
+            "FROM scan_session_items ssi "
+            "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            "WHERE ssi.sessao_id = ? AND ssi.status = 'aguardando_patrimonio' "
+            "LIMIT 1",
+            (sessao_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def cancelar_patrimonio_fixo(sessao_id: int) -> dict:
+    with db() as conn:
+        conn.execute(
+            "DELETE FROM scan_session_items WHERE sessao_id = ? AND status = 'aguardando_patrimonio'",
+            (sessao_id,)
+        )
+    return {"resultado": "cancelado_patrimonio_fixo",
+            "mensagem": "Código fixo cancelado. Bipe novamente se necessário."}
+
+
+def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict:
+    """Registra o patrimônio do item identificado por código fixo."""
+    pendente = get_pendente_patrimonio_fixo(sessao_id)
+    if not pendente:
+        return register_scan(sessao_id, codigo_patrimonio)
+
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    tipo_id = pendente["item_tipo_id"]
+
+    item = items_mod.buscar_item(codigo_patrimonio)
+    if not item:
+        items_mod.criar_item(codigo_patrimonio, tipo_id, session["operador_id"])
+        item = items_mod.buscar_item(codigo_patrimonio)
+    elif item["item_tipo_id"] != tipo_id:
+        return {"resultado": "rejeitado",
+                "mensagem": (f"Patrimônio '{codigo_patrimonio}' já é do tipo '{item['descricao']}', "
+                             f"não '{pendente['descricao']}'. Cancele e bipe novamente.")}
+
+    with db() as conn:
+        conn.execute(
+            "DELETE FROM scan_session_items WHERE id = ?", (pendente["id"],)
+        )
+
+    if _barcode_em_sessao(sessao_id, codigo_patrimonio):
+        return {"resultado": "rejeitado",
+                "mensagem": f"Patrimônio '{codigo_patrimonio}' já foi bipado nesta sessão."}
+
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    template_item = next(
+        (i for i in itens_template if i["item_tipo_id"] == tipo_id), None
+    )
+    if not template_item:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{pendente['descricao']}' não pertence a este kit."}
+
+    contagem = get_contagem(sessao_id)
+    atual = contagem.get(tipo_id, 0)
+    exigido = template_item["quantidade_exigida"]
+
+    if atual >= exigido:
+        return {"resultado": "rejeitado",
+                "mensagem": f"'{pendente['descricao']}': quantidade máxima ({exigido}) já atingida."}
+
+    requer_serial = bool(template_item.get("requer_serial"))
+
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (sessao_id, codigo_patrimonio, tipo_id,
+             "aguardando_serial" if requer_serial else "completo", now_brt())
+        )
+
+    if requer_serial:
+        return {
+            "resultado": "aguardando_serial",
+            "mensagem": f"'{pendente['descricao']}' patrimônio bipado. Agora bipe o serial number.",
+            "codigo_barra": codigo_patrimonio,
+            "item_tipo_id": tipo_id,
+            "descricao": pendente["descricao"],
+        }
+
+    novo_atual = atual + 1
+    return {
+        "resultado": "aceito",
+        "mensagem": f"'{pendente['descricao']}' aceito. ({novo_atual}/{exigido})",
+        "contagem_atual": novo_atual,
+        "quantidade_exigida": exigido,
+        "codigo_barra": codigo_patrimonio,
+        "item_tipo_id": tipo_id,
+        "descricao": pendente["descricao"],
+    }
+
+
 def cancelar_serial(sessao_id: int) -> dict:
     """Descarta o item aguardando serial — operador pode bipar o item novamente."""
     with db() as conn:
@@ -264,6 +365,37 @@ def register_scan(sessao_id: int, codigo_barra: str,
         return {"resultado": "rejeitado",
                 "mensagem": "Sessão inválida ou já encerrada."}
 
+    # ── Verifica se é um código fixo de tipo ────────────────────────────────────
+    tipo_fixo = items_mod.buscar_tipo_por_codigo_fixo(codigo_barra)
+    if tipo_fixo:
+        itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+        template_item_fixo = next(
+            (i for i in itens_template if i["item_tipo_id"] == tipo_fixo["id"]), None
+        )
+        if not template_item_fixo:
+            return {"resultado": "rejeitado",
+                    "mensagem": f"'{tipo_fixo['nome']}' não pertence a este kit."}
+        contagem = get_contagem(sessao_id)
+        if contagem.get(tipo_fixo["id"], 0) >= template_item_fixo["quantidade_exigida"]:
+            return {"resultado": "rejeitado",
+                    "mensagem": (f"'{tipo_fixo['nome']}': quantidade máxima "
+                                 f"({template_item_fixo['quantidade_exigida']}) já atingida.")}
+        with db() as conn:
+            conn.execute(
+                "INSERT INTO scan_session_items "
+                "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
+                "VALUES (?, ?, ?, 'aguardando_patrimonio', ?)",
+                (sessao_id, codigo_barra, tipo_fixo["id"], now_brt())
+            )
+        return {
+            "resultado": "aguardando_patrimonio_fixo",
+            "mensagem": f"Código fixo '{tipo_fixo['nome']}' detectado. Bipe o patrimônio.",
+            "tipo_id": tipo_fixo["id"],
+            "tipo_nome": tipo_fixo["nome"],
+            "codigo_fixo": codigo_barra,
+        }
+    # ────────────────────────────────────────────────────────────────────────────
+
     # ── Verifica se é um item de estoque ────────────────────────────────────────
     est = estoque_mod.buscar_por_codigo(codigo_barra)
     if est:
@@ -329,6 +461,12 @@ def register_scan(sessao_id: int, codigo_barra: str,
     if not item:
         if item_tipo_id is None:
             tipos = items_mod.listar_tipos_para_kit(session["kit_template_id"])
+            # Exclude tipos already at capacity in this session
+            contagem_modal = get_contagem(sessao_id)
+            itens_tpl = templates_mod.get_itens_template(session["kit_template_id"])
+            exigido_map = {i["item_tipo_id"]: i["quantidade_exigida"] for i in itens_tpl}
+            tipos = [t for t in tipos
+                     if contagem_modal.get(t["id"], 0) < exigido_map.get(t["id"], float("inf"))]
             return {
                 "resultado": "desconhecido",
                 "mensagem": f"Código '{codigo_barra}' não cadastrado.",

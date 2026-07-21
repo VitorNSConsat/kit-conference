@@ -105,22 +105,27 @@ def render(request: Request, template: str, ctx: dict = {}):
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     if get_current_user(request):
-        return RedirectResponse("/", status_code=302)
-    return render(request, "login.html")
+        next_url = request.query_params.get("next", "/")
+        return RedirectResponse(next_url if next_url.startswith("/") and not next_url.startswith("//") else "/", status_code=302)
+    return render(request, "login.html", {"next": request.query_params.get("next", "")})
 
 
 @app.post("/login")
-async def login_post(request: Request,
-                     username: str = Form(...),
-                     password: str = Form(...)):
+async def login_post(request: Request):
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+    password = str(form.get("password", "")).strip()
+    next_url = str(form.get("next", "")).strip()
+    if not (next_url.startswith("/") and not next_url.startswith("//")):
+        next_url = "/"
     with db() as conn:
         row = conn.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
     if row and verify_password(password, row["password_hash"]):
         request.session["user_id"] = row["id"]
-        return RedirectResponse("/", status_code=302)
-    return render(request, "login.html", {"erro": "Usuário ou senha incorretos."})
+        return RedirectResponse(next_url, status_code=302)
+    return render(request, "login.html", {"erro": "Usuário ou senha incorretos.", "next": next_url})
 
 
 @app.get("/logout")
@@ -308,6 +313,15 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
 @require_login
 async def admin_tipo_delete_force(request: Request, tipo_id: int):
     items_mod.deletar_tipo_cascade(tipo_id)
+    return RedirectResponse("/admin/items", status_code=302)
+
+
+@app.post("/admin/tipos/{tipo_id}/set-codigo-fixo")
+@require_login
+async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
+    form = await request.form()
+    codigo = str(form.get("codigo_fixo", "")).strip()
+    items_mod.definir_codigo_fixo(tipo_id, codigo or None)
     return RedirectResponse("/admin/items", status_code=302)
 
 
@@ -570,17 +584,23 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     )
                 elif msg.get("acao") == "cancelar_serial":
                     result = sessions_mod.cancelar_serial(sessao_id)
+                elif msg.get("acao") == "cancelar_patrimonio_fixo":
+                    result = sessions_mod.cancelar_patrimonio_fixo(sessao_id)
                 else:
                     result = {"resultado": "rejeitado", "mensagem": "Mensagem inválida."}
             except (json.JSONDecodeError, KeyError, ValueError):
-                # Plain barcode scan — serial tem prioridade sobre bipagem normal
-                pendente = sessions_mod.get_pendente_serial(sessao_id)
-                if pendente:
+                # Plain barcode scan — priority: serial > patrimônio fixo > componente > normal
+                pendente_serial = sessions_mod.get_pendente_serial(sessao_id)
+                if pendente_serial:
                     result = sessions_mod.registrar_serial(sessao_id, data)
                 else:
-                    result = sessions_mod.checar_componente(sessao_id, data)
-                    if result is None:
-                        result = sessions_mod.register_scan(sessao_id, data)
+                    pendente_fixo = sessions_mod.get_pendente_patrimonio_fixo(sessao_id)
+                    if pendente_fixo:
+                        result = sessions_mod.registrar_patrimonio_de_fixo(sessao_id, data)
+                    else:
+                        result = sessions_mod.checar_componente(sessao_id, data)
+                        if result is None:
+                            result = sessions_mod.register_scan(sessao_id, data)
             await websocket.send_json(result)
     except WebSocketDisconnect:
         pass
@@ -760,6 +780,44 @@ async def print_queue_impresso(request: Request, pq_id: int):
 async def print_queue_cancelar(request: Request, pq_id: int):
     pq_mod.cancelar(pq_id)
     return RedirectResponse("/print-queue", status_code=302)
+
+
+# ── Mobile Hub (público) ──────────────────────────────────────────────────────
+
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile_hub(request: Request):
+    user = get_current_user(request)
+    with db() as conn:
+        kits = conn.execute(
+            "SELECT kr.kit_id, kt.nome AS kit_nome, kt.cliente, "
+            "kr.veiculo, kr.garagem, kr.finalizado_em "
+            "FROM kit_record kr "
+            "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "WHERE kr.status = 'ativo' "
+            "ORDER BY kr.finalizado_em DESC LIMIT 15"
+        ).fetchall()
+
+        sessoes_ativas = []
+        templates_list = []
+        if user:
+            sessoes_ativas = conn.execute(
+                "SELECT ss.id, kt.nome AS kit_nome, kt.cliente, ss.iniciado_em "
+                "FROM scan_session ss "
+                "JOIN kit_template kt ON kt.id = ss.kit_template_id "
+                "WHERE ss.operador_id = ? AND ss.status = 'em_andamento' "
+                "ORDER BY ss.iniciado_em DESC",
+                (user["id"],)
+            ).fetchall()
+            templates_list = conn.execute(
+                "SELECT id, nome, cliente FROM kit_template WHERE ativo = 1 ORDER BY nome"
+            ).fetchall()
+
+    return render(request, "mobile_hub.html", {
+        "user": user,
+        "kits": [dict(k) for k in kits],
+        "sessoes_ativas": [dict(s) for s in sessoes_ativas],
+        "templates_list": [dict(t) for t in templates_list],
+    })
 
 
 # ── Kit Detail (público — escaneado pelo QR code) ─────────────────────────────
