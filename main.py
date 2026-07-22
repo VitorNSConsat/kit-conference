@@ -586,6 +586,8 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                 continue
             try:
                 msg = json.loads(data)
+                if not isinstance(msg, dict):
+                    raise ValueError("not a JSON object")
                 if msg.get("acao") == "identificar":
                     result = sessions_mod.register_scan(
                         sessao_id, msg["codigo"],
