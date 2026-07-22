@@ -32,7 +32,7 @@ load_dotenv()
 _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 
 # Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
-_MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert'}
+_MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque'}
 _MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/')
 
 
