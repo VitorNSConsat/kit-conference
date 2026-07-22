@@ -396,8 +396,8 @@ def register_scan(sessao_id: int, codigo_barra: str,
         }
     # ────────────────────────────────────────────────────────────────────────────
 
-    # ── Verifica se é um item de estoque ────────────────────────────────────────
-    est = estoque_mod.buscar_por_codigo(codigo_barra)
+    # ── Verifica se é um item de estoque (código direto ou QR da etiqueta) ───────
+    est = estoque_mod.buscar_por_referencia(codigo_barra)
     if est:
         itens_template = templates_mod.get_itens_template(session["kit_template_id"])
         template_item = next(
@@ -429,7 +429,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
                 conn.execute(
                     "INSERT INTO scan_session_items "
                     "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em) VALUES (?, ?, ?, 'completo', ?)",
-                    (sessao_id, f"ESTOQUE:{codigo_barra}:{seq}", est["item_tipo_id"], now_brt())
+                    (sessao_id, f"ESTOQUE:{est['codigo_barra']}:{seq}", est["item_tipo_id"], now_brt())
                 )
             conn.execute(
                 "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",

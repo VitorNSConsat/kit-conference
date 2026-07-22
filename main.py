@@ -33,7 +33,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 
 # Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque')
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -1487,12 +1487,23 @@ async def admin_cliente_delete(request: Request, cliente_id: int):
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────
 
+@app.get("/estoque/buscar")
+async def estoque_buscar(request: Request, codigo: str = ""):
+    """Resolve um código de barras ou o texto de um QR de estoque para a
+    página de consulta correspondente — usado pelo scanner do /mobile."""
+    est = estoque_mod.buscar_por_referencia(codigo)
+    if not est:
+        return RedirectResponse("/mobile?erro=estoque_nao_encontrado", status_code=302)
+    return RedirectResponse(f"/estoque/{est['id']}", status_code=302)
+
+
 @app.get("/estoque/{estoque_id}", response_class=HTMLResponse)
-@require_login
 async def estoque_mobile(request: Request, estoque_id: int):
+    # Consulta de quantidade é pública (como a verificação de kit) —
+    # só o ajuste de estoque exige login.
     est = estoque_mod.buscar_por_id(estoque_id)
     if not est:
-        return RedirectResponse("/", status_code=302)
+        return RedirectResponse("/mobile?erro=estoque_nao_encontrado", status_code=302)
     historico = estoque_mod.listar_historico(estoque_id, limit=8)
     return render(request, "estoque_mobile.html", {
         "est": est,

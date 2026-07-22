@@ -166,7 +166,7 @@
   /* ── Nav rápido (estoque, verificar) ─── */
   .quick-nav {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -174,16 +174,27 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    padding: 18px 14px;
+    padding: 18px 8px;
     text-align: center;
     text-decoration: none;
     color: #1a1a1a;
     transition: background .1s;
     display: block;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
   }
   .quick-btn:active { background: #f4f6f8; }
-  .quick-btn .qb-icon { font-size: 28px; margin-bottom: 6px; }
-  .quick-btn .qb-label { font-size: 13px; font-weight: 700; color: #1a3a5c; }
+  .quick-btn .qb-icon { font-size: 26px; margin-bottom: 6px; }
+  .quick-btn .qb-label { font-size: 12px; font-weight: 700; color: #1a3a5c; }
+
+  /* ── Alerta ─── */
+  .alert-danger {
+    background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+    font-size: 14px; font-weight: 600; text-align: center;
+  }
 
   /* ── Login CTA ─── */
   .login-cta {
@@ -225,6 +236,10 @@
 </div>
 
 <div class="container">
+
+  {% if request.query_params.get('erro') == 'estoque_nao_encontrado' %}
+  <div class="alert-danger">⚠️ Código não encontrado no estoque.</div>
+  {% endif %}
 
   {% if user %}
 
@@ -273,6 +288,10 @@
       <div class="qb-icon">📦</div>
       <div class="qb-label">Estoque</div>
     </a>
+    <button type="button" class="quick-btn" onclick="abrirConsultaEstoque()">
+      <div class="qb-icon">🔍</div>
+      <div class="qb-label">Consultar Código</div>
+    </button>
     <a href="/reports" class="quick-btn">
       <div class="qb-icon">📊</div>
       <div class="qb-label">Relatórios</div>
@@ -313,5 +332,140 @@
   {% endif %}
 
 </div>
+
+<!-- ── Scanner de consulta de estoque (câmera / foto / manual) ──────────── -->
+<input type="file" id="est-foto-input" accept="image/*" capture="environment"
+       style="display:none" onchange="_estProcessarFoto(this)">
+
+<div id="est-overlay" style="display:none; position:fixed; top:0; left:0;
+     width:100%; height:100%; background:#000; z-index:900;
+     flex-direction:column; overflow:hidden;">
+  <div style="position:relative; flex:1; overflow:hidden;">
+    <video id="est-video" playsinline muted autoplay
+           style="width:100%; height:100%; object-fit:cover;"></video>
+  </div>
+  <div style="background:#111; padding:14px 16px 8px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+    <div style="flex:1;">
+      <div id="est-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código do item</div>
+    </div>
+    <button onclick="fecharConsultaEstoque()"
+            style="background:#c0392b; color:#fff; border:none; padding:11px 18px;
+                   border-radius:8px; font-size:14px; font-weight:700; flex-shrink:0;">
+      ✕ Fechar
+    </button>
+  </div>
+  <div style="background:#111; padding:8px 16px 14px; display:flex; gap:8px; flex-shrink:0;">
+    <input type="text" id="est-manual-input" placeholder="Ou digite o código..."
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+           style="flex:1; padding:11px 12px; font-size:16px; border:none; border-radius:10px;
+                  background:rgba(255,255,255,.12); color:#fff; outline:none; min-width:0;"
+           onkeydown="if(event.key==='Enter'){_estBuscarManual();}">
+    <button onclick="_estBuscarManual()" style="flex-shrink:0; width:46px; background:#27ae60;
+            color:#fff; border:none; border-radius:10px; font-size:20px; font-weight:700;">✓</button>
+  </div>
+</div>
+
+<script src="/static/zxing.min.js"></script>
+<script>
+(function () {
+    let _stream = null, _zxingControls = null, _token = 0;
+
+    window.abrirConsultaEstoque = async function () {
+        fecharConsultaEstoque();
+        const meuToken = ++_token;
+
+        const overlay = document.getElementById('est-overlay');
+        const video   = document.getElementById('est-video');
+        const status  = document.getElementById('est-status');
+
+        overlay.style.display = 'flex';
+        status.textContent = 'Abrindo câmera…';
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            status.textContent = 'Câmera indisponível — digite o código abaixo ou use a foto.';
+            document.getElementById('est-foto-input').click();
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' },
+                         width: { ideal: 1920 }, height: { ideal: 1080 } }
+            });
+            if (meuToken !== _token) { stream.getTracks().forEach(t => t.stop()); return; }
+            _stream = stream;
+
+            if (typeof ZXing === 'undefined') {
+                status.textContent = '⚠️ Scanner indisponível — digite o código abaixo.';
+                return;
+            }
+            status.textContent = 'Aponte para o código do item';
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            const reader = new ZXing.BrowserMultiFormatReader(hints, 400);
+            _zxingControls = await reader.decodeFromStream(_stream, video, function (result) {
+                if (meuToken !== _token || !result) return;
+                _irParaEstoque(result.getText().trim(), meuToken);
+            });
+        } catch (e) {
+            fecharScannerEDigitar();
+        }
+    };
+
+    function fecharScannerEDigitar() {
+        fecharConsultaEstoque();
+        document.getElementById('est-foto-input').click();
+    }
+
+    function _irParaEstoque(codigo, token) {
+        if (!codigo || token !== _token) return;
+        _token++; // invalida qualquer outro callback pendente da câmera
+        if (navigator.vibrate) navigator.vibrate([60]);
+        window.location.href = '/estoque/buscar?codigo=' + encodeURIComponent(codigo);
+    }
+
+    window.fecharConsultaEstoque = function () {
+        _token++;
+        if (_zxingControls) { try { _zxingControls.stop(); } catch(e){} _zxingControls = null; }
+        if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
+        const video = document.getElementById('est-video');
+        if (video) video.srcObject = null;
+        document.getElementById('est-overlay').style.display = 'none';
+        document.getElementById('est-status').textContent = 'Aponte para o código do item';
+    };
+
+    window._estProcessarFoto = async function (input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        document.getElementById('est-overlay').style.display = 'flex';
+        document.getElementById('est-status').textContent = '⏳ Lendo código…';
+        if (typeof ZXing === 'undefined') {
+            document.getElementById('est-status').textContent = '⚠️ Scanner indisponível — digite o código abaixo.';
+            input.value = '';
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        try {
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            const reader = new ZXing.BrowserMultiFormatReader(hints);
+            const result = await reader.decodeFromImageUrl(url);
+            _irParaEstoque(result.getText().trim(), _token);
+        } catch (e) {
+            document.getElementById('est-status').textContent = '⚠️ Código não detectado — tente novamente.';
+        } finally {
+            URL.revokeObjectURL(url);
+            input.value = '';
+        }
+    };
+
+    window._estBuscarManual = function () {
+        const input = document.getElementById('est-manual-input');
+        const codigo = (input.value || '').trim();
+        if (!codigo) return;
+        window.location.href = '/estoque/buscar?codigo=' + encodeURIComponent(codigo);
+    };
+})();
+</script>
 </body>
 </html>

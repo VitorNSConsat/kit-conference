@@ -1,3 +1,4 @@
+import re
 from database import db, now_brt
 
 
@@ -22,6 +23,23 @@ def buscar_por_codigo(codigo_barra: str) -> dict | None:
             (codigo_barra,)
         ).fetchone()
     return dict(row) if row else None
+
+
+def buscar_por_referencia(texto: str) -> dict | None:
+    """Busca item de estoque pelo código de barras direto, ou pela URL do QR
+    da etiqueta (formato .../estoque/<id>) — permite que o mesmo QR seja lido
+    tanto durante a bipagem (desconta como um código normal) quanto fora dela
+    (mostra a quantidade atual)."""
+    texto = (texto or "").strip()
+    if not texto:
+        return None
+    direto = buscar_por_codigo(texto)
+    if direto:
+        return direto
+    m = re.search(r'/estoque/(\d+)/?$', texto)
+    if m:
+        return buscar_por_id(int(m.group(1)))
+    return None
 
 
 def buscar_por_id(estoque_id: int) -> dict | None:
