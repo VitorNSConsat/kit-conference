@@ -244,7 +244,7 @@
          background:rgba(255,255,255,.45);display:none;pointer-events:none;"></div>
   </div>
 
-  <div style="background:#111; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+  <div style="background:#111; padding:10px 16px 6px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
     <div style="flex:1;">
       <div id="cam-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código de barras</div>
       <div id="cam-ultimo" style="color:#aaa; font-size:12px; margin-top:2px; font-family:monospace;"></div>
@@ -253,6 +253,13 @@
             style="background:#c0392b; color:#fff; border:none; padding:11px 18px;
                    border-radius:8px; font-size:14px; font-weight:700; flex-shrink:0;">
       ✕ Fechar
+    </button>
+  </div>
+  <div style="background:#111; padding:6px 16px 14px; flex-shrink:0;">
+    <button onclick="document.getElementById('cam-foto-input').click()"
+            style="width:100%; background:rgba(255,255,255,.12); color:#fff; border:1.5px solid rgba(255,255,255,.3);
+                   padding:11px; border-radius:8px; font-size:13px; font-weight:700;">
+      📷 QR não lê ao vivo? Tirar Foto (mais preciso)
     </button>
   </div>
 </div>
@@ -464,7 +471,8 @@ function onVeiculoChange() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: 'environment' },
-                         width: { ideal: 1920 }, height: { ideal: 1080 } }
+                         width: { ideal: 3840 }, height: { ideal: 2160 },
+                         advanced: [{ focusMode: 'continuous' }] }
             });
 
             // Sessão foi fechada/substituída enquanto aguardávamos a câmera —
@@ -537,6 +545,7 @@ function onVeiculoChange() {
             if (navigator.vibrate) navigator.vibrate([60]);
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(codigo);
             _mostrarToast('✅ ' + codigo, 2000);
+            if (_ativo) fecharScannerCamera();
         } else {
             _mostrarToast('⚠️ Código não detectado — tente com mais luz ou mais perto', 2500);
         }
@@ -594,7 +603,7 @@ function onVeiculoChange() {
                     if (codigo) { _onCodigoDetectado(codigo, token); return; }
                 } catch (e) { /* nenhum código neste frame, ou erro interno — tenta de novo */ }
             }
-            _zxingTimer = setTimeout(tick, 300);
+            _zxingTimer = setTimeout(tick, 180);
         }
         tick();
     }
