@@ -400,7 +400,7 @@ function onVeiculoChange() {
     let _stream        = null;
     let _detector      = null;
     let _loop          = null;
-    let _zxingControls = null;
+    let _zxingTimer    = null;
     let _ativo         = false;
     let _pausado       = false;
     let _scanToken     = 0; // incrementado a cada abertura/fechamento — invalida callbacks de sessões antigas
@@ -556,8 +556,8 @@ function onVeiculoChange() {
     window.fecharScannerCamera = function () {
         _scanToken++; // invalida qualquer callback/loop pendente de uma sessão anterior
         _ativo = false;
-        if (_loop)          { cancelAnimationFrame(_loop); _loop = null; }
-        if (_zxingControls) { try { _zxingControls.stop(); } catch(e){} _zxingControls = null; }
+        if (_loop)       { cancelAnimationFrame(_loop); _loop = null; }
+        if (_zxingTimer) { clearTimeout(_zxingTimer); _zxingTimer = null; }
         if (_stream)     { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
         const video = document.getElementById('cam-video');
         if (video) video.srcObject = null;
@@ -567,26 +567,36 @@ function onVeiculoChange() {
     };
 
     // ── ZXing live (fallback quando BarcodeDetector indisponível) ──────────────
-    // Usa decodeFromStream para que o ZXing defina srcObject por conta própria,
-    // disparando loadedmetadata corretamente antes de iniciar o loop de decodificação.
+    // Implementa o próprio loop de tentativas em vez de usar o decodeFromStream
+    // contínuo do ZXing: o loop nativo dele só reagenda a próxima tentativa se
+    // o erro for um dos 3 tipos "esperados" (código não encontrado no frame).
+    // Qualquer OUTRA exceção (comum ao decodificar QR em certos frames no iOS)
+    // faz o loop nativo morrer silenciosamente para sempre — a câmera continua
+    // visível, mas nunca mais tenta decodificar nada. Aqui o loop sempre
+    // reagenda a próxima tentativa, não importa o que aconteça.
     async function _iniciarZXingVideo(video, token) {
-        const zxReader = new ZXing.BrowserMultiFormatReader(_zxingHints(), 400);
         try {
-            _zxingControls = await zxReader.decodeFromStream(
-                _stream, video,
-                function (result) {
-                    if (token !== _scanToken || !_ativo || _pausado) return;
-                    if (result) {
-                        const codigo = result.getText().trim();
-                        if (codigo) _onCodigoDetectado(codigo, token);
-                    }
-                }
-            );
+            video.srcObject = _stream;
+            await video.play();
         } catch (e) {
             if (token === _scanToken) {
-                document.getElementById('cam-status').textContent = '⚠️ Erro ao iniciar scanner: ' + e.message;
+                document.getElementById('cam-status').textContent = '⚠️ Erro ao iniciar vídeo: ' + e.message;
             }
+            return;
         }
+        const zxReader = new ZXing.BrowserMultiFormatReader(_zxingHints());
+        function tick() {
+            if (token !== _scanToken || !_ativo) return;
+            if (!_pausado && video.readyState >= 2 && video.videoWidth > 0) {
+                try {
+                    const result = zxReader.decode(video);
+                    const codigo = result.getText().trim();
+                    if (codigo) { _onCodigoDetectado(codigo, token); return; }
+                } catch (e) { /* nenhum código neste frame, ou erro interno — tenta de novo */ }
+            }
+            _zxingTimer = setTimeout(tick, 300);
+        }
+        tick();
     }
 
     // Input manual / Bluetooth da barra inferior

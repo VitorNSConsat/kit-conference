@@ -368,7 +368,7 @@
 <script src="/static/zxing.min.js"></script>
 <script>
 (function () {
-    let _stream = null, _zxingControls = null, _token = 0;
+    let _stream = null, _zxingTimer = null, _token = 0;
 
     // Hints do ZXing — declara explicitamente todos os formatos (incluindo
     // QR_CODE) para garantir que o leitor sempre tente decodificar QR junto
@@ -420,16 +420,36 @@
                 status.textContent = '⚠️ Scanner indisponível — digite o código abaixo.';
                 return;
             }
+            video.srcObject = _stream;
+            await video.play();
             status.textContent = 'Aponte para o código do item';
-            const reader = new ZXing.BrowserMultiFormatReader(_zxingHints(), 400);
-            _zxingControls = await reader.decodeFromStream(_stream, video, function (result) {
-                if (meuToken !== _token || !result) return;
-                _irParaEstoque(result.getText().trim(), meuToken);
-            });
+            const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
+            _iniciarLoopZXing(video, reader, meuToken);
         } catch (e) {
             fecharScannerEDigitar();
         }
     };
+
+    // Loop próprio de tentativas: o decodeFromStream contínuo do ZXing só
+    // reagenda a próxima tentativa se o erro for um dos 3 tipos "esperados"
+    // (código não encontrado no frame). Qualquer OUTRA exceção (comum ao
+    // decodificar QR em certos frames no iOS) faz o loop dele morrer
+    // silenciosamente para sempre. Este loop sempre reagenda, não importa
+    // o que aconteça.
+    function _iniciarLoopZXing(video, reader, token) {
+        function tick() {
+            if (token !== _token) return;
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+                try {
+                    const result = reader.decode(video);
+                    const codigo = result.getText().trim();
+                    if (codigo) { _irParaEstoque(codigo, token); return; }
+                } catch (e) { /* nenhum código neste frame, ou erro interno — tenta de novo */ }
+            }
+            _zxingTimer = setTimeout(tick, 300);
+        }
+        tick();
+    }
 
     function fecharScannerEDigitar() {
         fecharConsultaEstoque();
@@ -445,7 +465,7 @@
 
     window.fecharConsultaEstoque = function () {
         _token++;
-        if (_zxingControls) { try { _zxingControls.stop(); } catch(e){} _zxingControls = null; }
+        if (_zxingTimer) { clearTimeout(_zxingTimer); _zxingTimer = null; }
         if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
         const video = document.getElementById('est-video');
         if (video) video.srcObject = null;
