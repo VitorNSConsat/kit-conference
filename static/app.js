@@ -69,10 +69,16 @@ function initScanner(sessaoId) {
         }
     };
 
-    // Captura global: acumula chars até Enter
+    // Captura global: acumula chars até Enter (leitor USB físico, sem foco em nenhum input)
     document.addEventListener("keydown", (e) => {
         // Ignora bipagens enquanto o modal de identificação está aberto
         if (_aguardandoIdentificacao) return;
+
+        // Ignora eventos originados de um <input> (ex.: #mobile-barcode-input).
+        // Esses campos já processam seu próprio Enter (_enviarInputMobile());
+        // sem este filtro, o keydown borbulha até aqui e o código é enviado
+        // duas vezes — uma pelo input, outra por este buffer global.
+        if (e.target && e.target.tagName === 'INPUT') return;
 
         if (e.key === "Enter") {
             const codigo = buffer.trim();
