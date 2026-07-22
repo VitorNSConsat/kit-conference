@@ -403,6 +403,7 @@ function onVeiculoChange() {
     let _zxingControls = null;
     let _ativo         = false;
     let _pausado       = false;
+    let _scanToken     = 0; // incrementado a cada abertura/fechamento — invalida callbacks de sessões antigas
 
     // Inicializa BarcodeDetector com os formatos disponíveis
     async function _initDetector() {
@@ -424,6 +425,12 @@ function onVeiculoChange() {
             return;
         }
 
+        // Fecha qualquer sessão anterior antes de abrir uma nova — evita dois
+        // streams/loops de decodificação concorrentes na câmera (causa de
+        // detecção duplicada do código anterior e de falha ao reabrir no iOS).
+        fecharScannerCamera();
+        const meuToken = ++_scanToken;
+
         const overlay = document.getElementById('cam-overlay');
         const video   = document.getElementById('cam-video');
         const status  = document.getElementById('cam-status');
@@ -434,10 +441,18 @@ function onVeiculoChange() {
         status.textContent = 'Abrindo câmera…';
 
         try {
-            _stream = await navigator.mediaDevices.getUserMedia({
+            const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: { ideal: 'environment' },
                          width: { ideal: 1920 }, height: { ideal: 1080 } }
             });
+
+            // Sessão foi fechada/substituída enquanto aguardávamos a câmera —
+            // libera o stream obtido e não mexe na sessão nova/atual.
+            if (meuToken !== _scanToken) {
+                stream.getTracks().forEach(t => t.stop());
+                return;
+            }
+            _stream = stream;
 
             if (!_detector) _detector = await _initDetector();
 
@@ -446,11 +461,11 @@ function onVeiculoChange() {
                 video.srcObject = _stream;
                 await video.play();
                 status.textContent = 'Aponte para o código de barras';
-                _loop = requestAnimationFrame(_frame);
+                _loop = requestAnimationFrame(() => _frame(meuToken));
             } else if (typeof ZXing !== 'undefined') {
                 // ZXing: decodeFromStream define srcObject e dispara loadedmetadata internamente
                 status.textContent = 'Aponte para o código de barras';
-                _iniciarZXingVideo(video);
+                _iniciarZXingVideo(video, meuToken);
             } else {
                 status.textContent = '⚠️ Scanner não disponível neste navegador.';
             }
@@ -520,6 +535,7 @@ function onVeiculoChange() {
     }
 
     window.fecharScannerCamera = function () {
+        _scanToken++; // invalida qualquer callback/loop pendente de uma sessão anterior
         _ativo = false;
         if (_loop)          { cancelAnimationFrame(_loop); _loop = null; }
         if (_zxingControls) { try { _zxingControls.stop(); } catch(e){} _zxingControls = null; }
@@ -534,7 +550,7 @@ function onVeiculoChange() {
     // ── ZXing live (fallback quando BarcodeDetector indisponível) ──────────────
     // Usa decodeFromStream para que o ZXing defina srcObject por conta própria,
     // disparando loadedmetadata corretamente antes de iniciar o loop de decodificação.
-    async function _iniciarZXingVideo(video) {
+    async function _iniciarZXingVideo(video, token) {
         const hints = new Map();
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
         const zxReader = new ZXing.BrowserMultiFormatReader(hints, 400);
@@ -542,15 +558,17 @@ function onVeiculoChange() {
             _zxingControls = await zxReader.decodeFromStream(
                 _stream, video,
                 function (result) {
-                    if (!_ativo || _pausado) return;
+                    if (token !== _scanToken || !_ativo || _pausado) return;
                     if (result) {
                         const codigo = result.getText().trim();
-                        if (codigo) _onCodigoDetectado(codigo);
+                        if (codigo) _onCodigoDetectado(codigo, token);
                     }
                 }
             );
         } catch (e) {
-            document.getElementById('cam-status').textContent = '⚠️ Erro ao iniciar scanner: ' + e.message;
+            if (token === _scanToken) {
+                document.getElementById('cam-status').textContent = '⚠️ Erro ao iniciar scanner: ' + e.message;
+            }
         }
     }
 
@@ -566,34 +584,36 @@ function onVeiculoChange() {
         input.focus();
     };
 
-    async function _frame() {
-        if (!_ativo) return;
-        if (_pausado) { _loop = requestAnimationFrame(_frame); return; }
+    async function _frame(token) {
+        if (!_ativo || token !== _scanToken) return;
+        if (_pausado) { _loop = requestAnimationFrame(() => _frame(token)); return; }
 
         const video = document.getElementById('cam-video');
         if (!video || video.readyState < 2) {
-            _loop = requestAnimationFrame(_frame);
+            _loop = requestAnimationFrame(() => _frame(token));
             return;
         }
 
         try {
             const resultados = await _detector.detect(video);
+            if (token !== _scanToken) return; // sessão mudou durante o detect
             if (resultados.length > 0) {
                 const codigo = resultados[0].rawValue.trim();
                 if (codigo) {
-                    _onCodigoDetectado(codigo);
+                    _onCodigoDetectado(codigo, token);
                     return; // _frame será agendado novamente após a pausa
                 }
             }
         } catch (e) { /* ignora frames com erro */ }
 
-        _loop = requestAnimationFrame(_frame);
+        _loop = requestAnimationFrame(() => _frame(token));
     }
 
-    function _onCodigoDetectado(codigo) {
-        // Impede disparo duplo caso ZXing chame o callback mais de uma vez
-        // antes da câmera fechar
-        if (_pausado) return;
+    function _onCodigoDetectado(codigo, token) {
+        // Ignora detecções de uma sessão de câmera que já não é mais a atual
+        // e impede disparo duplo caso o leitor chame o callback mais de uma
+        // vez antes da câmera fechar.
+        if (token !== _scanToken || _pausado) return;
         _pausado = true;
 
         // Feedback visual: flash branco
@@ -612,9 +632,12 @@ function onVeiculoChange() {
             ws.send(codigo);
         }
 
-        // Fecha a câmera após o flash ser percebido.
-        // Assim modais e a lista de itens aparecem sobre a página, não sobre o feed.
-        setTimeout(() => fecharScannerCamera(), 350);
+        // Fecha a câmera após o flash ser percebido — só se nenhuma nova
+        // sessão foi aberta nesse meio-tempo (evita derrubar a sessão nova
+        // caso o usuário já tenha reaberto a câmera para o próximo item).
+        setTimeout(() => {
+            if (token === _scanToken) fecharScannerCamera();
+        }, 350);
     }
 })();
 </script>
