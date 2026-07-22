@@ -119,10 +119,34 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
 
 # ── HTML para impressora normal ───────────────────────────────────────────────
 
-def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
-    """Etiqueta HTML 60×60mm: descrição em cima, QR no meio, ESTOQUE|LOGO embaixo."""
-    logo_b64 = _logo_base64()
+def _barcode_img(codigo: str) -> str:
+    """Gera um código de barras Code128 como PNG base64.
 
+    Existe ao lado do QR na etiqueta porque o Safari/iOS não implementa a
+    API BarcodeDetector e a câmera do getUserMedia não foca de forma
+    confiável o suficiente para ler QR — mas lê código de barras 1D sem
+    problema. O código de barras garante leitura confiável em qualquer
+    aparelho; o QR continua servindo para abrir a consulta direto pela
+    câmera nativa do celular.
+    """
+    try:
+        import barcode as _barcode_lib
+        from barcode.writer import ImageWriter
+        code = _barcode_lib.get("code128", codigo, writer=ImageWriter())
+        buf = io.BytesIO()
+        code.write(buf, options={
+            "module_width": 0.3, "module_height": 7.0,
+            "quiet_zone": 2.0, "font_size": 7, "text_distance": 1.5,
+            "write_text": True,
+        })
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f'<img class="barcode-img" src="data:image/png;base64,{b64}" alt="Código de barras">'
+    except Exception:
+        return f'<p style="font-size:9px;color:#000;font-weight:700;text-align:center;">{codigo}</p>'
+
+
+def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
+    """Etiqueta HTML 60×60mm: descrição em cima, QR no meio, código de barras embaixo."""
     try:
         import segno
         qr = segno.make(url_qr, error="q")
@@ -132,11 +156,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     except Exception:
         qr_src = ""
 
-    logo_html = (
-        f'<img class="logo-img" src="data:image/png;base64,{logo_b64}" alt="logo">'
-        if logo_b64
-        else f'<span class="empresa-txt">{EMPRESA_NOME}</span>'
-    )
+    barcode_html = _barcode_img(codigo_barra)
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -191,28 +211,19 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
     flex-shrink: 0;
     width: 100%;
-    padding-top: 1.5mm;
+    padding-top: 1mm;
     border-top: 0.4mm solid #000;
   }}
 
-  .rodape-txt {{
-    font-size: 9px; font-weight: 900; color: #000;
-    letter-spacing: 2px; text-transform: uppercase;
-  }}
-
-  .sep {{ font-size: 10px; color: #555; }}
-
-  .logo-img {{
-    max-height: 5.5mm; max-width: 16mm;
-    object-fit: contain;
-  }}
-
-  .empresa-txt {{
-    font-size: 9px; font-weight: 900; color: #000;
-    text-transform: uppercase; letter-spacing: 1px;
+  .barcode-img {{
+    display: block;
+    max-width: 100%;
+    max-height: 9mm;
+    width: auto;
+    height: auto;
+    image-rendering: pixelated;
   }}
 
   @media print {{
@@ -229,9 +240,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
     <img class="qr" src="{qr_src}" alt="QR">
   </div>
   <div class="rodape">
-    <span class="rodape-txt">Estoque</span>
-    <span class="sep">|</span>
-    {logo_html}
+    {barcode_html}
   </div>
 </div>
 <div class="actions" style="display:flex;margin-top:14px;width:60mm;">
