@@ -405,6 +405,27 @@ function onVeiculoChange() {
     let _pausado       = false;
     let _scanToken     = 0; // incrementado a cada abertura/fechamento — invalida callbacks de sessões antigas
 
+    // Hints do ZXing — declara explicitamente todos os formatos (incluindo
+    // QR_CODE) para garantir que o leitor sempre tente decodificar QR junto
+    // com os códigos de barras 1D, independente de heurísticas internas.
+    function _zxingHints() {
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+            ZXing.BarcodeFormat.QR_CODE,
+            ZXing.BarcodeFormat.CODE_128,
+            ZXing.BarcodeFormat.CODE_39,
+            ZXing.BarcodeFormat.CODE_93,
+            ZXing.BarcodeFormat.EAN_13,
+            ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.DATA_MATRIX,
+            ZXing.BarcodeFormat.PDF_417,
+            ZXing.BarcodeFormat.ITF,
+            ZXing.BarcodeFormat.AZTEC,
+        ]);
+        return hints;
+    }
+
     // Inicializa BarcodeDetector com os formatos disponíveis
     async function _initDetector() {
         if (!('BarcodeDetector' in window)) return null;
@@ -502,9 +523,7 @@ function onVeiculoChange() {
         if (!codigo && typeof ZXing !== 'undefined') {
             const url = URL.createObjectURL(file);
             try {
-                const hints = new Map();
-                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-                const reader = new ZXing.BrowserMultiFormatReader(hints);
+                const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
                 const result = await reader.decodeFromImageUrl(url);
                 codigo = result.getText().trim();
             } catch (e) {
@@ -551,9 +570,7 @@ function onVeiculoChange() {
     // Usa decodeFromStream para que o ZXing defina srcObject por conta própria,
     // disparando loadedmetadata corretamente antes de iniciar o loop de decodificação.
     async function _iniciarZXingVideo(video, token) {
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        const zxReader = new ZXing.BrowserMultiFormatReader(hints, 400);
+        const zxReader = new ZXing.BrowserMultiFormatReader(_zxingHints(), 400);
         try {
             _zxingControls = await zxReader.decodeFromStream(
                 _stream, video,

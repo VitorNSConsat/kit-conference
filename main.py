@@ -168,7 +168,7 @@ async def rede(request: Request):
     def _make_qr_svg(url: str) -> str:
         try:
             import segno, io as _io, re
-            qr = segno.make(url, error="l")
+            qr = segno.make(url, error="q")
             buf = _io.BytesIO()
             qr.save(buf, kind="svg", scale=5, border=2, xmldecl=False, nl=False)
             svg = buf.getvalue().decode("utf-8")
@@ -1325,7 +1325,7 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
     base = getattr(app.state, "servidor_url", _zpl.SERVIDOR_URL)
     url = f"{base}/estoque/{estoque_id}"
     import segno, io as _io
-    qr = segno.make(url, error="m")
+    qr = segno.make(url, error="q")
     buf = _io.BytesIO()
     qr.save(buf, kind="svg", scale=8, border=3, xmldecl=True, nl=False)
     return FResponse(content=buf.getvalue(), media_type="image/svg+xml")

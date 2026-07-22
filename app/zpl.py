@@ -21,7 +21,7 @@ def _qr_img(url: str, size_mm: int = 70) -> str:
     """Gera QR code como PNG base64 — renderização confiável tanto em tela quanto na impressão."""
     try:
         import segno
-        qr = segno.make(url, error="l")
+        qr = segno.make(url, error="q")
         buf = io.BytesIO()
         qr.save(buf, kind="png", scale=10, border=4)
         b64 = base64.b64encode(buf.getvalue()).decode()
@@ -37,7 +37,7 @@ def _qr_svg(url: str) -> str:
     """SVG — usado apenas para exibição em tela (página /rede). Para impressão use _qr_img."""
     try:
         import segno, re
-        qr = segno.make(url, error="l")
+        qr = segno.make(url, error="q")
         buf = io.BytesIO()
         qr.save(buf, kind="svg", scale=5, border=2, xmldecl=False, nl=False)
         svg = buf.getvalue().decode("utf-8")
@@ -125,7 +125,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
 
     try:
         import segno
-        qr = segno.make(url_qr, error="l")
+        qr = segno.make(url_qr, error="q")
         buf = io.BytesIO()
         qr.save(buf, kind="png", scale=12, border=3)
         qr_src = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
