@@ -141,7 +141,9 @@ def _barcode_img(codigo: str) -> str:
         })
         b64 = base64.b64encode(buf.getvalue()).decode()
         return f'<img class="barcode-img" src="data:image/png;base64,{b64}" alt="Código de barras">'
-    except Exception:
+    except Exception as e:
+        print(f"[ETIQUETA] Falha ao gerar código de barras ({e.__class__.__name__}: {e}) "
+              f"— verifique se Pillow está instalado (pip install -r requirements.txt)")
         return f'<p style="font-size:9px;color:#000;font-weight:700;text-align:center;">{codigo}</p>'
 
 
