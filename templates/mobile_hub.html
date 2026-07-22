@@ -142,8 +142,6 @@
     flex-shrink: 0;
   }
   .row-icon.scan  { background: #e8f0fe; }
-  .row-icon.kit   { background: #e8f8f0; }
-  .row-icon.stock { background: #fff3e0; }
 
   .row-info { flex: 1; min-width: 0; }
   .row-nome { font-size: 14px; font-weight: 700; color: #1a1a1a; }
@@ -166,7 +164,7 @@
   /* ── Nav rápido (estoque, verificar) ─── */
   .quick-nav {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -174,7 +172,7 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    padding: 18px 8px;
+    padding: 18px 14px;
     text-align: center;
     text-decoration: none;
     color: #1a1a1a;
@@ -186,8 +184,8 @@
     font-family: inherit;
   }
   .quick-btn:active { background: #f4f6f8; }
-  .quick-btn .qb-icon { font-size: 26px; margin-bottom: 6px; }
-  .quick-btn .qb-label { font-size: 12px; font-weight: 700; color: #1a3a5c; }
+  .quick-btn .qb-icon { font-size: 28px; margin-bottom: 6px; }
+  .quick-btn .qb-label { font-size: 13px; font-weight: 700; color: #1a3a5c; }
 
   /* ── Alerta ─── */
   .alert-danger {
@@ -284,7 +282,7 @@
   <!-- ── Ações Rápidas ─────────────────────────────────── -->
   <div class="sec-title">Ações</div>
   <div class="quick-nav">
-    <a href="/admin/estoque" class="quick-btn">
+    <a href="/estoque" class="quick-btn">
       <div class="qb-icon">📦</div>
       <div class="qb-label">Estoque</div>
     </a>
@@ -292,10 +290,6 @@
       <div class="qb-icon">🔍</div>
       <div class="qb-label">Consultar Código</div>
     </button>
-    <a href="/reports" class="quick-btn">
-      <div class="qb-icon">📊</div>
-      <div class="qb-label">Relatórios</div>
-    </a>
   </div>
 
   {% else %}
@@ -306,29 +300,6 @@
     <a href="/login?next=/mobile">🔒 Entrar</a>
   </div>
 
-  {% endif %}
-
-  <!-- ── Kits Recentes para Verificar ──────────────────── -->
-  <div class="sec-title">Kits Recentes — Toque para verificar</div>
-  {% if kits %}
-  <div class="card">
-    {% for kit in kits %}
-    <a href="/kit/{{ kit.kit_id }}" class="row-link">
-      <div class="row-icon kit">✅</div>
-      <div class="row-info">
-        <div class="row-nome">{{ kit.kit_nome }}</div>
-        <div class="row-meta">
-          {%- if kit.veiculo %}{{ kit.veiculo }}{% if kit.garagem %} · {{ kit.garagem }}{% endif %}
-          {%- elif kit.cliente %}{{ kit.cliente }}{% endif %}
-          {%- if kit.finalizado_em %} · {{ kit.finalizado_em[:10] }}{% endif -%}
-        </div>
-      </div>
-      <div class="row-arrow">›</div>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="card"><p class="empty">Nenhum kit registrado ainda.</p></div>
   {% endif %}
 
 </div>

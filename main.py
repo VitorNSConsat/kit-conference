@@ -810,19 +810,10 @@ async def print_queue_cancelar(request: Request, pq_id: int):
 @app.get("/mobile", response_class=HTMLResponse)
 async def mobile_hub(request: Request):
     user = get_current_user(request)
-    with db() as conn:
-        kits = conn.execute(
-            "SELECT kr.kit_id, kt.nome AS kit_nome, kt.cliente, "
-            "kr.veiculo, kr.garagem, kr.finalizado_em "
-            "FROM kit_record kr "
-            "JOIN kit_template kt ON kt.id = kr.kit_template_id "
-            "WHERE kr.status = 'ativo' "
-            "ORDER BY kr.finalizado_em DESC LIMIT 15"
-        ).fetchall()
-
-        sessoes_ativas = []
-        templates_list = []
-        if user:
+    sessoes_ativas = []
+    templates_list = []
+    if user:
+        with db() as conn:
             sessoes_ativas = conn.execute(
                 "SELECT ss.id, kt.nome AS kit_nome, kt.cliente, ss.iniciado_em "
                 "FROM scan_session ss "
@@ -837,7 +828,6 @@ async def mobile_hub(request: Request):
 
     return render(request, "mobile_hub.html", {
         "user": user,
-        "kits": [dict(k) for k in kits],
         "sessoes_ativas": [dict(s) for s in sessoes_ativas],
         "templates_list": [dict(t) for t in templates_list],
     })
@@ -1486,6 +1476,16 @@ async def admin_cliente_delete(request: Request, cliente_id: int):
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────
+
+@app.get("/estoque", response_class=HTMLResponse)
+@require_login
+async def estoque_lista_mobile(request: Request):
+    """Lista de estoque somente leitura, otimizada para celular — sem
+    formulários de ajuste. Edição continua em /admin/estoque (computador)
+    e em /estoque/{id} (via QR da etiqueta, no local)."""
+    itens = estoque_mod.listar_estoque()
+    return render(request, "estoque_lista_mobile.html", {"itens": itens})
+
 
 @app.get("/estoque/buscar")
 async def estoque_buscar(request: Request, codigo: str = ""):

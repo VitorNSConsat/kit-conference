@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Estoque — Consulta</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#1a3a5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kit Conf">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  .header {
+    background: #1a3a5c;
+    color: #fff;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  .header a.voltar {
+    color: #fff;
+    text-decoration: none;
+    font-size: 20px;
+    line-height: 1;
+    opacity: .85;
+  }
+  .header h1 { font-size: 16px; font-weight: 800; }
+  .header .subtitulo { font-size: 11px; opacity: .7; margin-top: 1px; }
+
+  .container { padding: 14px; max-width: 520px; margin: 0 auto; }
+
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+
+  .est-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid #f2f2f2;
+  }
+  .est-row:last-child { border-bottom: none; }
+
+  .est-info { flex: 1; min-width: 0; }
+  .est-nome { font-size: 14px; font-weight: 700; color: #1a1a1a; }
+  .est-codigo { font-size: 11px; color: #999; font-family: monospace; margin-top: 2px; }
+
+  .est-qtd-wrap { text-align: right; flex-shrink: 0; }
+  .est-qtd { font-size: 20px; font-weight: 800; line-height: 1; }
+  .est-min { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .dot.ok    { background: #27ae60; }
+  .dot.baixo { background: #f0ad4e; }
+  .dot.critico { background: #e74c3c; }
+
+  .empty { padding: 24px 16px; font-size: 13px; color: #aaa; text-align: center; }
+
+  .aviso-somente-leitura {
+    font-size: 12px; color: #888; text-align: center;
+    padding: 10px 0 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/mobile" class="voltar">←</a>
+  <div>
+    <h1>📦 Estoque</h1>
+    <div class="subtitulo">Consulta — somente visualização</div>
+  </div>
+</div>
+
+<div class="container">
+
+  {% if itens %}
+  <div class="card">
+    {% for item in itens %}
+    {% set critico = item.quantidade_atual <= item.quantidade_minima %}
+    {% set baixo = item.quantidade_atual <= item.quantidade_minima * 2 and not critico %}
+    <div class="est-row">
+      <div class="est-info">
+        <div class="est-nome">
+          <span class="dot {{ 'critico' if critico else ('baixo' if baixo else 'ok') }}"></span>{{ item.tipo_nome }}
+        </div>
+        <div class="est-codigo">{{ item.codigo_barra }}</div>
+      </div>
+      <div class="est-qtd-wrap">
+        <div class="est-qtd" style="color:{{ '#e74c3c' if critico else ('#f0ad4e' if baixo else '#27ae60') }};">
+          {{ item.quantidade_atual }}
+        </div>
+        <div class="est-min">mín. {{ item.quantidade_minima }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="aviso-somente-leitura">Para repor ou ajustar, use o computador ou leia a etiqueta do item.</div>
+  {% else %}
+  <div class="card"><p class="empty">Nenhum item de estoque cadastrado.</p></div>
+  {% endif %}
+
+</div>
+</body>
+</html>
