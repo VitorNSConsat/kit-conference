@@ -591,6 +591,11 @@ function onVeiculoChange() {
     }
 
     function _onCodigoDetectado(codigo) {
+        // Impede disparo duplo caso ZXing chame o callback mais de uma vez
+        // antes da câmera fechar
+        if (_pausado) return;
+        _pausado = true;
+
         // Feedback visual: flash branco
         const flash = document.getElementById('cam-flash');
         flash.style.display = 'block';
@@ -599,24 +604,17 @@ function onVeiculoChange() {
         // Feedback háptico
         if (navigator.vibrate) navigator.vibrate([60]);
 
-        // Atualiza UI
-        document.getElementById('cam-status').textContent = '✅ Lido!';
-        document.getElementById('cam-ultimo').textContent = codigo;
+        // Mostra código lido no overlay por um instante antes de fechar
+        document.getElementById('cam-status').textContent = '✅ ' + codigo;
 
         // Envia pelo WebSocket (mesmo mecanismo do leitor físico)
         if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN) {
             ws.send(codigo);
         }
 
-        // Pausa 1.4 s antes de continuar para evitar dupla leitura
-        _pausado = true;
-        if (_detector) _loop = requestAnimationFrame(_frame); // só no modo BarcodeDetector
-        setTimeout(() => {
-            if (_ativo) {
-                document.getElementById('cam-status').textContent = 'Aponte para o próximo código';
-                _pausado = false;
-            }
-        }, 1400);
+        // Fecha a câmera após o flash ser percebido.
+        // Assim modais e a lista de itens aparecem sobre a página, não sobre o feed.
+        setTimeout(() => fecharScannerCamera(), 350);
     }
 })();
 </script>
