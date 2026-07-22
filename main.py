@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 
 from database import init_db, db
@@ -28,8 +29,28 @@ import app.clientes as clientes_mod
 
 load_dotenv()
 
+_MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
+
+# Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
+_MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert'}
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque')
+
+
+class _MobileGateMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method != 'GET':
+            return await call_next(request)
+        if not _MOBILE_UA.search(request.headers.get('user-agent', '')):
+            return await call_next(request)
+        path = request.url.path
+        if path in _MOBILE_OK_EXACT or any(path.startswith(p) for p in _MOBILE_OK_PREFIX):
+            return await call_next(request)
+        return RedirectResponse('/mobile', status_code=302)
+
+
 app = FastAPI(title="Conferência de Kits")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "dev-secret"))
+app.add_middleware(_MobileGateMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 jinja = Jinja2Templates(directory="templates")
 
