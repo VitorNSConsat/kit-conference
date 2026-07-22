@@ -164,7 +164,7 @@
   /* ── Nav rápido (estoque, verificar) ─── */
   .quick-nav {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -172,7 +172,7 @@
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    padding: 18px 14px;
+    padding: 18px 8px;
     text-align: center;
     text-decoration: none;
     color: #1a1a1a;
@@ -184,8 +184,8 @@
     font-family: inherit;
   }
   .quick-btn:active { background: #f4f6f8; }
-  .quick-btn .qb-icon { font-size: 28px; margin-bottom: 6px; }
-  .quick-btn .qb-label { font-size: 13px; font-weight: 700; color: #1a3a5c; }
+  .quick-btn .qb-icon { font-size: 26px; margin-bottom: 6px; }
+  .quick-btn .qb-label { font-size: 12px; font-weight: 700; color: #1a3a5c; }
 
   /* ── Alerta ─── */
   .alert-danger {
@@ -237,6 +237,8 @@
 
   {% if request.query_params.get('erro') == 'estoque_nao_encontrado' %}
   <div class="alert-danger">⚠️ Código não encontrado no estoque.</div>
+  {% elif request.query_params.get('erro') == 'kit_nao_encontrado' %}
+  <div class="alert-danger">⚠️ Kit não encontrado.</div>
   {% endif %}
 
   {% if user %}
@@ -288,7 +290,11 @@
     </a>
     <button type="button" class="quick-btn" onclick="abrirConsultaEstoque()">
       <div class="qb-icon">🔍</div>
-      <div class="qb-label">Consultar Código</div>
+      <div class="qb-label">Consultar Item</div>
+    </button>
+    <button type="button" class="quick-btn" onclick="abrirConsultaKit()">
+      <div class="qb-icon">📋</div>
+      <div class="qb-label">Consultar Kit</div>
     </button>
   </div>
 
@@ -345,6 +351,16 @@
     ];
 
     let _stream = null, _zxingTimer = null, _loop = null, _detector = null, _token = 0;
+    let _destino = 'estoque'; // 'estoque' | 'kit' — para onde o código lido deve navegar
+
+    function _urlBusca(codigo) {
+        const base = _destino === 'kit' ? '/kit/buscar' : '/estoque/buscar';
+        return base + '?codigo=' + encodeURIComponent(codigo);
+    }
+
+    function _textoAlvo() {
+        return _destino === 'kit' ? 'do kit' : 'do item';
+    }
 
     // Inicializa BarcodeDetector nativo (Android Chrome) — quando disponível,
     // é bem mais rápido e confiável para QR do que o ZXing puro em JS.
@@ -380,7 +396,11 @@
         return hints;
     }
 
-    window.abrirConsultaEstoque = async function () {
+    window.abrirConsultaEstoque = function () { _abrirScanner('estoque'); };
+    window.abrirConsultaKit     = function () { _abrirScanner('kit'); };
+
+    async function _abrirScanner(destino) {
+        _destino = destino;
         fecharConsultaEstoque();
         const meuToken = ++_token;
 
@@ -412,12 +432,12 @@
                 // BarcodeDetector nativo: mais rápido e confiável para QR
                 video.srcObject = _stream;
                 await video.play();
-                status.textContent = 'Aponte para o código do item';
+                status.textContent = 'Aponte para o código ' + _textoAlvo();
                 _loop = requestAnimationFrame(() => _frame(meuToken));
             } else if (typeof ZXing !== 'undefined') {
                 video.srcObject = _stream;
                 await video.play();
-                status.textContent = 'Aponte para o código do item';
+                status.textContent = 'Aponte para o código ' + _textoAlvo();
                 const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
                 _iniciarLoopZXing(video, reader, meuToken);
             } else {
@@ -426,7 +446,7 @@
         } catch (e) {
             fecharScannerEDigitar();
         }
-    };
+    }
 
     async function _frame(token) {
         if (token !== _token) return;
@@ -440,7 +460,7 @@
             if (token !== _token) return; // sessão mudou durante o detect
             if (resultados.length > 0) {
                 const codigo = resultados[0].rawValue.trim();
-                if (codigo) { _irParaEstoque(codigo, token); return; }
+                if (codigo) { _irParaDestino(codigo, token); return; }
             }
         } catch (e) { /* ignora frames com erro */ }
         _loop = requestAnimationFrame(() => _frame(token));
@@ -459,7 +479,7 @@
                 try {
                     const result = reader.decode(video);
                     const codigo = result.getText().trim();
-                    if (codigo) { _irParaEstoque(codigo, token); return; }
+                    if (codigo) { _irParaDestino(codigo, token); return; }
                 } catch (e) { /* nenhum código neste frame, ou erro interno — tenta de novo */ }
             }
             _zxingTimer = setTimeout(tick, 180);
@@ -472,11 +492,11 @@
         document.getElementById('est-foto-input').click();
     }
 
-    function _irParaEstoque(codigo, token) {
+    function _irParaDestino(codigo, token) {
         if (!codigo || token !== _token) return;
         _token++; // invalida qualquer outro callback pendente da câmera
         if (navigator.vibrate) navigator.vibrate([60]);
-        window.location.href = '/estoque/buscar?codigo=' + encodeURIComponent(codigo);
+        window.location.href = _urlBusca(codigo);
     }
 
     window.fecharConsultaEstoque = function () {
@@ -487,7 +507,7 @@
         const video = document.getElementById('est-video');
         if (video) video.srcObject = null;
         document.getElementById('est-overlay').style.display = 'none';
-        document.getElementById('est-status').textContent = 'Aponte para o código do item';
+        document.getElementById('est-status').textContent = 'Aponte para o código';
     };
 
     window._estProcessarFoto = async function (input) {
@@ -525,7 +545,7 @@
         }
 
         if (codigo) {
-            _irParaEstoque(codigo, _token);
+            _irParaDestino(codigo, _token);
         } else {
             document.getElementById('est-status').textContent = '⚠️ Código não detectado — tente novamente.';
         }
@@ -536,7 +556,7 @@
         const input = document.getElementById('est-manual-input');
         const codigo = (input.value || '').trim();
         if (!codigo) return;
-        window.location.href = '/estoque/buscar?codigo=' + encodeURIComponent(codigo);
+        window.location.href = _urlBusca(codigo);
     };
 })();
 </script>

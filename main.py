@@ -835,6 +835,42 @@ async def mobile_hub(request: Request):
 
 # ── Kit Detail (público — escaneado pelo QR code) ─────────────────────────────
 
+def _resolver_kit_id(texto: str) -> str | None:
+    """Resolve um texto lido (URL do QR da etiqueta, kit_id completo, ou o
+    ID curto de 8 caracteres do código de barras) para o kit_id completo
+    correspondente, ou None se não encontrar."""
+    texto = (texto or "").strip()
+    if not texto:
+        return None
+    m = re.search(r'/kit/([0-9a-fA-F-]{36})/?$', texto)
+    if m:
+        return m.group(1)
+    with db() as conn:
+        if len(texto) == 36:
+            row = conn.execute(
+                "SELECT kit_id FROM kit_record WHERE kit_id = ?", (texto,)
+            ).fetchone()
+            if row:
+                return row["kit_id"]
+        rows = conn.execute(
+            "SELECT kit_id FROM kit_record WHERE kit_id LIKE ?",
+            (texto.lower() + '%',)
+        ).fetchall()
+        if len(rows) == 1:
+            return rows[0]["kit_id"]
+    return None
+
+
+@app.get("/kit/buscar")
+async def kit_buscar(request: Request, codigo: str = ""):
+    """Resolve um código de barras ou o texto de um QR de kit para a
+    página de verificação correspondente — usado pelo scanner do /mobile."""
+    kit_id = _resolver_kit_id(codigo)
+    if not kit_id:
+        return RedirectResponse("/mobile?erro=kit_nao_encontrado", status_code=302)
+    return RedirectResponse(f"/kit/{kit_id}", status_code=302)
+
+
 @app.get("/kit/{kit_id}", response_class=HTMLResponse)
 async def kit_detail(request: Request, kit_id: str):
     with db() as conn:

@@ -268,6 +268,7 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     kit_id_curto = kit_id[:8].upper()
     url_qr = _kit_url(kit_id)
     qr_svg = _qr_img(url_qr, size_mm=70)
+    barcode_html = _barcode_img(kit_id_curto)
 
     logo_b64 = _logo_base64()
     empresa_html = (
@@ -364,6 +365,14 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     font-size: 7px; color: #999; margin-top: 3px;
     text-align: center; flex-shrink: 0;
   }}
+  .barcode-img {{
+    display: block;
+    max-width: 90mm;
+    max-height: 10mm;
+    width: auto; height: auto;
+    image-rendering: pixelated;
+    margin: 0 auto;
+  }}
 
   .check-box {{
     display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -417,7 +426,7 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
   {vg_html}
   <div class="qr-section">
     <div class="qr-wrap">{qr_svg}</div>
-    <div class="qr-hint">Escaneie na rede Wi-Fi para ver os itens do kit</div>
+    <div class="qr-hint">{barcode_html}</div>
   </div>
   <div class="check-box">
     <div class="check-item">
