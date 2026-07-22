@@ -344,7 +344,7 @@
     <video id="est-video" playsinline muted autoplay
            style="width:100%; height:100%; object-fit:cover;"></video>
   </div>
-  <div style="background:#111; padding:10px 16px 6px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+  <div style="background:#111; padding:14px 16px 8px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
     <div style="flex:1;">
       <div id="est-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código do item</div>
     </div>
@@ -352,13 +352,6 @@
             style="background:#c0392b; color:#fff; border:none; padding:11px 18px;
                    border-radius:8px; font-size:14px; font-weight:700; flex-shrink:0;">
       ✕ Fechar
-    </button>
-  </div>
-  <div style="background:#111; padding:0 16px 6px; flex-shrink:0;">
-    <button onclick="document.getElementById('est-foto-input').click()"
-            style="width:100%; background:rgba(255,255,255,.12); color:#fff; border:1.5px solid rgba(255,255,255,.3);
-                   padding:10px; border-radius:8px; font-size:12px; font-weight:700;">
-      📷 QR não lê ao vivo? Tirar Foto (mais preciso)
     </button>
   </div>
   <div style="background:#111; padding:8px 16px 14px; display:flex; gap:8px; flex-shrink:0;">
@@ -375,7 +368,25 @@
 <script src="/static/zxing.min.js"></script>
 <script>
 (function () {
-    let _stream = null, _zxingTimer = null, _token = 0;
+    const FORMATOS_DESEJADOS = [
+        'code_128','code_39','code_93','ean_13','ean_8',
+        'qr_code','data_matrix','pdf417','itf','aztec'
+    ];
+
+    let _stream = null, _zxingTimer = null, _loop = null, _detector = null, _token = 0;
+
+    // Inicializa BarcodeDetector nativo (Android Chrome) — quando disponível,
+    // é bem mais rápido e confiável para QR do que o ZXing puro em JS.
+    async function _initDetector() {
+        if (!('BarcodeDetector' in window)) return null;
+        try {
+            const suportados = await BarcodeDetector.getSupportedFormats();
+            const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
+            return new BarcodeDetector({ formats: formatos.length ? formatos : suportados });
+        } catch (e) {
+            return new BarcodeDetector({ formats: ['code_128','qr_code'] });
+        }
+    }
 
     // Hints do ZXing — declara explicitamente todos os formatos (incluindo
     // QR_CODE) para garantir que o leitor sempre tente decodificar QR junto
@@ -424,19 +435,45 @@
             if (meuToken !== _token) { stream.getTracks().forEach(t => t.stop()); return; }
             _stream = stream;
 
-            if (typeof ZXing === 'undefined') {
-                status.textContent = '⚠️ Scanner indisponível — digite o código abaixo.';
-                return;
+            if (!_detector) _detector = await _initDetector();
+
+            if (_detector) {
+                // BarcodeDetector nativo: mais rápido e confiável para QR
+                video.srcObject = _stream;
+                await video.play();
+                status.textContent = 'Aponte para o código do item';
+                _loop = requestAnimationFrame(() => _frame(meuToken));
+            } else if (typeof ZXing !== 'undefined') {
+                video.srcObject = _stream;
+                await video.play();
+                status.textContent = 'Aponte para o código do item';
+                const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
+                _iniciarLoopZXing(video, reader, meuToken);
+            } else {
+                status.textContent = '⚠️ Scanner não disponível neste navegador.';
             }
-            video.srcObject = _stream;
-            await video.play();
-            status.textContent = 'Aponte para o código do item';
-            const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
-            _iniciarLoopZXing(video, reader, meuToken);
         } catch (e) {
             fecharScannerEDigitar();
         }
     };
+
+    async function _frame(token) {
+        if (token !== _token) return;
+        const video = document.getElementById('est-video');
+        if (!video || video.readyState < 2) {
+            _loop = requestAnimationFrame(() => _frame(token));
+            return;
+        }
+        try {
+            const resultados = await _detector.detect(video);
+            if (token !== _token) return; // sessão mudou durante o detect
+            if (resultados.length > 0) {
+                const codigo = resultados[0].rawValue.trim();
+                if (codigo) { _irParaEstoque(codigo, token); return; }
+            }
+        } catch (e) { /* ignora frames com erro */ }
+        _loop = requestAnimationFrame(() => _frame(token));
+    }
 
     // Loop próprio de tentativas: o decodeFromStream contínuo do ZXing só
     // reagenda a próxima tentativa se o erro for um dos 3 tipos "esperados"
@@ -473,6 +510,7 @@
 
     window.fecharConsultaEstoque = function () {
         _token++;
+        if (_loop)       { cancelAnimationFrame(_loop); _loop = null; }
         if (_zxingTimer) { clearTimeout(_zxingTimer); _zxingTimer = null; }
         if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
         const video = document.getElementById('est-video');
@@ -486,22 +524,41 @@
         if (!file) return;
         document.getElementById('est-overlay').style.display = 'flex';
         document.getElementById('est-status').textContent = '⏳ Lendo código…';
-        if (typeof ZXing === 'undefined') {
-            document.getElementById('est-status').textContent = '⚠️ Scanner indisponível — digite o código abaixo.';
-            input.value = '';
-            return;
+
+        let codigo = null;
+
+        if ('BarcodeDetector' in window) {
+            try {
+                let det = _detector;
+                if (!det) { det = await _initDetector(); _detector = det; }
+                if (det) {
+                    const bitmap = await createImageBitmap(file);
+                    const res = await det.detect(bitmap);
+                    bitmap.close();
+                    if (res.length > 0) codigo = res[0].rawValue.trim();
+                }
+            } catch (e) { /* ignora — cai para ZXing */ }
         }
-        const url = URL.createObjectURL(file);
-        try {
-            const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
-            const result = await reader.decodeFromImageUrl(url);
-            _irParaEstoque(result.getText().trim(), _token);
-        } catch (e) {
+
+        if (!codigo && typeof ZXing !== 'undefined') {
+            const url = URL.createObjectURL(file);
+            try {
+                const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
+                const result = await reader.decodeFromImageUrl(url);
+                codigo = result.getText().trim();
+            } catch (e) {
+                /* NotFoundException = nenhum código na foto */
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        if (codigo) {
+            _irParaEstoque(codigo, _token);
+        } else {
             document.getElementById('est-status').textContent = '⚠️ Código não detectado — tente novamente.';
-        } finally {
-            URL.revokeObjectURL(url);
-            input.value = '';
         }
+        input.value = '';
     };
 
     window._estBuscarManual = function () {
