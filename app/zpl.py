@@ -136,8 +136,8 @@ def _barcode_img(codigo: str) -> str:
         buf = io.BytesIO()
         code.write(buf, options={
             "module_width": 0.3, "module_height": 7.0,
-            "quiet_zone": 2.0, "font_size": 7, "text_distance": 1.5,
-            "write_text": True,
+            "quiet_zone": 2.0,
+            "write_text": False,
         })
         b64 = base64.b64encode(buf.getvalue()).decode()
         return f'<img class="barcode-img" src="data:image/png;base64,{b64}" alt="Código de barras">'
