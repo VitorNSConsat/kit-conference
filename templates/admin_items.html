@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Itens — Conferência de Kits{% endblock %}
+{% block title %}Itens & Estoque — Conferência de Kits{% endblock %}
 {% block content %}
-<h1>Catálogo de Itens</h1>
+<h1>Itens &amp; Estoque</h1>
 
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
-{% elif request.query_params.get('ok') == 'tipo' %}
-<div class="alert alert-success">Tipo de item criado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'item_criado' %}
+<div class="alert alert-success">Item cadastrado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'estoque_criado' %}
+<div class="alert alert-success">Estoque cadastrado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'codigo_atualizado' %}
+<div class="alert alert-success">Código de barras atualizado.</div>
 {% elif request.query_params.get('importado') %}
 <div class="alert alert-success">
     Importação concluída: <strong>{{ request.query_params.get('importado') }} tipo(s) criado(s)</strong>
@@ -24,6 +28,9 @@
 </div>
 {% elif request.query_params.get('erro_import') %}
 <div class="alert alert-danger">Erro na importação: {{ request.query_params.get('erro_import') }}</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -53,246 +60,356 @@
 </div>
 {% endif %}
 
-<!-- ── Tipos de Item ─────────────────────────────────────────────────────── -->
-<div class="card">
-    <h2>Tipos de Item</h2>
-    <p style="color:#666;font-size:13px;margin-top:-8px;">
-        Cadastre os tipos de itens do kit (ex: "Antena 5dBi", "Cabo USB", "Roteador TP-Link").
-        Na hora do bip, o operador selecionará de qual tipo é o patrimônio escaneado.
-    </p>
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <form method="post" action="/admin/tipos" style="display:flex;gap:8px;flex:1;min-width:240px;flex-wrap:wrap;">
-            <input type="text" name="nome" required placeholder="Nome do tipo (ex: Antena 5dBi, Cabo UTP)"
-                   style="flex:1;min-width:160px;margin-bottom:0;">
-            <select name="unidade" style="margin-bottom:0;min-width:110px;" title="Como este item é medido">
-                <option value="un">📦 Unidade</option>
-                <option value="m">📏 Metro (m)</option>
-            </select>
-            <button type="submit" class="btn btn-primary">Adicionar</button>
-        </form>
-        <button type="button" class="btn btn-success"
-                onclick="toggleForm('form-importar-bom')">
-            📋 Importar BOM
-        </button>
-    </div>
-
-    <form id="form-importar-bom" method="post" action="/admin/tipos/importar-bom"
-          enctype="multipart/form-data"
-          style="display:none;align-items:flex-start;gap:12px;flex-wrap:wrap;
-                 background:#f0f4f8;padding:14px 16px;border-radius:8px;margin-bottom:16px;
-                 border:1px solid #b0c4de;">
-        <div style="flex:1;min-width:260px;">
-            <div style="font-size:13px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
-                📋 Importar BOM (Bill of Materials)
-            </div>
-            <div style="font-size:12px;color:#555;line-height:1.5;">
-                Planilha com colunas <strong>Description</strong> (tipo do item) e
-                <strong>Code</strong> (código de barras, opcional).<br>
-                Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.
-            </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <input type="file" name="arquivo" accept=".xlsx" required
-                   style="margin-bottom:0;min-width:200px;">
-            <button type="submit" class="btn btn-primary">Importar</button>
-        </div>
-    </form>
-
-    {% if tipos %}
-    <table>
-        <thead>
-            <tr><th>Nome</th><th>Status</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
-        </thead>
-        <tbody>
-        {% for tipo in tipos %}
-        <tr>
-            <td>
-                <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
-                {% if tipo.codigo_fixo %}
-                <span title="Código fixo: {{ tipo.codigo_fixo }}"
-                      style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
-                             padding:1px 6px;border-radius:10px;font-family:monospace;">
-                    📌 fixo
-                </span>
-                {% endif %}
-                <form id="nome-form-{{ tipo.id }}" method="post"
-                      action="/admin/tipos/{{ tipo.id }}/renomear"
-                      style="display:none;margin:0;">
-                    <div style="display:flex;gap:4px;align-items:center;">
-                        <input type="text" name="nome" value="{{ tipo.nome }}"
-                               style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
-                               onkeydown="if(event.key==='Enter'){this.form.submit();}
-                                          if(event.key==='Escape'){cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}');}">
-                        <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
-                        <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
-                                onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">✕</button>
-                    </div>
-                </form>
-            </td>
-            <td>
-                <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
-                    {{ 'Ativo' if tipo.ativo else 'Inativo' }}
-                </span>
-            </td>
-            <td style="text-align:center;">
-                <button type="button" id="gear-{{ tipo.id }}" class="btn btn-sm"
-                        style="padding:3px 10px;font-size:13px;"
-                        onclick="abrirPopup(event, {{ tipo.id }})" title="Configurações">
-                    ⚙️
-                </button>
-            </td>
-            <td>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/delete"
-                      onsubmit="return confirm('Excluir o tipo \'{{ tipo.nome }}\'? Esta ação não pode ser desfeita.')">
-                    <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Popovers de configuração por tipo (ocultos, posicionados via JS) -->
-    {% for tipo in tipos %}
-    <div id="popup-{{ tipo.id }}" class="config-popup">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <strong style="font-size:13px;color:#1a3a5c;">⚙️ {{ tipo.nome }}</strong>
-            <button type="button" onclick="fecharPopup()"
-                    style="background:none;border:none;cursor:pointer;font-size:16px;color:#aaa;
-                           line-height:1;padding:0 2px;">&times;</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            <!-- Medida -->
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                <span style="font-size:13px;color:#555;">Medida</span>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
-                    <button type="submit" class="btn btn-sm"
-                            style="min-width:100px;{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}">
-                        {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
-                    </button>
-                </form>
-            </div>
-            <!-- Reutilizável -->
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                <span style="font-size:13px;color:#555;">Reutilizável
-                    <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">múltiplos kits ao mesmo tempo</span>
-                </span>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
-                    <button type="submit" class="btn btn-sm"
-                            style="min-width:100px;{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                        {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
-                    </button>
-                </form>
-            </div>
-            <!-- Separador -->
-            <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
-            <!-- Código fixo -->
-            <div>
-                <div style="font-size:13px;color:#555;margin-bottom:6px;">
-                    Código Fixo
-                    <span style="font-size:11px;color:#aaa;margin-left:4px;"
-                          title="Ao bipar este código o sistema pede o patrimônio em seguida">ⓘ</span>
-                </div>
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
-                      style="display:flex;gap:6px;">
-                    <input type="text" name="codigo_fixo"
-                           value="{{ tipo.codigo_fixo or '' }}"
-                           placeholder="ex: 10ID000700X1"
-                           style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
-                    <button type="submit" class="btn btn-sm btn-success">💾</button>
-                </form>
-                {% if tipo.codigo_fixo %}
-                <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
-                      style="margin-top:5px;">
-                    <input type="hidden" name="codigo_fixo" value="">
-                    <button type="submit" class="btn btn-sm" style="font-size:11px;color:#e74c3c;
-                            background:none;border:1px solid #e74c3c;padding:2px 8px;">
-                        ✕ Remover código fixo
-                    </button>
-                </form>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-
-    <!-- Overlay transparente para fechar popup ao clicar fora -->
-    <div id="popup-overlay" onclick="fecharPopup()"
-         style="display:none;position:fixed;inset:0;z-index:98;"></div>
-
-    {% else %}
-    <p style="color:#888;">Nenhum tipo cadastrado ainda. Adicione os tipos acima.</p>
-    {% endif %}
+<!-- ── Menu de abas ──────────────────────────────────────────────────────── -->
+<div class="tabs-menu">
+    <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📋 Catálogo</button>
+    <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
+    <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Patrimônios</button>
 </div>
 
-<!-- ── Patrimônios Registrados ───────────────────────────────────────────── -->
-<div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-        <div>
-            <h2 style="margin-bottom:4px;">Patrimônios Registrados</h2>
-            <p style="color:#666;font-size:13px;margin-top:0;">
-                Patrimônios são registrados automaticamente durante a bipagem.
-                Você também pode cadastrar manualmente abaixo.
-            </p>
-        </div>
-        {% if itens %}
-        <form method="post" action="/admin/items/clear"
-              onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
-            <button type="submit" class="btn btn-danger" style="margin-top:8px;">
-                🗑️ Apagar Todos os Patrimônios
-            </button>
-        </form>
-        {% endif %}
-    </div>
+<!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
+<div id="tab-catalogo" class="tab-panel">
+    <div class="card">
+        <h2>Tipos de Item</h2>
+        <p style="color:#666;font-size:13px;margin-top:-8px;">
+            Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
+            para configurar medida, reutilização, código fixo e estoque.
+        </p>
 
-    <!-- Cadastro manual -->
-    <form method="post" action="/admin/items"
-          style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:16px;">
-        <input type="text" name="codigo_barra" required placeholder="Código de barras / patrimônio">
-        <select name="item_tipo_id" required>
-            <option value="">— selecione o tipo —</option>
-            {% for tipo in tipos if tipo.ativo %}
-            <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-primary">Cadastrar</button>
-    </form>
-
-    <table>
-        <thead>
+        {% if tipos %}
+        <table>
+            <thead>
+                <tr><th>Nome</th><th>Estoque</th><th>Status</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
+            </thead>
+            <tbody>
+            {% for tipo in tipos %}
+            {% set est = estoque_por_tipo.get(tipo.id) %}
+            {% set abaixo = est and est.quantidade_atual <= est.quantidade_minima %}
+            {% set proximo = est and est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
             <tr>
-                <th>Código / Patrimônio</th>
-                <th>Tipo</th>
-                <th>Cadastrado em</th>
-                <th>Status</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for item in itens %}
-            <tr>
-                <td><code>{{ item.codigo_barra }}</code></td>
-                <td>{{ item.descricao }}</td>
-                <td style="font-size:12px;color:#888;">{{ item.criado_em[:16] if item.criado_em else '—' }}</td>
                 <td>
-                    <span class="badge {{ 'badge-success' if item.ativo else 'badge-danger' }}">
-                        {{ 'Ativo' if item.ativo else 'Inativo' }}
+                    <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
+                    {% if tipo.codigo_fixo %}
+                    <span title="Código fixo: {{ tipo.codigo_fixo }}"
+                          style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
+                                 padding:1px 6px;border-radius:10px;font-family:monospace;">
+                        📌 fixo
                     </span>
+                    {% endif %}
+                    <form id="nome-form-{{ tipo.id }}" method="post"
+                          action="/admin/tipos/{{ tipo.id }}/renomear"
+                          style="display:none;margin:0;">
+                        <div style="display:flex;gap:4px;align-items:center;">
+                            <input type="text" name="nome" value="{{ tipo.nome }}"
+                                   style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
+                                   onkeydown="if(event.key==='Enter'){this.form.submit();}
+                                              if(event.key==='Escape'){cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}');}">
+                            <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+                            <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
+                                    onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">✕</button>
+                        </div>
+                    </form>
                 </td>
                 <td>
-                    <form method="post" action="/admin/items/{{ item.id }}/delete"
-                          style="display:inline;"
-                          onsubmit="return confirm('Excluir patrimônio \'{{ item.codigo_barra }}\'?')">
+                    {% if est %}
+                    <span style="font-size:15px;font-weight:700;color:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};">{{ est.quantidade_atual }}</span>
+                    <span style="font-size:11px;color:#999;">/ mín. {{ est.quantidade_minima }}</span>
+                    {% else %}
+                    <span style="font-size:12px;color:#bbb;">— sem estoque —</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
+                        {{ 'Ativo' if tipo.ativo else 'Inativo' }}
+                    </span>
+                </td>
+                <td style="text-align:center;">
+                    <button type="button" id="gear-{{ tipo.id }}" class="btn btn-sm"
+                            style="padding:3px 10px;font-size:13px;"
+                            onclick="abrirPopup(event, {{ tipo.id }})" title="Configurações">
+                        ⚙️
+                    </button>
+                </td>
+                <td>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/delete"
+                          onsubmit="return confirm('Excluir o tipo \'{{ tipo.nome }}\'? Esta ação não pode ser desfeita.')">
                         <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
                     </form>
                 </td>
             </tr>
-        {% else %}
-            <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Popovers de configuração por tipo (ocultos, posicionados via JS) -->
+        {% for tipo in tipos %}
+        {% set est = estoque_por_tipo.get(tipo.id) %}
+        <div id="popup-{{ tipo.id }}" class="config-popup">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <strong style="font-size:13px;color:#1a3a5c;">⚙️ {{ tipo.nome }}</strong>
+                <button type="button" onclick="fecharPopup()"
+                        style="background:none;border:none;cursor:pointer;font-size:16px;color:#aaa;
+                               line-height:1;padding:0 2px;">&times;</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <!-- Medida -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <span style="font-size:13px;color:#555;">Medida</span>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
+                        <button type="submit" class="btn btn-sm"
+                                style="min-width:100px;{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}">
+                            {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
+                        </button>
+                    </form>
+                </div>
+                <!-- Reutilizável -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <span style="font-size:13px;color:#555;">Reutilizável
+                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">múltiplos kits ao mesmo tempo</span>
+                    </span>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
+                        <button type="submit" class="btn btn-sm"
+                                style="min-width:100px;{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                            {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
+                        </button>
+                    </form>
+                </div>
+                <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
+                <!-- Código fixo -->
+                <div>
+                    <div style="font-size:13px;color:#555;margin-bottom:6px;">
+                        Código Fixo
+                        <span style="font-size:11px;color:#aaa;margin-left:4px;"
+                              title="Ao bipar este código o sistema pede o patrimônio em seguida">ⓘ</span>
+                    </div>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
+                          style="display:flex;gap:6px;">
+                        <input type="text" name="codigo_fixo"
+                               value="{{ tipo.codigo_fixo or '' }}"
+                               placeholder="ex: 10ID000700X1"
+                               style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
+                        <button type="submit" class="btn btn-sm btn-success">💾</button>
+                    </form>
+                    {% if tipo.codigo_fixo %}
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
+                          style="margin-top:5px;">
+                        <input type="hidden" name="codigo_fixo" value="">
+                        <button type="submit" class="btn btn-sm" style="font-size:11px;color:#e74c3c;
+                                background:none;border:1px solid #e74c3c;padding:2px 8px;">
+                            ✕ Remover código fixo
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
+                <!-- Estoque -->
+                <div>
+                    <div style="font-size:13px;color:#555;margin-bottom:6px;font-weight:700;">📦 Estoque</div>
+                    {% if est %}
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:12px;color:#888;">Mínimo (alerta)</span>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" style="display:flex;gap:4px;">
+                            <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
+                                   style="width:56px;text-align:center;margin-bottom:0;font-size:12px;padding:4px;">
+                            <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">💾</button>
+                        </form>
+                    </div>
+                    <form method="post" action="/admin/estoque/{{ est.id }}/repor"
+                          style="display:flex;gap:4px;margin-bottom:8px;">
+                        <input type="number" name="quantidade" value="1" min="1"
+                               style="width:56px;text-align:center;margin-bottom:0;font-size:12px;padding:4px;" required>
+                        <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;flex:1;">+ Repor estoque</button>
+                    </form>
+                    <div style="margin-bottom:8px;">
+                        <div style="font-size:12px;color:#888;margin-bottom:4px;">Código de barras</div>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/codigo" style="display:flex;gap:6px;">
+                            <input type="text" name="codigo_barra" value="{{ est.codigo_barra }}"
+                                   style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;" required>
+                            <button type="submit" class="btn btn-sm btn-success">💾</button>
+                        </form>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <a href="/admin/estoque/{{ est.id }}/etiqueta" target="_blank"
+                           class="btn btn-sm btn-primary" style="flex:1;text-align:center;">🏷️ Etiqueta</a>
+                        <a href="/admin/estoque/{{ est.id }}/historico"
+                           class="btn btn-sm btn-primary" style="flex:1;text-align:center;">📋 Histórico</a>
+                    </div>
+                    {% else %}
+                    <p style="font-size:12px;color:#888;margin-bottom:8px;">
+                        Este tipo ainda não tem estoque cadastrado.
+                    </p>
+                    <form method="post" action="/admin/estoque" style="display:flex;flex-direction:column;gap:6px;">
+                        <input type="hidden" name="item_tipo_id" value="{{ tipo.id }}">
+                        <input type="text" name="codigo_barra" placeholder="Código de barras" required
+                               style="margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
+                        <div style="display:flex;gap:6px;">
+                            <input type="number" name="quantidade" value="0" min="0" placeholder="Qtd."
+                                   style="width:70px;margin-bottom:0;font-size:12px;padding:5px;">
+                            <input type="number" name="quantidade_minima" value="5" min="0" placeholder="Mín."
+                                   style="width:70px;margin-bottom:0;font-size:12px;padding:5px;">
+                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;">+ Adicionar</button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
         {% endfor %}
-        </tbody>
-    </table>
+
+        <!-- Overlay transparente para fechar popup ao clicar fora -->
+        <div id="popup-overlay" onclick="fecharPopup()"
+             style="display:none;position:fixed;inset:0;z-index:98;"></div>
+
+        {% else %}
+        <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "➕ Novo Item".</p>
+        {% endif %}
+    </div>
 </div>
+
+<!-- ── Aba: Novo Item ────────────────────────────────────────────────────── -->
+<div id="tab-novo" class="tab-panel" style="display:none;">
+    <div class="card">
+        <h2>Cadastrar Novo Item</h2>
+        <p style="color:#666;font-size:13px;margin-bottom:16px;">
+            Cadastre o tipo do item e, se ele tiver controle de quantidade (ex: caixa de
+            parafusos, rolo de cabo), já atribua o código de barras e a quantidade em estoque —
+            tudo em um só passo.
+        </p>
+        <form method="post" action="/admin/tipos/completo">
+            <div class="form-group">
+                <label>Nome do tipo</label>
+                <input type="text" name="nome" required placeholder="ex: Antena 5dBi, Cabo UTP">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>Medida</label>
+                    <select name="unidade">
+                        <option value="un">📦 Unidade</option>
+                        <option value="m">📏 Metro (m)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+                        <input type="checkbox" name="reutilizavel" value="1" style="margin:0;width:auto;">
+                        Reutilizável (múltiplos kits ao mesmo tempo)
+                    </label>
+                </div>
+            </div>
+
+            <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
+            <p style="font-weight:700;color:#1a3a5c;margin-bottom:4px;">📦 Estoque (opcional)</p>
+            <p style="font-size:12px;color:#888;margin-bottom:12px;">
+                Preencha se este item tiver <strong>um único código de barras</strong> para o
+                lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
+                for um patrimônio individual (cada peça com seu próprio código, cadastrado na
+                aba "🏷️ Patrimônios").
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label>Código de Barras</label>
+                    <input type="text" name="codigo_barra" placeholder="Bipe ou digite">
+                </div>
+                <div class="form-group">
+                    <label>Quantidade Inicial</label>
+                    <input type="number" name="quantidade" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Mínimo (alerta)</label>
+                    <input type="number" name="quantidade_minima" value="5" min="0">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin:0;">📋 Importar BOM</h2>
+        </div>
+        <p style="font-size:12px;color:#555;line-height:1.5;margin:8px 0 12px;">
+            Planilha com colunas <strong>Description</strong> (tipo do item) e
+            <strong>Code</strong> (código de barras, opcional).
+            Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.
+        </p>
+        <form method="post" action="/admin/tipos/importar-bom" enctype="multipart/form-data"
+              style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <input type="file" name="arquivo" accept=".xlsx" required style="margin-bottom:0;min-width:200px;">
+            <button type="submit" class="btn btn-primary">Importar</button>
+        </form>
+    </div>
+</div>
+
+<!-- ── Aba: Patrimônios ──────────────────────────────────────────────────── -->
+<div id="tab-patrimonios" class="tab-panel" style="display:none;">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h2 style="margin-bottom:4px;">Patrimônios Registrados</h2>
+                <p style="color:#666;font-size:13px;margin-top:0;">
+                    Patrimônios são registrados automaticamente durante a bipagem.
+                    Você também pode cadastrar manualmente abaixo.
+                </p>
+            </div>
+            {% if itens %}
+            <form method="post" action="/admin/items/clear"
+                  onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
+                <button type="submit" class="btn btn-danger" style="margin-top:8px;">
+                    🗑️ Apagar Todos os Patrimônios
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- Cadastro manual -->
+        <form method="post" action="/admin/items"
+              style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:16px;">
+            <input type="text" name="codigo_barra" required placeholder="Código de barras / patrimônio">
+            <select name="item_tipo_id" required>
+                <option value="">— selecione o tipo —</option>
+                {% for tipo in tipos if tipo.ativo %}
+                <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Código / Patrimônio</th>
+                    <th>Tipo</th>
+                    <th>Cadastrado em</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in itens %}
+                <tr>
+                    <td><code>{{ item.codigo_barra }}</code></td>
+                    <td>{{ item.descricao }}</td>
+                    <td style="font-size:12px;color:#888;">{{ item.criado_em[:16] if item.criado_em else '—' }}</td>
+                    <td>
+                        <span class="badge {{ 'badge-success' if item.ativo else 'badge-danger' }}">
+                            {{ 'Ativo' if item.ativo else 'Inativo' }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="post" action="/admin/items/{{ item.id }}/delete"
+                              style="display:inline;"
+                              onsubmit="return confirm('Excluir patrimônio \'{{ item.codigo_barra }}\'?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <style>
@@ -305,12 +422,39 @@
     border-radius: 12px;
     padding: 16px;
     width: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
     box-shadow: 0 8px 28px rgba(0,0,0,.13);
     animation: popIn .12s ease;
 }
 @keyframes popIn {
     from { opacity: 0; transform: translateY(-6px) scale(.97); }
     to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* ── Menu de abas ── */
+.tabs-menu {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid #e0e7ef;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: color .12s, border-color .12s;
+}
+.tab-btn:hover { color: #1a3a5c; }
+.tab-btn.active {
+    color: #1a3a5c;
+    border-bottom-color: #1a3a5c;
 }
 </style>
 <script>
@@ -324,13 +468,11 @@ function abrirPopup(event, tipoId) {
     const rect = btn.getBoundingClientRect();
     const popup = document.getElementById('popup-' + tipoId);
     popup.style.display = 'block';
-    // Position: below the button, right-aligned to it
     const pw = 300;
     let left = rect.right - pw;
     if (left < 8) left = 8;
     let top = rect.bottom + 6;
-    // If it would go off the bottom, open upward instead
-    if (top + 260 > window.innerHeight) top = rect.top - 260 - 6;
+    if (top + 400 > window.innerHeight) top = Math.max(8, rect.top - 400 - 6);
     popup.style.left = left + 'px';
     popup.style.top  = top  + 'px';
     document.getElementById('popup-overlay').style.display = 'block';
@@ -339,18 +481,15 @@ function abrirPopup(event, tipoId) {
 
 function fecharPopup() {
     if (_popupAberto !== null) {
-        document.getElementById('popup-' + _popupAberto).style.display = 'none';
+        const el = document.getElementById('popup-' + _popupAberto);
+        if (el) el.style.display = 'none';
         _popupAberto = null;
     }
-    document.getElementById('popup-overlay').style.display = 'none';
+    const overlay = document.getElementById('popup-overlay');
+    if (overlay) overlay.style.display = 'none';
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });
-
-function toggleForm(id) {
-    const el = document.getElementById(id);
-    el.style.display = el.style.display === 'none' ? 'flex' : 'none';
-}
 
 function editarNome(tipoId) {
     document.getElementById('nome-texto-' + tipoId).style.display = 'none';
@@ -374,5 +513,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// ── Abas ──────────────────────────────────────────────────────────────────
+function mudarTab(nome) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + nome).style.display = 'block';
+    document.querySelector('.tab-btn[data-tab="' + nome + '"]').classList.add('active');
+    const url = new URL(window.location);
+    url.searchParams.set('tab', nome);
+    window.history.replaceState({}, '', url);
+}
+
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    // tab_ativo: usado quando a página é re-renderizada direto (sem redirect)
+    // após um erro — a URL não tem ?tab= nesse caso, então o servidor indica
+    // qual aba estava em uso.
+    const tabServidor = "{{ tab_ativo or '' }}";
+    const tabInicial = params.get('tab') || tabServidor || 'catalogo';
+    mudarTab(['catalogo', 'novo', 'patrimonios'].includes(tabInicial) ? tabInicial : 'catalogo');
+})();
 </script>
 {% endblock %}

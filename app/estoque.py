@@ -152,6 +152,17 @@ def alertas_abaixo_minimo() -> list:
     return [dict(r) for r in rows]
 
 
+def atualizar_codigo_barra(estoque_id: int, novo_codigo: str) -> None:
+    novo_codigo = (novo_codigo or "").strip()
+    if not novo_codigo:
+        raise ValueError("Código de barras não pode ser vazio.")
+    with db() as conn:
+        conn.execute(
+            "UPDATE estoque SET codigo_barra = ? WHERE id = ?",
+            (novo_codigo, estoque_id)
+        )
+
+
 def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None:
     with db() as conn:
         atual = conn.execute(

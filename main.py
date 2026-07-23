@@ -241,21 +241,6 @@ async def session_start(request: Request, kit_template_id: int = Form(...)):
 
 # ── Admin: Tipos de Item ──────────────────────────────────────────────────────
 
-@app.post("/admin/tipos")
-@require_login
-async def admin_tipos_post(request: Request,
-                            nome: str = Form(...),
-                            unidade: str = Form("un")):
-    try:
-        items_mod.criar_tipo(nome.strip(), unidade)
-    except Exception as e:
-        itens = items_mod.listar_itens()
-        tipos = items_mod.listar_tipos()
-        return render(request, "admin_items.html",
-                      {"itens": itens, "tipos": tipos,
-                       "erro": f"Erro ao criar tipo: {e}"})
-    return RedirectResponse("/admin/items?ok=tipo", status_code=302)
-
 
 @app.post("/admin/tipos/importar")
 @require_login
@@ -321,11 +306,9 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
         items_mod.deletar_tipo(tipo_id)
         return RedirectResponse("/admin/items", status_code=302)
     except Exception:
-        itens = items_mod.listar_itens()
-        tipos = items_mod.listar_tipos()
         deps = items_mod.buscar_dependencias_tipo(tipo_id)
         return render(request, "admin_items.html", {
-            "itens": itens, "tipos": tipos,
+            **_admin_items_context(),
             "tipo_com_erro": deps,
         })
 
@@ -348,12 +331,65 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
 
+def _admin_items_context() -> dict:
+    return {
+        "itens": items_mod.listar_itens(),
+        "tipos": items_mod.listar_tipos(),
+        "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
+    }
+
+
 @app.get("/admin/items", response_class=HTMLResponse)
 @require_login
 async def admin_items(request: Request):
-    itens = items_mod.listar_itens()
-    tipos = items_mod.listar_tipos()
-    return render(request, "admin_items.html", {"itens": itens, "tipos": tipos})
+    return render(request, "admin_items.html", _admin_items_context())
+
+
+@app.post("/admin/tipos/completo")
+@require_login
+async def admin_tipos_completo(request: Request):
+    """Cria um tipo de item e, opcionalmente, já atribui estoque (quantidade
+    + código de barras) num único passo — usado pela aba 'Novo Item'."""
+    user = get_current_user(request)
+    form = await request.form()
+    nome = (form.get("nome") or "").strip()
+    unidade = form.get("unidade") or "un"
+    reutilizavel = bool(form.get("reutilizavel"))
+    codigo_barra = (form.get("codigo_barra") or "").strip()
+
+    if not nome:
+        return RedirectResponse(
+            "/admin/items?tab=novo&erro=" + quote("Nome do tipo é obrigatório."),
+            status_code=302)
+
+    try:
+        quantidade = max(0, int(form.get("quantidade") or 0))
+        quantidade_minima = max(0, int(form.get("quantidade_minima") or 5))
+        tipo_id = items_mod.criar_tipo(nome, unidade)
+        if reutilizavel:
+            items_mod.alternar_reutilizavel_tipo(tipo_id)
+        if codigo_barra:
+            estoque_mod.criar_estoque(tipo_id, codigo_barra, quantidade,
+                                       quantidade_minima, user["id"])
+    except Exception as e:
+        return RedirectResponse(
+            "/admin/items?tab=novo&erro=" + quote(f"Erro ao cadastrar: {e}"),
+            status_code=302)
+
+    return RedirectResponse("/admin/items?ok=item_criado", status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/codigo")
+@require_login
+async def admin_estoque_codigo(request: Request, estoque_id: int):
+    form = await request.form()
+    try:
+        estoque_mod.atualizar_codigo_barra(estoque_id, form.get("codigo_barra", ""))
+    except Exception as e:
+        return RedirectResponse(
+            "/admin/items?erro=" + quote(f"Erro ao atualizar código: {e}"),
+            status_code=302)
+    return RedirectResponse("/admin/items?ok=codigo_atualizado", status_code=302)
 
 
 @app.post("/admin/items")
@@ -366,11 +402,9 @@ async def admin_items_post(request: Request,
         items_mod.criar_item(codigo_barra.strip(), item_tipo_id, user["id"])
         return RedirectResponse("/admin/items?ok=1", status_code=302)
     except Exception as e:
-        itens = items_mod.listar_itens()
-        tipos = items_mod.listar_tipos()
         return render(request, "admin_items.html",
-                      {"itens": itens, "tipos": tipos,
-                       "erro": f"Erro ao salvar: {e}"})
+                      {**_admin_items_context(), "erro": f"Erro ao salvar: {e}",
+                       "tab_ativo": "patrimonios"})
 
 
 @app.post("/admin/items/clear")
@@ -387,11 +421,10 @@ async def admin_items_delete(request: Request, item_id: int):
         items_mod.deletar_item(item_id)
         return RedirectResponse("/admin/items", status_code=302)
     except Exception:
-        itens = items_mod.listar_itens()
-        tipos = items_mod.listar_tipos()
         return render(request, "admin_items.html", {
-            "itens": itens, "tipos": tipos,
+            **_admin_items_context(),
             "erro": "Não foi possível excluir o patrimônio.",
+            "tab_ativo": "patrimonios",
         })
 
 
@@ -1243,14 +1276,10 @@ async def reports_validacoes_export(request: Request,
 async def admin_estoque(request: Request):
     import app.zpl as _zpl
     itens = estoque_mod.listar_estoque()
-    tipos_com_estoque = {e["item_tipo_id"] for e in itens}
-    tipos_disponiveis = [t for t in items_mod.listar_tipos(apenas_ativos=True)
-                         if t["id"] not in tipos_com_estoque]
     alertas = estoque_mod.alertas_abaixo_minimo()
     url_http = getattr(app.state, "url_http", _zpl.SERVIDOR_URL)
     return render(request, "admin_estoque.html", {
         "itens": itens,
-        "tipos_disponiveis": tipos_disponiveis,
         "alertas": alertas,
         "url_http_base": url_http,
     })
@@ -1259,6 +1288,9 @@ async def admin_estoque(request: Request):
 @app.post("/admin/estoque")
 @require_login
 async def admin_estoque_post(request: Request):
+    # Chamado a partir do popup de configuração de um tipo em /admin/items
+    # ("+ Adicionar ao estoque") — a criação de estoque para um tipo novo
+    # acontece na aba "Novo Item", que usa /admin/tipos/completo.
     user = get_current_user(request)
     form = await request.form()
     try:
@@ -1271,16 +1303,10 @@ async def admin_estoque_post(request: Request):
         estoque_mod.criar_estoque(item_tipo_id, codigo_barra, quantidade,
                                    quantidade_minima, user["id"])
     except Exception as e:
-        itens = estoque_mod.listar_estoque()
-        tipos_com_estoque = {ev["item_tipo_id"] for ev in itens}
-        tipos_disponiveis = [t for t in items_mod.listar_tipos(apenas_ativos=True)
-                             if t["id"] not in tipos_com_estoque]
-        alertas = estoque_mod.alertas_abaixo_minimo()
-        return render(request, "admin_estoque.html", {
-            "itens": itens, "tipos_disponiveis": tipos_disponiveis,
-            "alertas": alertas, "erro": str(e),
-        })
-    return RedirectResponse("/admin/estoque?ok=criado", status_code=302)
+        return RedirectResponse(
+            "/admin/items?erro=" + quote(f"Erro ao adicionar ao estoque: {e}"),
+            status_code=302)
+    return RedirectResponse("/admin/items?ok=estoque_criado", status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/repor")

@@ -102,51 +102,13 @@
     {% else %}
     <p style="color:#888;text-align:center;padding:24px;">
         Nenhum item de estoque cadastrado ainda.
+        Cadastre em <a href="/admin/items">Itens &amp; Estoque</a>.
     </p>
     {% endif %}
 </div>
 
-<!-- Cadastrar novo item de estoque -->
-<div class="card">
-    <h2>Cadastrar Item de Estoque</h2>
-    <p style="font-size:13px;color:#555;margin-bottom:16px;">
-        Items de estoque possuem <strong>um único código de barras</strong> para o lote inteiro
-        (ex: caixa de parafusos). Ao bipar durante a conferência, a quantidade exigida pelo
-        template é automaticamente abatida.
-    </p>
-    {% if tipos_disponiveis %}
-    <form method="post" action="/admin/estoque">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-            <div class="form-group">
-                <label>Quantidade Inicial</label>
-                <input type="number" name="quantidade" value="0" min="0" required>
-            </div>
-            <div class="form-group">
-                <label>Alerta — Quantidade Mínima</label>
-                <input type="number" name="quantidade_minima" value="5" min="0" required>
-            </div>
-            <div class="form-group">
-                <label>Tipo de Item</label>
-                <select name="item_tipo_id" required>
-                    <option value="">— selecione —</option>
-                    {% for t in tipos_disponiveis %}
-                    <option value="{{ t.id }}">{{ t.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Código de Barras da Caixa/Lote</label>
-                <input type="text" name="codigo_barra" required
-                       placeholder="Bipe ou digite o código">
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary">Cadastrar</button>
-    </form>
-    {% else %}
-    <p style="color:#888;font-size:13px;">
-        Todos os tipos de item já têm estoque cadastrado, ou não há tipos disponíveis.
-        Crie mais tipos em <a href="/admin/items">Admin → Itens</a>.
-    </p>
-    {% endif %}
-</div>
+<p style="font-size:13px;color:#888;text-align:center;">
+    Para cadastrar um novo item ou atribuir estoque a um tipo existente, acesse
+    <a href="/admin/items">Itens &amp; Estoque</a>.
+</p>
 {% endblock %}
