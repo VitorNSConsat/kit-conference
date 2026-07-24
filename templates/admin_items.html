@@ -561,11 +561,25 @@ function abrirPopup(event, tipoId) {
     const rect = btn.getBoundingClientRect();
     const popup = document.getElementById('popup-' + tipoId);
     popup.style.display = 'block';
+
     const pw = 300;
     let left = rect.right - pw;
     if (left < 8) left = 8;
+    const maxLeft = window.innerWidth - pw - 8;
+    if (left > maxLeft) left = Math.max(8, maxLeft);
+
+    // Mede a altura real do popup (agora que está visível) em vez de supor
+    // um valor fixo — o conteúdo cresceu bastante (Estoque, Serial, Código
+    // da Caixa...) e um valor chutado deixava parte dele fora da tela, sem
+    // como alcançar por scroll já que a posição é fixa (não acompanha a
+    // rolagem da página).
+    const ph = Math.min(popup.offsetHeight, window.innerHeight - 16);
     let top = rect.bottom + 6;
-    if (top + 400 > window.innerHeight) top = Math.max(8, rect.top - 400 - 6);
+    if (top + ph > window.innerHeight - 8) {
+        top = window.innerHeight - ph - 8;
+    }
+    if (top < 8) top = 8;
+
     popup.style.left = left + 'px';
     popup.style.top  = top  + 'px';
     document.getElementById('popup-overlay').style.display = 'block';
