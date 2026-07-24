@@ -86,6 +86,7 @@
     <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📋 Catálogo</button>
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
     <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
+    <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🔁 Códigos Gerados</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -506,6 +507,46 @@
     </div>
 </div>
 
+<!-- ── Aba: Códigos Gerados ──────────────────────────────────────────────── -->
+<div id="tab-codigos" class="tab-panel" style="display:none;">
+    <div class="card">
+        <h2 style="margin-bottom:4px;">🔁 Códigos Gerados em "Gerar Códigos"</h2>
+        <p style="color:#666;font-size:13px;margin-top:0;">
+            Toda etiqueta impressa pela seção "🏷️ Gerar Códigos" (topo da página) fica listada
+            aqui. Marque como reciclável os códigos que são reaproveitados em mais de um kit.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Criado em</th>
+                    <th>Criado por</th>
+                    <th>Reciclável</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in codigos_gerados %}
+                <tr>
+                    <td><code>{{ c.texto }}</code></td>
+                    <td style="font-size:12px;color:#888;">{{ c.criado_em[:16] if c.criado_em else '—' }}</td>
+                    <td style="font-size:12px;color:#888;">{{ c.criado_por_nome or '—' }}</td>
+                    <td>
+                        <form method="post" action="/admin/codigos-gerados/{{ c.id }}/toggle-reciclavel">
+                            <button type="submit" class="btn btn-sm"
+                                    style="min-width:100px;{% if c.reciclavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                                {{ '♻️ Sim' if c.reciclavel else '— Não' }}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "🏷️ Gerar Códigos" no topo da página.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <style>
@@ -642,7 +683,7 @@ function mudarTab(nome) {
     // qual aba estava em uso.
     const tabServidor = "{{ tab_ativo or '' }}";
     const tabInicial = params.get('tab') || tabServidor || 'catalogo';
-    mudarTab(['catalogo', 'novo', 'patrimonios'].includes(tabInicial) ? tabInicial : 'catalogo');
+    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos'].includes(tabInicial) ? tabInicial : 'catalogo');
 })();
 </script>
 {% endblock %}

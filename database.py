@@ -205,6 +205,16 @@ def init_db():
             );
         """)
 
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS codigo_gerado (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                texto      TEXT NOT NULL UNIQUE,
+                reciclavel BOOLEAN NOT NULL DEFAULT 0,
+                criado_por INTEGER REFERENCES users(id),
+                criado_em  TEXT NOT NULL
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",

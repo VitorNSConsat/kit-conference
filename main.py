@@ -26,6 +26,7 @@ import app.estoque as estoque_mod
 import app.validacoes as validacoes_mod
 import app.veiculos as veiculos_mod
 import app.clientes as clientes_mod
+import app.codigos_gerados as codigos_gerados_mod
 
 load_dotenv()
 
@@ -349,6 +350,7 @@ def _admin_items_context() -> dict:
         "itens": items_mod.listar_itens(),
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
+        "codigos_gerados": codigos_gerados_mod.listar(),
     }
 
 
@@ -368,8 +370,17 @@ async def admin_gerar_codigo_etiqueta(request: Request, texto: str = ""):
     texto = texto.strip()
     if not texto:
         raise HTTPException(status_code=400, detail="Texto é obrigatório.")
+    user = get_current_user(request)
+    codigos_gerados_mod.registrar(texto, user["id"])
     html = _zpl.generate_estoque_html_label(tipo_nome=texto, codigo_barra=texto, url_qr=texto)
     return HTMLResponse(content=html)
+
+
+@app.post("/admin/codigos-gerados/{codigo_id}/toggle-reciclavel")
+@require_login
+async def admin_codigo_gerado_toggle_reciclavel(request: Request, codigo_id: int):
+    codigos_gerados_mod.toggle_reciclavel(codigo_id)
+    return RedirectResponse("/admin/items?tab=codigos", status_code=302)
 
 
 @app.post("/admin/tipos/completo")
