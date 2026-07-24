@@ -697,7 +697,7 @@ async def session_finalize(request: Request, sessao_id: int):
     veiculo_id_str = str(form.get("veiculo_id", "")).strip()
     veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
     veiculo = str(form.get("veiculo", "")).strip()
-    garagem = str(form.get("garagem", "")).strip()
+    garagem = str(form.get("garagem", "")).strip().upper()
     user = get_current_user(request)
 
     session_check = sessions_mod.get_session(sessao_id)

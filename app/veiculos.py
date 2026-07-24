@@ -32,7 +32,7 @@ def criar(numero: str, cliente: str, garagem: str) -> int:
     with db() as conn:
         cur = conn.execute(
             "INSERT INTO veiculos (numero, cliente, garagem, criado_em) VALUES (?, ?, ?, ?)",
-            (numero.strip(), cliente.strip(), garagem.strip(), now_brt())
+            (numero.strip(), cliente.strip(), garagem.strip().upper(), now_brt())
         )
         return cur.lastrowid
 
@@ -41,7 +41,7 @@ def atualizar(veiculo_id: int, numero: str, cliente: str, garagem: str):
     with db() as conn:
         conn.execute(
             "UPDATE veiculos SET numero=?, cliente=?, garagem=? WHERE id=?",
-            (numero.strip(), cliente.strip(), garagem.strip(), veiculo_id)
+            (numero.strip(), cliente.strip(), garagem.strip().upper(), veiculo_id)
         )
 
 
