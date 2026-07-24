@@ -82,10 +82,12 @@
             <button type="button" class="tipo-card-admin"
                     data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
                     data-unidade="{{ tipo.unidade | default('un') }}"
+                    data-serial="{{ '1' if tipo.requer_serial else '0' }}"
                     onclick="adicionarTipoFromCard(this)">
                 {{ tipo.nome }}
                 {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
                 {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
+                {% if tipo.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">🔢 serial</span>{% endif %}
             </button>
             {% endfor %}
         </div>
@@ -110,8 +112,12 @@
                 <div class="item-sel-nome">
                     {{ item.descricao }}
                     {% if item.unidade == 'm' %}<span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>{% endif %}
+                    {% if item.requer_serial %}<span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>{% endif %}
                 </div>
                 <input type="hidden" name="item_tipo_id_{{ loop.index0 }}" value="{{ item.item_tipo_id }}">
+                {% if item.requer_serial %}
+                <input type="hidden" name="requer_serial_{{ loop.index0 }}" value="1">
+                {% endif %}
                 <div class="item-sel-campos">
                     <label style="font-size:12px;color:#555;">{{ 'Qtd (m)' if item.unidade == 'm' else 'Qtd' }}</label>
                     <input type="number" name="qtd_{{ loop.index0 }}"
@@ -126,10 +132,6 @@
                     <label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">
                         <input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
                                {{ 'checked' if item.obrigatorio else '' }}> Obrigatório
-                    </label>
-                    <label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;color:#6c5ce7;">
-                        <input type="checkbox" name="requer_serial_{{ loop.index0 }}" value="1"
-                               {{ 'checked' if item.requer_serial else '' }}> Serial
                     </label>
                     <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>
                 </div>
@@ -185,10 +187,10 @@ let idx = {{ itens | length }};
 const catalogo = {{ tipos_catalogo | tojson }};
 
 function adicionarTipoFromCard(btn) {
-    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un');
+    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un', btn.dataset.serial === '1');
 }
 
-function adicionarTipo(tipoId, tipoNome, tipoUnidade) {
+function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
     const isMeter = (tipoUnidade === 'm');
     const container = document.getElementById('itens-container');
     const div = document.createElement('div');
@@ -196,8 +198,10 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade) {
     div.innerHTML =
         `<div class="item-sel-nome">${tipoNome}` +
             (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>` : '') +
+            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>` : '') +
         `</div>` +
         `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
+        (requerSerial ? `<input type="hidden" name="requer_serial_${idx}" value="1">` : '') +
         `<div class="item-sel-campos">` +
           `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
           `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
@@ -206,9 +210,6 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade) {
           `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
-          `</label>` +
-          `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;color:#6c5ce7;">` +
-            `<input type="checkbox" name="requer_serial_${idx}" value="1"> Serial` +
           `</label>` +
           `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>` +
         `</div>`;

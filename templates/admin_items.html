@@ -206,6 +206,18 @@
                         </button>
                     </form>
                 </div>
+                <!-- Requer Serial -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <span style="font-size:13px;color:#555;">Requer Serial
+                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">pede o serial number ao bipar este tipo em qualquer kit</span>
+                    </span>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-requer-serial">
+                        <button type="submit" class="btn btn-sm"
+                                style="min-width:100px;{% if tipo.requer_serial %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                            {{ '🔢 Sim' if tipo.requer_serial else '— Não' }}
+                        </button>
+                    </form>
+                </div>
                 <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
                 <!-- Código fixo -->
                 <div>
@@ -235,29 +247,33 @@
                 </div>
                 <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
                 <!-- Estoque -->
-                <div>
-                    <div style="font-size:13px;color:#555;margin-bottom:6px;font-weight:700;">📦 Estoque</div>
+                <div style="background:#f0f8f4;border:1.5px solid #27ae60;border-radius:10px;padding:12px;">
+                    <div style="font-size:13px;color:#1a3a5c;margin-bottom:10px;font-weight:700;">📦 Estoque</div>
                     {% if est %}
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
-                        <span style="font-size:12px;color:#888;">Mínimo (alerta)</span>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" style="display:flex;gap:4px;">
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Quantidade Mínima</label>
+                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Dispara alerta quando o estoque chegar nesse valor</div>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" style="display:flex;gap:6px;">
                             <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
-                                   style="width:56px;text-align:center;margin-bottom:0;font-size:12px;padding:4px;">
-                            <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">💾</button>
+                                   style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
+                            <button type="submit" class="btn btn-sm btn-success" style="padding:6px 12px;">💾 Salvar</button>
                         </form>
                     </div>
-                    <form method="post" action="/admin/estoque/{{ est.id }}/repor"
-                          style="display:flex;gap:4px;margin-bottom:8px;">
-                        <input type="number" name="quantidade" value="1" min="1"
-                               style="width:56px;text-align:center;margin-bottom:0;font-size:12px;padding:4px;" required>
-                        <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;flex:1;">+ Repor estoque</button>
-                    </form>
-                    <div style="margin-bottom:8px;">
-                        <div style="font-size:12px;color:#888;margin-bottom:4px;">Código de barras</div>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Repor Estoque</label>
+                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Quantidade a adicionar ao estoque atual ({{ est.quantidade_atual }})</div>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/repor" style="display:flex;gap:6px;">
+                            <input type="number" name="quantidade" value="1" min="1"
+                                   style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
+                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;padding:6px 12px;">+ Repor</button>
+                        </form>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:6px;">Código de Barras</label>
                         <form method="post" action="/admin/estoque/{{ est.id }}/codigo" style="display:flex;gap:6px;">
                             <input type="text" name="codigo_barra" value="{{ est.codigo_barra }}"
-                                   style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;" required>
-                            <button type="submit" class="btn btn-sm btn-success">💾</button>
+                                   style="flex:1;margin-bottom:0;font-size:13px;padding:8px;font-family:monospace;" required>
+                            <button type="submit" class="btn btn-sm btn-success" style="padding:6px 12px;">💾</button>
                         </form>
                     </div>
                     <div style="display:flex;gap:6px;">
@@ -267,20 +283,29 @@
                            class="btn btn-sm btn-primary" style="flex:1;text-align:center;">📋 Histórico</a>
                     </div>
                     {% else %}
-                    <p style="font-size:12px;color:#888;margin-bottom:8px;">
+                    <p style="font-size:12px;color:#888;margin-bottom:10px;">
                         Este tipo ainda não tem estoque cadastrado.
                     </p>
-                    <form method="post" action="/admin/estoque" style="display:flex;flex-direction:column;gap:6px;">
+                    <form method="post" action="/admin/estoque" style="display:flex;flex-direction:column;gap:10px;">
                         <input type="hidden" name="item_tipo_id" value="{{ tipo.id }}">
-                        <input type="text" name="codigo_barra" placeholder="Código de barras" required
-                               style="margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
-                        <div style="display:flex;gap:6px;">
-                            <input type="number" name="quantidade" value="0" min="0" placeholder="Qtd."
-                                   style="width:70px;margin-bottom:0;font-size:12px;padding:5px;">
-                            <input type="number" name="quantidade_minima" value="5" min="0" placeholder="Mín."
-                                   style="width:70px;margin-bottom:0;font-size:12px;padding:5px;">
-                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;">+ Adicionar</button>
+                        <div>
+                            <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Código de Barras</label>
+                            <input type="text" name="codigo_barra" required
+                                   style="margin-bottom:0;font-size:13px;padding:8px;font-family:monospace;">
                         </div>
+                        <div style="display:flex;gap:10px;">
+                            <div style="flex:1;">
+                                <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Qtd. Inicial</label>
+                                <input type="number" name="quantidade" value="0" min="0"
+                                       style="width:100%;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Mínimo</label>
+                                <input type="number" name="quantidade_minima" value="5" min="0"
+                                       style="width:100%;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">+ Adicionar ao Estoque</button>
                     </form>
                     {% endif %}
                 </div>
@@ -329,28 +354,34 @@
             </div>
 
             <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
-            <p style="font-weight:700;color:#1a3a5c;margin-bottom:4px;">📦 Estoque (opcional)</p>
-            <p style="font-size:12px;color:#888;margin-bottom:12px;">
-                Preencha se este item tiver <strong>um único código de barras</strong> para o
-                lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
-                for um patrimônio individual (cada peça com seu próprio código, cadastrado na
-                aba "🏷️ Itens Cadastrados").
-            </p>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div style="background:#f0f8f4;border:1.5px solid #27ae60;border-radius:10px;padding:16px;">
+                <p style="font-weight:700;color:#1a3a5c;margin-bottom:4px;">📦 Estoque (opcional)</p>
+                <p style="font-size:12px;color:#888;margin-bottom:14px;">
+                    Preencha se este item tiver <strong>um único código de barras</strong> para o
+                    lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
+                    for um patrimônio individual (cada peça com seu próprio código, cadastrado na
+                    aba "🏷️ Itens Cadastrados").
+                </p>
                 <div class="form-group">
                     <label>Código de Barras</label>
                     <input type="text" name="codigo_barra" placeholder="Bipe ou digite">
                 </div>
-                <div class="form-group">
-                    <label>Quantidade Inicial</label>
-                    <input type="number" name="quantidade" value="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Mínimo (alerta)</label>
-                    <input type="number" name="quantidade_minima" value="5" min="0">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="form-group">
+                        <label>Quantidade Inicial</label>
+                        <input type="number" name="quantidade" value="0" min="0"
+                               style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
+                        <div style="font-size:11px;color:#999;margin-top:2px;">Quanto já existe hoje no estoque</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Mínimo (alerta)</label>
+                        <input type="number" name="quantidade_minima" value="5" min="0"
+                               style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
+                        <div style="font-size:11px;color:#999;margin-top:2px;">Dispara alerta abaixo desse valor</div>
+                    </div>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary">Cadastrar</button>
+            <button type="submit" class="btn btn-primary" style="margin-top:16px;">Cadastrar</button>
         </form>
     </div>
 

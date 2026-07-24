@@ -77,6 +77,14 @@ def alternar_controle_externo(tipo_id: int):
         )
 
 
+def alternar_requer_serial(tipo_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE item_tipo SET requer_serial = 1 - COALESCE(requer_serial, 0) WHERE id = ?",
+            (tipo_id,)
+        )
+
+
 def alternar_unidade_tipo(tipo_id: int):
     with db() as conn:
         conn.execute(

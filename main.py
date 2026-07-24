@@ -286,6 +286,13 @@ async def admin_tipo_toggle_controle_externo(request: Request, tipo_id: int):
     return RedirectResponse("/admin/items", status_code=302)
 
 
+@app.post("/admin/tipos/{tipo_id}/toggle-requer-serial")
+@require_login
+async def admin_tipo_toggle_requer_serial(request: Request, tipo_id: int):
+    items_mod.alternar_requer_serial(tipo_id)
+    return RedirectResponse("/admin/items", status_code=302)
+
+
 @app.post("/admin/tipos/{tipo_id}/toggle-unidade")
 @require_login
 async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
