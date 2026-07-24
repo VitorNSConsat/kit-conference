@@ -64,7 +64,7 @@
 <div class="tabs-menu">
     <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📋 Catálogo</button>
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
-    <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Patrimônios</button>
+    <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -79,7 +79,7 @@
         {% if tipos %}
         <table>
             <thead>
-                <tr><th>Nome</th><th>Estoque</th><th>Status</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
+                <tr><th>Nome</th><th>Estoque</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
             </thead>
             <tbody>
             {% for tipo in tipos %}
@@ -117,15 +117,13 @@
                                  padding:4px 12px;border-radius:20px;">
                         📦 {{ est.quantidade_atual }}
                     </span>
-                    <span style="font-size:11px;color:#999;margin-left:4px;">/ mín. {{ est.quantidade_minima }}</span>
+                    <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;
+                                 color:#555;background:#e8ecf0;padding:4px 12px;border-radius:20px;margin-left:6px;">
+                        mín. {{ est.quantidade_minima }}
+                    </span>
                     {% else %}
                     <span style="font-size:12px;color:#bbb;">— sem estoque —</span>
                     {% endif %}
-                </td>
-                <td>
-                    <span class="badge {{ 'badge-success' if tipo.ativo else 'badge-danger' }}">
-                        {{ 'Ativo' if tipo.ativo else 'Inativo' }}
-                    </span>
                 </td>
                 <td style="text-align:center;">
                     <button type="button" id="gear-{{ tipo.id }}" class="btn btn-sm btn-primary"
@@ -159,12 +157,23 @@
                 <!-- Medida -->
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
                     <span style="font-size:13px;color:#555;">Medida</span>
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
-                        <button type="submit" class="btn btn-sm"
-                                style="min-width:100px;{% if tipo.unidade == 'm' %}background:#0984e3;color:#fff;{% else %}background:#00b894;color:#fff;{% endif %}">
-                            {{ '📏 Metro' if tipo.unidade == 'm' else '📦 Unidade' }}
-                        </button>
-                    </form>
+                    <div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid #ddd;">
+                        {% if tipo.unidade == 'm' %}
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade" style="margin:0;">
+                            <button type="submit" title="Trocar para Unidade"
+                                    style="padding:5px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+                                           background:#f0f0f0;color:#888;">📦 Unidade</button>
+                        </form>
+                        <span style="padding:5px 12px;font-size:12px;font-weight:700;background:#0984e3;color:#fff;">📏 Metro</span>
+                        {% else %}
+                        <span style="padding:5px 12px;font-size:12px;font-weight:700;background:#00b894;color:#fff;">📦 Unidade</span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade" style="margin:0;">
+                            <button type="submit" title="Trocar para Metro"
+                                    style="padding:5px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+                                           background:#f0f0f0;color:#888;">📏 Metro</button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
                 <!-- Reutilizável -->
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -306,7 +315,7 @@
                 Preencha se este item tiver <strong>um único código de barras</strong> para o
                 lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
                 for um patrimônio individual (cada peça com seu próprio código, cadastrado na
-                aba "🏷️ Patrimônios").
+                aba "🏷️ Itens Cadastrados").
             </p>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                 <div class="form-group">
@@ -348,7 +357,7 @@
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
-                <h2 style="margin-bottom:4px;">Patrimônios Registrados</h2>
+                <h2 style="margin-bottom:4px;">Itens Cadastrados no Sistema</h2>
                 <p style="color:#666;font-size:13px;margin-top:0;">
                     Patrimônios são registrados automaticamente durante a bipagem.
                     Você também pode cadastrar manualmente abaixo.
