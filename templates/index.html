@@ -5,7 +5,7 @@
 <div class="card" style="border:1px solid #f0a500; margin-bottom:20px;">
     <h2 style="margin-top:0; color:#b87800;">📋 Sessões em Andamento</h2>
     <p style="color:#666; font-size:13px; margin-top:-8px; margin-bottom:12px;">
-        Você tem sessões salvas. Retome onde parou ou cancele para descartar.
+        Sessões salvas pela equipe. Retome onde parou ou cancele para descartar.
     </p>
     {% for s in sessoes_em_andamento %}
     <div style="display:flex; align-items:center; gap:12px; padding:10px 0;
@@ -15,7 +15,8 @@
             <span style="color:#666; font-size:13px;"> — {{ s.cliente }}</span>
             <br>
             <span style="font-size:12px; color:#999;">
-                Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
+                Operador: <strong style="color:#666;">{{ s.operador_nome }}</strong>
+                &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
             </span>
         </div>
         <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">▶ Retomar</a>

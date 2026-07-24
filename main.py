@@ -222,9 +222,8 @@ async def ping():
 @app.get("/", response_class=HTMLResponse)
 @require_login
 async def home(request: Request):
-    user = get_current_user(request)
     templates_ativos = templates_mod.listar_templates_ativos()
-    sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento(operador_id=user["id"])
+    sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento()
     return render(request, "index.html", {
         "templates_ativos": templates_ativos,
         "sessoes_em_andamento": sessoes_em_andamento,
