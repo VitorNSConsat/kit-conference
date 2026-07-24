@@ -4,6 +4,18 @@ import app.kit_templates as templates_mod
 import app.estoque as estoque_mod
 
 
+def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
+    """Se o tipo tiver estoque vinculado, desconta 1 unidade — equivale a
+    retirar uma unidade física da caixa de estoque ao criar um patrimônio
+    novo. Só é chamado na criação (primeira vez que o código é visto);
+    reutilizar o mesmo patrimônio depois não desconta de novo. Permite
+    ficar negativo — sinaliza contagem de estoque desatualizada em vez de
+    travar o operador em campo."""
+    est = estoque_mod.buscar_por_tipo(item_tipo_id)
+    if est:
+        estoque_mod.registrar_saida(est["id"], 1, sessao_id, criado_por)
+
+
 def deletar_kit_record(kit_id: str):
     """Remove um kit finalizado e todos os dados vinculados em cascade."""
     with db() as conn:
@@ -158,6 +170,7 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict
     if not item:
         items_mod.criar_item(codigo_patrimonio, tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_patrimonio)
+        _descontar_estoque_por_patrimonio_novo(tipo_id, sessao_id, session["operador_id"])
     elif item["item_tipo_id"] != tipo_id:
         return {"resultado": "rejeitado",
                 "mensagem": (f"Patrimônio '{codigo_patrimonio}' já é do tipo '{item['descricao']}', "
@@ -480,6 +493,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
         item_recem_criado = True
+        _descontar_estoque_por_patrimonio_novo(item_tipo_id, sessao_id, session["operador_id"])
         kit_ant = _historico_kit_ativo(codigo_barra)
         if kit_ant:
             return {

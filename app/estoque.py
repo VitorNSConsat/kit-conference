@@ -25,6 +25,18 @@ def buscar_por_codigo(codigo_barra: str) -> dict | None:
     return dict(row) if row else None
 
 
+def buscar_por_tipo(item_tipo_id: int) -> dict | None:
+    with db() as conn:
+        row = conn.execute(
+            "SELECT e.*, it.nome AS tipo_nome "
+            "FROM estoque e "
+            "JOIN item_tipo it ON it.id = e.item_tipo_id "
+            "WHERE e.item_tipo_id = ?",
+            (item_tipo_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def buscar_por_referencia(texto: str) -> dict | None:
     """Busca item de estoque pelo código de barras direto, ou pela URL do QR
     da etiqueta (formato .../estoque/<id>) — permite que o mesmo QR seja lido
