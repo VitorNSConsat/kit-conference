@@ -92,10 +92,14 @@
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
 <div id="tab-catalogo" class="tab-panel">
     <div class="card">
-        <h2>Tipos de Item</h2>
-        <p style="color:#666;font-size:13px;margin-top:-8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <h2 style="margin:0;">Tipos de Item</h2>
+            <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
+        </div>
+        <p style="color:#666;font-size:13px;margin-top:4px;">
             Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
             para configurar medida, reutilização, código da caixa e estoque.
+            A exportação em Excel traz a relação atual e o histórico completo de movimentações.
         </p>
 
         {% if tipos %}

@@ -1311,6 +1311,89 @@ async def reports_validacoes_export(request: Request,
 
 # ── Estoque ───────────────────────────────────────────────────────────────────
 
+@app.get("/admin/estoque/exportar.xlsx")
+@require_login
+async def admin_estoque_exportar(request: Request):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    itens = estoque_mod.listar_estoque()
+    historico = estoque_mod.listar_historico_completo()
+
+    wb = openpyxl.Workbook()
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+
+    def hdr_cell(ws, row, col, value):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        return c
+
+    # ── Aba Estoque ──────────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "Estoque"
+    for col, h in enumerate(
+        ["Tipo de Item", "Código de Barras", "Quantidade Atual",
+         "Quantidade Mínima", "Status", "Cadastrado em"], 1):
+        hdr_cell(ws1, 1, col, h)
+    for i, item in enumerate(itens):
+        row = i + 2
+        abaixo = item["quantidade_atual"] <= item["quantidade_minima"]
+        proximo = item["quantidade_atual"] <= item["quantidade_minima"] * 2 and not abaixo
+        status = "Abaixo do mínimo" if abaixo else ("Próximo do mínimo" if proximo else "OK")
+        ws1.cell(row, 1, item["tipo_nome"])
+        ws1.cell(row, 2, item["codigo_barra"])
+        ws1.cell(row, 3, item["quantidade_atual"])
+        ws1.cell(row, 4, item["quantidade_minima"])
+        ws1.cell(row, 5, status)
+        ws1.cell(row, 6, item.get("criado_em") or "")
+        if i % 2 == 0:
+            for col in range(1, 7):
+                ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCDEF", (32, 26, 16, 16, 20, 20)):
+        ws1.column_dimensions[col].width = w
+    ws1.freeze_panes = "A2"
+
+    # ── Aba Histórico ────────────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Histórico")
+    for col, h in enumerate(
+        ["Tipo de Item", "Código de Barras", "Movimento", "Quantidade",
+         "Observação", "Operador", "Data"], 1):
+        hdr_cell(ws2, 1, col, h)
+    movimento_labels = {
+        "entrada": "Entrada", "saida": "Saída", "saida_cancelada": "Saída cancelada",
+        "correcao": "Correção", "ajuste_minimo": "Ajuste mínimo",
+    }
+    for i, m in enumerate(historico):
+        row = i + 2
+        ws2.cell(row, 1, m["tipo_nome"])
+        ws2.cell(row, 2, m["codigo_barra"])
+        ws2.cell(row, 3, movimento_labels.get(m["tipo"], m["tipo"]))
+        ws2.cell(row, 4, m["quantidade"])
+        ws2.cell(row, 5, m.get("observacao") or "")
+        ws2.cell(row, 6, m.get("operador_nome") or "—")
+        ws2.cell(row, 7, m.get("criado_em") or "")
+        if i % 2 == 0:
+            for col in range(1, 8):
+                ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCDEFG", (32, 26, 18, 14, 32, 20, 20)):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = "A2"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"estoque_{now_brt()[:10]}.xlsx"
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/admin/estoque", response_class=HTMLResponse)
 @require_login
 async def admin_estoque(request: Request):

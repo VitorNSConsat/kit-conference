@@ -151,6 +151,21 @@ def listar_historico(estoque_id: int, limit: int = 100) -> list:
     return [dict(r) for r in rows]
 
 
+def listar_historico_completo() -> list:
+    """Todas as movimentações de todos os itens de estoque — usado na
+    exportação em Excel (aba Histórico)."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT em.*, e.codigo_barra, it.nome AS tipo_nome, u.nome AS operador_nome "
+            "FROM estoque_movimentos em "
+            "JOIN estoque e ON e.id = em.estoque_id "
+            "JOIN item_tipo it ON it.id = e.item_tipo_id "
+            "LEFT JOIN users u ON u.id = em.criado_por "
+            "ORDER BY it.nome, em.criado_em DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def alertas_abaixo_minimo() -> list:
     """Retorna itens de estoque com quantidade abaixo ou igual ao mínimo."""
     with db() as conn:
