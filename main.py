@@ -437,7 +437,9 @@ async def admin_items_post(request: Request,
                            item_tipo_id: int = Form(...)):
     user = get_current_user(request)
     try:
-        items_mod.criar_item(codigo_barra.strip(), item_tipo_id, user["id"])
+        codigo_barra = codigo_barra.strip()
+        items_mod.criar_item(codigo_barra, item_tipo_id, user["id"])
+        codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_barra, item_tipo_id)
         return RedirectResponse("/admin/items?ok=1", status_code=302)
     except Exception as e:
         return render(request, "admin_items.html",

@@ -2,6 +2,7 @@ from database import db, now_brt
 import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.estoque as estoque_mod
+import app.codigos_gerados as codigos_gerados_mod
 
 
 def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
@@ -170,6 +171,7 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict
     if not item:
         items_mod.criar_item(codigo_patrimonio, tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_patrimonio)
+        codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_patrimonio, tipo_id)
         _descontar_estoque_por_patrimonio_novo(tipo_id, sessao_id, session["operador_id"])
     elif item["item_tipo_id"] != tipo_id:
         return {"resultado": "rejeitado",
@@ -493,6 +495,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
         item_recem_criado = True
+        codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_barra, item_tipo_id)
         _descontar_estoque_por_patrimonio_novo(item_tipo_id, sessao_id, session["operador_id"])
         kit_ant = _historico_kit_ativo(codigo_barra)
         if kit_ant:

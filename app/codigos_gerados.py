@@ -30,8 +30,41 @@ def registrar(texto: str, criado_por: int) -> None:
 
 
 def toggle_reciclavel(codigo_id: int):
+    """Alterna reciclável e sincroniza com o TIPO do patrimônio que já usa este
+    código de barras (se algum), marcando/desmarcando 'Reutilizável' no tipo —
+    é essa flag que permite bipar o mesmo código em mais de um kit ativo."""
     with db() as conn:
+        row = conn.execute(
+            "SELECT texto, reciclavel FROM codigo_gerado WHERE id = ?", (codigo_id,)
+        ).fetchone()
+        if not row:
+            return
+        novo_valor = 1 - (row["reciclavel"] or 0)
         conn.execute(
-            "UPDATE codigo_gerado SET reciclavel = 1 - COALESCE(reciclavel, 0) WHERE id = ?",
-            (codigo_id,)
+            "UPDATE codigo_gerado SET reciclavel = ? WHERE id = ?",
+            (novo_valor, codigo_id)
         )
+        item = conn.execute(
+            "SELECT item_tipo_id FROM item_master WHERE codigo_barra = ?", (row["texto"],)
+        ).fetchone()
+        if item:
+            conn.execute(
+                "UPDATE item_tipo SET reutilizavel = ? WHERE id = ?",
+                (novo_valor, item["item_tipo_id"])
+            )
+
+
+def sincronizar_tipo_se_reciclavel(codigo_barra: str, item_tipo_id: int):
+    """Chamado sempre que um patrimônio novo é criado para um código de barras.
+    Se esse código já foi marcado reciclável em 'Gerar Códigos' (o operador
+    marcou antes mesmo de bipar pela primeira vez), propaga para o tipo —
+    sem isso, o patrimônio nasceria sem poder participar de mais de 1 kit."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM codigo_gerado WHERE texto = ? AND reciclavel = 1",
+            (codigo_barra,)
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE item_tipo SET reutilizavel = 1 WHERE id = ?", (item_tipo_id,)
+            )
