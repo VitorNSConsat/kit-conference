@@ -3,6 +3,21 @@
 {% block content %}
 <h1>Itens &amp; Estoque</h1>
 
+<!-- ── Gerar Códigos (etiqueta avulsa, sem item_tipo/estoque) ──────────────── -->
+<div class="card" style="border:1.5px solid #1a3a5c;">
+    <h2>🏷️ Gerar Códigos</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px;">
+        Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
+        etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
+        saquinho/componente usados na hora de montar um kit.
+    </p>
+    <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
+        <input type="text" name="texto" required placeholder="Digite o texto ou código"
+               style="flex:1;margin-bottom:0;">
+        <button type="submit" class="btn btn-primary">🖨️ Gerar Etiqueta</button>
+    </form>
+</div>
+
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'item_criado' %}
@@ -103,7 +118,7 @@
                     </span>
                     {% endif %}
                     {% if tipo.controle_externo %}
-                    <span title="Item de patrimônio — não aparece na tela de identificar código desconhecido"
+                    <span title="Item de patrimônio — aparece na tela de identificar código desconhecido"
                           style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
                                  padding:1px 6px;border-radius:10px;">
                         🌐 patrimônio
@@ -203,7 +218,7 @@
                 <!-- Item de Patrimônio (controle externo) -->
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
                     <span style="font-size:13px;color:#555;">Item de Patrimônio
-                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">rastreado fora deste sistema — some da tela de identificar código desconhecido</span>
+                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">controlado por patrimônio neste sistema — aparece na tela de identificar código desconhecido</span>
                     </span>
                     <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
                         <button type="submit" class="btn btn-sm"

@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 # Brasília Time (UTC-3) — garante horário correto independente do fuso do servidor
 BRT = timezone(timedelta(hours=-3))
 from urllib.parse import quote
-from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -357,6 +357,20 @@ def _admin_items_context() -> dict:
 @require_login
 async def admin_items(request: Request):
     return render(request, "admin_items.html", _admin_items_context())
+
+
+@app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)
+@require_login
+async def admin_gerar_codigo_etiqueta(request: Request, texto: str = ""):
+    """Gera uma etiqueta avulsa (QR + código de barras do mesmo texto livre),
+    sem precisar de um item_tipo ou registro de estoque — para saquinhos e
+    outros códigos de componente definidos na hora de montar um kit."""
+    import app.zpl as _zpl
+    texto = texto.strip()
+    if not texto:
+        raise HTTPException(status_code=400, detail="Texto é obrigatório.")
+    html = _zpl.generate_estoque_html_label(tipo_nome=texto, codigo_barra=texto, url_qr=texto)
+    return HTMLResponse(content=html)
 
 
 @app.post("/admin/tipos/completo")

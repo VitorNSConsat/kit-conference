@@ -20,14 +20,16 @@ def listar_tipos(apenas_ativos: bool = False) -> list:
 def listar_tipos_para_kit(template_id: int) -> list:
     """Retorna os tipos presentes no template disponíveis para classificação manual
     de um código desconhecido — excluindo tipos com código fixo (têm fluxo próprio)
-    e tipos marcados como controle externo (rastreados fora deste sistema)."""
+    e mostrando apenas tipos marcados como "Item de Patrimônio" (controle_externo=1).
+    Só tipos individualmente rastreados por patrimônio devem ser opções nessa tela;
+    tipos não marcados ficam ocultos dela."""
     with db() as conn:
         rows = conn.execute(
             "SELECT it.id, it.nome FROM item_tipo it "
             "JOIN kit_template_items ki ON ki.item_tipo_id = it.id "
             "WHERE ki.kit_template_id = ? AND it.ativo = 1 "
             "AND (it.codigo_fixo IS NULL OR it.codigo_fixo = '') "
-            "AND COALESCE(it.controle_externo, 0) = 0 "
+            "AND COALESCE(it.controle_externo, 0) = 1 "
             "ORDER BY it.nome",
             (template_id,)
         ).fetchall()
