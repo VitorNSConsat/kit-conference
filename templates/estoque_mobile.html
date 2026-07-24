@@ -233,12 +233,14 @@
     {% set is_entrada = m.tipo == 'entrada' %}
     {% set is_saida = m.tipo == 'saida' %}
     {% set is_ajuste = m.tipo == 'ajuste_minimo' %}
+    {% set is_correcao = m.tipo == 'correcao' %}
     <div class="em-hist-row">
       <div>
         <div style="font-weight:600;font-size:13px;">
           {% if is_entrada %}⬆️ Entrada
           {% elif is_saida %}⬇️ Saída
           {% elif is_ajuste %}✏️ Ajuste mínimo
+          {% elif is_correcao %}🔧 Correção
           {% else %}↩️ Cancelado{% endif %}
         </div>
         <div class="em-hist-meta">{{ m.criado_em[:16] }} · {{ m.operador_nome or '—' }}</div>
@@ -247,8 +249,8 @@
         {% endif %}
       </div>
       <div class="em-hist-qtd"
-           style="color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else '#e67e22') }};">
-        {% if is_ajuste %}→ {{ m.quantidade }}
+           style="color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#1a3a5c' if is_correcao else '#e67e22')) }};">
+        {% if is_ajuste or is_correcao %}→ {{ m.quantidade }}
         {% else %}{{ '+' if is_entrada else '-' }}{{ m.quantidade }}{% endif %}
       </div>
     </div>

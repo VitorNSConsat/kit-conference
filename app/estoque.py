@@ -163,6 +163,32 @@ def atualizar_codigo_barra(estoque_id: int, novo_codigo: str) -> None:
         )
 
 
+def corrigir_quantidade(estoque_id: int, nova_quantidade: int, criado_por: int) -> None:
+    """Corrige a quantidade atual diretamente para o valor informado (ajuste
+    absoluto) — para acertar contagens divergentes sem precisar calcular a
+    diferença e usar repor/ajustar."""
+    if nova_quantidade < 0:
+        raise ValueError("Quantidade não pode ser negativa.")
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT quantidade_atual FROM estoque WHERE id = ?", (estoque_id,)
+        ).fetchone()
+        if atual is None:
+            raise ValueError("Item de estoque não encontrado.")
+        antigo = atual["quantidade_atual"]
+        conn.execute(
+            "UPDATE estoque SET quantidade_atual = ? WHERE id = ?",
+            (nova_quantidade, estoque_id)
+        )
+        conn.execute(
+            "INSERT INTO estoque_movimentos "
+            "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+            "VALUES (?, 'correcao', ?, ?, ?, ?)",
+            (estoque_id, nova_quantidade, criado_por,
+             f"Quantidade corrigida: {antigo} → {nova_quantidade}", now_brt())
+        )
+
+
 def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None:
     with db() as conn:
         atual = conn.execute(

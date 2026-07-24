@@ -44,6 +44,7 @@
         {% set is_entrada = m.tipo == 'entrada' %}
         {% set is_saida = m.tipo == 'saida' %}
         {% set is_ajuste = m.tipo == 'ajuste_minimo' %}
+        {% set is_correcao = m.tipo == 'correcao' %}
         <tr>
             <td style="white-space:nowrap;font-size:13px;">{{ m.criado_em }}</td>
             <td>
@@ -53,13 +54,15 @@
                 <span class="badge badge-danger">⬇️ Saída (Kit)</span>
                 {% elif is_ajuste %}
                 <span class="badge badge-warning">✏️ Ajuste Mínimo</span>
+                {% elif is_correcao %}
+                <span class="badge" style="background:#1a3a5c;color:#fff;">🔧 Correção</span>
                 {% else %}
                 <span class="badge" style="background:#aaa;color:#fff;">↩️ Cancelado</span>
                 {% endif %}
             </td>
             <td style="font-weight:700;font-size:16px;
-                       color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#e67e22' if is_ajuste else '#aaa')) }};">
-                {% if is_ajuste %}→ {{ m.quantidade }}{% else %}{{ '+' if is_entrada else ('-' if is_saida else '~') }}{{ m.quantidade }}{% endif %}
+                       color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#e67e22' if is_ajuste else ('#1a3a5c' if is_correcao else '#aaa'))) }};">
+                {% if is_ajuste or is_correcao %}→ {{ m.quantidade }}{% else %}{{ '+' if is_entrada else ('-' if is_saida else '~') }}{{ m.quantidade }}{% endif %}
             </td>
             <td>{{ m.operador_nome or '—' }}</td>
             <td style="font-size:13px;color:#555;">{{ m.observacao or '—' }}</td>

@@ -1331,7 +1331,22 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     quantidade = max(1, int(form.get("quantidade", 1) or 1))
     observacao = form.get("observacao", "").strip()
     estoque_mod.repor_estoque(estoque_id, quantidade, user["id"], observacao)
-    return RedirectResponse("/admin/estoque?ok=reposto", status_code=302)
+    return RedirectResponse("/admin/items?ok=reposto", status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/corrigir")
+@require_login
+async def admin_estoque_corrigir(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        nova_quantidade = max(0, int(form.get("quantidade_atual", 0) or 0))
+        estoque_mod.corrigir_quantidade(estoque_id, nova_quantidade, user["id"])
+    except Exception as e:
+        return RedirectResponse(
+            "/admin/items?erro=" + quote(f"Erro ao corrigir quantidade: {e}"),
+            status_code=302)
+    return RedirectResponse("/admin/items?ok=quantidade_corrigida", status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/minimo")
@@ -1341,7 +1356,7 @@ async def admin_estoque_minimo(request: Request, estoque_id: int):
     form = await request.form()
     novo_minimo = max(0, int(form.get("quantidade_minima", 0) or 0))
     estoque_mod.atualizar_minimo(estoque_id, novo_minimo, user["id"])
-    return RedirectResponse("/admin/estoque?ok=minimo", status_code=302)
+    return RedirectResponse("/admin/items?ok=minimo", status_code=302)
 
 
 @app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)
