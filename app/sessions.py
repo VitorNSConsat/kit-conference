@@ -318,7 +318,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
         itens = [dict(r) for r in itens]
 
     if not itens:
-        return {"resultado": "rejeitado", "mensagem": "Componente não encontrado no template."}
+        return {"resultado": "rejeitado", "mensagem": "Saquinho não encontrado no template."}
 
     contagem = get_contagem(sessao_id)
     atualizacoes = []
@@ -352,7 +352,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
     nomes = " + ".join(f"{u['descricao']} ×{u['adicionados']}" for u in adicionados)
     return {
         "resultado": "componente",
-        "mensagem": f"📦 Componente '{codigo_barra}': {nomes}",
+        "mensagem": f"📦 Saquinho '{codigo_barra}': {nomes}",
         "codigo_barra": codigo_barra,
         "atualizacoes": atualizacoes,
     }

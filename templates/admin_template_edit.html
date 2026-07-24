@@ -73,7 +73,7 @@
             <h2 style="margin:0;">Adicionar tipos</h2>
         </div>
         <p style="font-size:12px;color:#888;margin-bottom:10px;">
-            Clique para adicionar um tipo ao kit. Itens com o mesmo <strong>Código de Componente</strong> são bipados juntos (ex: saquinho de parafusos).
+            Clique para adicionar um tipo ao kit. Itens com o mesmo <strong>Código do Saquinho</strong> são bipados juntos (ex: parafusos).
         </p>
 
         {% if tipos_catalogo %}
@@ -125,7 +125,7 @@
                            min="{{ '0.01' if item.unidade == 'm' else '1' }}"
                            step="{{ '0.01' if item.unidade == 'm' else '1' }}"
                            style="width:65px;text-align:center;">
-                    <label style="font-size:12px;color:#555;">Componente</label>
+                    <label style="font-size:12px;color:#555;">Saquinho</label>
                     <input type="text" name="componente_codigo_{{ loop.index0 }}"
                            value="{{ item.componente_codigo or '' }}"
                            placeholder="opcional" style="width:120px;font-size:12px;">
@@ -206,7 +206,7 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
           `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
           `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
                `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
-          `<label style="font-size:12px;color:#555;">Componente</label>` +
+          `<label style="font-size:12px;color:#555;">Saquinho</label>` +
           `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
