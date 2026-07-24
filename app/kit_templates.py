@@ -46,9 +46,9 @@ def criar_template(nome: str, cliente: str, criado_por: int,
                    itens: list[dict]) -> int:
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO kit_template (nome, cliente, versao, criado_por) "
-            "VALUES (?, ?, 1, ?)",
-            (nome, cliente, criado_por)
+            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em) "
+            "VALUES (?, ?, 1, ?, ?)",
+            (nome, cliente, criado_por, now_brt())
         )
         template_id = cur.lastrowid
         for item in itens:
@@ -72,9 +72,9 @@ def nova_versao(template_id: int, criado_por: int) -> int:
     nova_ver = template["versao"] + 1
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO kit_template (nome, cliente, versao, criado_por) "
-            "VALUES (?, ?, ?, ?)",
-            (template["nome"], template["cliente"], nova_ver, criado_por)
+            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (template["nome"], template["cliente"], nova_ver, criado_por, now_brt())
         )
         novo_id = cur.lastrowid
         conn.execute("UPDATE kit_template SET ativo = 0 WHERE id = ?", (template_id,))

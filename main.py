@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 
-from database import init_db, db
+from database import init_db, db, now_brt
 from app.auth import hash_password, verify_password, get_current_user, require_login
 import app.items as items_mod
 import app.kit_templates as templates_mod
@@ -765,9 +765,9 @@ async def session_finalize(request: Request, sessao_id: int):
             (ts_str, sessao_id)
         )
         conn.execute(
-            "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por) "
-            "VALUES (?, ?, ?, ?)",
-            (kit_id, zpl, html_label, user["id"])
+            "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por, solicitado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (kit_id, zpl, html_label, user["id"], now_brt())
         )
 
     return RedirectResponse(
@@ -1073,8 +1073,8 @@ async def reprint_kit(request: Request, kit_id: str):
     pq = dict(pq_row)
     with db() as conn:
         conn.execute(
-            "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por) VALUES (?,?,?,?)",
-            (kit_id, pq["zpl"], pq.get("html_label"), user["id"])
+            "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por, solicitado_em) VALUES (?,?,?,?,?)",
+            (kit_id, pq["zpl"], pq.get("html_label"), user["id"], now_brt())
         )
     return RedirectResponse("/print-queue?ok=reimpresso", status_code=302)
 

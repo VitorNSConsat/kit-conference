@@ -203,9 +203,9 @@ def buscar_item(codigo_barra: str) -> dict | None:
 def criar_item(codigo_barra: str, item_tipo_id: int, criado_por: int) -> int:
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por) "
-            "VALUES (?, ?, ?)",
-            (codigo_barra, item_tipo_id, criado_por)
+            "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
+            "VALUES (?, ?, ?, ?)",
+            (codigo_barra, item_tipo_id, criado_por, now_brt())
         )
         return cur.lastrowid
 
@@ -300,9 +300,9 @@ def importar_bom_xlsx(conteudo: bytes, criado_por: int) -> dict:
                 ).fetchone()
                 if not exists:
                     conn.execute(
-                        "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por) "
-                        "VALUES (?, ?, ?)",
-                        (code, tipo_id, criado_por)
+                        "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
+                        "VALUES (?, ?, ?, ?)",
+                        (code, tipo_id, criado_por, now_brt())
                     )
                     itens_criados += 1
 

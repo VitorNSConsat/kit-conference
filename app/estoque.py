@@ -71,9 +71,9 @@ def criar_estoque(item_tipo_id: int, codigo_barra: str,
                   criado_por: int) -> int:
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO estoque (item_tipo_id, codigo_barra, quantidade_atual, quantidade_minima) "
-            "VALUES (?, ?, ?, ?)",
-            (item_tipo_id, codigo_barra, quantidade_inicial, quantidade_minima)
+            "INSERT INTO estoque (item_tipo_id, codigo_barra, quantidade_atual, quantidade_minima, criado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (item_tipo_id, codigo_barra, quantidade_inicial, quantidade_minima, now_brt())
         )
         estoque_id = cur.lastrowid
         if quantidade_inicial > 0:

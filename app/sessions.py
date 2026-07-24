@@ -450,9 +450,9 @@ def register_scan(sessao_id: int, codigo_barra: str,
             )
             conn.execute(
                 "INSERT INTO estoque_movimentos "
-                "(estoque_id, tipo, quantidade, sessao_id, criado_por, observacao) "
-                "VALUES (?, 'saida', ?, ?, ?, 'Kit')",
-                (est["id"], qtd, sessao_id, session["operador_id"])
+                "(estoque_id, tipo, quantidade, sessao_id, criado_por, observacao, criado_em) "
+                "VALUES (?, 'saida', ?, ?, ?, 'Kit', ?)",
+                (est["id"], qtd, sessao_id, session["operador_id"], now_brt())
             )
 
         novo_qtd = est["quantidade_atual"] - qtd
