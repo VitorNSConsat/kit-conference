@@ -79,7 +79,7 @@
         <h2>Tipos de Item</h2>
         <p style="color:#666;font-size:13px;margin-top:-8px;">
             Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
-            para configurar medida, reutilização, código fixo e estoque.
+            para configurar medida, reutilização, código da caixa e estoque.
         </p>
 
         {% if tipos %}
@@ -96,10 +96,10 @@
                 <td>
                     <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
                     {% if tipo.codigo_fixo %}
-                    <span title="Código fixo: {{ tipo.codigo_fixo }}"
+                    <span title="Código da caixa: {{ tipo.codigo_fixo }}"
                           style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
                                  padding:1px 6px;border-radius:10px;font-family:monospace;">
-                        📌 fixo
+                        📌 caixa
                     </span>
                     {% endif %}
                     {% if tipo.controle_externo %}
@@ -225,10 +225,10 @@
                     </form>
                 </div>
                 <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
-                <!-- Código fixo -->
+                <!-- Código da Caixa (codigo_fixo) -->
                 <div>
                     <div style="font-size:13px;color:#555;margin-bottom:6px;">
-                        Código Fixo
+                        Código da Caixa
                         <span style="font-size:11px;color:#aaa;margin-left:4px;"
                               title="Ao bipar este código o sistema pede o patrimônio em seguida">ⓘ</span>
                     </div>
@@ -246,7 +246,7 @@
                         <input type="hidden" name="codigo_fixo" value="">
                         <button type="submit" class="btn btn-sm" style="font-size:11px;color:#e74c3c;
                                 background:none;border:1px solid #e74c3c;padding:2px 8px;">
-                            ✕ Remover código fixo
+                            ✕ Remover código da caixa
                         </button>
                     </form>
                     {% endif %}

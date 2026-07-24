@@ -139,7 +139,7 @@ def cancelar_patrimonio_fixo(sessao_id: int) -> dict:
             (sessao_id,)
         )
     return {"resultado": "cancelado_patrimonio_fixo",
-            "mensagem": "Código fixo cancelado. Bipe novamente se necessário."}
+            "mensagem": "Código da caixa cancelado. Bipe novamente se necessário."}
 
 
 def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict:
@@ -389,7 +389,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
             )
         return {
             "resultado": "aguardando_patrimonio_fixo",
-            "mensagem": f"Código fixo '{tipo_fixo['nome']}' detectado. Bipe o patrimônio.",
+            "mensagem": f"Código da caixa '{tipo_fixo['nome']}' detectado. Bipe o patrimônio.",
             "tipo_id": tipo_fixo["id"],
             "tipo_nome": tipo_fixo["nome"],
             "codigo_fixo": codigo_barra,
