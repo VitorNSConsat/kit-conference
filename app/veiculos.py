@@ -61,8 +61,7 @@ def deletar(veiculo_id: int):
 
 
 def importar_excel(file_bytes: bytes) -> dict:
-    import openpyxl, io
-    from app.clientes import criar as criar_cliente
+    import openpyxl, io, sqlite3
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     ws = wb.active
     headers = [str(c.value or "").strip().lower() for c in next(ws.iter_rows(min_row=1, max_row=1))]
@@ -84,7 +83,16 @@ def importar_excel(file_bytes: bytes) -> dict:
             if not numero or not cliente:
                 ignorados += 1
                 continue
-            criar_cliente(cliente)   # no-op if already exists (returns None on dupe)
+            # Cria o cliente na MESMA conexão/transação — chamar clientes.criar()
+            # aqui abriria uma segunda conexão SQLite enquanto esta ainda está
+            # com uma transação aberta, travando o banco ("database is locked").
+            try:
+                conn.execute(
+                    "INSERT INTO clientes (nome, criado_em) VALUES (?, ?)",
+                    (cliente, now_brt())
+                )
+            except sqlite3.IntegrityError:
+                pass  # cliente já existe
             existe = conn.execute(
                 "SELECT id FROM veiculos WHERE numero=? AND cliente=? AND ativo=1",
                 (numero, cliente)
