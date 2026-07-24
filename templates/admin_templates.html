@@ -103,45 +103,51 @@
             </div>
         </div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-            <h2 style="margin:0;">Tipos disponíveis</h2>
-            <button type="button" onclick="adicionarTodos()" class="btn btn-warning">
-                ⚡ Inserir todos os itens
-            </button>
-        </div>
-        <p style="font-size:12px;color:#888;margin-bottom:10px;">
-            Clique nos cards para adicionar ao kit. Itens com o mesmo <strong>Código de Componente</strong> são bipados juntos (ex: saquinho de parafusos).
-        </p>
+        <button type="button" id="btn-comecar-kit" class="btn btn-primary" onclick="comecarNovoKit()">
+            ▶ Começar Novo Kit
+        </button>
 
-        {% if tipos_catalogo %}
-        <div class="tipos-grid-admin" id="tipos-grid">
-            {% for tipo in tipos_catalogo %}
-            <button type="button" class="tipo-card-admin"
-                    data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
-                    data-unidade="{{ tipo.unidade | default('un') }}"
-                    onclick="adicionarTipoFromCard(this)">
-                {{ tipo.nome }}
-                {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
-                {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
-            </button>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
-            Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
-        </p>
-        {% endif %}
+        <div id="secao-itens-kit" style="display:none;">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; margin-top:16px;">
+                <h2 style="margin:0;">Tipos disponíveis</h2>
+                <button type="button" onclick="adicionarTodos()" class="btn btn-warning">
+                    ⚡ Inserir todos os itens
+                </button>
+            </div>
+            <p style="font-size:12px;color:#888;margin-bottom:10px;">
+                Clique nos cards para adicionar ao kit. Itens com o mesmo <strong>Código de Componente</strong> são bipados juntos (ex: saquinho de parafusos).
+            </p>
 
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-            <strong>Itens selecionados</strong>
-            <span id="contagem-sel" style="font-size:13px;color:#888;"></span>
-        </div>
-        <div id="msg-vazio" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
-            Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
-        </div>
-        <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+            {% if tipos_catalogo %}
+            <div class="tipos-grid-admin" id="tipos-grid">
+                {% for tipo in tipos_catalogo %}
+                <button type="button" class="tipo-card-admin"
+                        data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
+                        data-unidade="{{ tipo.unidade | default('un') }}"
+                        onclick="adicionarTipoFromCard(this)">
+                    {{ tipo.nome }}
+                    {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
+                    {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
+                </button>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
+                Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
+            </p>
+            {% endif %}
 
-        <button type="submit" class="btn btn-primary">Criar Kit</button>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <strong>Itens selecionados</strong>
+                <span id="contagem-sel" style="font-size:13px;color:#888;"></span>
+            </div>
+            <div id="msg-vazio" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
+                Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
+            </div>
+            <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+
+            <button type="submit" class="btn btn-primary">Criar Kit</button>
+        </div>
     </form>
 </div>
 {% endblock %}
@@ -184,6 +190,11 @@
 <script>
 let idx = 0;
 const catalogo = {{ tipos_catalogo | tojson }};
+
+function comecarNovoKit() {
+    document.getElementById('btn-comecar-kit').style.display = 'none';
+    document.getElementById('secao-itens-kit').style.display = 'block';
+}
 
 function adicionarTipoFromCard(btn) {
     adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un');

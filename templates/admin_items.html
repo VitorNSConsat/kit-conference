@@ -97,10 +97,10 @@
                     </span>
                     {% endif %}
                     {% if tipo.controle_externo %}
-                    <span title="Controle externo — não aparece na tela de identificar código desconhecido"
+                    <span title="Item de patrimônio — não aparece na tela de identificar código desconhecido"
                           style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
                                  padding:1px 6px;border-radius:10px;">
-                        🌐 externo
+                        🌐 patrimônio
                     </span>
                     {% endif %}
                     <form id="nome-form-{{ tipo.id }}" method="post"
@@ -194,9 +194,9 @@
                         </button>
                     </form>
                 </div>
-                <!-- Controle Externo -->
+                <!-- Item de Patrimônio (controle externo) -->
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <span style="font-size:13px;color:#555;">Controle Externo
+                    <span style="font-size:13px;color:#555;">Item de Patrimônio
                         <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">rastreado fora deste sistema — some da tela de identificar código desconhecido</span>
                     </span>
                     <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
