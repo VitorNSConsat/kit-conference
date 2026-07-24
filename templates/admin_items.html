@@ -100,7 +100,7 @@
         {% if tipos %}
         <table>
             <thead>
-                <tr><th>Nome</th><th>Estoque</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
+                <tr><th>Código</th><th>Nome</th><th>Estoque</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
             </thead>
             <tbody>
             {% for tipo in tipos %}
@@ -108,6 +108,9 @@
             {% set abaixo = est and est.quantidade_atual <= est.quantidade_minima %}
             {% set proximo = est and est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
             <tr>
+                <td style="font-family:monospace;font-size:12px;color:{{ '#555' if est else '#ccc' }};white-space:nowrap;">
+                    {{ est.codigo_barra if est else '—' }}
+                </td>
                 <td>
                     <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
                     {% if tipo.codigo_fixo %}
