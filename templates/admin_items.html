@@ -96,6 +96,13 @@
                         📌 fixo
                     </span>
                     {% endif %}
+                    {% if tipo.controle_externo %}
+                    <span title="Controle externo — não aparece na tela de identificar código desconhecido"
+                          style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
+                                 padding:1px 6px;border-radius:10px;">
+                        🌐 externo
+                    </span>
+                    {% endif %}
                     <form id="nome-form-{{ tipo.id }}" method="post"
                           action="/admin/tipos/{{ tipo.id }}/renomear"
                           style="display:none;margin:0;">
@@ -184,6 +191,18 @@
                         <button type="submit" class="btn btn-sm"
                                 style="min-width:100px;{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
                             {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
+                        </button>
+                    </form>
+                </div>
+                <!-- Controle Externo -->
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <span style="font-size:13px;color:#555;">Controle Externo
+                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">rastreado fora deste sistema — some da tela de identificar código desconhecido</span>
+                    </span>
+                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
+                        <button type="submit" class="btn btn-sm"
+                                style="min-width:100px;{% if tipo.controle_externo %}background:#e67e22;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                            {{ '🌐 Sim' if tipo.controle_externo else '— Não' }}
                         </button>
                     </form>
                 </div>
