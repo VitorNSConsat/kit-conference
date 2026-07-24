@@ -38,13 +38,15 @@
       <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
     </form>
     {% if clientes_cadastrados %}
-    <table>
+    <input type="text" class="busca-box" placeholder="🔍 Buscar cliente..."
+           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-clientes tr.filtro-item">
+    <table id="tabela-clientes">
       <thead>
         <tr><th>Nome</th><th>Desde</th><th></th></tr>
       </thead>
       <tbody>
       {% for c in clientes_cadastrados %}
-      <tr>
+      <tr class="filtro-item">
         <td><strong>{{ c.nome }}</strong></td>
         <td style="font-size:12px;color:#888;">{{ c.criado_em[:10] }}</td>
         <td>
@@ -110,8 +112,10 @@
     </form>
   </div>
   {% if veiculos %}
+  <input type="text" class="busca-box" placeholder="🔍 Buscar por número, cliente ou garagem..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-veiculos tr.filtro-item">
   <div style="overflow-x:auto;">
-  <table>
+  <table id="tabela-veiculos">
     <thead>
       <tr>
         <th>Número</th>
@@ -124,7 +128,7 @@
     </thead>
     <tbody>
     {% for v in veiculos %}
-    <tr>
+    <tr class="filtro-item">
       <td><strong>{{ v.numero }}</strong></td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.garagem or '—' }}</td>

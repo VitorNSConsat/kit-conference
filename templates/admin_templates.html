@@ -52,13 +52,17 @@
 
 <div class="card">
     <h2>Kits Cadastrados</h2>
-    <table>
+    {% if templates %}
+    <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou cliente..."
+           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-kits tr.filtro-item">
+    {% endif %}
+    <table id="tabela-kits">
         <thead>
             <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
         {% for t in templates %}
-        <tr>
+        <tr class="filtro-item">
             <td>{{ t.nome }}</td>
             <td>{{ t.cliente }}</td>
             <td>v{{ t.versao }}</td>
@@ -119,9 +123,11 @@
             </p>
 
             {% if tipos_catalogo %}
+            <input type="text" class="busca-box" placeholder="🔍 Buscar tipo..."
+                   oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid .filtro-item">
             <div class="tipos-grid-admin" id="tipos-grid">
                 {% for tipo in tipos_catalogo %}
-                <button type="button" class="tipo-card-admin"
+                <button type="button" class="tipo-card-admin filtro-item"
                         data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
                         data-unidade="{{ tipo.unidade | default('un') }}"
                         data-serial="{{ '1' if tipo.requer_serial else '0' }}"

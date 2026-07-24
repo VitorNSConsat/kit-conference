@@ -99,7 +99,9 @@
         </p>
 
         {% if tipos %}
-        <table>
+        <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou código..."
+               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-catalogo tr.filtro-item">
+        <table id="tabela-catalogo">
             <thead>
                 <tr><th>Código</th><th>Nome</th><th>Estoque</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
             </thead>
@@ -108,7 +110,7 @@
             {% set est = estoque_por_tipo.get(tipo.id) %}
             {% set abaixo = est and est.quantidade_atual <= est.quantidade_minima %}
             {% set proximo = est and est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
-            <tr>
+            <tr class="filtro-item">
                 <td style="font-family:monospace;font-size:12px;color:{{ '#555' if est else '#ccc' }};white-space:nowrap;">
                     {{ est.codigo_barra if est else '—' }}
                 </td>
@@ -470,7 +472,11 @@
             <button type="submit" class="btn btn-primary">Cadastrar</button>
         </form>
 
-        <table>
+        {% if itens %}
+        <input type="text" class="busca-box" placeholder="🔍 Buscar por código ou tipo..."
+               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-patrimonios tr.filtro-item">
+        {% endif %}
+        <table id="tabela-patrimonios">
             <thead>
                 <tr>
                     <th>Código / Patrimônio</th>
@@ -482,7 +488,7 @@
             </thead>
             <tbody>
             {% for item in itens %}
-                <tr>
+                <tr class="filtro-item">
                     <td><code>{{ item.codigo_barra }}</code></td>
                     <td>{{ item.descricao }}</td>
                     <td style="font-size:12px;color:#888;">{{ item.criado_em[:16] if item.criado_em else '—' }}</td>
@@ -517,7 +523,11 @@
             isso libera automaticamente o tipo do item para ser bipado em vários kits ativos
             ao mesmo tempo (equivale a marcar "Reutilizável" no Catálogo).
         </p>
-        <table>
+        {% if codigos_gerados %}
+        <input type="text" class="busca-box" placeholder="🔍 Buscar código..."
+               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-codigos tr.filtro-item">
+        {% endif %}
+        <table id="tabela-codigos">
             <thead>
                 <tr>
                     <th>Código</th>
@@ -528,7 +538,7 @@
             </thead>
             <tbody>
             {% for c in codigos_gerados %}
-                <tr>
+                <tr class="filtro-item">
                     <td><code>{{ c.texto }}</code></td>
                     <td style="font-size:12px;color:#888;">{{ c.criado_em[:16] if c.criado_em else '—' }}</td>
                     <td style="font-size:12px;color:#888;">{{ c.criado_por_nome or '—' }}</td>

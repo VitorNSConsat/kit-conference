@@ -44,6 +44,18 @@ function toggleNav() {
     document.getElementById('nav-links').classList.toggle('open');
 }
 
+// Busca client-side genérica: filtra os elementos casados por
+// data-filtro-alvo (seletor CSS) comparando o texto digitado com o
+// textContent de cada um. Usado nas listas de Catálogo, Itens
+// Cadastrados, Códigos Gerados, Kits, Tipos disponíveis, Veículos e
+// Clientes.
+function filtrarLista(input) {
+    const termo = input.value.trim().toLowerCase();
+    document.querySelectorAll(input.dataset.filtroAlvo).forEach(function(el) {
+        el.style.display = (!termo || el.textContent.toLowerCase().includes(termo)) ? '' : 'none';
+    });
+}
+
 // Leitores de código de barras enviam Enter após o código.
 // Nas páginas admin isso submetia formulários involuntariamente.
 // Na tela de bipagem (/session/) o Enter é necessário — não bloqueia.
