@@ -1074,20 +1074,67 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
 @app.post("/reports/reprint/{kit_id}")
 @require_login
 async def reprint_kit(request: Request, kit_id: str):
-    """Recria a entrada na fila de impressão para um kit já finalizado."""
+    """Recria a entrada na fila de impressão para um kit já finalizado.
+    Se a garagem enviada for diferente da gravada, atualiza o kit_record e
+    regenera a etiqueta (ZPL + HTML) com o novo valor; caso contrário,
+    reimprime a última etiqueta já gerada, sem recalcular nada."""
     user = get_current_user(request)
+    form = await request.form()
+    nova_garagem = str(form.get("garagem", "")).strip().upper()
+
     with db() as conn:
-        pq_row = conn.execute(
-            "SELECT * FROM print_queue WHERE kit_id = ? ORDER BY id DESC LIMIT 1",
+        kit_row = conn.execute(
+            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome "
+            "FROM kit_record kr "
+            "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "JOIN users u ON u.id = kr.operador_id "
+            "WHERE kr.kit_id = ?",
             (kit_id,)
         ).fetchone()
-    if not pq_row:
-        return RedirectResponse("/reports?erro=Etiqueta+nao+encontrada", status_code=302)
-    pq = dict(pq_row)
+    if not kit_row:
+        return RedirectResponse("/reports?erro=Kit+nao+encontrado", status_code=302)
+    kit = dict(kit_row)
+
+    if nova_garagem != (kit.get("garagem") or ""):
+        with db() as conn:
+            conn.execute("UPDATE kit_record SET garagem = ? WHERE kit_id = ?", (nova_garagem, kit_id))
+            itens_rows = conn.execute(
+                "SELECT it.nome AS descricao, COUNT(*) AS quantidade "
+                "FROM scan_session_items si "
+                "JOIN item_tipo it ON it.id = si.item_tipo_id "
+                "WHERE si.sessao_id = ? "
+                "GROUP BY si.item_tipo_id ORDER BY it.nome",
+                (kit["sessao_id"],)
+            ).fetchall()
+        itens_label = [dict(r) for r in itens_rows]
+        ts = datetime.strptime(kit["finalizado_em"], "%Y-%m-%d %H:%M:%S")
+
+        zpl = zpl_mod.generate_zpl(
+            kit_id=kit_id, kit_nome=kit["kit_nome"], cliente=kit["cliente"],
+            operador=kit["operador_nome"], timestamp=ts, itens=itens_label,
+            veiculo=kit.get("veiculo") or "", garagem=nova_garagem,
+        )
+        html_label = zpl_mod.generate_html_label(
+            kit_id=kit_id, kit_nome=kit["kit_nome"], cliente=kit["cliente"],
+            operador=kit["operador_nome"], timestamp=ts, itens=itens_label,
+            veiculo=kit.get("veiculo") or "", garagem=nova_garagem,
+        )
+    else:
+        with db() as conn:
+            pq_row = conn.execute(
+                "SELECT * FROM print_queue WHERE kit_id = ? ORDER BY id DESC LIMIT 1",
+                (kit_id,)
+            ).fetchone()
+        if not pq_row:
+            return RedirectResponse("/reports?erro=Etiqueta+nao+encontrada", status_code=302)
+        pq = dict(pq_row)
+        zpl = pq["zpl"]
+        html_label = pq.get("html_label")
+
     with db() as conn:
         conn.execute(
             "INSERT INTO print_queue (kit_id, zpl, html_label, solicitado_por, solicitado_em) VALUES (?,?,?,?,?)",
-            (kit_id, pq["zpl"], pq.get("html_label"), user["id"], now_brt())
+            (kit_id, zpl, html_label, user["id"], now_brt())
         )
     return RedirectResponse("/print-queue?ok=reimpresso", status_code=302)
 

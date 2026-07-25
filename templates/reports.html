@@ -108,12 +108,10 @@
                        class="btn btn-sm btn-success" title="Baixar planilha Excel deste kit">
                         📊 Excel
                     </a>
-                    <form method="post" action="/reports/reprint/{{ k.kit_id }}" style="display:inline;">
-                        <button class="btn btn-sm btn-success"
-                                onclick="return confirm('Adicionar à fila de impressão?')">
-                            ♻️ Reimprimir
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-sm btn-success"
+                            onclick="abrirModalReimprimir('{{ k.kit_id }}', '{{ k.garagem | e }}')">
+                        ♻️ Reimprimir
+                    </button>
                     <form method="post" action="/reports/{{ k.kit_id }}/delete" style="display:inline;"
                           onsubmit="return confirm('Excluir este kit permanentemente? Esta ação não pode ser desfeita.')">
                         <button class="btn btn-sm btn-danger">🗑️ Excluir</button>
@@ -151,6 +149,28 @@
   </div>
 </div>
 
+<!-- Modal de reimpressão (com opção de alterar a garagem) -->
+<div id="modal-reimprimir" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+     background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;">
+    <h3 style="margin-top:0;">♻️ Reimprimir Etiqueta</h3>
+    <p style="font-size:13px;color:#666;margin:-8px 0 14px;">
+        Confira/altere a garagem antes de reimprimir. Se você mudar o valor, a etiqueta é
+        regerada com a garagem nova e o kit fica atualizado nos relatórios.
+    </p>
+    <form id="form-reimprimir" method="post">
+      <div class="form-group">
+        <label>Garagem</label>
+        <input type="text" name="garagem" id="modal-input-garagem" placeholder="ex: Garagem Norte">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button type="button" onclick="fecharModalReimprimir()" class="btn btn-secondary">Cancelar</button>
+        <button type="submit" class="btn btn-success">♻️ Reimprimir</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 function abrirModalVeiculo(kitId, veiculoId) {
     document.getElementById('form-veiculo').action = '/kit-record/' + kitId + '/veiculo';
@@ -160,6 +180,15 @@ function abrirModalVeiculo(kitId, veiculoId) {
 }
 function fecharModalVeiculo() {
     document.getElementById('modal-veiculo').style.display = 'none';
+}
+
+function abrirModalReimprimir(kitId, garagemAtual) {
+    document.getElementById('form-reimprimir').action = '/reports/reprint/' + kitId;
+    document.getElementById('modal-input-garagem').value = garagemAtual || '';
+    document.getElementById('modal-reimprimir').style.display = 'flex';
+}
+function fecharModalReimprimir() {
+    document.getElementById('modal-reimprimir').style.display = 'none';
 }
 </script>
 {% endblock %}
