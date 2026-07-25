@@ -682,6 +682,8 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     result = sessions_mod.cancelar_serial(sessao_id)
                 elif msg.get("acao") == "cancelar_patrimonio_fixo":
                     result = sessions_mod.cancelar_patrimonio_fixo(sessao_id)
+                elif msg.get("acao") == "desfazer_ultimo":
+                    result = sessions_mod.desfazer_ultimo_item(sessao_id)
                 else:
                     result = {"resultado": "rejeitado", "mensagem": "Mensagem inválida."}
             except (json.JSONDecodeError, KeyError, ValueError):

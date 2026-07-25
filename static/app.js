@@ -60,6 +60,10 @@ function initScanner(sessaoId) {
             data.atualizacoes.forEach(u => {
                 atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
             });
+        } else if (data.resultado === "desfeito") {
+            (data.atualizacoes || []).forEach(u => {
+                atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
+            });
         } else if (data.resultado === "quantidade_pendente") {
             mostrarModalQuantidade(data);
         } else if (data.resultado === "substituicao_pendente") {
@@ -121,6 +125,10 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
             el.classList.remove("pending");
             el.classList.add("done");
             el.querySelector(".check").textContent = "✅";
+        } else {
+            el.classList.remove("done");
+            el.classList.add("pending");
+            el.querySelector(".check").textContent = "⬜";
         }
         if (!scrollAlvo) scrollAlvo = el;
     });
@@ -171,6 +179,15 @@ function cancelarSerial() {
         ws.send(JSON.stringify({acao: "cancelar_serial"}));
     }
     ocultarBannerSerial();
+}
+
+// ── Desfazer última bipagem ───────────────────────────────────────────────────
+
+function desfazerUltimo() {
+    if (!confirm("Desfazer a última bipagem?")) return;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({acao: "desfazer_ultimo"}));
+    }
 }
 
 // ── Modal de componente — confirmação antes de registrar ─────────────────────

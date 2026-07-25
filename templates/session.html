@@ -94,7 +94,13 @@
 
     <!-- Painel direito: feed de eventos -->
     <div class="card">
-        <h2>Eventos de Bipagem</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <h2 style="margin:0;">Eventos de Bipagem</h2>
+            <button type="button" class="btn btn-sm btn-warning" onclick="desfazerUltimo()"
+                    title="Remove a última bipagem completa desta sessão">
+                ↩️ Voltar Bipagem
+            </button>
+        </div>
         <div class="scan-feed" id="scan-feed">
             <div class="scan-event" style="color:#888; font-size:13px;">Aguardando bipagens...</div>
         </div>

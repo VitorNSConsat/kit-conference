@@ -245,6 +245,90 @@ def cancelar_serial(sessao_id: int) -> dict:
             "mensagem": "Bipagem cancelada. Bipe o item novamente se necessário."}
 
 
+def desfazer_ultimo_item(sessao_id: int) -> dict:
+    """Desfaz a última bipagem completa desta sessão — para quando o operador
+    bipa o código errado e não quer perder o progresso do kit inteiro.
+
+    Remove todas as linhas de scan_session_items que compartilham o mesmo
+    'bipado_em' do último item (cobre bipagens em lote de um só evento, como
+    saquinho/componente ou estoque em quantidade) e reverte o desconto de
+    estoque vinculado a esse mesmo instante, se houver.
+
+    Não mexe em bipagens pendentes (aguardando serial ou patrimônio da
+    caixa) — essas já têm cancelamento próprio (cancelar_serial /
+    cancelar_patrimonio_fixo). Não remove um patrimônio novo do catálogo
+    caso a bipagem tenha criado um — só desfaz a entrada dele neste kit."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    with db() as conn:
+        ultimo = conn.execute(
+            "SELECT * FROM scan_session_items "
+            "WHERE sessao_id = ? AND status = 'completo' "
+            "ORDER BY id DESC LIMIT 1",
+            (sessao_id,)
+        ).fetchone()
+    if not ultimo:
+        return {"resultado": "rejeitado", "mensagem": "Nenhum item bipado para desfazer."}
+    ultimo = dict(ultimo)
+
+    with db() as conn:
+        lote_rows = conn.execute(
+            "SELECT * FROM scan_session_items "
+            "WHERE sessao_id = ? AND status = 'completo' AND bipado_em = ?",
+            (sessao_id, ultimo["bipado_em"])
+        ).fetchall()
+        lote_rows = [dict(r) for r in lote_rows]
+        ids = [r["id"] for r in lote_rows]
+
+        conn.execute(
+            f"DELETE FROM scan_session_items WHERE id IN ({','.join('?' * len(ids))})",
+            ids
+        )
+
+        movimentos = conn.execute(
+            "SELECT * FROM estoque_movimentos "
+            "WHERE sessao_id = ? AND tipo = 'saida' AND criado_em = ?",
+            (sessao_id, ultimo["bipado_em"])
+        ).fetchall()
+        for m in movimentos:
+            conn.execute(
+                "UPDATE estoque SET quantidade_atual = quantidade_atual + ? WHERE id = ?",
+                (m["quantidade"], m["estoque_id"])
+            )
+            conn.execute(
+                "UPDATE estoque_movimentos SET tipo = 'saida_cancelada' WHERE id = ?",
+                (m["id"],)
+            )
+
+    tipos_afetados = sorted({r["item_tipo_id"] for r in lote_rows})
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    exigido_map = {i["item_tipo_id"]: i["quantidade_exigida"] for i in itens_template}
+    contagem = get_contagem(sessao_id)
+
+    with db() as conn:
+        nomes = conn.execute(
+            f"SELECT id, nome FROM item_tipo WHERE id IN ({','.join('?' * len(tipos_afetados))})",
+            tipos_afetados
+        ).fetchall()
+    nomes_map = {r["id"]: r["nome"] for r in nomes}
+    resumo = ", ".join(nomes_map.get(t, "?") for t in tipos_afetados)
+
+    return {
+        "resultado": "desfeito",
+        "mensagem": f"↩️ Última bipagem desfeita: {resumo}",
+        "atualizacoes": [
+            {
+                "item_tipo_id": t,
+                "contagem_atual": contagem.get(t, 0),
+                "quantidade_exigida": exigido_map.get(t, 0),
+            }
+            for t in tipos_afetados
+        ],
+    }
+
+
 def _barcode_em_sessao(sessao_id: int, codigo_barra: str) -> bool:
     with db() as conn:
         row = conn.execute(
