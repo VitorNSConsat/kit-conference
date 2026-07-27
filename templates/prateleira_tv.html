@@ -6,21 +6,23 @@
 <title>Painel da Prateleira</title>
 <style>
   :root {
-    color-scheme: dark;
-    --surface-1:      #1a1a19;
-    --surface-2:      #232322;
-    --page:           #141413;
-    --text-primary:   #ffffff;
-    --text-secondary: #c3c2b7;
+    color-scheme: light;
+    /* Paleta extraída de consat.com */
+    --brand:          #016984;
+    --brand-text:     #94fff7;
+    --surface-1:      #ffffff;
+    --surface-2:      #f7f8f9;
+    --page:           #f0f0f0;
+    --text-primary:   #222222;
+    --text-secondary: #575760;
     --text-muted:     #898781;
-    --gridline:       #2c2c2a;
-    --border:         rgba(255,255,255,0.10);
+    --gridline:       #e2e4e6;
+    --border:         #e2e4e6;
 
-    --good:     #0ca30c;
-    --warning:  #fab219;
-    --serious:  #ec835a;
-    --critical: #e66767;
-    --esgotado: #ff4d4d;
+    --good:     #2c622c;
+    --warning:  #e0980c;
+    --critical: #d9704a;
+    --esgotado: #c0392b;
 
     --font: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
@@ -92,10 +94,10 @@
   }
   .chip .count { font-weight: 700; font-size: 14px; }
   .chip .label { color: var(--text-secondary); }
-  .chip.esgotado .icon { background: var(--esgotado); color: #300; }
-  .chip.critical .icon { background: var(--critical); color: #2a0a0a; }
-  .chip.warning .icon  { background: var(--warning); color: #2a1e00; }
-  .chip.good .icon     { background: var(--good); color: #05230a; }
+  .chip.esgotado .icon { background: var(--esgotado); color: #fff; }
+  .chip.critical .icon { background: var(--critical); color: #fff; }
+  .chip.warning .icon  { background: var(--warning); color: #fff; }
+  .chip.good .icon     { background: var(--good); color: #fff; }
 
   /* Cabeçalho das colunas físicas */
   .col-headers {
@@ -111,9 +113,9 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--brand);
     padding-bottom: 6px;
-    border-bottom: 1px solid var(--gridline);
+    border-bottom: 2px solid var(--brand);
   }
 
   /* Grade de posições */
@@ -136,7 +138,13 @@
     min-height: 0;
     overflow: hidden;
   }
-  .card.vazio { opacity: .3; align-items: center; justify-content: center; }
+  .card.vazio {
+    background: var(--page);
+    border-style: dashed;
+    align-items: center;
+    justify-content: center;
+  }
+  .card.vazio .pos { opacity: .6; }
   .card .pos {
     font-size: 10.5px;
     letter-spacing: 0.04em;
@@ -172,25 +180,26 @@
     text-align: center;
     min-height: 0;
     min-width: 0;
+    border: 1px solid var(--border);
     border-top: 3px solid var(--gridline);
     border-radius: 0 0 6px 6px;
     background: var(--surface-2);
     padding: 4px 4px;
   }
-  .item-card.good     { border-color: var(--good); }
+  .item-card.good     { border-top-color: var(--good); }
   .item-card.good     .item-qtd { color: var(--good); }
-  .item-card.warning  { border-color: var(--warning); }
+  .item-card.warning  { border-top-color: var(--warning); }
   .item-card.warning  .item-qtd { color: var(--warning); }
-  .item-card.critical { border-color: var(--critical); }
+  .item-card.critical { border-top-color: var(--critical); }
   .item-card.critical .item-qtd { color: var(--critical); }
   .item-card.esgotado {
-    border-color: var(--esgotado);
-    background: rgba(230, 103, 103, .18);
+    border-top-color: var(--esgotado);
+    background: rgba(192, 57, 43, .14);
     animation: piscar 1.6s ease-in-out infinite;
   }
   @keyframes piscar {
-    0%, 100% { background: rgba(230, 103, 103, .18); }
-    50%      { background: rgba(230, 103, 103, .42); }
+    0%, 100% { background: rgba(192, 57, 43, .14); }
+    50%      { background: rgba(192, 57, 43, .32); }
   }
   .item-nome {
     width: 100%;
