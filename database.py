@@ -221,10 +221,30 @@ def init_db():
                 linha      INTEGER NOT NULL,
                 coluna     INTEGER NOT NULL,
                 estoque_id INTEGER UNIQUE NOT NULL REFERENCES estoque(id),
-                criado_em  TEXT NOT NULL,
-                UNIQUE(linha, coluna)
+                criado_em  TEXT NOT NULL
             );
         """)
+
+        # Migração: a versão inicial permitia só 1 item por posição
+        # (UNIQUE(linha, coluna)). Agora cada posição aceita até 6 itens —
+        # recria a tabela sem essa constraint, preservando os dados.
+        tabela_antiga = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='prateleira_posicoes'"
+        ).fetchone()
+        if tabela_antiga and "UNIQUE(linha, coluna)" in (tabela_antiga["sql"] or ""):
+            conn.executescript("""
+                ALTER TABLE prateleira_posicoes RENAME TO prateleira_posicoes_old;
+                CREATE TABLE prateleira_posicoes (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    linha      INTEGER NOT NULL,
+                    coluna     INTEGER NOT NULL,
+                    estoque_id INTEGER UNIQUE NOT NULL REFERENCES estoque(id),
+                    criado_em  TEXT NOT NULL
+                );
+                INSERT INTO prateleira_posicoes (id, linha, coluna, estoque_id, criado_em)
+                    SELECT id, linha, coluna, estoque_id, criado_em FROM prateleira_posicoes_old;
+                DROP TABLE prateleira_posicoes_old;
+            """)
 
         # Migrations (no-op when column already exists)
         for stmt in [

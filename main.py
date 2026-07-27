@@ -355,6 +355,7 @@ def _admin_items_context() -> dict:
         "prateleira_grade": prateleira_mod.listar_grade(),
         "prateleira_linhas": prateleira_mod.LINHAS,
         "prateleira_colunas": prateleira_mod.COLUNAS,
+        "prateleira_max_itens": prateleira_mod.MAX_ITENS_POR_SLOT,
         "estoque_itens": estoque_mod.listar_estoque(),
     }
 
@@ -1372,11 +1373,22 @@ async def admin_prateleira_atribuir(request: Request):
     try:
         linha = int(form.get("linha"))
         coluna = int(form.get("coluna"))
-        estoque_id_raw = (form.get("estoque_id") or "").strip()
-        if estoque_id_raw:
-            prateleira_mod.atribuir(linha, coluna, int(estoque_id_raw))
-        else:
-            prateleira_mod.limpar(linha, coluna)
+        estoque_id = int(form.get("estoque_id"))
+        prateleira_mod.atribuir(linha, coluna, estoque_id)
+    except ValueError as e:
+        return RedirectResponse(
+            "/admin/items?tab=prateleira&erro=" + quote(str(e)), status_code=302)
+    except TypeError:
+        pass
+    return RedirectResponse("/admin/items?tab=prateleira", status_code=302)
+
+
+@app.post("/admin/prateleira/remover")
+@require_login
+async def admin_prateleira_remover(request: Request):
+    form = await request.form()
+    try:
+        prateleira_mod.remover(int(form.get("estoque_id")))
     except (ValueError, TypeError):
         pass
     return RedirectResponse("/admin/items?tab=prateleira", status_code=302)

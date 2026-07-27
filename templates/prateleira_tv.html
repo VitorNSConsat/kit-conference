@@ -19,9 +19,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px 36px 12px;
+    padding: 20px 36px 10px;
   }
-  .topo h1 { font-size: 30px; font-weight: 800; }
+  .topo h1 { font-size: 28px; font-weight: 800; }
 
   .config {
     display: flex;
@@ -44,37 +44,60 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(4, 1fr);
-    gap: 20px;
-    padding: 0 36px 36px;
-    height: calc(100% - 90px);
+    gap: 16px;
+    padding: 0 36px 30px;
+    height: calc(100% - 78px);
   }
 
   .slot {
-    border-radius: 18px;
-    padding: 20px;
+    border-radius: 16px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
     background: #16283c;
-    border: 3px solid #223a52;
+    border: 2px solid #223a52;
+    overflow: hidden;
   }
-  .slot.vazio { opacity: .3; }
+  .slot.vazio { opacity: .3; align-items: center; justify-content: center; }
   .slot .pos {
-    font-size: 13px;
-    opacity: .55;
+    font-size: 11px;
+    opacity: .5;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
   }
-  .slot .nome { font-size: 24px; font-weight: 800; margin-bottom: 12px; line-height: 1.2; }
-  .slot .qtd { font-size: 62px; font-weight: 900; line-height: 1; }
-  .slot .min { font-size: 14px; opacity: .6; margin-top: 8px; }
+  .slot .vazio-label { font-size: 20px; opacity: .5; }
 
-  .slot.ok      { border-color: #27ae60; }
-  .slot.baixo   { border-color: #f0ad4e; }
-  .slot.critico { border-color: #e74c3c; background: #331c1c; }
+  .item-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow: hidden;
+    flex: 1;
+    justify-content: center;
+  }
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 5px solid #666;
+    padding: 4px 0 4px 10px;
+  }
+  .item-row.ok      { border-color: #27ae60; }
+  .item-row.baixo   { border-color: #f0ad4e; }
+  .item-row.critico { border-color: #e74c3c; }
+  .item-nome {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item-qtd { font-size: 26px; font-weight: 900; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -91,22 +114,24 @@
 <div class="grid">
   {% for linha in range(1, linhas + 1) %}
     {% for coluna in range(1, colunas + 1) %}
-    {% set slot = grade.get((linha, coluna)) %}
-    {% if slot %}
-    {% set abaixo = slot.quantidade_atual <= slot.quantidade_minima %}
-    {% set proximo = slot.quantidade_atual <= slot.quantidade_minima * 2 and not abaixo %}
-    <div class="slot {{ 'critico' if abaixo else ('baixo' if proximo else 'ok') }}">
+    {% set itens_slot = grade.get((linha, coluna), []) %}
+    <div class="slot {{ 'vazio' if not itens_slot else '' }}">
       <div class="pos">L{{ linha }} · C{{ coluna }}</div>
-      <div class="nome">{{ slot.tipo_nome }}</div>
-      <div class="qtd">{{ slot.quantidade_atual }}</div>
-      <div class="min">mín. {{ slot.quantidade_minima }}</div>
+      {% if itens_slot %}
+      <div class="item-lista">
+        {% for item in itens_slot %}
+        {% set abaixo = item.quantidade_atual <= item.quantidade_minima %}
+        {% set proximo = item.quantidade_atual <= item.quantidade_minima * 2 and not abaixo %}
+        <div class="item-row {{ 'critico' if abaixo else ('baixo' if proximo else 'ok') }}">
+          <div class="item-nome">{{ item.tipo_nome }}</div>
+          <div class="item-qtd">{{ item.quantidade_atual }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="vazio-label">—</div>
+      {% endif %}
     </div>
-    {% else %}
-    <div class="slot vazio">
-      <div class="pos">L{{ linha }} · C{{ coluna }}</div>
-      <div class="nome">—</div>
-    </div>
-    {% endif %}
     {% endfor %}
   {% endfor %}
 </div>
