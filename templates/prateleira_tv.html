@@ -203,33 +203,36 @@
   }
   .item-nome {
     width: 100%;
-    font-size: 15px;
     font-weight: 600;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .item-qtd { font-size: 24px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
-  .item-esgotado-label { font-size: 12px; font-weight: 800; color: var(--esgotado); letter-spacing: .5px; }
+  .item-qtd { font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .item-esgotado-label { font-weight: 800; color: var(--esgotado); letter-spacing: .5px; }
 
-  /* Destaque de quantidade: quanto menos itens no card, maior o destaque */
-  .item-lista.count-1 .item-nome { font-size: 24px; }
-  .item-lista.count-1 .item-qtd  { font-size: 46px; }
-  .item-lista.count-1 .item-esgotado-label { font-size: 18px; }
-  .item-lista.count-2 .item-nome { font-size: 19px; }
-  .item-lista.count-2 .item-qtd  { font-size: 38px; }
-  .item-lista.count-2 .item-esgotado-label { font-size: 16px; }
-  .item-lista.count-3 .item-nome { font-size: 15px; }
-  .item-lista.count-3 .item-qtd  { font-size: 28px; }
-  .item-lista.count-4 .item-nome { font-size: 13px; }
-  .item-lista.count-4 .item-qtd  { font-size: 22px; }
+  /* Destaque de quantidade: quanto menos itens no card, maior o destaque.
+     Fontes em clamp(min, vw, max) — não em px fixo — para funcionar bem
+     tanto num monitor menor (1366px) quanto numa TV grande em 4K
+     (3840px): o tamanho acompanha a largura da tela em vez de ficar
+     travado num valor só correto para uma resolução específica. */
+  .item-lista.count-1 .item-nome { font-size: clamp(18px, 1.25vw, 34px); }
+  .item-lista.count-1 .item-qtd  { font-size: clamp(32px, 2.4vw, 64px); }
+  .item-lista.count-1 .item-esgotado-label { font-size: clamp(15px, 1.1vw, 26px); }
+  .item-lista.count-2 .item-nome { font-size: clamp(12px, 1.0vw, 27px); }
+  .item-lista.count-2 .item-qtd  { font-size: clamp(26px, 2.0vw, 53px); }
+  .item-lista.count-2 .item-esgotado-label { font-size: clamp(13px, 0.9vw, 22px); }
+  .item-lista.count-3 .item-nome { font-size: clamp(10px, 0.8vw, 21px); }
+  .item-lista.count-3 .item-qtd  { font-size: clamp(20px, 1.5vw, 39px); }
+  .item-lista.count-4 .item-nome { font-size: clamp(11px, 0.7vw, 18px); }
+  .item-lista.count-4 .item-qtd  { font-size: clamp(16px, 1.15vw, 31px); }
   .item-lista.count-5 .item-nome,
-  .item-lista.count-6 .item-nome { font-size: 11px; }
+  .item-lista.count-6 .item-nome { font-size: clamp(10px, 0.58vw, 15px); }
   .item-lista.count-5 .item-qtd,
-  .item-lista.count-6 .item-qtd  { font-size: 16px; }
+  .item-lista.count-6 .item-qtd  { font-size: clamp(13px, 0.85vw, 22px); }
   .item-lista.count-5 .item-esgotado-label,
-  .item-lista.count-6 .item-esgotado-label { font-size: 9px; }
+  .item-lista.count-6 .item-esgotado-label { font-size: clamp(9px, 0.55vw, 14px); }
 
   /* Legend */
   .legend {
