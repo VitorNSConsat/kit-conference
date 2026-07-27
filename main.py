@@ -27,6 +27,7 @@ import app.validacoes as validacoes_mod
 import app.veiculos as veiculos_mod
 import app.clientes as clientes_mod
 import app.codigos_gerados as codigos_gerados_mod
+import app.prateleira as prateleira_mod
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 
 # Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/')
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -351,6 +352,10 @@ def _admin_items_context() -> dict:
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
         "codigos_gerados": codigos_gerados_mod.listar(),
+        "prateleira_grade": prateleira_mod.listar_grade(),
+        "prateleira_linhas": prateleira_mod.LINHAS,
+        "prateleira_colunas": prateleira_mod.COLUNAS,
+        "estoque_itens": estoque_mod.listar_estoque(),
     }
 
 
@@ -1356,6 +1361,37 @@ async def reports_validacoes_export(request: Request,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=verificacoes.xlsx"},
     )
+
+
+# ── Prateleira ────────────────────────────────────────────────────────────────
+
+@app.post("/admin/prateleira/atribuir")
+@require_login
+async def admin_prateleira_atribuir(request: Request):
+    form = await request.form()
+    try:
+        linha = int(form.get("linha"))
+        coluna = int(form.get("coluna"))
+        estoque_id_raw = (form.get("estoque_id") or "").strip()
+        if estoque_id_raw:
+            prateleira_mod.atribuir(linha, coluna, int(estoque_id_raw))
+        else:
+            prateleira_mod.limpar(linha, coluna)
+    except (ValueError, TypeError):
+        pass
+    return RedirectResponse("/admin/items?tab=prateleira", status_code=302)
+
+
+@app.get("/prateleira/tv", response_class=HTMLResponse)
+async def prateleira_tv(request: Request, minutos: int = 5):
+    minutos = max(1, minutos)
+    grade = prateleira_mod.listar_grade()
+    return render(request, "prateleira_tv.html", {
+        "grade": grade,
+        "linhas": prateleira_mod.LINHAS,
+        "colunas": prateleira_mod.COLUNAS,
+        "minutos": minutos,
+    })
 
 
 # ── Estoque ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel da Prateleira</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #0f1f2e;
+    color: #fff;
+    font-family: -apple-system, Arial, sans-serif;
+    overflow: hidden;
+  }
+
+  .topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 36px 12px;
+  }
+  .topo h1 { font-size: 30px; font-weight: 800; }
+
+  .config {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    opacity: .7;
+  }
+  .config input {
+    width: 64px;
+    padding: 6px;
+    border-radius: 6px;
+    border: none;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 20px;
+    padding: 0 36px 36px;
+    height: calc(100% - 90px);
+  }
+
+  .slot {
+    border-radius: 18px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: #16283c;
+    border: 3px solid #223a52;
+  }
+  .slot.vazio { opacity: .3; }
+  .slot .pos {
+    font-size: 13px;
+    opacity: .55;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .slot .nome { font-size: 24px; font-weight: 800; margin-bottom: 12px; line-height: 1.2; }
+  .slot .qtd { font-size: 62px; font-weight: 900; line-height: 1; }
+  .slot .min { font-size: 14px; opacity: .6; margin-top: 8px; }
+
+  .slot.ok      { border-color: #27ae60; }
+  .slot.baixo   { border-color: #f0ad4e; }
+  .slot.critico { border-color: #e74c3c; background: #331c1c; }
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <h1>🗄️ Prateleira — Estoque</h1>
+  <div class="config">
+    Atualiza a cada
+    <input type="number" id="input-minutos" min="1" value="{{ minutos }}" onchange="ajustarIntervalo()">
+    min
+  </div>
+</div>
+
+<div class="grid">
+  {% for linha in range(1, linhas + 1) %}
+    {% for coluna in range(1, colunas + 1) %}
+    {% set slot = grade.get((linha, coluna)) %}
+    {% if slot %}
+    {% set abaixo = slot.quantidade_atual <= slot.quantidade_minima %}
+    {% set proximo = slot.quantidade_atual <= slot.quantidade_minima * 2 and not abaixo %}
+    <div class="slot {{ 'critico' if abaixo else ('baixo' if proximo else 'ok') }}">
+      <div class="pos">L{{ linha }} · C{{ coluna }}</div>
+      <div class="nome">{{ slot.tipo_nome }}</div>
+      <div class="qtd">{{ slot.quantidade_atual }}</div>
+      <div class="min">mín. {{ slot.quantidade_minima }}</div>
+    </div>
+    {% else %}
+    <div class="slot vazio">
+      <div class="pos">L{{ linha }} · C{{ coluna }}</div>
+      <div class="nome">—</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  {% endfor %}
+</div>
+
+<script>
+function ajustarIntervalo() {
+    const min = Math.max(1, parseInt(document.getElementById('input-minutos').value) || 5);
+    const url = new URL(window.location);
+    url.searchParams.set('minutos', min);
+    window.location = url;
+}
+
+(function () {
+    const minutos = {{ minutos }};
+    setTimeout(() => location.reload(), Math.max(1, minutos) * 60000);
+})();
+</script>
+
+</body>
+</html>

@@ -87,6 +87,7 @@
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
     <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
     <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🔁 Códigos Gerados</button>
+    <button type="button" class="tab-btn" data-tab="prateleira" onclick="mudarTab('prateleira')">🗄️ Prateleira</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -563,9 +564,86 @@
     </div>
 </div>
 
+<!-- ── Aba: Prateleira ────────────────────────────────────────────────────── -->
+<div id="tab-prateleira" class="tab-panel" style="display:none;">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div>
+                <h2 style="margin-bottom:4px;">🗄️ Prateleira</h2>
+                <p style="color:#666;font-size:13px;margin:0;">
+                    Escolha qual item de estoque ocupa cada posição. Selecionar "— vazio —" libera a
+                    posição; escolher um item que já está em outro lugar apenas move ele para cá.
+                </p>
+            </div>
+            <a href="/prateleira/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
+        </div>
+
+        <div class="prateleira-grid">
+            {% for linha in range(1, prateleira_linhas + 1) %}
+                {% for coluna in range(1, prateleira_colunas + 1) %}
+                {% set slot = prateleira_grade.get((linha, coluna)) %}
+                <div class="prateleira-slot {{ 'ocupado' if slot else 'vazio' }}">
+                    <div class="prateleira-slot-pos">L{{ linha }} · C{{ coluna }}</div>
+                    {% if slot %}
+                    {% set abaixo = slot.quantidade_atual <= slot.quantidade_minima %}
+                    {% set proximo = slot.quantidade_atual <= slot.quantidade_minima * 2 and not abaixo %}
+                    <div class="prateleira-slot-nome">{{ slot.tipo_nome }}</div>
+                    <div class="prateleira-slot-qtd"
+                         style="color:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};">
+                        {{ slot.quantidade_atual }}
+                    </div>
+                    <div class="prateleira-slot-codigo">{{ slot.codigo_barra }}</div>
+                    {% else %}
+                    <div class="prateleira-slot-vazio-label">— vazio —</div>
+                    {% endif %}
+                    <form method="post" action="/admin/prateleira/atribuir">
+                        <input type="hidden" name="linha" value="{{ linha }}">
+                        <input type="hidden" name="coluna" value="{{ coluna }}">
+                        <select name="estoque_id" onchange="this.form.submit()">
+                            <option value="">— vazio —</option>
+                            {% for e in estoque_itens %}
+                            <option value="{{ e.id }}" {{ 'selected' if slot and slot.estoque_id == e.id else '' }}>
+                                {{ e.tipo_nome }} ({{ e.codigo_barra }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 {% block scripts %}
 <style>
+.prateleira-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+}
+.prateleira-slot {
+    border: 2px solid #e0e7ef;
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    background: #fafbfc;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+}
+.prateleira-slot.ocupado { border-color: #1a3a5c; background: #fff; }
+.prateleira-slot-pos { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+.prateleira-slot-nome { font-size: 14px; font-weight: 700; color: #1a3a5c; }
+.prateleira-slot-qtd { font-size: 26px; font-weight: 900; line-height: 1.1; }
+.prateleira-slot-codigo { font-size: 11px; color: #999; font-family: monospace; }
+.prateleira-slot-vazio-label { font-size: 13px; color: #bbb; padding: 10px 0; }
+.prateleira-slot select { margin: 8px 0 0; font-size: 12px; padding: 5px 6px; }
+</style>
 .config-popup {
     display: none;
     position: fixed;
@@ -699,7 +777,7 @@ function mudarTab(nome) {
     // qual aba estava em uso.
     const tabServidor = "{{ tab_ativo or '' }}";
     const tabInicial = params.get('tab') || tabServidor || 'catalogo';
-    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos'].includes(tabInicial) ? tabInicial : 'catalogo');
+    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos', 'prateleira'].includes(tabInicial) ? tabInicial : 'catalogo');
 })();
 </script>
 {% endblock %}

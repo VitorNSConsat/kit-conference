@@ -215,6 +215,17 @@ def init_db():
             );
         """)
 
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS prateleira_posicoes (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                linha      INTEGER NOT NULL,
+                coluna     INTEGER NOT NULL,
+                estoque_id INTEGER UNIQUE NOT NULL REFERENCES estoque(id),
+                criado_em  TEXT NOT NULL,
+                UNIQUE(linha, coluna)
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",
