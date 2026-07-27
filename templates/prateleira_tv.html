@@ -5,71 +5,149 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel da Prateleira</title>
 <style>
+  :root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --surface-2:      #232322;
+    --page:           #141413;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --border:         rgba(255,255,255,0.10);
+
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --serious:  #ec835a;
+    --critical: #e66767;
+    --esgotado: #ff4d4d;
+
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  html, body {
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font);
+    padding: 20px 28px 16px;
+    display: flex;
+    flex-direction: column;
     height: 100%;
-    background: #0f1f2e;
-    color: #fff;
-    font-family: -apple-system, Arial, sans-serif;
-    overflow: hidden;
   }
 
-  .topo {
+  header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 20px 36px 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 16px;
+    flex-shrink: 0;
   }
-  .topo h1 { font-size: 28px; font-weight: 800; }
 
-  .config {
+  .title-block { display: flex; align-items: center; gap: 16px; }
+  .title-block img.logo { max-height: 42px; max-width: 150px; object-fit: contain; }
+  .title-block h1 { font-size: 20px; font-weight: 700; margin: 0 0 3px; letter-spacing: -0.01em; }
+  .title-block .sub { font-size: 12.5px; color: var(--text-muted); }
+
+  .header-controls { display: flex; align-items: center; gap: 18px; font-size: 12px; color: var(--text-muted); }
+
+  .refresh { display: flex; align-items: center; gap: 8px; }
+  .refresh input {
+    width: 44px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 6px;
+    text-align: center;
+  }
+
+  /* Alert summary strip */
+  .alert-strip { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; flex-shrink: 0; }
+  .chip {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    opacity: .7;
+    gap: 8px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12.5px;
   }
-  .config input {
-    width: 64px;
-    padding: 6px;
-    border-radius: 6px;
-    border: none;
-    text-align: center;
-    font-size: 16px;
+  .chip .icon {
+    width: 17px; height: 17px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    font-size: 11px;
     font-weight: 700;
+    flex-shrink: 0;
+  }
+  .chip .count { font-weight: 700; font-size: 14px; }
+  .chip .label { color: var(--text-secondary); }
+  .chip.esgotado .icon { background: var(--esgotado); color: #300; }
+  .chip.critical .icon { background: var(--critical); color: #2a0a0a; }
+  .chip.warning .icon  { background: var(--warning); color: #2a1e00; }
+  .chip.good .icon     { background: var(--good); color: #05230a; }
+
+  /* Cabeçalho das colunas físicas */
+  .col-headers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  .col-headers div {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--gridline);
   }
 
+  /* Grade de posições */
   .grid {
+    flex: 1;
+    min-height: 0;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(4, 1fr);
-    gap: 16px;
-    padding: 0 36px 30px;
-    height: calc(100% - 78px);
+    gap: 12px;
   }
 
-  .slot {
-    border-radius: 16px;
-    padding: 12px 14px;
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
-    background: #16283c;
-    border: 2px solid #223a52;
+    min-height: 0;
     overflow: hidden;
   }
-  .slot.vazio { opacity: .3; align-items: center; justify-content: center; }
-  .slot .pos {
-    font-size: 11px;
-    opacity: .5;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+  .card.vazio { opacity: .3; align-items: center; justify-content: center; }
+  .card .pos {
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 700;
     flex-shrink: 0;
+    margin-bottom: 4px;
   }
-  .slot .vazio-label { font-size: 20px; opacity: .5; }
+  .card .vazio-label { font-size: 16px; color: var(--text-muted); }
 
-  /* Grade interna: quantas colunas conforme o número de itens no slot —
+  /* Grade interna de itens: quantas colunas conforme o número de itens —
      os cards são bem mais largos que altos, então distribuir em colunas
      aproveita o espaço muito melhor do que empilhar tudo verticalmente. */
   .item-lista {
@@ -86,7 +164,7 @@
   .item-lista.count-5,
   .item-lista.count-6 { grid-template-columns: repeat(3, 1fr); }
 
-  .item-row {
+  .item-card {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -94,84 +172,116 @@
     text-align: center;
     min-height: 0;
     min-width: 0;
-    border-top: 4px solid #666;
+    border-top: 3px solid var(--gridline);
     border-radius: 0 0 6px 6px;
-    background: rgba(255, 255, 255, .04);
+    background: var(--surface-2);
     padding: 4px 4px;
   }
-  .item-row.ok      { border-color: #27ae60; }
-  .item-row.ok      .item-qtd { color: #27ae60; }
-  .item-row.baixo   { border-color: #f0ad4e; }
-  .item-row.baixo   .item-qtd { color: #f0ad4e; }
-  .item-row.critico { border-color: #e74c3c; }
-  .item-row.critico .item-qtd { color: #e74c3c; }
-  .item-row.esgotado {
-    border-color: #ff4d4d;
-    background: rgba(231, 76, 60, .22);
+  .item-card.good     { border-color: var(--good); }
+  .item-card.good     .item-qtd { color: var(--good); }
+  .item-card.warning  { border-color: var(--warning); }
+  .item-card.warning  .item-qtd { color: var(--warning); }
+  .item-card.critical { border-color: var(--critical); }
+  .item-card.critical .item-qtd { color: var(--critical); }
+  .item-card.esgotado {
+    border-color: var(--esgotado);
+    background: rgba(230, 103, 103, .18);
     animation: piscar 1.6s ease-in-out infinite;
   }
   @keyframes piscar {
-    0%, 100% { background: rgba(231, 76, 60, .22); }
-    50%      { background: rgba(231, 76, 60, .5); }
+    0%, 100% { background: rgba(230, 103, 103, .18); }
+    50%      { background: rgba(230, 103, 103, .42); }
   }
   .item-nome {
     width: 100%;
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .item-qtd { font-size: 24px; font-weight: 900; line-height: 1.15; }
-  .item-esgotado-label { font-size: 12px; font-weight: 900; color: #ff8080; letter-spacing: .5px; }
+  .item-qtd { font-size: 24px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .item-esgotado-label { font-size: 12px; font-weight: 800; color: var(--esgotado); letter-spacing: .5px; }
 
-  /* Destaque de quantidade: quanto menos itens no slot, maior o destaque —
-     1 item ocupa uma única célula (grade inteira), então recebe fontes
-     bem maiores; conforme mais itens dividem a mesma grade, o espaço por
-     célula encolhe e as fontes acompanham. */
-  .item-lista.count-1 .item-nome { font-size: 22px; }
-  .item-lista.count-1 .item-qtd  { font-size: 44px; }
+  /* Destaque de quantidade: quanto menos itens no card, maior o destaque */
+  .item-lista.count-1 .item-nome { font-size: 24px; }
+  .item-lista.count-1 .item-qtd  { font-size: 46px; }
   .item-lista.count-1 .item-esgotado-label { font-size: 18px; }
-  .item-lista.count-2 .item-nome { font-size: 20px; }
-  .item-lista.count-2 .item-qtd  { font-size: 42px; }
-  .item-lista.count-2 .item-esgotado-label { font-size: 18px; }
-  .item-lista.count-3 .item-nome { font-size: 16px; }
-  .item-lista.count-3 .item-qtd  { font-size: 32px; }
-  .item-lista.count-4 .item-nome { font-size: 14px; }
-  .item-lista.count-4 .item-qtd  { font-size: 24px; }
+  .item-lista.count-2 .item-nome { font-size: 19px; }
+  .item-lista.count-2 .item-qtd  { font-size: 38px; }
+  .item-lista.count-2 .item-esgotado-label { font-size: 16px; }
+  .item-lista.count-3 .item-nome { font-size: 15px; }
+  .item-lista.count-3 .item-qtd  { font-size: 28px; }
+  .item-lista.count-4 .item-nome { font-size: 13px; }
+  .item-lista.count-4 .item-qtd  { font-size: 22px; }
   .item-lista.count-5 .item-nome,
-  .item-lista.count-6 .item-nome { font-size: 12px; }
+  .item-lista.count-6 .item-nome { font-size: 11px; }
   .item-lista.count-5 .item-qtd,
-  .item-lista.count-6 .item-qtd  { font-size: 18px; }
+  .item-lista.count-6 .item-qtd  { font-size: 16px; }
   .item-lista.count-5 .item-esgotado-label,
-  .item-lista.count-6 .item-esgotado-label { font-size: 10px; }
+  .item-lista.count-6 .item-esgotado-label { font-size: 9px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--gridline);
+    padding-top: 8px;
+    margin-top: 10px;
+    flex-shrink: 0;
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 50%; }
 </style>
 </head>
 <body>
 
-<div class="topo">
-  <h1>🗄️ Prateleira — Estoque</h1>
-  <div class="config">
-    Atualiza a cada
-    <input type="number" id="input-minutos" min="1" value="{{ minutos }}" onchange="ajustarIntervalo()">
-    min
+<header>
+  <div class="title-block">
+    <img src="/static/logo.png" class="logo" alt="Logo">
+    <div>
+      <h1>Prateleira — Estoque</h1>
+      <div class="sub">Galpão CONSAT · atualizado às <span id="now"></span></div>
+    </div>
   </div>
+  <div class="header-controls">
+    <div class="refresh">
+      Atualiza a cada <input type="number" min="1" id="input-minutos" value="{{ minutos }}" onchange="ajustarIntervalo()"> min
+    </div>
+  </div>
+</header>
+
+<div class="alert-strip">
+  <div class="chip esgotado"><span class="icon">!</span><span class="count">{{ contagem_status.esgotado }}</span><span class="label">esgotado</span></div>
+  <div class="chip critical"><span class="icon">▲</span><span class="count">{{ contagem_status.critico }}</span><span class="label">crítico</span></div>
+  <div class="chip warning"><span class="icon">●</span><span class="count">{{ contagem_status.baixo }}</span><span class="label">atenção</span></div>
+  <div class="chip good"><span class="icon">✓</span><span class="count">{{ contagem_status.ok }}</span><span class="label">normais</span></div>
+</div>
+
+<div class="col-headers">
+  <div>Porta</div>
+  <div>Meio</div>
+  <div>Lab</div>
 </div>
 
 <div class="grid">
+  {% set colunas_letras = ['A', 'B', 'C'] %}
   {% for linha in range(1, linhas + 1) %}
     {% for coluna in range(1, colunas + 1) %}
     {% set itens_slot = grade.get((linha, coluna), []) %}
-    <div class="slot {{ 'vazio' if not itens_slot else '' }}">
-      <div class="pos">L{{ linha }} · C{{ coluna }}</div>
+    <div class="card {{ 'vazio' if not itens_slot else '' }}">
+      <div class="pos">{{ colunas_letras[coluna - 1] }}{{ linha }}</div>
       {% if itens_slot %}
       <div class="item-lista count-{{ itens_slot | length }}">
         {% for item in itens_slot %}
         {% set esgotado = item.quantidade_atual <= 0 %}
         {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
         {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
-        <div class="item-row {{ 'esgotado' if esgotado else ('critico' if abaixo else ('baixo' if proximo else 'ok')) }}">
+        <div class="item-card {{ 'esgotado' if esgotado else ('critical' if abaixo else ('warning' if proximo else 'good')) }}">
           <div class="item-nome">{{ item.tipo_nome }}</div>
           {% if esgotado %}
           <div class="item-esgotado-label">ESGOTADO</div>
@@ -189,6 +299,13 @@
   {% endfor %}
 </div>
 
+<div class="legend">
+  <div class="item"><span class="dot" style="background:var(--good)"></span> Normal — acima do mínimo</div>
+  <div class="item"><span class="dot" style="background:var(--warning)"></span> Atenção — perto do mínimo</div>
+  <div class="item"><span class="dot" style="background:var(--critical)"></span> Crítico — abaixo do mínimo</div>
+  <div class="item"><span class="dot" style="background:var(--esgotado)"></span> Esgotado — quantidade zerada</div>
+</div>
+
 <script>
 function ajustarIntervalo() {
     const min = Math.max(1, parseInt(document.getElementById('input-minutos').value) || 5);
@@ -196,6 +313,8 @@ function ajustarIntervalo() {
     url.searchParams.set('minutos', min);
     window.location = url;
 }
+
+document.getElementById('now').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 (function () {
     const minutos = {{ minutos }};

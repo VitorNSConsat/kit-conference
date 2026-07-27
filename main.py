@@ -1403,6 +1403,7 @@ async def prateleira_tv(request: Request, minutos: int = 5):
         "linhas": prateleira_mod.LINHAS,
         "colunas": prateleira_mod.COLUNAS,
         "minutos": minutos,
+        "contagem_status": prateleira_mod.contar_status(grade),
     })
 
 

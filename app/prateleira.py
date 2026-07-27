@@ -50,3 +50,21 @@ def remover(estoque_id: int):
     """Remove um item específico da prateleira (de onde quer que esteja)."""
     with db() as conn:
         conn.execute("DELETE FROM prateleira_posicoes WHERE estoque_id = ?", (estoque_id,))
+
+
+def contar_status(grade: dict) -> dict:
+    """Conta quantos itens da grade estão em cada estado — usado no resumo
+    do painel da TV (esgotado > crítico > atenção > normal, mesma ordem de
+    severidade usada nos cards)."""
+    contagem = {"esgotado": 0, "critico": 0, "baixo": 0, "ok": 0}
+    for itens in grade.values():
+        for item in itens:
+            if item["quantidade_atual"] <= 0:
+                contagem["esgotado"] += 1
+            elif item["quantidade_atual"] <= item["quantidade_minima"]:
+                contagem["critico"] += 1
+            elif item["quantidade_atual"] <= item["quantidade_minima"] * 2:
+                contagem["baixo"] += 1
+            else:
+                contagem["ok"] += 1
+    return contagem
