@@ -69,21 +69,35 @@
   }
   .slot .vazio-label { font-size: 20px; opacity: .5; }
 
+  /* Grade interna: quantas colunas conforme o número de itens no slot —
+     os cards são bem mais largos que altos, então distribuir em colunas
+     aproveita o espaço muito melhor do que empilhar tudo verticalmente. */
   .item-lista {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    display: grid;
+    gap: 6px;
     overflow: hidden;
     flex: 1;
-    justify-content: center;
+    min-height: 0;
   }
+  .item-lista.count-1 { grid-template-columns: 1fr; }
+  .item-lista.count-2 { grid-template-columns: repeat(2, 1fr); }
+  .item-lista.count-3 { grid-template-columns: repeat(3, 1fr); }
+  .item-lista.count-4 { grid-template-columns: repeat(2, 1fr); }
+  .item-lista.count-5,
+  .item-lista.count-6 { grid-template-columns: repeat(3, 1fr); }
+
   .item-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    border-left: 5px solid #666;
-    padding: 4px 6px 4px 10px;
-    border-radius: 0 6px 6px 0;
+    justify-content: center;
+    text-align: center;
+    min-height: 0;
+    min-width: 0;
+    border-top: 4px solid #666;
+    border-radius: 0 0 6px 6px;
+    background: rgba(255, 255, 255, .04);
+    padding: 4px 4px;
   }
   .item-row.ok      { border-color: #27ae60; }
   .item-row.ok      .item-qtd { color: #27ae60; }
@@ -101,29 +115,37 @@
     50%      { background: rgba(231, 76, 60, .5); }
   }
   .item-nome {
-    flex: 1;
-    min-width: 0;
-    font-size: 16px;
+    width: 100%;
+    font-size: 15px;
     font-weight: 700;
     line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .item-qtd { font-size: 26px; font-weight: 900; flex-shrink: 0; text-align: right; }
-  .item-esgotado-label { font-size: 13px; font-weight: 900; color: #ff8080; letter-spacing: .5px; }
+  .item-qtd { font-size: 24px; font-weight: 900; line-height: 1.15; }
+  .item-esgotado-label { font-size: 12px; font-weight: 900; color: #ff8080; letter-spacing: .5px; }
 
-  /* Destaque de quantidade: quanto menos itens no slot, maior o destaque */
-  .item-lista.count-1 .item-nome { font-size: 32px; }
-  .item-lista.count-1 .item-qtd  { font-size: 84px; }
-  .item-lista.count-1 .item-esgotado-label { font-size: 26px; }
-  .item-lista.count-2 .item-nome { font-size: 24px; }
-  .item-lista.count-2 .item-qtd  { font-size: 54px; }
-  .item-lista.count-2 .item-esgotado-label { font-size: 20px; }
-  .item-lista.count-3 .item-nome { font-size: 19px; }
-  .item-lista.count-3 .item-qtd  { font-size: 38px; }
-  .item-lista.count-4 .item-nome { font-size: 17px; }
-  .item-lista.count-4 .item-qtd  { font-size: 30px; }
+  /* Destaque de quantidade: quanto menos itens no slot, maior o destaque —
+     1 item ocupa uma única célula (grade inteira), então recebe fontes
+     bem maiores; conforme mais itens dividem a mesma grade, o espaço por
+     célula encolhe e as fontes acompanham. */
+  .item-lista.count-1 .item-nome { font-size: 22px; }
+  .item-lista.count-1 .item-qtd  { font-size: 44px; }
+  .item-lista.count-1 .item-esgotado-label { font-size: 18px; }
+  .item-lista.count-2 .item-nome { font-size: 20px; }
+  .item-lista.count-2 .item-qtd  { font-size: 42px; }
+  .item-lista.count-2 .item-esgotado-label { font-size: 18px; }
+  .item-lista.count-3 .item-nome { font-size: 16px; }
+  .item-lista.count-3 .item-qtd  { font-size: 32px; }
+  .item-lista.count-4 .item-nome { font-size: 14px; }
+  .item-lista.count-4 .item-qtd  { font-size: 24px; }
+  .item-lista.count-5 .item-nome,
+  .item-lista.count-6 .item-nome { font-size: 12px; }
+  .item-lista.count-5 .item-qtd,
+  .item-lista.count-6 .item-qtd  { font-size: 18px; }
+  .item-lista.count-5 .item-esgotado-label,
+  .item-lista.count-6 .item-esgotado-label { font-size: 10px; }
 </style>
 </head>
 <body>
