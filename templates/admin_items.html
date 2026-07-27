@@ -597,9 +597,9 @@
                         {% set esgotado = item.quantidade_atual <= 0 %}
                         {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
                         {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
-                        <div class="prateleira-item {{ 'esgotado' if esgotado else '' }}">
-                            <span class="prateleira-item-dot"
-                                  style="background:{{ '#e74c3c' if (esgotado or abaixo) else ('#f0ad4e' if proximo else '#27ae60') }};"></span>
+                        {% set status = 'esgotado' if esgotado else ('critico' if abaixo else ('baixo' if proximo else 'ok')) %}
+                        <div class="prateleira-item {{ status }}">
+                            <span class="prateleira-item-dot"></span>
                             <div class="prateleira-item-info">
                                 <div class="prateleira-item-nome">{{ item.tipo_nome }}</div>
                                 <div class="prateleira-item-codigo">{{ item.codigo_barra }}</div>
@@ -694,6 +694,15 @@
 .prateleira-slot-itens.count-2 .prateleira-item-qtd  { font-size: 22px; }
 .prateleira-slot-itens.count-3 .prateleira-item-qtd,
 .prateleira-slot-itens.count-4 .prateleira-item-qtd  { font-size: 18px; }
+
+/* Cor por status — o número da quantidade acompanha a mesma cor do ponto */
+.prateleira-item.ok       .prateleira-item-dot { background: #27ae60; }
+.prateleira-item.ok       .prateleira-item-qtd { color: #27ae60; }
+.prateleira-item.baixo    .prateleira-item-dot { background: #f0ad4e; }
+.prateleira-item.baixo    .prateleira-item-qtd { color: #f0ad4e; }
+.prateleira-item.critico  .prateleira-item-dot { background: #e74c3c; }
+.prateleira-item.critico  .prateleira-item-qtd { color: #e74c3c; }
+.prateleira-item.esgotado .prateleira-item-dot { background: #e74c3c; }
 
 /* Item esgotado (quantidade = 0) — destaque forte, prioridade máxima */
 .prateleira-item.esgotado {
