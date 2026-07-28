@@ -85,7 +85,7 @@
     {% endif %}
     <table id="tabela-{{ tipo }}">
         <thead>
-            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th>{% if tipo == 'pedido' %}<th>Feito</th>{% endif %}<th></th></tr>
         </thead>
         <tbody>
         {% for t in templates_lista %}
@@ -94,11 +94,22 @@
             <td>{{ t.cliente }}</td>
             <td>v{{ t.versao }}</td>
             <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
+            {% if tipo == 'pedido' %}
+            <td><span class="badge {{ 'badge-success' if t.concluido else 'badge-warning' }}">{{ 'Sim' if t.concluido else 'Não' }}</span></td>
+            {% endif %}
             <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                {% if tipo == 'pedido' %}
+                <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
+                {% endif %}
                 <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
                 <form method="post" action="/admin/templates/{{ t.id }}/toggle">
                     <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
                 </form>
+                {% if tipo == 'pedido' %}
+                <form method="post" action="/admin/templates/{{ t.id }}/toggle-concluido">
+                    <button class="btn btn-sm {{ 'btn-warning' if not t.concluido else 'btn-primary' }}">{{ 'Reabrir Pedido' if t.concluido else 'Marcar Feito' }}</button>
+                </form>
+                {% endif %}
                 <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
                     <button class="btn btn-sm btn-warning">Nova Versão</button>
                 </form>
@@ -109,7 +120,7 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
+        <tr><td colspan="{{ 6 if tipo == 'pedido' else 5 }}" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
         {% endfor %}
         </tbody>
     </table>

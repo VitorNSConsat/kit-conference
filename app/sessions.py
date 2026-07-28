@@ -51,7 +51,7 @@ def start_session(kit_template_id: int, operador_id: int) -> int:
 def get_session(sessao_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute(
-            "SELECT s.*, t.nome AS kit_nome, t.cliente, u.nome AS operador_nome "
+            "SELECT s.*, t.nome AS kit_nome, t.cliente, t.tipo AS kit_tipo, u.nome AS operador_nome "
             "FROM scan_session s "
             "JOIN kit_template t ON t.id = s.kit_template_id "
             "JOIN users u ON u.id = s.operador_id "

@@ -360,6 +360,32 @@
     {% endfor %}
   </div>
 
+  {% if unidades %}
+  <div class="card">
+    <div class="card-title">Unidades do Pedido ({{ unidades | length }})</div>
+    {% for u in unidades %}
+    <div class="info-grid" style="padding:10px 0;{% if not loop.last %}border-bottom:1px solid #f0f0f0;{% endif %}">
+      <div class="info-item">
+        <div class="label">ID Hardware</div>
+        <div class="value">{{ u.id_hardware or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">ICCID</div>
+        <div class="value">{{ u.iccid or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">CDT</div>
+        <div class="value">{{ u.cdt or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Telefone</div>
+        <div class="value">{{ u.telefone or '—' }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if ok == 'validado' %}
   <div class="alert-success">✅ Verificação registrada com sucesso.</div>
   {% endif %}

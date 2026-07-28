@@ -641,6 +641,7 @@ async def admin_template_unidades_exportar(request: Request, template_id: int):
     if not template:
         raise HTTPException(status_code=404)
     unidades = pedidos_mod.listar_unidades(template_id)
+    itens_template = templates_mod.get_itens_template(template_id)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -665,6 +666,25 @@ async def admin_template_unidades_exportar(request: Request, template_id: int):
     for col, w in zip("ABCD", (24, 22, 18, 22)):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
+
+    ws2 = wb.create_sheet("Itens do Pedido")
+    for col, h in enumerate(["Item", "Quantidade Exigida", "Obrigatório", "Unidade"], 1):
+        c = ws2.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for i, item in enumerate(itens_template):
+        row = i + 2
+        ws2.cell(row, 1, item["descricao"])
+        ws2.cell(row, 2, item["quantidade_exigida"])
+        ws2.cell(row, 3, "Sim" if item["obrigatorio"] else "Não")
+        ws2.cell(row, 4, item.get("unidade") or "un")
+        if i % 2 == 0:
+            for col in range(1, 5):
+                ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCD", (32, 20, 14, 12)):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = "A2"
 
     buf = BytesIO()
     wb.save(buf)
@@ -710,6 +730,15 @@ async def admin_template_toggle(request: Request, template_id: int):
     template = templates_mod.buscar_template(template_id)
     tipo = template.get("tipo", "kit") if template else "kit"
     templates_mod.toggle_ativo(template_id)
+    return RedirectResponse(f"/admin/templates?tab={tipo}", status_code=302)
+
+
+@app.post("/admin/templates/{template_id}/toggle-concluido")
+@require_login
+async def admin_template_toggle_concluido(request: Request, template_id: int):
+    template = templates_mod.buscar_template(template_id)
+    tipo = template.get("tipo", "kit") if template else "kit"
+    templates_mod.toggle_concluido(template_id)
     return RedirectResponse(f"/admin/templates?tab={tipo}", status_code=302)
 
 
@@ -898,6 +927,9 @@ async def session_finalize(request: Request, sessao_id: int):
     if veiculo_id and garagem:
         veiculos_mod.atualizar_garagem(veiculo_id, garagem)
 
+    if session.get("kit_tipo") == "pedido":
+        templates_mod.marcar_concluido(session["kit_template_id"])
+
     return RedirectResponse(
         f"/session/{sessao_id}/complete?kit_id={kit_id}", status_code=302
     )
@@ -1063,7 +1095,7 @@ async def kit_buscar(request: Request, codigo: str = ""):
 async def kit_detail(request: Request, kit_id: str):
     with db() as conn:
         kit = conn.execute(
-            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, "
+            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo, "
             "u.nome AS operador_nome "
             "FROM kit_record kr "
             "JOIN kit_template kt ON kt.id = kr.kit_template_id "
@@ -1087,12 +1119,14 @@ async def kit_detail(request: Request, kit_id: str):
 
     validacoes = validacoes_mod.listar_por_kit(kit_id)
     ok = request.query_params.get("ok", "")
+    unidades = pedidos_mod.listar_unidades(kit["kit_template_id"]) if kit.get("kit_tipo") == "pedido" else []
 
     return render(request, "kit_detail.html", {
         "kit": kit,
         "itens": [dict(i) for i in itens],
         "validacoes": validacoes,
         "ok": ok,
+        "unidades": unidades,
     })
 
 
@@ -1269,7 +1303,7 @@ async def report_excel(request: Request, kit_id: str):
 
     with db() as conn:
         kit = conn.execute(
-            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, "
+            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo, "
             "u.nome AS operador_nome "
             "FROM kit_record kr "
             "JOIN kit_template kt ON kt.id = kr.kit_template_id "
@@ -1373,6 +1407,25 @@ async def report_excel(request: Request, kit_id: str):
     ws2.column_dimensions["D"].width = 18
     ws2.column_dimensions["E"].width = 22
 
+    # ── Aba Unidades do Pedido (ICCID/Telefone/CDT/ID Hardware) ────────────────
+    if kit.get("kit_tipo") == "pedido":
+        unidades = pedidos_mod.listar_unidades(kit["kit_template_id"])
+        ws3 = wb.create_sheet("Unidades do Pedido")
+        for col, h in enumerate(["ICCID", "Número de Telefone", "CDT", "ID Hardware"], 1):
+            hdr_cell(ws3, 1, col, h)
+        for i, u in enumerate(unidades):
+            row = i + 2
+            ws3.cell(row, 1, u.get("iccid") or "")
+            ws3.cell(row, 2, u.get("telefone") or "")
+            ws3.cell(row, 3, u.get("cdt") or "")
+            ws3.cell(row, 4, u.get("id_hardware") or "")
+            if i % 2 == 0:
+                for col in range(1, 5):
+                    ws3.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+        for col, w in zip("ABCD", (24, 22, 18, 22)):
+            ws3.column_dimensions[col].width = w
+        ws3.freeze_panes = "A2"
+
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -1403,7 +1456,7 @@ async def reports_exportar_todos(request: Request,
     from io import BytesIO
 
     query = """
-        SELECT kr.kit_id, kr.finalizado_em, kr.veiculo, kr.garagem,
+        SELECT kr.kit_id, kr.kit_template_id, kr.finalizado_em, kr.veiculo, kr.garagem,
                COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
                kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
                u.nome AS operador_nome,
@@ -1515,6 +1568,32 @@ async def reports_exportar_todos(request: Request,
     for col, w in zip("ABCDEFG", (34, 16, 28, 24, 20, 16, 20)):
         ws2.column_dimensions[col].width = w
     ws2.freeze_panes = "A2"
+
+    # ── Aba Unidades (ICCID/Telefone/CDT/ID Hardware dos Pedidos) ──────────────
+    pedidos_no_lote = [k for k in kits if k.get("kit_tipo") == "pedido"]
+    if pedidos_no_lote:
+        ws3 = wb.create_sheet("Unidades")
+        for col, h in enumerate(
+            ["Pedido", "Veículo", "ICCID", "Número de Telefone", "CDT", "ID Hardware"], 1):
+            hdr_cell(ws3, 1, col, h)
+        row = 2
+        for k in pedidos_no_lote:
+            pedido_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
+            veiculo_exibido = k.get("veiculo_exibido") or ""
+            for u in pedidos_mod.listar_unidades(k["kit_template_id"]):
+                ws3.cell(row, 1, pedido_label)
+                ws3.cell(row, 2, veiculo_exibido)
+                ws3.cell(row, 3, u.get("iccid") or "")
+                ws3.cell(row, 4, u.get("telefone") or "")
+                ws3.cell(row, 5, u.get("cdt") or "")
+                ws3.cell(row, 6, u.get("id_hardware") or "")
+                if row % 2 == 0:
+                    for col in range(1, 7):
+                        ws3.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+                row += 1
+        for col, w in zip("ABCDEF", (34, 16, 24, 22, 18, 22)):
+            ws3.column_dimensions[col].width = w
+        ws3.freeze_panes = "A2"
 
     buf = BytesIO()
     wb.save(buf)

@@ -3,9 +3,13 @@ from database import db, now_brt
 
 
 def listar_templates_ativos() -> list:
+    """Templates disponíveis para iniciar uma nova bipagem. Pedidos já
+    marcados como concluídos ficam de fora — impede que o operador
+    refaça um pedido finalizado sem antes reabri-lo manualmente."""
     with db() as conn:
         rows = conn.execute(
-            "SELECT * FROM kit_template WHERE ativo = 1 ORDER BY nome"
+            "SELECT * FROM kit_template WHERE ativo = 1 "
+            "AND (tipo != 'pedido' OR concluido = 0) ORDER BY nome"
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -152,6 +156,20 @@ def toggle_ativo(template_id: int):
     with db() as conn:
         conn.execute(
             "UPDATE kit_template SET ativo = 1 - ativo WHERE id = ?", (template_id,)
+        )
+
+
+def marcar_concluido(template_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE kit_template SET concluido = 1 WHERE id = ?", (template_id,)
+        )
+
+
+def toggle_concluido(template_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE kit_template SET concluido = 1 - concluido WHERE id = ?", (template_id,)
         )
 
 

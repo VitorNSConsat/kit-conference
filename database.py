@@ -273,6 +273,7 @@ def init_db():
             "ALTER TABLE item_tipo ADD COLUMN controle_externo BOOLEAN DEFAULT 0",
             "ALTER TABLE item_tipo ADD COLUMN requer_serial BOOLEAN DEFAULT 0",
             "ALTER TABLE kit_template ADD COLUMN tipo TEXT NOT NULL DEFAULT 'kit'",
+            "ALTER TABLE kit_template ADD COLUMN concluido BOOLEAN DEFAULT 0",
         ]:
             try:
                 conn.execute(stmt)
