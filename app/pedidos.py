@@ -8,14 +8,19 @@ _ALIASES = {
     "telefone": "telefone", "numero de telefone ": "telefone",
     "cdt": "cdt",
     "id hardware": "id_hardware", "id_hardware": "id_hardware", "hardware": "id_hardware",
+    "pedido": "numero_pedido", "número do pedido": "numero_pedido",
+    "numero do pedido": "numero_pedido", "nº pedido": "numero_pedido",
+    "n° pedido": "numero_pedido", "no pedido": "numero_pedido",
 }
 
 
 def _detectar_header(ws):
-    """Procura a linha com o cabeçalho ICCID/Telefone/CDT/ID Hardware.
-    Retorna (indice_da_linha, mapa_coluna->campo, candidato_numero_pedido).
-    O candidato a número do pedido é o primeiro valor não vazio encontrado
-    em alguma linha ANTES do cabeçalho (célula solta acima da tabela)."""
+    """Procura a linha com o cabeçalho ICCID/Telefone/CDT/ID Hardware
+    (aceita também uma coluna 'Pedido'/'Número do Pedido' junto, repetida
+    em cada linha). Retorna (mapa_campo->coluna, candidato_numero_pedido).
+    Se não houver coluna de pedido no cabeçalho, o candidato é o primeiro
+    valor não vazio encontrado em alguma linha ANTES do cabeçalho (célula
+    solta acima da tabela)."""
     candidato_numero = None
     for row in ws.iter_rows(values_only=True):
         cells = [str(c).strip().lower() if c is not None else "" for c in row]
@@ -48,14 +53,6 @@ def importar_planilha(cliente: str, numero_pedido: str, criado_por: int,
         wb.close()
         raise ValueError("Cabeçalho com ICCID não encontrado na planilha.")
 
-    numero = (numero_pedido or "").strip() or (candidato or "")
-    if not numero:
-        wb.close()
-        raise ValueError(
-            "Não foi possível identificar o número do pedido na planilha — "
-            "informe manualmente no campo 'Número do Pedido'."
-        )
-
     def _val(row, campo):
         idx = mapa.get(campo)
         if idx is None or idx >= len(row) or row[idx] is None:
@@ -64,6 +61,7 @@ def importar_planilha(cliente: str, numero_pedido: str, criado_por: int,
         return valor or None
 
     unidades = []
+    numero_coluna = None
     past_header = False
     for row in ws.iter_rows(values_only=True):
         cells = [str(c).strip().lower() if c is not None else "" for c in row]
@@ -71,6 +69,8 @@ def importar_planilha(cliente: str, numero_pedido: str, criado_por: int,
             if "iccid" in cells:
                 past_header = True
             continue
+        if numero_coluna is None:
+            numero_coluna = _val(row, "numero_pedido")
         u = {campo: _val(row, campo) for campo in ("iccid", "telefone", "cdt", "id_hardware")}
         if any(u.values()):
             unidades.append(u)
@@ -79,6 +79,15 @@ def importar_planilha(cliente: str, numero_pedido: str, criado_por: int,
 
     if not unidades:
         raise ValueError("Nenhuma linha de dados encontrada na planilha.")
+
+    # Prioridade: número digitado manualmente > coluna "Pedido" na
+    # planilha > célula solta encontrada antes do cabeçalho.
+    numero = (numero_pedido or "").strip() or numero_coluna or (candidato or "")
+    if not numero:
+        raise ValueError(
+            "Não foi possível identificar o número do pedido na planilha — "
+            "informe manualmente no campo 'Número do Pedido'."
+        )
 
     nome = f"Pedido {numero}"
     template_id = templates_mod.criar_template(nome, cliente, criado_por, [], tipo="pedido")
