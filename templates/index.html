@@ -31,21 +31,32 @@
 
 <h1>Nova Sessão de Bipagem</h1>
 <div class="card" style="max-width: 500px;">
-    {% if templates_ativos %}
+    {% if templates_kit or templates_pedido %}
     <form method="post" action="/session/start">
         <div class="form-group">
-            <label for="kit_template_id">Selecione o Kit</label>
+            <label for="kit_template_id">Selecione o Kit ou Pedido</label>
             <select name="kit_template_id" id="kit_template_id" required>
                 <option value="">— escolha —</option>
-                {% for t in templates_ativos %}
-                <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
-                {% endfor %}
+                {% if templates_kit %}
+                <optgroup label="🎁 Kits">
+                    {% for t in templates_kit %}
+                    <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+                {% if templates_pedido %}
+                <optgroup label="📑 Pedidos">
+                    {% for t in templates_pedido %}
+                    <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Iniciar Sessão</button>
     </form>
     {% else %}
-    <div class="alert alert-danger">Nenhum template de kit ativo. Cadastre um em <a href="/admin/templates">Templates</a>.</div>
+    <div class="alert alert-danger">Nenhum template ativo. Cadastre um em <a href="/admin/templates">Criar Kit</a>.</div>
     {% endif %}
 </div>
 

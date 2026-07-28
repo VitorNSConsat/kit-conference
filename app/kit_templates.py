@@ -43,12 +43,13 @@ def get_itens_template(template_id: int) -> list:
 
 
 def criar_template(nome: str, cliente: str, criado_por: int,
-                   itens: list[dict]) -> int:
+                   itens: list[dict], tipo: str = "kit") -> int:
+    tipo = tipo if tipo in ("kit", "pedido") else "kit"
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em) "
-            "VALUES (?, ?, 1, ?, ?)",
-            (nome, cliente, criado_por, now_brt())
+            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em, tipo) "
+            "VALUES (?, ?, 1, ?, ?, ?)",
+            (nome, cliente, criado_por, now_brt(), tipo)
         )
         template_id = cur.lastrowid
         for item in itens:
@@ -72,9 +73,10 @@ def nova_versao(template_id: int, criado_por: int) -> int:
     nova_ver = template["versao"] + 1
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (template["nome"], template["cliente"], nova_ver, criado_por, now_brt())
+            "INSERT INTO kit_template (nome, cliente, versao, criado_por, criado_em, tipo) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (template["nome"], template["cliente"], nova_ver, criado_por, now_brt(),
+             template.get("tipo", "kit"))
         )
         novo_id = cur.lastrowid
         conn.execute("UPDATE kit_template SET ativo = 0 WHERE id = ?", (template_id,))
@@ -153,11 +155,12 @@ def toggle_ativo(template_id: int):
 
 
 def criar_template_do_bom(nome: str, cliente: str, criado_por: int,
-                           conteudo: bytes) -> tuple[int, dict]:
+                           conteudo: bytes, tipo: str = "kit") -> tuple[int, dict]:
     """Cria um kit_template a partir de um BOM Excel.
 
     Detecta automaticamente o cabeçalho ('Description' e 'Quantity').
     Cria item_tipo caso ainda não exista. Retorna (template_id, stats).
+    'tipo' é 'kit' ou 'pedido' — não confundir com item_tipo (tipo de item).
     """
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
@@ -223,5 +226,5 @@ def criar_template_do_bom(nome: str, cliente: str, criado_por: int,
     if not itens:
         raise ValueError("Nenhum item válido encontrado na planilha.")
 
-    template_id = criar_template(nome, cliente, criado_por, itens)
+    template_id = criar_template(nome, cliente, criado_por, itens, tipo=tipo)
     return template_id, {"itens_adicionados": len(itens), "tipos_criados": tipos_criados}

@@ -1,26 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Criar Kit — Conferência de Kits{% endblock %}
-{% block content %}
-<h1>Criar Kit</h1>
 
-{% if request.query_params.get('ok') == '1' %}
-<div class="alert alert-success">Template criado com sucesso.</div>
-{% elif request.query_params.get('ok') == 'editado' %}
-<div class="alert alert-success">Template atualizado com sucesso.</div>
-{% elif request.query_params.get('ok') == 'versao' %}
-<div class="alert alert-success">Nova versão criada com sucesso.</div>
-{% elif request.query_params.get('ok') == 'excluido' %}
-<div class="alert alert-success">Template excluído.</div>
-{% endif %}
-{% if erro %}
-<div class="alert alert-danger">{{ erro }}</div>
-{% endif %}
-
-<!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
+{% macro secao_templates(tipo, label, templates_lista, clientes, tipos_catalogo) %}
+<!-- ── Criar {{ label }} a partir do BOM ─────────────────────────────────── -->
 <div class="card" style="border:1px solid #b0c4de;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
-            <h2 style="margin:0;">📋 Criar Kit a partir do BOM</h2>
+            <h2 style="margin:0;">📋 Criar {{ label }} a partir do BOM</h2>
             <p style="margin:4px 0 0;font-size:13px;color:#666;">
                 Importa Description e Quantity da planilha e cria o template já com todos os itens.
                 Após a criação você pode editar livremente.
@@ -28,10 +14,11 @@
         </div>
     </div>
     <form method="post" action="/admin/templates/import-bom" enctype="multipart/form-data">
+        <input type="hidden" name="tipo" value="{{ tipo }}">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
             <div class="form-group" style="margin:0;">
-                <label>Nome do Kit *</label>
-                <input type="text" name="nome" required placeholder="ex: Kit VW 2025">
+                <label>Nome do {{ label }} *</label>
+                <input type="text" name="nome" required placeholder="ex: {{ label }} VW 2025">
             </div>
             <div class="form-group" style="margin:0;">
                 <label>Cliente *</label>
@@ -45,23 +32,23 @@
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">📥 Importar e Criar Kit</button>
+            <button type="submit" class="btn btn-primary">📥 Importar e Criar {{ label }}</button>
         </div>
     </form>
 </div>
 
 <div class="card">
-    <h2>Kits Cadastrados</h2>
-    {% if templates %}
+    <h2>{{ label }}s Cadastrados</h2>
+    {% if templates_lista %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou cliente..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-kits tr.filtro-item">
+           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-{{ tipo }} tr.filtro-item">
     {% endif %}
-    <table id="tabela-kits">
+    <table id="tabela-{{ tipo }}">
         <thead>
             <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
-        {% for t in templates %}
+        {% for t in templates_lista %}
         <tr class="filtro-item">
             <td>{{ t.nome }}</td>
             <td>{{ t.cliente }}</td>
@@ -82,19 +69,20 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum kit cadastrado ainda.</td></tr>
+        <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
 
 <div class="card">
-    <h2>Novo Kit</h2>
-    <form method="post" action="/admin/templates" id="form-template">
+    <h2>Novo {{ label }}</h2>
+    <form method="post" action="/admin/templates" id="form-template-{{ tipo }}">
+        <input type="hidden" name="tipo" value="{{ tipo }}">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
             <div class="form-group">
-                <label>Nome do Kit</label>
-                <input type="text" name="nome" required placeholder="ex: Kit Instalação Básica">
+                <label>Nome do {{ label }}</label>
+                <input type="text" name="nome" required placeholder="ex: {{ label }} Instalação Básica">
             </div>
             <div class="form-group">
                 <label>Cliente</label>
@@ -107,35 +95,35 @@
             </div>
         </div>
 
-        <button type="button" id="btn-comecar-kit" class="btn btn-primary" onclick="comecarNovoKit()">
-            ▶ Começar Novo Kit
+        <button type="button" id="btn-comecar-{{ tipo }}" class="btn btn-primary" onclick="comecarNovoTemplate('{{ tipo }}')">
+            ▶ Começar Novo {{ label }}
         </button>
 
-        <div id="secao-itens-kit" style="display:none;">
+        <div id="secao-itens-{{ tipo }}" style="display:none;">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; margin-top:16px;">
                 <h2 style="margin:0;">Tipos disponíveis</h2>
-                <button type="button" onclick="adicionarTodos()" class="btn btn-warning">
+                <button type="button" onclick="adicionarTodos('{{ tipo }}')" class="btn btn-warning">
                     ⚡ Inserir todos os itens
                 </button>
             </div>
             <p style="font-size:12px;color:#888;margin-bottom:10px;">
-                Clique nos cards para adicionar ao kit. Itens com o mesmo <strong>Código do Saquinho</strong> são bipados juntos (ex: parafusos).
+                Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Saquinho</strong> são bipados juntos (ex: parafusos).
             </p>
 
             {% if tipos_catalogo %}
             <input type="text" class="busca-box" placeholder="🔍 Buscar tipo..."
-                   oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid .filtro-item">
-            <div class="tipos-grid-admin" id="tipos-grid">
-                {% for tipo in tipos_catalogo %}
+                   oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid-{{ tipo }} .filtro-item">
+            <div class="tipos-grid-admin" id="tipos-grid-{{ tipo }}">
+                {% for tp in tipos_catalogo %}
                 <button type="button" class="tipo-card-admin filtro-item"
-                        data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
-                        data-unidade="{{ tipo.unidade | default('un') }}"
-                        data-serial="{{ '1' if tipo.requer_serial else '0' }}"
-                        onclick="adicionarTipoFromCard(this)">
-                    {{ tipo.nome }}
-                    {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
-                    {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
-                    {% if tipo.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">🔢 serial</span>{% endif %}
+                        data-id="{{ tp.id }}" data-nome="{{ tp.nome | e }}"
+                        data-unidade="{{ tp.unidade | default('un') }}"
+                        data-serial="{{ '1' if tp.requer_serial else '0' }}"
+                        onclick="adicionarTipoFromCard(this, '{{ tipo }}')">
+                    {{ tp.nome }}
+                    {% if tp.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
+                    {% if tp.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
+                    {% if tp.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">🔢 serial</span>{% endif %}
                 </button>
                 {% endfor %}
             </div>
@@ -147,16 +135,47 @@
 
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
                 <strong>Itens selecionados</strong>
-                <span id="contagem-sel" style="font-size:13px;color:#888;"></span>
+                <span id="contagem-sel-{{ tipo }}" style="font-size:13px;color:#888;"></span>
             </div>
-            <div id="msg-vazio" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
+            <div id="msg-vazio-{{ tipo }}" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
                 Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
             </div>
-            <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+            <div id="itens-container-{{ tipo }}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
 
-            <button type="submit" class="btn btn-primary">Criar Kit</button>
+            <button type="submit" class="btn btn-primary">Criar {{ label }}</button>
         </div>
     </form>
+</div>
+{% endmacro %}
+
+{% block content %}
+<h1>Criar Kit</h1>
+
+{% if request.query_params.get('ok') == '1' %}
+<div class="alert alert-success">Template criado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'editado' %}
+<div class="alert alert-success">Template atualizado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'versao' %}
+<div class="alert alert-success">Nova versão criada com sucesso.</div>
+{% elif request.query_params.get('ok') == 'excluido' %}
+<div class="alert alert-success">Template excluído.</div>
+{% elif request.query_params.get('ok') == 'bom' %}
+<div class="alert alert-success">Template importado com sucesso.</div>
+{% endif %}
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="tabs-menu">
+    <button type="button" class="tab-btn" data-tab="kit" onclick="mudarTabTemplates('kit')">🎁 Kit</button>
+    <button type="button" class="tab-btn" data-tab="pedido" onclick="mudarTabTemplates('pedido')">📑 Pedido</button>
+</div>
+
+<div id="tab-kit" class="tab-panel">
+    {{ secao_templates('kit', 'Kit', templates_kit, clientes, tipos_catalogo) }}
+</div>
+<div id="tab-pedido" class="tab-panel" style="display:none;">
+    {{ secao_templates('pedido', 'Pedido', templates_pedido, clientes, tipos_catalogo) }}
 </div>
 {% endblock %}
 {% block scripts %}
@@ -194,23 +213,49 @@
 }
 .item-sel-nome { font-weight: 600; font-size: 14px; flex: 1; min-width: 120px; color: #1a3a5c; }
 .item-sel-campos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── Menu de abas (mesmo padrão de Itens & Estoque) ── */
+.tabs-menu {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid #e0e7ef;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: color .12s, border-color .12s;
+}
+.tab-btn:hover { color: #1a3a5c; }
+.tab-btn.active {
+    color: #1a3a5c;
+    border-bottom-color: #1a3a5c;
+}
 </style>
 <script>
-let idx = 0;
+let idx = { kit: 0, pedido: 0 };
 const catalogo = {{ tipos_catalogo | tojson }};
 
-function comecarNovoKit() {
-    document.getElementById('btn-comecar-kit').style.display = 'none';
-    document.getElementById('secao-itens-kit').style.display = 'block';
+function comecarNovoTemplate(tipo) {
+    document.getElementById('btn-comecar-' + tipo).style.display = 'none';
+    document.getElementById('secao-itens-' + tipo).style.display = 'block';
 }
 
-function adicionarTipoFromCard(btn) {
-    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un', btn.dataset.serial === '1');
+function adicionarTipoFromCard(btn, tipo) {
+    adicionarTipo(tipo, parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un', btn.dataset.serial === '1');
 }
 
-function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
+function adicionarTipo(tipo, tipoId, tipoNome, tipoUnidade, requerSerial) {
     const isMeter = (tipoUnidade === 'm');
-    const container = document.getElementById('itens-container');
+    const container = document.getElementById('itens-container-' + tipo);
+    const i = idx[tipo];
     const div = document.createElement('div');
     div.className = 'item-sel';
     div.innerHTML =
@@ -218,48 +263,66 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
             (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>` : '') +
             (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>` : '') +
         `</div>` +
-        `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
-        (requerSerial ? `<input type="hidden" name="requer_serial_${idx}" value="1">` : '') +
+        `<input type="hidden" name="item_tipo_id_${i}" value="${tipoId}">` +
+        (requerSerial ? `<input type="hidden" name="requer_serial_${i}" value="1">` : '') +
         `<div class="item-sel-campos">` +
           `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
-          `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
+          `<input type="number" name="qtd_${i}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
                `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
           `<label style="font-size:12px;color:#555;">Saquinho</label>` +
-          `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
+          `<input type="text" name="componente_codigo_${i}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
-            `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
+            `<input type="checkbox" name="obrigatorio_${i}" value="1" checked> Obrigatório` +
           `</label>` +
-          `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>` +
+          `<button type="button" onclick="removerItem(this, '${tipo}')" class="btn btn-sm btn-danger">✕</button>` +
         `</div>`;
     container.appendChild(div);
-    idx++;
-    atualizarVazio();
+    idx[tipo]++;
+    atualizarVazio(tipo);
 }
 
-function adicionarTodos() {
-    catalogo.forEach(t => adicionarTipo(t.id, t.nome, t.unidade || 'un', !!t.requer_serial));
+function adicionarTodos(tipo) {
+    catalogo.forEach(t => adicionarTipo(tipo, t.id, t.nome, t.unidade || 'un', !!t.requer_serial));
 }
 
-function removerItem(btn) {
+function removerItem(btn, tipo) {
     btn.closest('.item-sel').remove();
-    reindexar();
-    atualizarVazio();
+    reindexar(tipo);
+    atualizarVazio(tipo);
 }
 
-function reindexar() {
-    const container = document.getElementById('itens-container');
+function reindexar(tipo) {
+    const container = document.getElementById('itens-container-' + tipo);
     Array.from(container.children).forEach((div, i) => {
         div.querySelectorAll('[name]').forEach(el => {
             el.name = el.name.replace(/_\d+$/, '_' + i);
         });
     });
-    idx = container.children.length;
+    idx[tipo] = container.children.length;
 }
 
-function atualizarVazio() {
-    const n = document.getElementById('itens-container').children.length;
-    document.getElementById('msg-vazio').style.display = n > 0 ? 'none' : '';
-    document.getElementById('contagem-sel').textContent = n > 0 ? `(${n} ${n === 1 ? 'item' : 'itens'})` : '';
+function atualizarVazio(tipo) {
+    const n = document.getElementById('itens-container-' + tipo).children.length;
+    document.getElementById('msg-vazio-' + tipo).style.display = n > 0 ? 'none' : '';
+    document.getElementById('contagem-sel-' + tipo).textContent = n > 0 ? `(${n} ${n === 1 ? 'item' : 'itens'})` : '';
 }
+
+// ── Abas ──────────────────────────────────────────────────────────────────
+function mudarTabTemplates(nome) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + nome).style.display = 'block';
+    document.querySelector('.tab-btn[data-tab="' + nome + '"]').classList.add('active');
+    const url = new URL(window.location);
+    url.searchParams.set('tab', nome);
+    window.history.replaceState({}, '', url);
+}
+
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const tabServidor = "{{ tab_ativo or '' }}";
+    const tabInicial = params.get('tab') || tabServidor || 'kit';
+    mudarTabTemplates(['kit', 'pedido'].includes(tabInicial) ? tabInicial : 'kit');
+})();
 </script>
 {% endblock %}

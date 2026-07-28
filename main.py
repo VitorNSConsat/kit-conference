@@ -227,7 +227,8 @@ async def home(request: Request):
     templates_ativos = templates_mod.listar_templates_ativos()
     sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento()
     return render(request, "index.html", {
-        "templates_ativos": templates_ativos,
+        "templates_kit": [t for t in templates_ativos if t.get("tipo", "kit") == "kit"],
+        "templates_pedido": [t for t in templates_ativos if t.get("tipo") == "pedido"],
         "sessoes_em_andamento": sessoes_em_andamento,
     })
 
@@ -476,15 +477,20 @@ async def admin_items_delete(request: Request, item_id: int):
 
 # ── Admin: Templates ──────────────────────────────────────────────────────────
 
+def _admin_templates_context() -> dict:
+    todos = templates_mod.listar_todos()
+    return {
+        "templates_kit": [t for t in todos if t.get("tipo", "kit") == "kit"],
+        "templates_pedido": [t for t in todos if t.get("tipo") == "pedido"],
+        "tipos_catalogo": items_mod.listar_tipos(apenas_ativos=True),
+        "clientes": clientes_mod.listar(),
+    }
+
+
 @app.get("/admin/templates", response_class=HTMLResponse)
 @require_login
 async def admin_templates(request: Request):
-    todos = templates_mod.listar_todos()
-    tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
-    clientes = clientes_mod.listar()
-    return render(request, "admin_templates.html",
-                  {"templates": todos, "tipos_catalogo": tipos_ativos,
-                   "clientes": clientes})
+    return render(request, "admin_templates.html", _admin_templates_context())
 
 
 @app.post("/admin/templates/import-bom")
@@ -492,31 +498,30 @@ async def admin_templates(request: Request):
 async def admin_templates_import_bom(request: Request,
                                       nome: str = Form(""),
                                       cliente: str = Form(""),
+                                      tipo: str = Form("kit"),
                                       arquivo: UploadFile = File(...)):
     user = get_current_user(request)
     nome, cliente = nome.strip(), cliente.strip()
+    tipo = tipo if tipo in ("kit", "pedido") else "kit"
     if not nome or not cliente:
-        todos = templates_mod.listar_todos()
-        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
-        clientes = clientes_mod.listar()
-        return render(request, "admin_templates.html",
-                      {"templates": todos, "tipos_catalogo": tipos_ativos,
-                       "clientes": clientes,
-                       "erro": "Preencha nome e cliente antes de importar o BOM."})
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": "Preencha nome e cliente antes de importar o BOM.",
+            "tab_ativo": tipo,
+        })
     try:
         conteudo = await arquivo.read()
         template_id, stats = templates_mod.criar_template_do_bom(
-            nome, cliente, user["id"], conteudo
+            nome, cliente, user["id"], conteudo, tipo=tipo
         )
         q = f"ok=bom&itens={stats['itens_adicionados']}&tipos={stats['tipos_criados']}"
         return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
     except ValueError as e:
-        todos = templates_mod.listar_todos()
-        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
-        clientes = clientes_mod.listar()
-        return render(request, "admin_templates.html",
-                      {"templates": todos, "tipos_catalogo": tipos_ativos,
-                       "clientes": clientes, "erro": str(e)})
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": str(e),
+            "tab_ativo": tipo,
+        })
 
 
 @app.post("/admin/templates")
@@ -526,17 +531,17 @@ async def admin_templates_post(request: Request):
     form = await request.form()
     nome = form.get("nome", "").strip()
     cliente = form.get("cliente", "").strip()
+    tipo = form.get("tipo", "kit").strip()
+    tipo = tipo if tipo in ("kit", "pedido") else "kit"
     itens = _parse_itens_form(form)
     if not nome or not cliente or not itens:
-        todos = templates_mod.listar_todos()
-        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
-        clientes = clientes_mod.listar()
-        return render(request, "admin_templates.html",
-                      {"templates": todos, "tipos_catalogo": tipos_ativos,
-                       "clientes": clientes,
-                       "erro": "Preencha nome, cliente e ao menos 1 item."})
-    templates_mod.criar_template(nome, cliente, user["id"], itens)
-    return RedirectResponse("/admin/templates?ok=1", status_code=302)
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": "Preencha nome, cliente e ao menos 1 item.",
+            "tab_ativo": tipo,
+        })
+    templates_mod.criar_template(nome, cliente, user["id"], itens, tipo=tipo)
+    return RedirectResponse(f"/admin/templates?ok=1&tab={tipo}", status_code=302)
 
 
 @app.get("/admin/templates/{template_id}/edit", response_class=HTMLResponse)
@@ -577,36 +582,44 @@ async def admin_template_edit_post(request: Request, template_id: int):
             "erro": "Preencha nome, cliente e ao menos 1 item.",
         })
     templates_mod.atualizar_template(template_id, nome, cliente, itens)
-    return RedirectResponse("/admin/templates?ok=editado", status_code=302)
+    template = templates_mod.buscar_template(template_id)
+    tipo = template.get("tipo", "kit") if template else "kit"
+    return RedirectResponse(f"/admin/templates?ok=editado&tab={tipo}", status_code=302)
 
 
 @app.post("/admin/templates/{template_id}/delete")
 @require_login
 async def admin_template_delete(request: Request, template_id: int):
+    template = templates_mod.buscar_template(template_id)
+    tipo = template.get("tipo", "kit") if template else "kit"
     try:
         templates_mod.deletar_template(template_id)
-        return RedirectResponse("/admin/templates?ok=excluido", status_code=302)
+        return RedirectResponse(f"/admin/templates?ok=excluido&tab={tipo}", status_code=302)
     except ValueError as e:
-        todos = templates_mod.listar_todos()
-        tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
-        return render(request, "admin_templates.html",
-                      {"templates": todos, "tipos_catalogo": tipos_ativos,
-                       "erro": str(e)})
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": str(e),
+            "tab_ativo": tipo,
+        })
 
 
 @app.post("/admin/templates/{template_id}/nova-versao")
 @require_login
 async def admin_template_nova_versao(request: Request, template_id: int):
     user = get_current_user(request)
+    template = templates_mod.buscar_template(template_id)
+    tipo = template.get("tipo", "kit") if template else "kit"
     templates_mod.nova_versao(template_id, user["id"])
-    return RedirectResponse("/admin/templates?ok=versao", status_code=302)
+    return RedirectResponse(f"/admin/templates?ok=versao&tab={tipo}", status_code=302)
 
 
 @app.post("/admin/templates/{template_id}/toggle")
 @require_login
 async def admin_template_toggle(request: Request, template_id: int):
+    template = templates_mod.buscar_template(template_id)
+    tipo = template.get("tipo", "kit") if template else "kit"
     templates_mod.toggle_ativo(template_id)
-    return RedirectResponse("/admin/templates", status_code=302)
+    return RedirectResponse(f"/admin/templates?tab={tipo}", status_code=302)
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────────
@@ -1012,14 +1025,15 @@ async def kit_validar(request: Request, kit_id: str):
 async def reports(request: Request,
                   data_ini: str = "",
                   data_fim: str = "",
-                  operador_id: str = ""):
+                  operador_id: str = "",
+                  tipo: str = ""):
     query = """
         SELECT kr.kit_id, kr.finalizado_em, kr.status,
                kr.veiculo, kr.garagem,
                kr.veiculo_id,
                COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
                v.id AS v_id,
-               kt.nome AS kit_nome, kt.cliente, kt.versao,
+               kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
                u.nome AS operador_nome,
                pq.id AS pq_id,
                (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
@@ -1040,6 +1054,9 @@ async def reports(request: Request,
     if operador_id:
         query += " AND kr.operador_id = ?"
         params.append(int(operador_id))
+    if tipo in ("kit", "pedido"):
+        query += " AND kt.tipo = ?"
+        params.append(tipo)
     query += " ORDER BY kr.finalizado_em DESC LIMIT 200"
 
     with db() as conn:
@@ -1053,6 +1070,7 @@ async def reports(request: Request,
         "data_ini": data_ini,
         "data_fim": data_fim,
         "operador_id": operador_id,
+        "tipo": tipo,
         "ok": request.query_params.get("ok", ""),
         "veiculos_todos": veiculos_todos,
     })
