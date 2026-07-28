@@ -45,6 +45,17 @@ def atualizar(veiculo_id: int, numero: str, cliente: str, garagem: str):
         )
 
 
+def atualizar_garagem(veiculo_id: int, garagem: str):
+    """Atualiza só a garagem — usado ao finalizar um kit vinculado a um
+    veículo cadastrado, propagando o que foi digitado na bipagem (que na
+    prática também guarda o modelo do veículo) para o cadastro dele."""
+    garagem = (garagem or "").strip().upper()
+    if not garagem:
+        return
+    with db() as conn:
+        conn.execute("UPDATE veiculos SET garagem = ? WHERE id = ?", (garagem, veiculo_id))
+
+
 def desativar(veiculo_id: int):
     with db() as conn:
         conn.execute("UPDATE veiculos SET ativo=0 WHERE id=?", (veiculo_id,))

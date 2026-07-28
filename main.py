@@ -889,6 +889,9 @@ async def session_finalize(request: Request, sessao_id: int):
             (kit_id, zpl, html_label, user["id"], now_brt())
         )
 
+    if veiculo_id and garagem:
+        veiculos_mod.atualizar_garagem(veiculo_id, garagem)
+
     return RedirectResponse(
         f"/session/{sessao_id}/complete?kit_id={kit_id}", status_code=302
     )
@@ -1378,6 +1381,145 @@ async def report_excel(request: Request, kit_id: str):
     )
 
 
+@app.get("/reports/exportar-todos.xlsx")
+@require_login
+async def reports_exportar_todos(request: Request,
+                                  data_ini: str = "",
+                                  data_fim: str = "",
+                                  operador_id: str = "",
+                                  tipo: str = ""):
+    """Exporta todos os kits/pedidos finalizados que batem com os filtros
+    atuais da tela de Relatórios (mesmos filtros — não é o kit único, é
+    o lote inteiro), com uma aba de resumo e uma de itens detalhados."""
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    query = """
+        SELECT kr.kit_id, kr.finalizado_em, kr.veiculo, kr.garagem,
+               COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
+               kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
+               u.nome AS operador_nome,
+               (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
+        FROM kit_record kr
+        JOIN kit_template kt ON kt.id = kr.kit_template_id
+        JOIN users u ON u.id = kr.operador_id
+        LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+        WHERE 1=1
+    """
+    params = []
+    if data_ini:
+        query += " AND DATE(kr.finalizado_em) >= ?"
+        params.append(data_ini)
+    if data_fim:
+        query += " AND DATE(kr.finalizado_em) <= ?"
+        params.append(data_fim)
+    if operador_id:
+        query += " AND kr.operador_id = ?"
+        params.append(int(operador_id))
+    if tipo in ("kit", "pedido"):
+        query += " AND kt.tipo = ?"
+        params.append(tipo)
+    query += " ORDER BY kr.finalizado_em DESC LIMIT 200"
+
+    with db() as conn:
+        kits = [dict(r) for r in conn.execute(query, params).fetchall()]
+        kit_ids = [k["kit_id"] for k in kits]
+        itens_por_kit = {}
+        if kit_ids:
+            placeholders = ",".join("?" * len(kit_ids))
+            rows_itens = conn.execute(
+                "SELECT kr.kit_id, it.nome AS tipo_nome, si.codigo_barra, "
+                "si.serial_number, si.bipado_em "
+                "FROM scan_session_items si "
+                "JOIN item_tipo it ON it.id = si.item_tipo_id "
+                "JOIN kit_record kr ON kr.sessao_id = si.sessao_id "
+                f"WHERE kr.kit_id IN ({placeholders}) "
+                "ORDER BY kr.kit_id, it.nome, si.bipado_em",
+                kit_ids
+            ).fetchall()
+            for r in rows_itens:
+                itens_por_kit.setdefault(r["kit_id"], []).append(dict(r))
+
+    wb = openpyxl.Workbook()
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+
+    def hdr_cell(ws, row, col, value):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        return c
+
+    # ── Aba Resumo ────────────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "Resumo"
+    for col, h in enumerate(
+        ["Tipo", "Kit", "Cliente", "Veículo", "Garagem", "Operador",
+         "Finalizado em", "Verificações"], 1):
+        hdr_cell(ws1, 1, col, h)
+    for i, k in enumerate(kits):
+        row = i + 2
+        ws1.cell(row, 1, "Pedido" if k.get("kit_tipo") == "pedido" else "Kit")
+        ws1.cell(row, 2, f"{k['kit_nome']} v{k['versao']}")
+        ws1.cell(row, 3, k["cliente"])
+        ws1.cell(row, 4, k.get("veiculo_exibido") or "")
+        ws1.cell(row, 5, k.get("garagem") or "")
+        ws1.cell(row, 6, k["operador_nome"])
+        ws1.cell(row, 7, k.get("finalizado_em") or "")
+        ws1.cell(row, 8, k.get("num_validacoes") or 0)
+        if i % 2 == 0:
+            for col in range(1, 9):
+                ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCDEFGH", (10, 30, 22, 16, 16, 22, 20, 14)):
+        ws1.column_dimensions[col].width = w
+    ws1.freeze_panes = "A2"
+
+    # ── Aba Detalhes ──────────────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Detalhes")
+    for col, h in enumerate(
+        ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number",
+         "Origem", "Bipado em"], 1):
+        hdr_cell(ws2, 1, col, h)
+    row = 2
+    for k in kits:
+        veiculo_exibido = k.get("veiculo_exibido") or ""
+        kit_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
+        for item in itens_por_kit.get(k["kit_id"], []):
+            codigo = item["codigo_barra"]
+            if codigo.startswith("COMP:"):
+                parts = codigo.split(":", 3)
+                origem = "Saquinho"
+                codigo_display = parts[1] if len(parts) >= 2 else codigo
+            else:
+                origem = "Bipagem direta"
+                codigo_display = codigo
+            ws2.cell(row, 1, kit_label)
+            ws2.cell(row, 2, veiculo_exibido)
+            ws2.cell(row, 3, item["tipo_nome"])
+            ws2.cell(row, 4, codigo_display)
+            ws2.cell(row, 5, item.get("serial_number") or "")
+            ws2.cell(row, 6, origem)
+            ws2.cell(row, 7, item.get("bipado_em") or "")
+            if row % 2 == 0:
+                for col in range(1, 8):
+                    ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+            row += 1
+    for col, w in zip("ABCDEFG", (34, 16, 28, 24, 20, 16, 20)):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = "A2"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="relatorio_kits.xlsx"'},
+    )
+
+
 @app.post("/reports/{kit_id}/delete")
 @require_login
 async def report_delete(request: Request, kit_id: str):
@@ -1409,12 +1551,17 @@ async def reports_validacoes_export(request: Request,
                                     data_ini: str = "",
                                     data_fim: str = "",
                                     validador_id: str = ""):
+    """Uma linha por kit (não por verificação) — se o mesmo kit foi
+    verificado mais de uma vez, cada verificação vira um bloco extra de
+    colunas (Verificação 1, Verificação 2...) na mesma linha, em vez de
+    duplicar veículo/cliente/itens numa linha nova por verificação."""
     from fastapi.responses import Response as _Resp
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
     from io import BytesIO
 
-    rows = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
+    grupos = validacoes_mod.listar_relatorio_agrupado(data_ini, data_fim, validador_id)
+    max_verificacoes = max((len(g["verificacoes"]) for g in grupos), default=0)
 
     azul = "1A3A5C"
     branco = "FFFFFF"
@@ -1426,10 +1573,12 @@ async def reports_validacoes_export(request: Request,
 
     headers = [
         "Kit ID", "Template", "Cliente", "Veículo", "Garagem",
-        "Operador Conferência", "Data Conferência",
-        "Verificado Por", "Data Verificação", "Observação", "Itens"
+        "Operador Conferência", "Data Conferência", "Itens"
     ]
-    widths = [14, 28, 22, 14, 14, 22, 20, 22, 20, 30, 50]
+    widths = [14, 28, 22, 14, 14, 22, 20, 50]
+    for n in range(1, max_verificacoes + 1):
+        headers += [f"Verificação {n} - Por", f"Verificação {n} - Data", f"Verificação {n} - Observação"]
+        widths += [22, 20, 30]
 
     for col, (h, w) in enumerate(zip(headers, widths), 1):
         c = ws.cell(row=1, column=col, value=h)
@@ -1438,23 +1587,26 @@ async def reports_validacoes_export(request: Request,
         c.alignment = Alignment(horizontal="center", vertical="center")
         ws.column_dimensions[ws.cell(1, col).column_letter].width = w
 
-    for i, r in enumerate(rows, 2):
-        ws.cell(i, 1, r["kit_id"][:8].upper())
-        ws.cell(i, 2, r["kit_nome"])
-        ws.cell(i, 3, r["cliente"])
-        ws.cell(i, 4, r.get("veiculo") or "")
-        ws.cell(i, 5, r.get("garagem") or "")
-        ws.cell(i, 6, r["operador_nome"])
-        ws.cell(i, 7, r.get("finalizado_em", ""))
-        ws.cell(i, 8, r["validado_por_nome"])
-        ws.cell(i, 9, r["validado_em"])
-        ws.cell(i, 10, r.get("observacao") or "")
-        itens_texto = (r.get("itens_resumo") or "").replace(" | ", "\n")
-        c_itens = ws.cell(i, 11, itens_texto)
+    for i, g in enumerate(grupos, 2):
+        ws.cell(i, 1, g["kit_id"][:8].upper())
+        ws.cell(i, 2, g["kit_nome"])
+        ws.cell(i, 3, g["cliente"])
+        ws.cell(i, 4, g.get("veiculo") or "")
+        ws.cell(i, 5, g.get("garagem") or "")
+        ws.cell(i, 6, g["operador_nome"])
+        ws.cell(i, 7, g.get("finalizado_em") or "")
+        itens_texto = (g.get("itens_resumo") or "").replace(" | ", "\n")
+        c_itens = ws.cell(i, 8, itens_texto)
         c_itens.alignment = Alignment(wrap_text=True, vertical="top")
+        col = 9
+        for v in g["verificacoes"]:
+            ws.cell(i, col, v["validado_por_nome"])
+            ws.cell(i, col + 1, v["validado_em"])
+            ws.cell(i, col + 2, v.get("observacao") or "")
+            col += 3
         if i % 2 == 0:
-            for col in range(1, 12):
-                ws.cell(i, col).fill = PatternFill("solid", fgColor=cinza)
+            for c in range(1, len(headers) + 1):
+                ws.cell(i, c).fill = PatternFill("solid", fgColor=cinza)
 
     ws.freeze_panes = "A2"
     buf = BytesIO()
