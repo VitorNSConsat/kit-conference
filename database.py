@@ -246,6 +246,18 @@ def init_db():
                 DROP TABLE prateleira_posicoes_old;
             """)
 
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS pedido_unidades (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                kit_template_id INTEGER NOT NULL REFERENCES kit_template(id),
+                iccid           TEXT,
+                telefone        TEXT,
+                cdt             TEXT,
+                id_hardware     TEXT,
+                criado_em       TEXT NOT NULL
+            );
+        """)
+
         # Migrations (no-op when column already exists)
         for stmt in [
             "ALTER TABLE kit_template_items ADD COLUMN componente_codigo TEXT",

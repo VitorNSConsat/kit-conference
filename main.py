@@ -28,6 +28,7 @@ import app.veiculos as veiculos_mod
 import app.clientes as clientes_mod
 import app.codigos_gerados as codigos_gerados_mod
 import app.prateleira as prateleira_mod
+import app.pedidos as pedidos_mod
 
 load_dotenv()
 
@@ -524,6 +525,39 @@ async def admin_templates_import_bom(request: Request,
         })
 
 
+@app.post("/admin/templates/import-pedido")
+@require_login
+async def admin_templates_import_pedido(request: Request,
+                                         cliente: str = Form(""),
+                                         numero_pedido: str = Form(""),
+                                         arquivo: UploadFile = File(...)):
+    """Cria um Pedido a partir da planilha de unidades (ICCID, Número de
+    Telefone, CDT, ID Hardware) — diferente do BOM do Kit: não cria itens
+    do template, só guarda as unidades para consulta. Os itens do pedido
+    são adicionados manualmente depois, na tela de edição."""
+    user = get_current_user(request)
+    cliente = cliente.strip()
+    if not cliente:
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": "Selecione o cliente antes de importar a planilha do pedido.",
+            "tab_ativo": "pedido",
+        })
+    try:
+        conteudo = await arquivo.read()
+        template_id, stats = pedidos_mod.importar_planilha(
+            cliente, numero_pedido, user["id"], conteudo
+        )
+        q = f"ok=pedido&unidades={stats['unidades']}&numero={quote(stats['numero'])}"
+        return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
+    except ValueError as e:
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": str(e),
+            "tab_ativo": "pedido",
+        })
+
+
 @app.post("/admin/templates")
 @require_login
 async def admin_templates_post(request: Request):
@@ -554,12 +588,14 @@ async def admin_template_edit_page(request: Request, template_id: int):
     tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
     clientes = clientes_mod.listar()
     sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento(template_id=template_id)
+    unidades = pedidos_mod.listar_unidades(template_id) if template.get("tipo") == "pedido" else []
     return render(request, "admin_template_edit.html", {
         "template": template,
         "itens": itens,
         "tipos_catalogo": tipos_ativos,
         "clientes": clientes,
         "sessoes_em_andamento": sessoes_em_andamento,
+        "unidades": unidades,
     })
 
 
@@ -585,6 +621,55 @@ async def admin_template_edit_post(request: Request, template_id: int):
     template = templates_mod.buscar_template(template_id)
     tipo = template.get("tipo", "kit") if template else "kit"
     return RedirectResponse(f"/admin/templates?ok=editado&tab={tipo}", status_code=302)
+
+
+@app.get("/admin/templates/{template_id}/unidades/exportar.xlsx")
+@require_login
+async def admin_template_unidades_exportar(request: Request, template_id: int):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    template = templates_mod.buscar_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404)
+    unidades = pedidos_mod.listar_unidades(template_id)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Unidades"
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+
+    for col, h in enumerate(["ICCID", "Número de Telefone", "CDT", "ID Hardware"], 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+
+    for i, u in enumerate(unidades):
+        row = i + 2
+        ws.cell(row, 1, u.get("iccid") or "")
+        ws.cell(row, 2, u.get("telefone") or "")
+        ws.cell(row, 3, u.get("cdt") or "")
+        ws.cell(row, 4, u.get("id_hardware") or "")
+        if i % 2 == 0:
+            for col in range(1, 5):
+                ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCD", (24, 22, 18, 22)):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    import re as _re
+    safe = _re.sub(r'[^\w\-]', '_', template["nome"])
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}_unidades.xlsx"'},
+    )
 
 
 @app.post("/admin/templates/{template_id}/delete")

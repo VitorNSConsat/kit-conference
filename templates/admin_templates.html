@@ -2,11 +2,12 @@
 {% block title %}Criar Kit — Conferência de Kits{% endblock %}
 
 {% macro secao_templates(tipo, label, templates_lista, clientes, tipos_catalogo) %}
-<!-- ── Criar {{ label }} a partir do BOM ─────────────────────────────────── -->
+{% if tipo == 'kit' %}
+<!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
 <div class="card" style="border:1px solid #b0c4de;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
-            <h2 style="margin:0;">📋 Criar {{ label }} a partir do BOM</h2>
+            <h2 style="margin:0;">📋 Criar Kit a partir do BOM</h2>
             <p style="margin:4px 0 0;font-size:13px;color:#666;">
                 Importa Description e Quantity da planilha e cria o template já com todos os itens.
                 Após a criação você pode editar livremente.
@@ -14,11 +15,11 @@
         </div>
     </div>
     <form method="post" action="/admin/templates/import-bom" enctype="multipart/form-data">
-        <input type="hidden" name="tipo" value="{{ tipo }}">
+        <input type="hidden" name="tipo" value="kit">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
             <div class="form-group" style="margin:0;">
-                <label>Nome do {{ label }} *</label>
-                <input type="text" name="nome" required placeholder="ex: {{ label }} VW 2025">
+                <label>Nome do Kit *</label>
+                <input type="text" name="nome" required placeholder="ex: Kit VW 2025">
             </div>
             <div class="form-group" style="margin:0;">
                 <label>Cliente *</label>
@@ -32,10 +33,47 @@
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">📥 Importar e Criar {{ label }}</button>
+            <button type="submit" class="btn btn-primary">📥 Importar e Criar Kit</button>
         </div>
     </form>
 </div>
+{% else %}
+<!-- ── Importar Planilha do Pedido (ICCID/Telefone/CDT/ID Hardware) ──────── -->
+<div class="card" style="border:1px solid #b0c4de;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+        <div>
+            <h2 style="margin:0;">📋 Importar Planilha do Pedido</h2>
+            <p style="margin:4px 0 0;font-size:13px;color:#666;">
+                Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
+                <strong>CDT</strong> e <strong>ID Hardware</strong> — uma linha por unidade. O número do
+                pedido é detectado automaticamente na planilha; se não for encontrado, informe abaixo.
+                Os itens do pedido (tipos/quantidades) são adicionados manualmente depois, na edição.
+            </p>
+        </div>
+    </div>
+    <form method="post" action="/admin/templates/import-pedido" enctype="multipart/form-data">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="form-group" style="margin:0;">
+                <label>Cliente *</label>
+                <select name="cliente" required>
+                    <option value="">— selecione —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.nome }}">{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>Número do Pedido</label>
+                <input type="text" name="numero_pedido" placeholder="deixe em branco para detectar automaticamente">
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
+            <button type="submit" class="btn btn-primary">📥 Importar Planilha</button>
+        </div>
+    </form>
+</div>
+{% endif %}
 
 <div class="card">
     <h2>{{ label }}s Cadastrados</h2>
@@ -149,7 +187,7 @@
 {% endmacro %}
 
 {% block content %}
-<h1>Criar Kit</h1>
+<h1>Criar Kit/Pedido</h1>
 
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Template criado com sucesso.</div>
@@ -161,6 +199,10 @@
 <div class="alert alert-success">Template excluído.</div>
 {% elif request.query_params.get('ok') == 'bom' %}
 <div class="alert alert-success">Template importado com sucesso.</div>
+{% elif request.query_params.get('ok') == 'pedido' %}
+<div class="alert alert-success">
+    Pedido criado com sucesso — {{ request.query_params.get('unidades') }} unidade(s) importada(s).
+</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>

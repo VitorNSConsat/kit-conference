@@ -144,6 +144,7 @@ def deletar_template(template_id: int):
         conn.execute("DELETE FROM kit_record WHERE kit_template_id = ?", (template_id,))
         conn.execute("DELETE FROM scan_session WHERE kit_template_id = ?", (template_id,))
         conn.execute("DELETE FROM kit_template_items WHERE kit_template_id = ?", (template_id,))
+        conn.execute("DELETE FROM pedido_unidades WHERE kit_template_id = ?", (template_id,))
         conn.execute("DELETE FROM kit_template WHERE id = ?", (template_id,))
 
 
