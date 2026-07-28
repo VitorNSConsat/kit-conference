@@ -2,106 +2,167 @@ import io
 from database import db, now_brt
 import app.kit_templates as templates_mod
 
-_ALIASES = {
-    "iccid": "iccid",
-    "numero de telefone": "telefone", "número de telefone": "telefone",
-    "telefone": "telefone", "numero de telefone ": "telefone",
-    "cdt": "cdt",
-    "id hardware": "id_hardware", "id_hardware": "id_hardware", "hardware": "id_hardware",
-    "pedido": "numero_pedido", "número do pedido": "numero_pedido",
-    "numero do pedido": "numero_pedido", "nº pedido": "numero_pedido",
-    "n° pedido": "numero_pedido", "no pedido": "numero_pedido",
-}
+
+def _campo_do_cabecalho(texto: str) -> str | None:
+    """Identifica a que campo uma célula de cabeçalho corresponde, usando
+    correspondência flexível (substring) — planilhas reais variam bastante
+    na escrita exata (ex: 'ICCIDs', 'CDT07', 'Números Telefonicos')."""
+    t = texto.strip().lower()
+    if not t:
+        return None
+    if "iccid" in t:
+        return "iccid"
+    if "telefon" in t:
+        return "telefone"
+    if t.startswith("cdt"):
+        return "cdt"
+    if "hardware" in t:
+        return "id_hardware"
+    if "pedido" in t:
+        return "numero_pedido"
+    return None
 
 
-def _detectar_header(ws):
-    """Procura a linha com o cabeçalho ICCID/Telefone/CDT/ID Hardware
-    (aceita também uma coluna 'Pedido'/'Número do Pedido' junto, repetida
-    em cada linha). Retorna (mapa_campo->coluna, candidato_numero_pedido).
-    Se não houver coluna de pedido no cabeçalho, o candidato é o primeiro
-    valor não vazio encontrado em alguma linha ANTES do cabeçalho (célula
-    solta acima da tabela)."""
-    candidato_numero = None
-    for row in ws.iter_rows(values_only=True):
-        cells = [str(c).strip().lower() if c is not None else "" for c in row]
-        mapa = {}
-        for i, c in enumerate(cells):
-            if c in _ALIASES:
-                mapa[_ALIASES[c]] = i
-        if "iccid" in mapa:
-            return mapa, candidato_numero
-        if candidato_numero is None:
-            for c in row:
-                if c is not None and str(c).strip():
-                    candidato_numero = str(c).strip()
-                    break
-    return None, candidato_numero
+def _mapear_cabecalho(row) -> dict:
+    mapa = {}
+    for i, c in enumerate(row):
+        if c is None:
+            continue
+        campo = _campo_do_cabecalho(str(c))
+        if campo and campo not in mapa:
+            mapa[campo] = i
+    return mapa
+
+
+def _val(row, mapa, campo):
+    idx = mapa.get(campo)
+    if idx is None or idx >= len(row) or row[idx] is None:
+        return None
+    valor = str(row[idx]).strip()
+    return valor or None
+
+
+def _buscar_ou_criar_template(nome: str, cliente: str, criado_por: int) -> int:
+    """Reaproveita o Pedido se já existir um com o mesmo nome/cliente (ex:
+    reimportação da mesma planilha, ou o mesmo número de pedido aparecendo
+    em mais de uma aba) em vez de duplicar o template."""
+    with db() as conn:
+        existente = conn.execute(
+            "SELECT id FROM kit_template WHERE nome = ? AND cliente = ? AND tipo = 'pedido'",
+            (nome, cliente)
+        ).fetchone()
+    if existente:
+        return existente["id"]
+    return templates_mod.criar_template(nome, cliente, criado_por, [], tipo="pedido")
 
 
 def importar_planilha(cliente: str, numero_pedido: str, criado_por: int,
                       conteudo: bytes) -> tuple[int, dict]:
-    """Cria um Pedido a partir da planilha de unidades (ICCID, Número de
-    Telefone, CDT, ID Hardware) — diferente do BOM do Kit: aqui não se
-    criam itens do template (isso é feito manualmente depois, na tela de
-    edição do pedido); as linhas só ficam guardadas para consulta."""
+    """Cria um ou mais Pedidos a partir da planilha de unidades (ICCID,
+    Número de Telefone, CDT, ID Hardware).
+
+    Percorre TODAS as abas do arquivo. Se uma aba tiver uma coluna
+    'Pedido', agrupa as linhas dela por valor dessa coluna e cria um
+    Pedido para cada número encontrado — uma planilha real pode conter
+    vários pedidos ao mesmo tempo, cada um com várias linhas/ID Hardware.
+    Abas sem essa coluna usam o número informado manualmente no formulário
+    (ou uma célula solta acima do cabeçalho) para todas as suas linhas.
+    Linhas sem nenhum número de pedido identificável são ignoradas (e
+    contadas) em vez de travar a importação inteira.
+
+    Não cria itens do template — isso é feito manualmente depois, na
+    tela de edição de cada pedido.
+    """
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(conteudo), data_only=True)
-    ws = wb.active
 
-    mapa, candidato = _detectar_header(ws)
-    if mapa is None:
-        wb.close()
-        raise ValueError("Cabeçalho com ICCID não encontrado na planilha.")
+    grupos: dict[str, list[dict]] = {}
+    total_ignoradas = 0
+    algum_cabecalho_encontrado = False
 
-    def _val(row, campo):
-        idx = mapa.get(campo)
-        if idx is None or idx >= len(row) or row[idx] is None:
-            return None
-        valor = str(row[idx]).strip()
-        return valor or None
+    for ws in wb.worksheets:
+        mapa = None
+        candidato = None
+        past_header = False
+        for row in ws.iter_rows(values_only=True):
+            if not past_header:
+                m = _mapear_cabecalho(row)
+                if "iccid" in m or "id_hardware" in m:
+                    mapa = m
+                    past_header = True
+                    algum_cabecalho_encontrado = True
+                    continue
+                if candidato is None:
+                    for c in row:
+                        if c is not None and str(c).strip():
+                            candidato = str(c).strip()
+                            break
+                continue
 
-    unidades = []
-    numero_coluna = None
-    past_header = False
-    for row in ws.iter_rows(values_only=True):
-        cells = [str(c).strip().lower() if c is not None else "" for c in row]
-        if not past_header:
-            if "iccid" in cells:
-                past_header = True
-            continue
-        if numero_coluna is None:
-            numero_coluna = _val(row, "numero_pedido")
-        u = {campo: _val(row, campo) for campo in ("iccid", "telefone", "cdt", "id_hardware")}
-        if any(u.values()):
-            unidades.append(u)
+            u = {
+                "iccid": _val(row, mapa, "iccid"),
+                "telefone": _val(row, mapa, "telefone"),
+                "cdt": _val(row, mapa, "cdt"),
+                "id_hardware": _val(row, mapa, "id_hardware"),
+            }
+            if not any(u.values()):
+                continue
+
+            numero_linha = _val(row, mapa, "numero_pedido") if "numero_pedido" in mapa else None
+            numero = numero_linha or (numero_pedido or "").strip() or candidato
+            if not numero:
+                total_ignoradas += 1
+                continue
+            grupos.setdefault(numero, []).append(u)
 
     wb.close()
 
-    if not unidades:
-        raise ValueError("Nenhuma linha de dados encontrada na planilha.")
-
-    # Prioridade: número digitado manualmente > coluna "Pedido" na
-    # planilha > célula solta encontrada antes do cabeçalho.
-    numero = (numero_pedido or "").strip() or numero_coluna or (candidato or "")
-    if not numero:
+    if not algum_cabecalho_encontrado:
+        raise ValueError("Cabeçalho com ICCID/ID Hardware não encontrado na planilha.")
+    if not grupos:
         raise ValueError(
-            "Não foi possível identificar o número do pedido na planilha — "
-            "informe manualmente no campo 'Número do Pedido'."
+            "Nenhuma linha pôde ser associada a um número de pedido — "
+            "informe manualmente no campo 'Número do Pedido' ou inclua "
+            "uma coluna 'Pedido' na planilha."
         )
 
-    nome = f"Pedido {numero}"
-    template_id = templates_mod.criar_template(nome, cliente, criado_por, [], tipo="pedido")
+    template_ids = []
+    total_unidades = 0
+    for numero, unidades in grupos.items():
+        nome = f"Pedido {numero}"
+        template_id = _buscar_ou_criar_template(nome, cliente, criado_por)
+        template_ids.append(template_id)
+        with db() as conn:
+            existentes_hw = {
+                r["id_hardware"] for r in conn.execute(
+                    "SELECT id_hardware FROM pedido_unidades "
+                    "WHERE kit_template_id = ? AND id_hardware IS NOT NULL",
+                    (template_id,)
+                ).fetchall()
+            }
+            for u in unidades:
+                # Reimportar a mesma planilha não duplica unidade — se o
+                # ID Hardware já está neste pedido, pula (mas unidades sem
+                # ID Hardware, ex: só CDT, sempre entram, já que não dá
+                # pra identificar duplicata com segurança nesse caso).
+                if u["id_hardware"] and u["id_hardware"] in existentes_hw:
+                    continue
+                conn.execute(
+                    "INSERT INTO pedido_unidades "
+                    "(kit_template_id, iccid, telefone, cdt, id_hardware, criado_em) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (template_id, u["iccid"], u["telefone"], u["cdt"], u["id_hardware"], now_brt())
+                )
+                if u["id_hardware"]:
+                    existentes_hw.add(u["id_hardware"])
+                total_unidades += 1
 
-    with db() as conn:
-        for u in unidades:
-            conn.execute(
-                "INSERT INTO pedido_unidades "
-                "(kit_template_id, iccid, telefone, cdt, id_hardware, criado_em) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (template_id, u["iccid"], u["telefone"], u["cdt"], u["id_hardware"], now_brt())
-            )
-
-    return template_id, {"unidades": len(unidades), "numero": numero}
+    return template_ids[0], {
+        "unidades": total_unidades,
+        "pedidos": len(grupos),
+        "numeros": list(grupos.keys()),
+        "ignoradas": total_ignoradas,
+    }
 
 
 def listar_unidades(template_id: int) -> list:
@@ -109,5 +170,20 @@ def listar_unidades(template_id: int) -> list:
         rows = conn.execute(
             "SELECT * FROM pedido_unidades WHERE kit_template_id = ? ORDER BY id",
             (template_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def buscar_por_id_hardware(id_hardware: str) -> list:
+    """Localiza em qual(is) pedido(s) um determinado ID Hardware está —
+    usado pra permitir achar rápido qual pedido tem um equipamento."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT pu.*, kt.nome AS pedido_nome, kt.cliente "
+            "FROM pedido_unidades pu "
+            "JOIN kit_template kt ON kt.id = pu.kit_template_id "
+            "WHERE pu.id_hardware LIKE ? "
+            "ORDER BY kt.nome",
+            (f"%{id_hardware.strip()}%",)
         ).fetchall()
     return [dict(r) for r in rows]

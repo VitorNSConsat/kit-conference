@@ -531,10 +531,12 @@ async def admin_templates_import_pedido(request: Request,
                                          cliente: str = Form(""),
                                          numero_pedido: str = Form(""),
                                          arquivo: UploadFile = File(...)):
-    """Cria um Pedido a partir da planilha de unidades (ICCID, Número de
-    Telefone, CDT, ID Hardware) — diferente do BOM do Kit: não cria itens
-    do template, só guarda as unidades para consulta. Os itens do pedido
-    são adicionados manualmente depois, na tela de edição."""
+    """Cria um ou mais Pedidos a partir da planilha de unidades (ICCID,
+    Número de Telefone, CDT, ID Hardware) — diferente do BOM do Kit: não
+    cria itens do template, só guarda as unidades para consulta. Uma
+    planilha pode conter vários pedidos ao mesmo tempo (agrupados por uma
+    coluna 'Pedido'); cada um vira um Pedido separado. Os itens de cada
+    pedido são adicionados manualmente depois, na tela de edição."""
     user = get_current_user(request)
     cliente = cliente.strip()
     if not cliente:
@@ -548,8 +550,12 @@ async def admin_templates_import_pedido(request: Request,
         template_id, stats = pedidos_mod.importar_planilha(
             cliente, numero_pedido, user["id"], conteudo
         )
-        q = f"ok=pedido&unidades={stats['unidades']}&numero={quote(stats['numero'])}"
-        return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
+        if stats["pedidos"] == 1:
+            q = f"ok=pedido&unidades={stats['unidades']}&numero={quote(stats['numeros'][0])}"
+            return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
+        q = (f"ok=pedidos&pedidos={stats['pedidos']}&unidades={stats['unidades']}"
+             f"&ignoradas={stats['ignoradas']}&tab=pedido")
+        return RedirectResponse(f"/admin/templates?{q}", status_code=302)
     except ValueError as e:
         return render(request, "admin_templates.html", {
             **_admin_templates_context(),

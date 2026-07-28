@@ -205,6 +205,15 @@
 <div class="alert alert-success">
     Pedido criado com sucesso — {{ request.query_params.get('unidades') }} unidade(s) importada(s).
 </div>
+{% elif request.query_params.get('ok') == 'pedidos' %}
+<div class="alert alert-success">
+    ✅ {{ request.query_params.get('pedidos') }} pedido(s) criado(s)/atualizado(s) a partir da planilha —
+    {{ request.query_params.get('unidades') }} unidade(s) importada(s) no total.
+    {% if request.query_params.get('ignoradas', '0') != '0' %}
+    <br>⚠️ {{ request.query_params.get('ignoradas') }} linha(s) ignorada(s) por não ter número de pedido
+    identificável.
+    {% endif %}
+</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>

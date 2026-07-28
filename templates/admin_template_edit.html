@@ -68,14 +68,16 @@
     <p style="font-size:12px;color:#888;margin:6px 0 12px;">
         Importadas da planilha do pedido — só para consulta, não entram na bipagem.
     </p>
+    <input type="text" class="busca-box" placeholder="🔍 Buscar por ID Hardware, ICCID, telefone ou CDT..."
+           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-unidades tr.filtro-item">
     <div style="max-height:280px;overflow-y:auto;">
-    <table>
+    <table id="tabela-unidades">
         <thead>
             <tr><th>ICCID</th><th>Número de Telefone</th><th>CDT</th><th>ID Hardware</th></tr>
         </thead>
         <tbody>
         {% for u in unidades %}
-        <tr>
+        <tr class="filtro-item">
             <td style="font-family:monospace;">{{ u.iccid or '—' }}</td>
             <td>{{ u.telefone or '—' }}</td>
             <td>{{ u.cdt or '—' }}</td>
