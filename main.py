@@ -26,6 +26,7 @@ import app.estoque as estoque_mod
 import app.validacoes as validacoes_mod
 import app.veiculos as veiculos_mod
 import app.clientes as clientes_mod
+import app.garagens as garagens_mod
 import app.codigos_gerados as codigos_gerados_mod
 import app.prateleira as prateleira_mod
 import app.pedidos as pedidos_mod
@@ -755,11 +756,13 @@ async def session_page(request: Request, sessao_id: int):
     itens = templates_mod.get_itens_template(session["kit_template_id"])
     contagem = sessions_mod.get_contagem(sessao_id)
     veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
+    garagens_lista = garagens_mod.listar()
     return render(request, "session.html", {
         "session": session,
         "itens": itens,
         "contagem": contagem,
         "veiculos_lista": veiculos_lista,
+        "garagens_lista": garagens_lista,
     })
 
 
@@ -852,6 +855,7 @@ async def session_finalize(request: Request, sessao_id: int):
     veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
     veiculo = str(form.get("veiculo", "")).strip()
     garagem = str(form.get("garagem", "")).strip().upper()
+    modelo = str(form.get("modelo", "")).strip()
     user = get_current_user(request)
 
     session_check = sessions_mod.get_session(sessao_id)
@@ -890,6 +894,7 @@ async def session_finalize(request: Request, sessao_id: int):
         itens=itens_label,
         veiculo=veiculo,
         garagem=garagem,
+        modelo=modelo,
     )
 
     html_label = zpl_mod.generate_html_label(
@@ -901,17 +906,18 @@ async def session_finalize(request: Request, sessao_id: int):
         itens=itens_label,
         veiculo=veiculo,
         garagem=garagem,
+        modelo=modelo,
     )
 
     with db() as conn:
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
         conn.execute(
             "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, "
-            "kit_template_versao, operador_id, veiculo, garagem, finalizado_em, veiculo_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "kit_template_versao, operador_id, veiculo, garagem, modelo, finalizado_em, veiculo_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (kit_id, sessao_id, session["kit_template_id"],
              session["kit_template_versao"], user["id"],
-             veiculo, garagem, ts_str, veiculo_id)
+             veiculo, garagem, modelo, ts_str, veiculo_id)
         )
         conn.execute(
             "UPDATE scan_session SET status = 'finalizado', "
@@ -1968,11 +1974,13 @@ async def admin_veiculos(request: Request, cliente: str = ""):
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
     clientes_cadastrados = clientes_mod.listar()
+    garagens_cadastradas = garagens_mod.listar()
     return render(request, "admin_veiculos.html", {
         "veiculos": veiculos,
         "veiculos_inativos": veiculos_inativos,
         "clientes": clientes_filtro,
         "clientes_cadastrados": clientes_cadastrados,
+        "garagens_cadastradas": garagens_cadastradas,
         "filtro_cliente": cliente,
     })
 
@@ -1988,9 +1996,11 @@ async def admin_veiculos_post(request: Request):
         veiculos = veiculos_mod.listar()
         clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
         clientes_cadastrados = clientes_mod.listar()
+        garagens_cadastradas = garagens_mod.listar()
         return render(request, "admin_veiculos.html", {
             "veiculos": veiculos, "clientes": clientes_filtro,
             "clientes_cadastrados": clientes_cadastrados,
+            "garagens_cadastradas": garagens_cadastradas,
             "filtro_cliente": "", "erro": "Número e cliente são obrigatórios.",
         })
     veiculos_mod.criar(numero, cliente, garagem)
@@ -2049,8 +2059,10 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
         raise HTTPException(status_code=404)
     historico = veiculos_mod.historico_kits(veiculo_id)
     clientes_cadastrados = clientes_mod.listar()
+    garagens_cadastradas = garagens_mod.listar()
     return render(request, "admin_veiculo_detalhe.html", {
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
+        "garagens": garagens_cadastradas,
     })
 
 
@@ -2064,9 +2076,11 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
     if not numero or not cliente:
         v = veiculos_mod.buscar(veiculo_id)
         clientes = clientes_mod.listar()
+        garagens_cadastradas = garagens_mod.listar()
         return render(request, "admin_veiculo_detalhe.html", {
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
-            "clientes": clientes, "erro": "Número e cliente são obrigatórios.",
+            "clientes": clientes, "garagens": garagens_cadastradas,
+            "erro": "Número e cliente são obrigatórios.",
         })
     veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem)
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
@@ -2111,6 +2125,26 @@ async def admin_clientes_post(request: Request):
 async def admin_cliente_delete(request: Request, cliente_id: int):
     clientes_mod.deletar(cliente_id)
     return RedirectResponse("/admin/veiculos?ok=cliente_excluido", status_code=302)
+
+
+@app.post("/admin/garagens")
+@require_login
+async def admin_garagens_post(request: Request):
+    form = await request.form()
+    nome = str(form.get("nome", "")).strip()
+    if not nome:
+        return RedirectResponse("/admin/veiculos?erro_garagem=vazio", status_code=302)
+    resultado = garagens_mod.criar(nome)
+    if resultado is None:
+        return RedirectResponse("/admin/veiculos?erro_garagem=duplicado", status_code=302)
+    return RedirectResponse("/admin/veiculos?ok=garagem", status_code=302)
+
+
+@app.post("/admin/garagens/{garagem_id}/delete")
+@require_login
+async def admin_garagem_delete(request: Request, garagem_id: int):
+    garagens_mod.deletar(garagem_id)
+    return RedirectResponse("/admin/veiculos?ok=garagem_excluida", status_code=302)
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────

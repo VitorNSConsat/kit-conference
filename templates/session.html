@@ -200,8 +200,17 @@
             </div>
             <div class="form-group">
                 <label>Garagem</label>
-                <input type="text" name="garagem" id="input-garagem"
-                       placeholder="ex: Garagem Norte" autocomplete="off">
+                <select name="garagem" id="input-garagem">
+                    <option value="">— sem garagem —</option>
+                    {% for g in garagens_lista %}
+                    <option value="{{ g.nome }}">{{ g.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Modelo</label>
+                <input type="text" name="modelo" id="input-modelo"
+                       placeholder="ex: Fiat Strada" autocomplete="off">
             </div>
             <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
                 <button type="button" onclick="fecharModalFinalizar()" class="btn btn-danger">Cancelar</button>
@@ -391,7 +400,9 @@ function onVeiculoChange() {
     var sel = document.getElementById('select-veiculo');
     var opt = sel.options[sel.selectedIndex];
     document.getElementById('input-veiculo-texto').value = opt.dataset.numero || '';
-    document.getElementById('input-garagem').value = opt.dataset.garagem || '';
+    var garagemSel = document.getElementById('input-garagem');
+    garagemSel.value = opt.dataset.garagem || '';
+    if (garagemSel.selectedIndex === -1) garagemSel.value = '';
 }
 </script>
 

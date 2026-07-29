@@ -206,6 +206,14 @@ def init_db():
         """)
 
         conn.executescript("""
+            CREATE TABLE IF NOT EXISTS garagens (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome      TEXT NOT NULL UNIQUE,
+                criado_em TEXT NOT NULL
+            );
+        """)
+
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS codigo_gerado (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 texto      TEXT NOT NULL UNIQUE,
@@ -274,6 +282,7 @@ def init_db():
             "ALTER TABLE item_tipo ADD COLUMN requer_serial BOOLEAN DEFAULT 0",
             "ALTER TABLE kit_template ADD COLUMN tipo TEXT NOT NULL DEFAULT 'kit'",
             "ALTER TABLE kit_template ADD COLUMN concluido BOOLEAN DEFAULT 0",
+            "ALTER TABLE kit_record ADD COLUMN modelo TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(stmt)
@@ -291,5 +300,10 @@ def init_db():
         conn.execute(
             "INSERT OR IGNORE INTO clientes (nome, criado_em) "
             "SELECT DISTINCT cliente, ? FROM veiculos WHERE cliente != ''",
+            (ts,)
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO garagens (nome, criado_em) "
+            "SELECT DISTINCT garagem, ? FROM veiculos WHERE garagem != ''",
             (ts,)
         )

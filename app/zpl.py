@@ -62,7 +62,7 @@ def _logo_base64() -> str | None:
 def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
                  operador: str, timestamp: datetime,
                  itens: list[dict],
-                 veiculo: str = "", garagem: str = "",
+                 veiculo: str = "", garagem: str = "", modelo: str = "",
                  servidor_url: str = "") -> str:
 
     data_str = timestamp.strftime("%d/%m/%Y")
@@ -73,16 +73,20 @@ def generate_zpl(kit_id: str, kit_nome: str, cliente: str,
     empresa  = _ascii(EMPRESA_NOME)[:38]
     veiculo_ = _ascii(veiculo)[:40]
     garagem_ = _ascii(garagem)[:40]
+    modelo_  = _ascii(modelo)[:40]
 
     linhas_vg = ""
     y_after_vg = 200
-    if veiculo_ or garagem_:
+    if veiculo_ or garagem_ or modelo_:
         y = y_after_vg + 10
         if veiculo_:
             linhas_vg += f"^FO0,{y}^FB800,1,0,C^A0N,28,28^FDVeiculo: {veiculo_}^FS\n"
             y += 38
         if garagem_:
             linhas_vg += f"^FO0,{y}^FB800,1,0,C^A0N,28,28^FDGaragem: {garagem_}^FS\n"
+            y += 38
+        if modelo_:
+            linhas_vg += f"^FO0,{y}^FB800,1,0,C^A0N,28,28^FDModelo: {modelo_}^FS\n"
             y += 38
         linhas_vg += f"^FO25,{y}^GB750,3,3^FS\n"
         y_after_vg = y + 8
@@ -260,7 +264,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
 def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
                         operador: str, timestamp: datetime,
                         itens: list[dict],
-                        veiculo: str = "", garagem: str = "",
+                        veiculo: str = "", garagem: str = "", modelo: str = "",
                         servidor_url: str = "") -> str:
 
     data_str  = timestamp.strftime("%d/%m/%Y")
@@ -278,12 +282,14 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
     )
 
     vg_html = ""
-    if veiculo or garagem:
+    if veiculo or garagem or modelo:
         vg_html = '<div class="vg-block">'
         if veiculo:
             vg_html += f'<div class="vg-linha"><span class="vg-label">Veículo</span><span class="vg-val">{veiculo}</span></div>'
         if garagem:
             vg_html += f'<div class="vg-linha"><span class="vg-label">Garagem</span><span class="vg-val">{garagem}</span></div>'
+        if modelo:
+            vg_html += f'<div class="vg-linha"><span class="vg-label">Modelo</span><span class="vg-val">{modelo}</span></div>'
         vg_html += '</div>'
 
     return f"""<!DOCTYPE html>

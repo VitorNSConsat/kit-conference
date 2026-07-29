@@ -13,6 +13,10 @@
 <div class="alert alert-success">✅ Cliente adicionado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'cliente_excluido' %}
 <div class="alert alert-success">✅ Cliente excluído.</div>
+{% elif request.query_params.get('ok') == 'garagem' %}
+<div class="alert alert-success">✅ Garagem adicionada com sucesso.</div>
+{% elif request.query_params.get('ok') == 'garagem_excluida' %}
+<div class="alert alert-success">✅ Garagem excluída.</div>
 {% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Operação realizada com sucesso.</div>
 {% endif %}
@@ -21,12 +25,17 @@
 {% elif request.query_params.get('erro_cliente') == 'vazio' %}
 <div class="alert alert-danger">⚠️ O nome do cliente não pode ser vazio.</div>
 {% endif %}
+{% if request.query_params.get('erro_garagem') == 'duplicado' %}
+<div class="alert alert-danger">⚠️ Esta garagem já está cadastrada.</div>
+{% elif request.query_params.get('erro_garagem') == 'vazio' %}
+<div class="alert alert-danger">⚠️ O nome da garagem não pode ser vazio.</div>
+{% endif %}
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
-<!-- Linha superior: Clientes + Novo Veículo lado a lado -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-bottom:0;">
+<!-- Linha superior: Clientes + Garagens + Novo Veículo lado a lado -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;margin-bottom:0;">
 
   <!-- Clientes -->
   <div class="card" style="margin-bottom:0;">
@@ -64,6 +73,42 @@
     {% endif %}
   </div>
 
+  <!-- Garagens -->
+  <div class="card" style="margin-bottom:0;">
+    <h2>Garagens</h2>
+    <form method="post" action="/admin/garagens"
+          style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
+      <input type="text" name="nome" placeholder="Nome da garagem" required
+             style="flex:1;margin-bottom:0;">
+      <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
+    </form>
+    {% if garagens_cadastradas %}
+    <input type="text" class="busca-box" placeholder="🔍 Buscar garagem..."
+           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-garagens tr.filtro-item">
+    <table id="tabela-garagens">
+      <thead>
+        <tr><th>Nome</th><th>Desde</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for g in garagens_cadastradas %}
+      <tr class="filtro-item">
+        <td><strong>{{ g.nome }}</strong></td>
+        <td style="font-size:12px;color:#888;">{{ g.criado_em[:10] }}</td>
+        <td>
+          <form method="post" action="/admin/garagens/{{ g.id }}/delete"
+                onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
+            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
+    {% endif %}
+  </div>
+
   <!-- Novo Veículo -->
   <div class="card" style="margin-bottom:0;">
     <h2>Novo Veículo</h2>
@@ -84,7 +129,12 @@
       </div>
       <div class="form-group" style="margin:0;">
         <label>Garagem</label>
-        <input type="text" name="garagem" placeholder="ex: Base Norte">
+        <select name="garagem">
+          <option value="">— selecione —</option>
+          {% for g in garagens_cadastradas %}
+          <option value="{{ g.nome }}">{{ g.nome }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div>
         <button type="submit" class="btn btn-success">＋ Adicionar Veículo</button>

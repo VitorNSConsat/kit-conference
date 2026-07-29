@@ -33,7 +33,12 @@
     </div>
     <div class="form-group" style="margin:0;">
       <label>Garagem</label>
-      <input type="text" name="garagem" value="{{ v.garagem }}">
+      <select name="garagem">
+        <option value="">— selecione —</option>
+        {% for g in garagens %}
+        <option value="{{ g.nome }}" {{ 'selected' if v.garagem == g.nome }}>{{ g.nome }}</option>
+        {% endfor %}
+      </select>
     </div>
     <button type="submit" class="btn btn-success">💾 Salvar</button>
   </form>
