@@ -54,7 +54,21 @@ class _MobileGateMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="Conferência de Kits")
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "dev-secret"))
+
+# COOKIE_SECURE=1 marca o cookie de sessão como "só por HTTPS". Fica
+# desligado por padrão porque o acesso pela LAN é HTTP puro (porta 8080) —
+# ligado ali, o navegador simplesmente não manda o cookie e ninguém
+# consegue logar. Ligue quando o acesso passar a ser só pelo domínio
+# HTTPS (ex: atrás do Cloudflare Tunnel).
+_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").strip() in ("1", "true", "True")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SECRET_KEY", "dev-secret"),
+    same_site="lax",
+    https_only=_COOKIE_SECURE,
+    max_age=12 * 60 * 60,   # 12h — uma jornada; antes eram 14 dias
+)
 app.add_middleware(_MobileGateMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 jinja = Jinja2Templates(directory="templates")
@@ -87,14 +101,28 @@ def startup():
     app.state.tem_ssl = _tem_ssl
 
     if _tem_ssl:
-        _zpl.SERVIDOR_URL = f"https://{ip}:8011"
-        app.state.servidor_url = f"https://{ip}:8011"
-        print(f"[KIT] HTTPS (QR + Admin): {app.state.servidor_url}")
+        url_local = f"https://{ip}:8011"
+    else:
+        url_local = f"http://{ip}:8080"
+
+    # SERVIDOR_URL do .env manda: é o endereço que vai no QR da etiqueta.
+    # Sem ele, cai no IP da LAN (funciona só dentro do galpão). Com um
+    # domínio público (ex: atrás do Cloudflare Tunnel), a etiqueta impressa
+    # abre de qualquer lugar — por isso o valor configurado nunca é
+    # sobrescrito pela detecção automática.
+    url_publica = (os.getenv("SERVIDOR_URL") or "").strip().rstrip("/")
+
+    _zpl.SERVIDOR_URL = url_publica or url_local
+    app.state.servidor_url = _zpl.SERVIDOR_URL
+
+    if url_publica:
+        print(f"[KIT] Endereco publico (QR das etiquetas): {url_publica}")
+        print(f"[KIT] Acesso local: {url_local}")
+    elif _tem_ssl:
+        print(f"[KIT] HTTPS (QR + Admin): {url_local}")
         print(f"[KIT] HTTP  (alternativo): {app.state.url_http}")
     else:
-        _zpl.SERVIDOR_URL = f"http://{ip}:8080"
-        app.state.servidor_url = f"http://{ip}:8080"
-        print(f"[KIT] HTTP: {app.state.servidor_url}")
+        print(f"[KIT] HTTP: {url_local}")
 
 
 def _parse_itens_form(form) -> list[dict]:
@@ -128,6 +156,39 @@ def render(request: Request, template: str, ctx: dict = {}):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+# Freio de força bruta. Guardado em memória de propósito: o app roda em um
+# processo só, e perder a contagem num restart é aceitável — o objetivo é
+# tornar inviável varrer senhas, não ser um cofre distribuído.
+_LOGIN_MAX_TENTATIVAS = 8
+_LOGIN_JANELA_SEG = 15 * 60
+_login_tentativas: dict[str, list[float]] = {}
+
+
+def _login_chave(request: Request, username: str) -> str:
+    ip = request.client.host if request.client else "?"
+    return f"{ip}|{username.lower()}"
+
+
+def _login_bloqueado(chave: str) -> int:
+    """Segundos restantes de bloqueio, ou 0 se liberado."""
+    import time
+    agora = time.time()
+    tentativas = [t for t in _login_tentativas.get(chave, []) if agora - t < _LOGIN_JANELA_SEG]
+    _login_tentativas[chave] = tentativas
+    if len(tentativas) < _LOGIN_MAX_TENTATIVAS:
+        return 0
+    return int(_LOGIN_JANELA_SEG - (agora - tentativas[0]))
+
+
+def _login_falhou(chave: str) -> None:
+    import time
+    _login_tentativas.setdefault(chave, []).append(time.time())
+
+
+def _login_ok(chave: str) -> None:
+    _login_tentativas.pop(chave, None)
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     if get_current_user(request):
@@ -144,13 +205,26 @@ async def login_post(request: Request):
     next_url = str(form.get("next", "")).strip()
     if not (next_url.startswith("/") and not next_url.startswith("//")):
         next_url = "/"
+
+    chave = _login_chave(request, username)
+    espera = _login_bloqueado(chave)
+    if espera:
+        minutos = max(1, espera // 60)
+        return render(request, "login.html", {
+            "erro": f"Muitas tentativas. Tente novamente em {minutos} minuto(s).",
+            "next": next_url,
+        })
+
     with db() as conn:
         row = conn.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
     if row and verify_password(password, row["password_hash"]):
+        _login_ok(chave)
         request.session["user_id"] = row["id"]
         return RedirectResponse(next_url, status_code=302)
+
+    _login_falhou(chave)
     return render(request, "login.html", {"erro": "Usuário ou senha incorretos.", "next": next_url})
 
 
