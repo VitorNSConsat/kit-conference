@@ -224,34 +224,54 @@ def init_db():
         """)
 
         conn.executescript("""
-            CREATE TABLE IF NOT EXISTS prateleira_posicoes (
+            CREATE TABLE IF NOT EXISTS prateleira_layout (
+                id      INTEGER PRIMARY KEY CHECK (id = 1),
+                linhas  INTEGER NOT NULL DEFAULT 4,
+                colunas INTEGER NOT NULL DEFAULT 3
+            );
+
+            CREATE TABLE IF NOT EXISTS prateleira_colunas (
+                coluna INTEGER PRIMARY KEY,
+                nome   TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prateleira_blocos (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                linha      INTEGER NOT NULL,
-                coluna     INTEGER NOT NULL,
-                estoque_id INTEGER UNIQUE NOT NULL REFERENCES estoque(id),
+                linha_ini  INTEGER NOT NULL,
+                linha_fim  INTEGER NOT NULL,
+                coluna_ini INTEGER NOT NULL,
+                coluna_fim INTEGER NOT NULL,
+                estoque_id INTEGER NOT NULL REFERENCES estoque(id),
+                criado_em  TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS prateleira_livre (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                estoque_id INTEGER NOT NULL REFERENCES estoque(id),
                 criado_em  TEXT NOT NULL
             );
         """)
 
-        # Migração: a versão inicial permitia só 1 item por posição
-        # (UNIQUE(linha, coluna)). Agora cada posição aceita até 6 itens —
-        # recria a tabela sem essa constraint, preservando os dados.
-        tabela_antiga = conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='prateleira_posicoes'"
+        conn.execute("INSERT OR IGNORE INTO prateleira_layout (id, linhas, colunas) VALUES (1, 4, 3)")
+        for _col_idx, _col_nome in enumerate(["Porta", "Meio", "Lab"], 1):
+            conn.execute(
+                "INSERT OR IGNORE INTO prateleira_colunas (coluna, nome) VALUES (?, ?)",
+                (_col_idx, _col_nome)
+            )
+
+        # Migração: prateleira_posicoes (1 posição fixa por item) virou
+        # prateleira_blocos (região com linha/coluna início e fim — um item
+        # pode ter vários blocos, e um bloco pode cobrir várias células).
+        tem_posicoes_antiga = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='prateleira_posicoes'"
         ).fetchone()
-        if tabela_antiga and "UNIQUE(linha, coluna)" in (tabela_antiga["sql"] or ""):
+        if tem_posicoes_antiga:
             conn.executescript("""
-                ALTER TABLE prateleira_posicoes RENAME TO prateleira_posicoes_old;
-                CREATE TABLE prateleira_posicoes (
-                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                    linha      INTEGER NOT NULL,
-                    coluna     INTEGER NOT NULL,
-                    estoque_id INTEGER UNIQUE NOT NULL REFERENCES estoque(id),
-                    criado_em  TEXT NOT NULL
-                );
-                INSERT INTO prateleira_posicoes (id, linha, coluna, estoque_id, criado_em)
-                    SELECT id, linha, coluna, estoque_id, criado_em FROM prateleira_posicoes_old;
-                DROP TABLE prateleira_posicoes_old;
+                INSERT INTO prateleira_blocos
+                    (linha_ini, linha_fim, coluna_ini, coluna_fim, estoque_id, criado_em)
+                    SELECT linha, linha, coluna, coluna, estoque_id, criado_em
+                    FROM prateleira_posicoes;
+                DROP TABLE prateleira_posicoes;
             """)
 
         conn.executescript("""

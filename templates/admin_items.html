@@ -87,7 +87,6 @@
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
     <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
     <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🔁 Códigos Gerados</button>
-    <button type="button" class="tab-btn" data-tab="prateleira" onclick="mudarTab('prateleira')">🗄️ Prateleira</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -564,160 +563,9 @@
     </div>
 </div>
 
-<!-- ── Aba: Prateleira ────────────────────────────────────────────────────── -->
-<div id="tab-prateleira" class="tab-panel" style="display:none;">
-    <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <div>
-                <h2 style="margin-bottom:4px;">🗄️ Prateleira</h2>
-                <p style="color:#666;font-size:13px;margin:0;">
-                    Cada posição aceita até {{ prateleira_max_itens }} itens. Escolher um item que já
-                    está em outra posição apenas move ele para cá.
-                </p>
-            </div>
-            <a href="/prateleira/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
-        </div>
-
-        {% if request.query_params.get('erro') %}
-        <div class="alert alert-danger" style="margin-top:12px;">{{ request.query_params.get('erro') }}</div>
-        {% endif %}
-
-        <div class="prateleira-grid">
-            {% for linha in range(1, prateleira_linhas + 1) %}
-                {% for coluna in range(1, prateleira_colunas + 1) %}
-                {% set itens_slot = prateleira_grade.get((linha, coluna), []) %}
-                {% set ids_no_slot = itens_slot | map(attribute='estoque_id') | list %}
-                <div class="prateleira-slot {{ 'ocupado' if itens_slot else 'vazio' }}">
-                    <div class="prateleira-slot-pos">
-                        L{{ linha }} · C{{ coluna }}
-                        <span style="float:right;">{{ itens_slot | length }}/{{ prateleira_max_itens }}</span>
-                    </div>
-                    <div class="prateleira-slot-itens count-{{ itens_slot | length }}">
-                        {% for item in itens_slot %}
-                        {% set esgotado = item.quantidade_atual <= 0 %}
-                        {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
-                        {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
-                        {% set status = 'esgotado' if esgotado else ('critico' if abaixo else ('baixo' if proximo else 'ok')) %}
-                        <div class="prateleira-item {{ status }}">
-                            <span class="prateleira-item-dot"></span>
-                            <div class="prateleira-item-info">
-                                <div class="prateleira-item-nome">{{ item.tipo_nome }}</div>
-                                <div class="prateleira-item-codigo">{{ item.codigo_barra }}</div>
-                            </div>
-                            <div class="prateleira-item-qtd">
-                                {{ item.quantidade_atual }}
-                                {% if esgotado %}<span class="prateleira-item-esgotado-label">ESGOTADO</span>{% endif %}
-                            </div>
-                            <form method="post" action="/admin/prateleira/remover" style="margin:0;">
-                                <input type="hidden" name="estoque_id" value="{{ item.estoque_id }}">
-                                <button type="submit" class="prateleira-item-remover" title="Remover desta posição">✕</button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <div class="prateleira-slot-vazio-label">— vazio —</div>
-                        {% endfor %}
-                    </div>
-                    {% if itens_slot | length < prateleira_max_itens %}
-                    <form method="post" action="/admin/prateleira/atribuir">
-                        <input type="hidden" name="linha" value="{{ linha }}">
-                        <input type="hidden" name="coluna" value="{{ coluna }}">
-                        <select name="estoque_id" onchange="if(this.value){this.form.submit();}">
-                            <option value="">+ adicionar item…</option>
-                            {% for e in estoque_itens if e.id not in ids_no_slot %}
-                            <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }})</option>
-                            {% endfor %}
-                        </select>
-                    </form>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 {% block scripts %}
 <style>
-.prateleira-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-top: 16px;
-}
-.prateleira-slot {
-    border: 2px solid #e0e7ef;
-    border-radius: 12px;
-    padding: 10px 12px;
-    background: #fafbfc;
-    min-height: 140px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.prateleira-slot.ocupado { border-color: #1a3a5c; background: #fff; }
-.prateleira-slot-pos {
-    font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1px;
-    overflow: hidden;
-}
-.prateleira-slot-itens {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-.prateleira-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #f4f7fb;
-    border-radius: 8px;
-    padding: 6px 8px;
-}
-.prateleira-item-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.prateleira-item-info { flex: 1; min-width: 0; text-align: left; }
-.prateleira-item-nome { font-size: 12px; font-weight: 700; color: #1a3a5c; line-height: 1.2; }
-.prateleira-item-codigo { font-size: 10px; color: #999; font-family: monospace; }
-.prateleira-item-qtd { font-size: 15px; font-weight: 800; flex-shrink: 0; text-align: right; }
-.prateleira-item-remover {
-    background: none; border: none; color: #c0392b; cursor: pointer;
-    font-size: 13px; font-weight: 700; padding: 2px 4px; flex-shrink: 0;
-}
-.prateleira-slot-vazio-label { font-size: 12px; color: #bbb; text-align: center; padding: 6px 0; }
-.prateleira-slot select { margin: auto 0 0; font-size: 12px; padding: 5px 6px; }
-
-/* Destaque de quantidade: quanto menos itens no slot, maior o destaque */
-.prateleira-slot-itens.count-1 .prateleira-item-nome { font-size: 16px; }
-.prateleira-slot-itens.count-1 .prateleira-item-qtd  { font-size: 30px; }
-.prateleira-slot-itens.count-2 .prateleira-item-nome { font-size: 14px; }
-.prateleira-slot-itens.count-2 .prateleira-item-qtd  { font-size: 22px; }
-.prateleira-slot-itens.count-3 .prateleira-item-qtd,
-.prateleira-slot-itens.count-4 .prateleira-item-qtd  { font-size: 18px; }
-
-/* Cor por status — o número da quantidade acompanha a mesma cor do ponto */
-.prateleira-item.ok       .prateleira-item-dot { background: #27ae60; }
-.prateleira-item.ok       .prateleira-item-qtd { color: #27ae60; }
-.prateleira-item.baixo    .prateleira-item-dot { background: #f0ad4e; }
-.prateleira-item.baixo    .prateleira-item-qtd { color: #f0ad4e; }
-.prateleira-item.critico  .prateleira-item-dot { background: #e74c3c; }
-.prateleira-item.critico  .prateleira-item-qtd { color: #e74c3c; }
-.prateleira-item.esgotado .prateleira-item-dot { background: #e74c3c; }
-
-/* Item esgotado (quantidade = 0) — destaque forte, prioridade máxima */
-.prateleira-item.esgotado {
-    background: #fdecea;
-    border: 1.5px solid #e74c3c;
-}
-.prateleira-item.esgotado .prateleira-item-qtd { color: #c0392b; }
-.prateleira-item-esgotado-label {
-    display: block;
-    font-size: 9px;
-    font-weight: 900;
-    letter-spacing: .5px;
-    color: #c0392b;
-}
-
 .config-popup {
     display: none;
     position: fixed;
@@ -851,7 +699,7 @@ function mudarTab(nome) {
     // qual aba estava em uso.
     const tabServidor = "{{ tab_ativo or '' }}";
     const tabInicial = params.get('tab') || tabServidor || 'catalogo';
-    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos', 'prateleira'].includes(tabInicial) ? tabInicial : 'catalogo');
+    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos'].includes(tabInicial) ? tabInicial : 'catalogo');
 })();
 </script>
 {% endblock %}

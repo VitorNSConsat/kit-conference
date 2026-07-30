@@ -355,10 +355,6 @@ def _admin_items_context() -> dict:
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
         "codigos_gerados": codigos_gerados_mod.listar(),
-        "prateleira_grade": prateleira_mod.listar_grade(),
-        "prateleira_linhas": prateleira_mod.LINHAS,
-        "prateleira_colunas": prateleira_mod.COLUNAS,
-        "prateleira_max_itens": prateleira_mod.MAX_ITENS_POR_SLOT,
         "estoque_itens": estoque_mod.listar_estoque(),
     }
 
@@ -1712,44 +1708,95 @@ async def reports_validacoes_export(request: Request,
 
 # ── Prateleira ────────────────────────────────────────────────────────────────
 
-@app.post("/admin/prateleira/atribuir")
+def _prateleira_context() -> dict:
+    layout = prateleira_mod.get_layout()
+    blocos = prateleira_mod.listar_blocos()
+    return {
+        "layout": layout,
+        "colunas_nomes": prateleira_mod.listar_colunas(),
+        "blocos": blocos,
+        "celulas_vazias": prateleira_mod.celulas_vazias(blocos, layout),
+        "livre": prateleira_mod.listar_livre(),
+        "estoque_itens": estoque_mod.listar_estoque(),
+        "max_itens_por_slot": prateleira_mod.MAX_ITENS_POR_SLOT,
+    }
+
+
+@app.get("/admin/prateleira", response_class=HTMLResponse)
 @require_login
-async def admin_prateleira_atribuir(request: Request):
+async def admin_prateleira(request: Request):
+    return render(request, "admin_prateleira.html", _prateleira_context())
+
+
+@app.post("/admin/prateleira/layout")
+@require_login
+async def admin_prateleira_layout(request: Request):
     form = await request.form()
     try:
-        linha = int(form.get("linha"))
-        coluna = int(form.get("coluna"))
+        linhas = int(form.get("linhas"))
+        colunas = int(form.get("colunas"))
+        nomes = [str(form.get(f"nome_coluna_{i}", "")).strip() for i in range(1, colunas + 1)]
+        prateleira_mod.atualizar_layout(linhas, colunas, nomes)
+    except (ValueError, TypeError) as e:
+        return RedirectResponse("/admin/prateleira?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/prateleira?ok=layout", status_code=302)
+
+
+@app.post("/admin/prateleira/blocos")
+@require_login
+async def admin_prateleira_criar_bloco(request: Request):
+    form = await request.form()
+    try:
+        linha_ini = int(form.get("linha_ini"))
+        linha_fim = int(form.get("linha_fim"))
+        coluna_ini = int(form.get("coluna_ini"))
+        coluna_fim = int(form.get("coluna_fim"))
         estoque_id = int(form.get("estoque_id"))
-        prateleira_mod.atribuir(linha, coluna, estoque_id)
-    except ValueError as e:
-        return RedirectResponse(
-            "/admin/items?tab=prateleira&erro=" + quote(str(e)), status_code=302)
-    except TypeError:
-        pass
-    return RedirectResponse("/admin/items?tab=prateleira", status_code=302)
+        prateleira_mod.criar_bloco(linha_ini, linha_fim, coluna_ini, coluna_fim, estoque_id)
+    except (ValueError, TypeError) as e:
+        return RedirectResponse("/admin/prateleira?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/prateleira?ok=bloco", status_code=302)
 
 
-@app.post("/admin/prateleira/remover")
+@app.post("/admin/prateleira/blocos/{bloco_id}/remover")
 @require_login
-async def admin_prateleira_remover(request: Request):
+async def admin_prateleira_remover_bloco(request: Request, bloco_id: int):
+    prateleira_mod.remover_bloco(bloco_id)
+    return RedirectResponse("/admin/prateleira", status_code=302)
+
+
+@app.post("/admin/prateleira/livre")
+@require_login
+async def admin_prateleira_adicionar_livre(request: Request):
     form = await request.form()
     try:
-        prateleira_mod.remover(int(form.get("estoque_id")))
-    except (ValueError, TypeError):
-        pass
-    return RedirectResponse("/admin/items?tab=prateleira", status_code=302)
+        prateleira_mod.adicionar_livre(int(form.get("estoque_id")))
+    except (ValueError, TypeError) as e:
+        return RedirectResponse("/admin/prateleira?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/prateleira?ok=livre", status_code=302)
+
+
+@app.post("/admin/prateleira/livre/{livre_id}/remover")
+@require_login
+async def admin_prateleira_remover_livre(request: Request, livre_id: int):
+    prateleira_mod.remover_livre(livre_id)
+    return RedirectResponse("/admin/prateleira", status_code=302)
 
 
 @app.get("/prateleira/tv", response_class=HTMLResponse)
 async def prateleira_tv(request: Request, minutos: int = 5):
     minutos = max(1, minutos)
-    grade = prateleira_mod.listar_grade()
+    layout = prateleira_mod.get_layout()
+    blocos = prateleira_mod.listar_blocos()
+    livre = prateleira_mod.listar_livre()
     return render(request, "prateleira_tv.html", {
-        "grade": grade,
-        "linhas": prateleira_mod.LINHAS,
-        "colunas": prateleira_mod.COLUNAS,
+        "layout": layout,
+        "colunas_nomes": prateleira_mod.listar_colunas(),
+        "blocos": blocos,
+        "celulas_vazias": prateleira_mod.celulas_vazias(blocos, layout),
+        "livre": livre,
         "minutos": minutos,
-        "contagem_status": prateleira_mod.contar_status(grade),
+        "contagem_status": prateleira_mod.contar_status(blocos, livre),
     })
 
 

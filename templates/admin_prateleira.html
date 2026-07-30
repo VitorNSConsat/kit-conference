@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block title %}Prateleira{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>🗄️ Prateleira</h1>
+  <a href="/prateleira/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
+</div>
+
+{% if request.query_params.get('ok') == 'layout' %}
+<div class="alert alert-success">✅ Grade atualizada.</div>
+{% elif request.query_params.get('ok') == 'bloco' %}
+<div class="alert alert-success">✅ Item atribuído.</div>
+{% elif request.query_params.get('ok') == 'livre' %}
+<div class="alert alert-success">✅ Item adicionado à área livre.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+<div class="card">
+  <h2>Configurar Grade</h2>
+  <p style="color:#666;font-size:13px;margin-bottom:12px;">
+    Defina o tamanho da prateleira e o nome de cada coluna física.
+  </p>
+  <form method="post" action="/admin/prateleira/layout">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;">
+        <label>Linhas</label>
+        <input type="number" name="linhas" id="input-linhas" min="1" max="20"
+               value="{{ layout.linhas }}" required style="width:90px;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Colunas</label>
+        <input type="number" name="colunas" id="input-colunas" min="1" max="20"
+               value="{{ layout.colunas }}" required style="width:90px;"
+               oninput="sincronizarNomesColunas()">
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <label style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;">
+        Nome de cada coluna
+      </label>
+      <div id="nomes-colunas-wrap" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        {% for cn in colunas_nomes %}
+        <input type="text" name="nome_coluna_{{ loop.index }}" value="{{ cn.nome }}"
+               style="width:140px;" required>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <button type="submit" class="btn btn-success">💾 Salvar Grade</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+    <h2 style="margin:0;">Grade</h2>
+    <span style="font-size:12px;color:#888;">
+      Clique e arraste sobre a grade pra selecionar uma ou mais células, depois escolha o item.
+    </span>
+  </div>
+
+  <div class="prateleira-grid-wrap">
+    <div class="prateleira-col-headers" style="grid-template-columns: repeat({{ layout.colunas }}, minmax(120px, 1fr));">
+      {% for cn in colunas_nomes %}
+      <div>{{ cn.nome }}</div>
+      {% endfor %}
+    </div>
+    <div class="prateleira-grid2" id="prateleira-grid"
+         data-linhas="{{ layout.linhas }}" data-colunas="{{ layout.colunas }}"
+         style="grid-template-columns: repeat({{ layout.colunas }}, minmax(120px, 1fr));
+                grid-template-rows: repeat({{ layout.linhas }}, 100px);">
+
+      {% for pos in celulas_vazias %}
+      <div class="pcell vazio" style="grid-row:{{ pos[0] }};grid-column:{{ pos[1] }};">
+        <span class="pcell-pos">L{{ pos[0] }}·C{{ pos[1] }}</span>
+      </div>
+      {% endfor %}
+
+      {% for b in blocos %}
+      <div class="pcell ocupado"
+           style="grid-row:{{ b.linha_ini }} / {{ b.linha_fim + 1 }}; grid-column:{{ b.coluna_ini }} / {{ b.coluna_fim + 1 }};">
+        <div class="pcell-pos">
+          L{{ b.linha_ini }}{% if b.linha_fim != b.linha_ini %}-{{ b.linha_fim }}{% endif %} ·
+          C{{ b.coluna_ini }}{% if b.coluna_fim != b.coluna_ini %}-{{ b.coluna_fim }}{% endif %}
+          <span style="float:right;">{{ b.itens | length }}/{{ max_itens_por_slot }}</span>
+        </div>
+        <div class="pcell-itens count-{{ b.itens | length }}">
+          {% for item in b.itens %}
+          {% set esgotado = item.quantidade_atual <= 0 %}
+          {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
+          {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
+          {% set status = 'esgotado' if esgotado else ('critico' if abaixo else ('baixo' if proximo else 'ok')) %}
+          <div class="pcell-item {{ status }}">
+            <span class="pcell-item-dot"></span>
+            <div class="pcell-item-info">
+              <div class="pcell-item-nome">{{ item.tipo_nome }}</div>
+              <div class="pcell-item-codigo">{{ item.codigo_barra }}</div>
+            </div>
+            <div class="pcell-item-qtd">
+              {{ item.quantidade_atual }}
+              {% if esgotado %}<span class="pcell-item-esgotado-label">ESGOTADO</span>{% endif %}
+            </div>
+            <form method="post" action="/admin/prateleira/blocos/{{ item.bloco_id }}/remover" style="margin:0;">
+              <button type="submit" class="pcell-item-remover" title="Remover deste bloco">✕</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="pcell-selection" id="pcell-selection"></div>
+    </div>
+  </div>
+
+  <div class="card" id="painel-atribuir" style="display:none;margin-top:14px;background:#f4f7fb;box-shadow:none;border:1px solid #dde3ea;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:14px;">
+        <strong>Região selecionada:</strong> <span id="regiao-selecionada-label"></span>
+      </div>
+      <form method="post" action="/admin/prateleira/blocos" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="linha_ini" id="input-linha-ini">
+        <input type="hidden" name="linha_fim" id="input-linha-fim">
+        <input type="hidden" name="coluna_ini" id="input-coluna-ini">
+        <input type="hidden" name="coluna_fim" id="input-coluna-fim">
+        <select name="estoque_id" required>
+          <option value="">— escolha o item —</option>
+          {% for e in estoque_itens %}
+          <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }})</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-success">＋ Atribuir</button>
+        <button type="button" class="btn btn-warning" onclick="cancelarSelecao()">Cancelar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-bottom:4px;">Área Livre</h2>
+  <p style="color:#666;font-size:13px;margin-bottom:12px;">
+    Itens empilhados fora da grade — sem posição de prateleira real (chão, corredor, etc).
+  </p>
+  <form method="post" action="/admin/prateleira/livre" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+      <label>Item</label>
+      <select name="estoque_id" required>
+        <option value="">— escolha o item —</option>
+        {% for e in estoque_itens %}
+        <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-success">＋ Adicionar</button>
+  </form>
+  {% if livre %}
+  <div class="prateleira-livre-lista">
+    {% for item in livre %}
+    {% set esgotado = item.quantidade_atual <= 0 %}
+    {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
+    {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
+    {% set status = 'esgotado' if esgotado else ('critico' if abaixo else ('baixo' if proximo else 'ok')) %}
+    <div class="pcell-item {{ status }}" style="max-width:280px;">
+      <span class="pcell-item-dot"></span>
+      <div class="pcell-item-info">
+        <div class="pcell-item-nome">{{ item.tipo_nome }}</div>
+        <div class="pcell-item-codigo">{{ item.codigo_barra }}</div>
+      </div>
+      <div class="pcell-item-qtd">
+        {{ item.quantidade_atual }}
+        {% if esgotado %}<span class="pcell-item-esgotado-label">ESGOTADO</span>{% endif %}
+      </div>
+      <form method="post" action="/admin/prateleira/livre/{{ item.livre_id }}/remover" style="margin:0;">
+        <button type="submit" class="pcell-item-remover" title="Remover da área livre">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum item na área livre.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.prateleira-grid-wrap { overflow-x: auto; }
+
+.prateleira-col-headers {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 6px;
+  min-width: fit-content;
+}
+.prateleira-col-headers div {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1a3a5c;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #1a3a5c;
+}
+
+.prateleira-grid2 {
+  position: relative;
+  display: grid;
+  min-width: fit-content;
+  user-select: none;
+}
+
+.pcell {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.pcell.ocupado { background: #fff; border-color: #1a3a5c; }
+.pcell-pos { font-size: 10px; color: #999; font-weight: 700; flex-shrink: 0; }
+.pcell-selection {
+  grid-row: 1; grid-column: 1;
+  display: none;
+  background: rgba(26,58,92,.18);
+  border: 2px dashed #1a3a5c;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.pcell-itens { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1; margin-top: 4px; }
+.pcell-slot-vazio-label, .pcell-item-esgotado-label { font-size: 10px; }
+.pcell-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7f8f9;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.pcell-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pcell-item-info { flex: 1; min-width: 0; }
+.pcell-item-nome { font-size: 11px; font-weight: 700; color: #1a3a5c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcell-item-codigo { font-size: 9px; color: #999; font-family: monospace; }
+.pcell-item-qtd { font-size: 13px; font-weight: 800; flex-shrink: 0; text-align: right; }
+.pcell-item-esgotado-label { display: block; color: #c0392b; font-weight: 800; }
+.pcell-item-remover {
+  border: none; background: none; color: #c0392b; font-weight: 800;
+  cursor: pointer; font-size: 13px; flex-shrink: 0; padding: 2px 4px;
+}
+.pcell-item.ok       .pcell-item-dot { background: #27ae60; }
+.pcell-item.ok       .pcell-item-qtd { color: #27ae60; }
+.pcell-item.baixo    .pcell-item-dot { background: #f0ad4e; }
+.pcell-item.baixo    .pcell-item-qtd { color: #f0ad4e; }
+.pcell-item.critico  .pcell-item-dot { background: #e74c3c; }
+.pcell-item.critico  .pcell-item-qtd { color: #e74c3c; }
+.pcell-item.esgotado .pcell-item-dot { background: #e74c3c; }
+.pcell-item.esgotado { background: rgba(192,57,43,.08); }
+.pcell-item.esgotado .pcell-item-qtd { color: #c0392b; }
+
+.prateleira-livre-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+<script>
+function sincronizarNomesColunas() {
+    var n = Math.max(1, parseInt(document.getElementById('input-colunas').value) || 1);
+    var wrap = document.getElementById('nomes-colunas-wrap');
+    var inputs = Array.from(wrap.querySelectorAll('input'));
+    while (inputs.length < n) {
+        var idx = inputs.length + 1;
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.style.width = '140px';
+        inp.required = true;
+        inp.placeholder = 'Coluna ' + idx;
+        wrap.appendChild(inp);
+        inputs.push(inp);
+    }
+    while (inputs.length > n) {
+        wrap.removeChild(inputs.pop());
+    }
+    inputs.forEach(function (inp, i) { inp.name = 'nome_coluna_' + (i + 1); });
+}
+
+(function () {
+    var grid = document.getElementById('prateleira-grid');
+    var selDiv = document.getElementById('pcell-selection');
+    var linhas = parseInt(grid.dataset.linhas, 10);
+    var colunas = parseInt(grid.dataset.colunas, 10);
+    var dragging = false;
+    var startCell = null;
+    var selecaoAtual = null;
+
+    function cellFromEvent(e) {
+        var rect = grid.getBoundingClientRect();
+        var cw = rect.width / colunas;
+        var ch = rect.height / linhas;
+        var col = Math.floor((e.clientX - rect.left) / cw) + 1;
+        var row = Math.floor((e.clientY - rect.top) / ch) + 1;
+        col = Math.min(Math.max(col, 1), colunas);
+        row = Math.min(Math.max(row, 1), linhas);
+        return { row: row, col: col };
+    }
+
+    function atualizarSelecao(a, b) {
+        var linhaIni = Math.min(a.row, b.row);
+        var linhaFim = Math.max(a.row, b.row);
+        var colunaIni = Math.min(a.col, b.col);
+        var colunaFim = Math.max(a.col, b.col);
+        selDiv.style.display = 'block';
+        selDiv.style.gridRow = linhaIni + ' / ' + (linhaFim + 1);
+        selDiv.style.gridColumn = colunaIni + ' / ' + (colunaFim + 1);
+        return { linhaIni: linhaIni, linhaFim: linhaFim, colunaIni: colunaIni, colunaFim: colunaFim };
+    }
+
+    grid.addEventListener('mousedown', function (e) {
+        if (e.target.closest('form') || e.target.closest('button')) return;
+        e.preventDefault();
+        dragging = true;
+        startCell = cellFromEvent(e);
+        selecaoAtual = atualizarSelecao(startCell, startCell);
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        var cur = cellFromEvent(e);
+        selecaoAtual = atualizarSelecao(startCell, cur);
+    });
+
+    document.addEventListener('mouseup', function () {
+        if (!dragging) return;
+        dragging = false;
+        if (!selecaoAtual) return;
+        document.getElementById('input-linha-ini').value = selecaoAtual.linhaIni;
+        document.getElementById('input-linha-fim').value = selecaoAtual.linhaFim;
+        document.getElementById('input-coluna-ini').value = selecaoAtual.colunaIni;
+        document.getElementById('input-coluna-fim').value = selecaoAtual.colunaFim;
+        var label = 'L' + selecaoAtual.linhaIni;
+        if (selecaoAtual.linhaFim !== selecaoAtual.linhaIni) label += '-' + selecaoAtual.linhaFim;
+        label += ' · C' + selecaoAtual.colunaIni;
+        if (selecaoAtual.colunaFim !== selecaoAtual.colunaIni) label += '-' + selecaoAtual.colunaFim;
+        document.getElementById('regiao-selecionada-label').textContent = label;
+        document.getElementById('painel-atribuir').style.display = 'block';
+    });
+
+    window.cancelarSelecao = function () {
+        selDiv.style.display = 'none';
+        selecaoAtual = null;
+        document.getElementById('painel-atribuir').style.display = 'none';
+    };
+})();
+</script>
+{% endblock %}

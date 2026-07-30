@@ -116,10 +116,71 @@
   .chip.warning .icon  { background: var(--warning); color: #fff; }
   .chip.good .icon     { background: var(--good); color: #fff; }
 
+  /* Linha principal: área livre + coluna da grade (cabeçalho + grade) */
+  .main-row {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 16px;
+  }
+
+  .grid-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* Área livre — itens empilhados sem posição real na prateleira */
+  .livre-panel {
+    width: 190px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .livre-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gridline);
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  .livre-lista {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .livre-item {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gridline);
+    border-radius: 8px;
+    background: var(--surface-1);
+    padding: 8px 10px;
+  }
+  .livre-item.good     { border-left-color: var(--good); }
+  .livre-item.warning  { border-left-color: var(--warning); }
+  .livre-item.critical { border-left-color: var(--critical); }
+  .livre-item.esgotado { border-left-color: var(--esgotado); background: rgba(192,57,43,.10); }
+  .livre-item-nome { font-size: 12px; font-weight: 700; }
+  .livre-item-qtd  { font-size: 15px; font-weight: 800; margin-top: 2px; }
+  .livre-item.good     .livre-item-qtd { color: var(--good); }
+  .livre-item.warning  .livre-item-qtd { color: var(--warning); }
+  .livre-item.critical .livre-item-qtd { color: var(--critical); }
+  .livre-item.esgotado .livre-item-qtd { color: var(--esgotado); }
+  .livre-vazio { font-size: 12px; color: var(--text-muted); text-align: center; padding: 12px 0; }
+
   /* Cabeçalho das colunas físicas */
   .col-headers {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
     gap: 14px;
     margin-bottom: 8px;
     flex-shrink: 0;
@@ -140,8 +201,6 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(4, 1fr);
     gap: 12px;
   }
 
@@ -316,41 +375,70 @@
   <div class="chip good"><span class="icon">✓</span><span class="count">{{ contagem_status.ok }}</span><span class="label">normais</span></div>
 </div>
 
-<div class="col-headers">
-  <div>Porta</div>
-  <div>Meio</div>
-  <div>Lab</div>
-</div>
-
-<div class="grid">
-  {% set colunas_letras = ['A', 'B', 'C'] %}
-  {% for linha in range(1, linhas + 1) %}
-    {% for coluna in range(1, colunas + 1) %}
-    {% set itens_slot = grade.get((linha, coluna), []) %}
-    <div class="card {{ 'vazio' if not itens_slot else '' }}">
-      <div class="pos">{{ colunas_letras[coluna - 1] }}{{ linha }}</div>
-      {% if itens_slot %}
-      <div class="item-lista count-{{ itens_slot | length }}">
-        {% for item in itens_slot %}
-        {% set esgotado = item.quantidade_atual <= 0 %}
-        {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
-        {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
-        <div class="item-card {{ 'esgotado' if esgotado else ('critical' if abaixo else ('warning' if proximo else 'good')) }}">
-          <div class="item-nome">{{ item.tipo_nome }}</div>
-          {% if esgotado %}
-          <div class="item-esgotado-label">ESGOTADO</div>
-          {% else %}
-          <div class="item-qtd">{{ item.quantidade_atual }}</div>
-          {% endif %}
-        </div>
-        {% endfor %}
+<div class="main-row">
+  <div class="livre-panel">
+    <div class="livre-panel-title">Área Livre</div>
+    <div class="livre-lista">
+      {% for item in livre %}
+      {% set esgotado = item.quantidade_atual <= 0 %}
+      {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
+      {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
+      <div class="livre-item {{ 'esgotado' if esgotado else ('critical' if abaixo else ('warning' if proximo else 'good')) }}">
+        <div class="livre-item-nome">{{ item.tipo_nome }}</div>
+        {% if esgotado %}
+        <div class="livre-item-qtd">ESGOTADO</div>
+        {% else %}
+        <div class="livre-item-qtd">{{ item.quantidade_atual }}</div>
+        {% endif %}
       </div>
       {% else %}
-      <div class="vazio-label">—</div>
-      {% endif %}
+      <div class="livre-vazio">— vazio —</div>
+      {% endfor %}
     </div>
-    {% endfor %}
-  {% endfor %}
+  </div>
+
+  <div class="grid-col">
+    <div class="col-headers" style="grid-template-columns: repeat({{ layout.colunas }}, 1fr);">
+      {% for cn in colunas_nomes %}
+      <div>{{ cn.nome }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat({{ layout.colunas }}, 1fr);
+                              grid-template-rows: repeat({{ layout.linhas }}, 1fr);">
+      {% for pos in celulas_vazias %}
+      <div class="card vazio" style="grid-row:{{ pos[0] }};grid-column:{{ pos[1] }};">
+        <div class="pos">L{{ pos[0] }}·C{{ pos[1] }}</div>
+        <div class="vazio-label">—</div>
+      </div>
+      {% endfor %}
+
+      {% for b in blocos %}
+      <div class="card"
+           style="grid-row:{{ b.linha_ini }} / {{ b.linha_fim + 1 }}; grid-column:{{ b.coluna_ini }} / {{ b.coluna_fim + 1 }};">
+        <div class="pos">
+          L{{ b.linha_ini }}{% if b.linha_fim != b.linha_ini %}-{{ b.linha_fim }}{% endif %} ·
+          C{{ b.coluna_ini }}{% if b.coluna_fim != b.coluna_ini %}-{{ b.coluna_fim }}{% endif %}
+        </div>
+        <div class="item-lista count-{{ b.itens | length }}">
+          {% for item in b.itens %}
+          {% set esgotado = item.quantidade_atual <= 0 %}
+          {% set abaixo = not esgotado and item.quantidade_atual <= item.quantidade_minima %}
+          {% set proximo = not esgotado and not abaixo and item.quantidade_atual <= item.quantidade_minima * 2 %}
+          <div class="item-card {{ 'esgotado' if esgotado else ('critical' if abaixo else ('warning' if proximo else 'good')) }}">
+            <div class="item-nome">{{ item.tipo_nome }}</div>
+            {% if esgotado %}
+            <div class="item-esgotado-label">ESGOTADO</div>
+            {% else %}
+            <div class="item-qtd">{{ item.quantidade_atual }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
 </div>
 
 <div class="legend">
