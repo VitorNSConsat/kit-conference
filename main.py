@@ -164,9 +164,30 @@ _LOGIN_JANELA_SEG = 15 * 60
 _login_tentativas: dict[str, list[float]] = {}
 
 
+def _ip_do_cliente(request: Request) -> str:
+    """IP real de quem chamou.
+
+    Atrás de um proxy (Cloudflare Tunnel), request.client.host é o IP do
+    proxy — igual para todo mundo — o que faria o freio de login trancar
+    todos os usuários de uma vez. Nesse caso o IP verdadeiro vem no
+    cabeçalho CF-Connecting-IP.
+
+    Só confiamos no cabeçalho quando TRUST_PROXY_IP=1, porque quem fala
+    direto com o app (acesso pela LAN) pode forjar esse cabeçalho e
+    escapar do limite trocando o valor a cada tentativa.
+    """
+    if os.getenv("TRUST_PROXY_IP", "").strip() in ("1", "true", "True"):
+        cf = request.headers.get("cf-connecting-ip")
+        if cf:
+            return cf.strip()
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
 def _login_chave(request: Request, username: str) -> str:
-    ip = request.client.host if request.client else "?"
-    return f"{ip}|{username.lower()}"
+    return f"{_ip_do_cliente(request)}|{username.lower()}"
 
 
 def _login_bloqueado(chave: str) -> int:
