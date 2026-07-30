@@ -30,6 +30,7 @@ import app.garagens as garagens_mod
 import app.codigos_gerados as codigos_gerados_mod
 import app.prateleira as prateleira_mod
 import app.pedidos as pedidos_mod
+import app.consumo as consumo_mod
 
 load_dotenv()
 
@@ -482,6 +483,7 @@ def _admin_templates_context() -> dict:
         "templates_pedido": [t for t in todos if t.get("tipo") == "pedido"],
         "tipos_catalogo": items_mod.listar_tipos(apenas_ativos=True),
         "clientes": clientes_mod.listar(),
+        "consumo_resumo": consumo_mod.resumo_todos_kits(),
     }
 
 
@@ -592,9 +594,11 @@ async def admin_template_edit_page(request: Request, template_id: int):
     clientes = clientes_mod.listar()
     sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento(template_id=template_id)
     unidades = pedidos_mod.listar_unidades(template_id) if template.get("tipo") == "pedido" else []
+    consumo = consumo_mod.analise_template(template_id)
     return render(request, "admin_template_edit.html", {
         "template": template,
         "itens": itens,
+        "consumo": consumo,
         "tipos_catalogo": tipos_ativos,
         "clientes": clientes,
         "sessoes_em_andamento": sessoes_em_andamento,

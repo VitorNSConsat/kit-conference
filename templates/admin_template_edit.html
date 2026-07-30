@@ -90,6 +90,138 @@
 </div>
 {% endif %}
 
+{% if consumo is defined and consumo and consumo.itens %}
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+        <h2 style="margin:0;">📊 Consumo &amp; Estoque</h2>
+        <span style="font-size:12px;color:#888;">
+            {% if consumo.n_kits %}
+            {{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }} montado{{ 's' if consumo.n_kits != 1 }}
+            {%- if consumo.primeiro_em %} · {{ consumo.primeiro_em }} a {{ consumo.ultimo_em }}{% endif %}
+            {% else %}
+            nenhum kit montado ainda
+            {% endif %}
+        </span>
+    </div>
+
+    <div class="consumo-chips">
+        <div class="consumo-chip {{ 'critico' if consumo.autonomia_kit == 0 else ('alerta' if consumo.autonomia_kit is not none and consumo.autonomia_kit < 5 else 'ok') }}">
+            <div class="chip-label">Ainda dá pra montar</div>
+            <div class="chip-valor">
+                {% if consumo.autonomia_kit is not none %}{{ consumo.autonomia_kit }} kit{{ 's' if consumo.autonomia_kit != 1 }}{% else %}—{% endif %}
+            </div>
+            <div class="chip-sub">
+                {% if consumo.gargalo %}trava em: {{ consumo.gargalo }}{% else %}nenhum item com estoque vinculado{% endif %}
+            </div>
+        </div>
+
+        <div class="consumo-chip">
+            <div class="chip-label">Acaba em</div>
+            <div class="chip-valor">
+                {% if consumo.dias_restantes is not none %}~{{ consumo.dias_restantes }} dias{% else %}—{% endif %}
+            </div>
+            <div class="chip-sub">
+                {% if consumo.ritmo_semanal %}no ritmo atual{% else %}sem ritmo medido ainda{% endif %}
+            </div>
+        </div>
+
+        <div class="consumo-chip">
+            <div class="chip-label">Ritmo</div>
+            <div class="chip-valor">
+                {% if consumo.ritmo_semanal %}{{ '%g'|format(consumo.ritmo_semanal|round(1)) }}/sem{% else %}—{% endif %}
+            </div>
+            <div class="chip-sub">kits por semana</div>
+        </div>
+
+        <div class="consumo-chip">
+            <div class="chip-label">Cada kit leva</div>
+            <div class="chip-valor" style="font-size:19px;">
+                {% for un, total in consumo.total_por_unidade.items() %}
+                {{- '%g'|format(total|round(2)) }} {{ un }}{{ ' · ' if not loop.last }}
+                {%- endfor %}
+            </div>
+            <div class="chip-sub">conforme o planejado</div>
+        </div>
+    </div>
+
+    {% if consumo.confianca == 'sem_historico' %}
+    <div class="consumo-aviso">
+        ℹ️ Ainda não há consumo real registrado para este kit — os números usam o
+        <strong>planejado do template</strong> como estimativa. Conforme os kits forem
+        sendo montados, isso passa a refletir o gasto de verdade automaticamente.
+    </div>
+    {% elif consumo.confianca == 'amostra_pequena' %}
+    <div class="consumo-aviso alerta">
+        ⚠️ Amostra pequena ({{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }}) — a média
+        ainda pode variar bastante. Use como indício, não como base de compra.
+    </div>
+    {% endif %}
+
+    <div style="overflow-x:auto;">
+    <table class="tabela-consumo">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Planejado</th>
+                <th>Gasto real (média)</th>
+                <th>Desvio</th>
+                <th>Estoque</th>
+                <th>Autonomia</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for it in consumo.itens %}
+        <tr>
+            <td><strong>{{ it.descricao }}</strong></td>
+            <td>{{ '%g'|format(it.planejado|round(2)) }} {{ it.unidade }}</td>
+            <td>
+                {% if it.real_medio is not none %}
+                {{ '%g'|format(it.real_medio|round(2)) }} {{ it.unidade }}
+                {% else %}
+                <span style="color:#bbb;">sem dado</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if it.desvio_pct is not none and it.desvio_pct|round(0) != 0 %}
+                <span class="desvio {{ 'pior' if it.desvio_pct > 0 else 'melhor' }}">
+                    {{ '%+.0f'|format(it.desvio_pct) }}%
+                </span>
+                {% elif it.desvio_pct is not none %}
+                <span style="color:#27ae60;">bate o plano</span>
+                {% else %}
+                <span style="color:#bbb;">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if it.tem_estoque %}
+                <span class="{{ 'estoque-neg' if it.estoque_atual < 0 }}">{{ it.estoque_atual }}</span>
+                {% else %}
+                <span style="color:#bbb;">sem estoque vinculado</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if it.autonomia is not none %}
+                <span class="autonomia {{ 'critico' if it.autonomia == 0 else ('alerta' if it.autonomia < 5 else 'ok') }}">
+                    {{ it.autonomia }} kit{{ 's' if it.autonomia != 1 }}
+                </span>
+                {% else %}
+                <span style="color:#bbb;">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+
+    <p style="font-size:11px;color:#999;margin-top:10px;">
+        O gasto real vem das saídas de estoque ligadas a cada kit finalizado — por isso
+        pode passar do planejado quando há substituição de equipamento com defeito no meio
+        da bipagem. Itens sem estoque vinculado usam o planejado, que para eles é exato.
+    </p>
+</div>
+{% endif %}
+
 <div class="card">
     <form method="post" action="/admin/templates/{{ template.id }}/edit" id="form-edit">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
@@ -187,6 +319,51 @@
 {% endblock %}
 {% block scripts %}
 <style>
+/* ── Consumo & Estoque ─────────────────────────────────────────────── */
+.consumo-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin: 14px 0 12px;
+}
+.consumo-chip {
+    border: 1px solid #e0e7ef;
+    border-left: 4px solid #1a3a5c;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f7f9fc;
+}
+.consumo-chip.ok      { border-left-color: #27ae60; }
+.consumo-chip.alerta  { border-left-color: #e67e22; background: #fff8f0; }
+.consumo-chip.critico { border-left-color: #c0392b; background: #fdecea; }
+.chip-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: #8a95a3;
+}
+.chip-valor { font-size: 24px; font-weight: 800; color: #1a3a5c; line-height: 1.15; margin-top: 2px; }
+.consumo-chip.alerta  .chip-valor { color: #e67e22; }
+.consumo-chip.critico .chip-valor { color: #c0392b; }
+.chip-sub { font-size: 11px; color: #8a95a3; margin-top: 3px; }
+
+.consumo-aviso {
+    background: #eef4fb; border: 1px solid #d3e2f3; color: #2c4a6b;
+    border-radius: 8px; padding: 10px 13px; font-size: 12.5px;
+    line-height: 1.45; margin-bottom: 12px;
+}
+.consumo-aviso.alerta { background: #fff8f0; border-color: #f3ddc2; color: #8a5a1e; }
+
+.tabela-consumo { width: 100%; }
+.tabela-consumo th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.tabela-consumo td { font-size: 13px; }
+.desvio { font-weight: 800; }
+.desvio.pior   { color: #c0392b; }
+.desvio.melhor { color: #27ae60; }
+.estoque-neg { color: #c0392b; font-weight: 800; }
+.autonomia { font-weight: 800; }
+.autonomia.ok      { color: #27ae60; }
+.autonomia.alerta  { color: #e67e22; }
+.autonomia.critico { color: #c0392b; }
+
 .tipos-grid-admin {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));

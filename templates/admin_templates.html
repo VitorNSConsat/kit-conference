@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Criar Kit — Conferência de Kits{% endblock %}
 
-{% macro secao_templates(tipo, label, templates_lista, clientes, tipos_catalogo) %}
+{% macro secao_templates(tipo, label, templates_lista, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
 <!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
 <div class="card" style="border:1px solid #b0c4de;">
@@ -85,7 +85,7 @@
     {% endif %}
     <table id="tabela-{{ tipo }}">
         <thead>
-            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th>{% if tipo == 'pedido' %}<th>Feito</th>{% endif %}<th></th></tr>
+            <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th>{% if tipo == 'pedido' %}<th>Feito</th>{% else %}<th>Autonomia</th>{% endif %}<th></th></tr>
         </thead>
         <tbody>
         {% for t in templates_lista %}
@@ -96,6 +96,25 @@
             <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>
             {% if tipo == 'pedido' %}
             <td><span class="badge {{ 'badge-success' if t.concluido else 'badge-warning' }}">{{ 'Sim' if t.concluido else 'Não' }}</span></td>
+            {% else %}
+            {% set c = consumo_resumo.get(t.id) %}
+            <td>
+                {% if c and c.autonomia_kit is not none %}
+                <span class="autonomia-lista {{ 'critico' if c.autonomia_kit == 0 else ('alerta' if c.autonomia_kit < 5 else 'ok') }}">
+                    {{ c.autonomia_kit }} kit{{ 's' if c.autonomia_kit != 1 }}
+                </span>
+                {% if c.gargalo %}
+                <div style="font-size:10px;color:#999;">trava em: {{ c.gargalo }}</div>
+                {% endif %}
+                {% if c.confianca != 'ok' %}
+                <div style="font-size:10px;color:#e67e22;">
+                    {{ 'estimado pelo plano' if c.confianca == 'sem_historico' else 'amostra pequena' }}
+                </div>
+                {% endif %}
+                {% else %}
+                <span style="color:#bbb;">—</span>
+                {% endif %}
+            </td>
             {% endif %}
             <td style="display:flex;gap:6px;flex-wrap:wrap;">
                 {% if tipo == 'pedido' %}
@@ -120,7 +139,7 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="{{ 6 if tipo == 'pedido' else 5 }}" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
+        <tr><td colspan="6" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
         {% endfor %}
         </tbody>
     </table>
@@ -236,14 +255,18 @@
 </div>
 
 <div id="tab-kit" class="tab-panel">
-    {{ secao_templates('kit', 'Kit', templates_kit, clientes, tipos_catalogo) }}
+    {{ secao_templates('kit', 'Kit', templates_kit, clientes, tipos_catalogo, consumo_resumo) }}
 </div>
 <div id="tab-pedido" class="tab-panel" style="display:none;">
-    {{ secao_templates('pedido', 'Pedido', templates_pedido, clientes, tipos_catalogo) }}
+    {{ secao_templates('pedido', 'Pedido', templates_pedido, clientes, tipos_catalogo, {}) }}
 </div>
 {% endblock %}
 {% block scripts %}
 <style>
+.autonomia-lista { font-weight: 800; font-size: 13px; }
+.autonomia-lista.ok      { color: #27ae60; }
+.autonomia-lista.alerta  { color: #e67e22; }
+.autonomia-lista.critico { color: #c0392b; }
 .tipos-grid-admin {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
