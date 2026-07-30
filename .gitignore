@@ -2,6 +2,8 @@
 *.pyc
 *.pyo
 .env
+# Qualquer variante do .env (copias, backups) — todas carregam SECRET_KEY
+.env.*
 kit_conference.db
 *.db
 # Backups automáticos do banco (feitos antes de cada migração de schema):
