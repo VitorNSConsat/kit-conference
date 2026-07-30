@@ -74,10 +74,12 @@
         A exclusão forçada remove o tipo e todos os dados vinculados permanentemente
         (patrimônios, entradas em templates, estoque e histórico de bipagem).
     </p>
+    {% if user and user.admin %}
     <form method="post" action="/admin/tipos/{{ tipo_com_erro.tipo_id }}/delete-force"
           onsubmit="return confirm('Excluir permanentemente o tipo \'{{ tipo_com_erro.tipo_nome }}\' e todos os dados vinculados? Esta ação não pode ser desfeita.')">
         <button type="submit" class="btn btn-sm btn-danger">🗑 Forçar exclusão total</button>
     </form>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -171,10 +173,12 @@
                     </button>
                 </td>
                 <td>
+                    {% if user and user.admin %}
                     <form method="post" action="/admin/tipos/{{ tipo.id }}/delete"
                           onsubmit="return confirm('Excluir o tipo \'{{ tipo.nome }}\'? Esta ação não pode ser desfeita.')">
                         <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
                     </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -502,11 +506,13 @@
                         </span>
                     </td>
                     <td>
+                        {% if user and user.admin %}
                         <form method="post" action="/admin/items/{{ item.id }}/delete"
                               style="display:inline;"
                               onsubmit="return confirm('Excluir patrimônio \'{{ item.codigo_barra }}\'?')">
                             <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
                         </form>
+                        {% endif %}
                     </td>
                 </tr>
             {% else %}

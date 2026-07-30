@@ -158,11 +158,34 @@ Se for liberar `/prateleira/tv` (o painel da TV), libere também `/static`,
 porque essa tela carrega o logo de lá. As telas de kit e estoque têm o CSS
 embutido e não precisam.
 
+## Perfis de usuário e auditoria
+
+O sistema tem **dois perfis**. O usuário comum faz tudo no dia a dia —
+bipa, finaliza kit, imprime, cadastra e edita. A única coisa que ele não
+pode é **excluir**. Administrador pode excluir e gerir usuários.
+
+A checagem é no **servidor** (`require_admin`), não só escondendo o botão:
+chamar a rota de exclusão direto devolve **403**. Toda ação que altera
+dados fica gravada em `/admin/auditoria`, junto com tentativas negadas —
+útil para perceber alguém sondando o que consegue acessar.
+
+Na primeira vez que o sistema sobe com esta versão, **todos os usuários
+que já existiam viram administradores**, para ninguém perder de uma vez o
+acesso que tinha ontem. Revise em `/admin/usuarios` e rebaixe quem deve
+ser comum. O sistema impede rebaixar ou desativar o último administrador
+ativo.
+
+Usuários não são excluídos, apenas desativados — o histórico de kits e
+movimentações aponta para eles. Desativar corta o acesso na hora, sem
+esperar o cookie expirar.
+
 ## Checklist antes de expor
 
-- [ ] `SECRET_KEY` no `.env` é longo e aleatório (o código tem
-      `"dev-secret"` como fallback — numa máquina sem `.env` ele entra em
-      silêncio e permite forjar sessão)
+- [ ] `SECRET_KEY` no `.env` é longo e aleatório. Com `COOKIE_SECURE=1` ou
+      `SERVIDOR_URL` em `https://`, o app **se recusa a subir** sem ela —
+      subir com a chave padrão permitiria forjar sessão de qualquer usuário
+- [ ] Revisados os perfis em `/admin/usuarios` (a migração promove todo
+      mundo a admin de propósito, para não quebrar a operação)
 - [ ] `.env` não está no Git (já está no `.gitignore`)
 - [ ] Senhas dos usuários trocadas — as de teste não vão para a internet
 - [ ] Access com política Allow configurada, e o Bypass **só** no que

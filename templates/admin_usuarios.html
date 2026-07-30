@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>👥 Usuários</h1>
+  <a href="/admin/auditoria" class="btn btn-primary">📜 Ver Auditoria</a>
+</div>
+
+{% if request.query_params.get('ok') == 'criado' %}
+<div class="alert alert-success">✅ Usuário criado.</div>
+{% elif request.query_params.get('ok') == 'perfil' %}
+<div class="alert alert-success">✅ Perfil alterado.</div>
+{% elif request.query_params.get('ok') == 'status' %}
+<div class="alert alert-success">✅ Status alterado.</div>
+{% elif request.query_params.get('ok') == 'senha' %}
+<div class="alert alert-success">✅ Senha alterada.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+<div class="alert" style="background:#eef4fb;border:1px solid #d3e2f3;color:#2c4a6b;">
+  <strong>Como funcionam os perfis:</strong> o usuário comum faz tudo no dia a dia —
+  bipa, finaliza kit, imprime, cadastra e edita. A <strong>única</strong> coisa que ele
+  não pode é <strong>excluir</strong>. Administrador pode excluir e gerir usuários.
+  Toda ação, de qualquer perfil, fica registrada na
+  <a href="/admin/auditoria">auditoria</a>.
+</div>
+
+<div class="card">
+  <h2>Novo Usuário</h2>
+  <form method="post" action="/admin/usuarios"
+        style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Nome completo</label>
+      <input type="text" name="nome" required placeholder="ex: Maria Silva">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Login</label>
+      <input type="text" name="username" required placeholder="ex: maria">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Senha (mín. 8 caracteres)</label>
+      <input type="password" name="senha" required minlength="8">
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;">
+      <input type="checkbox" name="admin" style="width:auto;margin:0;">
+      Administrador
+    </label>
+    <button type="submit" class="btn btn-success">＋ Criar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Usuários ({{ usuarios | length }})</h2>
+  <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou login..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-usuarios tr.filtro-item">
+  <div style="overflow-x:auto;">
+  <table id="tabela-usuarios">
+    <thead>
+      <tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Status</th><th>Desde</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for u in usuarios %}
+    <tr class="filtro-item" style="{{ 'opacity:.55;' if not u.ativo }}">
+      <td><strong>{{ u.nome }}</strong>{% if user and u.id == user.id %}
+        <span style="font-size:11px;color:#888;">(você)</span>{% endif %}</td>
+      <td style="font-family:monospace;">{{ u.username }}</td>
+      <td>
+        <span class="badge {{ 'badge-success' if u.admin else 'badge-warning' }}">
+          {{ 'Administrador' if u.admin else 'Comum' }}
+        </span>
+      </td>
+      <td>
+        <span class="badge {{ 'badge-success' if u.ativo else 'badge-danger' }}">
+          {{ 'Ativo' if u.ativo else 'Desativado' }}
+        </span>
+      </td>
+      <td style="font-size:12px;color:#888;">{{ u.criado_em[:10] if u.criado_em else '—' }}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <form method="post" action="/admin/usuarios/{{ u.id }}/admin"
+              onsubmit="return confirm('{{ 'Rebaixar' if u.admin else 'Promover' }} {{ u.nome }}?')">
+          <button class="btn btn-sm {{ 'btn-warning' if u.admin else 'btn-primary' }}">
+            {{ 'Tornar Comum' if u.admin else 'Tornar Admin' }}
+          </button>
+        </form>
+        <form method="post" action="/admin/usuarios/{{ u.id }}/ativo"
+              onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?')">
+          <button class="btn btn-sm {{ 'btn-danger' if u.ativo else 'btn-success' }}">
+            {{ 'Desativar' if u.ativo else 'Reativar' }}
+          </button>
+        </form>
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="mostrarSenha({{ u.id }})">Trocar senha</button>
+      </td>
+    </tr>
+    <tr id="senha-{{ u.id }}" style="display:none;">
+      <td colspan="6" style="background:#f7f9fc;">
+        <form method="post" action="/admin/usuarios/{{ u.id }}/senha"
+              style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:13px;">Nova senha para <strong>{{ u.nome }}</strong>:</span>
+          <input type="password" name="senha" required minlength="8"
+                 style="width:220px;margin:0;" placeholder="mín. 8 caracteres">
+          <button type="submit" class="btn btn-sm btn-success">Salvar</button>
+          <button type="button" class="btn btn-sm btn-warning"
+                  onclick="mostrarSenha({{ u.id }})">Cancelar</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.btn-secondary { background: #6c757d; color: #fff; }
+</style>
+<script>
+function mostrarSenha(id) {
+    const linha = document.getElementById('senha-' + id);
+    linha.style.display = linha.style.display === 'none' ? 'table-row' : 'none';
+}
+</script>
+{% endblock %}

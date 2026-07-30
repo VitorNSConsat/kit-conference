@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Auditoria{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>📜 Auditoria</h1>
+  <a href="/admin/usuarios" class="btn btn-primary">👥 Usuários</a>
+</div>
+
+<p style="color:#666;font-size:13px;margin-bottom:16px;">
+  Toda ação que altera dados fica registrada aqui — de qualquer usuário, admin ou não.
+  Mostrando os {{ registros | length }} registros mais recentes que batem com o filtro.
+</p>
+
+<div class="card">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>De</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Até</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Usuário</label>
+      <select name="user_id">
+        <option value="">— todos —</option>
+        {% for u in usuarios %}
+        <option value="{{ u.id }}" {{ 'selected' if filtro_user_id == u.id|string }}>{{ u.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Ação</label>
+      <select name="acao">
+        <option value="">— todas —</option>
+        {% for a in acoes %}
+        <option value="{{ a }}" {{ 'selected' if filtro_acao == a }}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <a href="/admin/auditoria" class="btn btn-warning">✕ Limpar</a>
+  </form>
+</div>
+
+<div class="card">
+  {% if registros %}
+  <input type="text" class="busca-box" placeholder="🔍 Buscar no detalhe..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-auditoria tr.filtro-item">
+  <div style="overflow-x:auto;">
+  <table id="tabela-auditoria">
+    <thead>
+      <tr>
+        <th>Quando</th><th>Quem</th><th>Ação</th>
+        <th>Rota</th><th>Detalhe</th><th>IP</th><th>Resp.</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in registros %}
+    <tr class="filtro-item">
+      <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
+      <td>{{ r.user_nome or '—' }}</td>
+      <td>
+        <span class="badge {{ 'badge-danger' if r.acao == 'EXCLUSAO' else 'badge-success' }}">
+          {{ r.acao }}
+        </span>
+      </td>
+      <td style="font-family:monospace;font-size:11px;">{{ r.metodo }} {{ r.caminho }}</td>
+      <td style="font-size:11px;color:#666;max-width:340px;word-break:break-word;">
+        {{ r.detalhe or '—' }}
+      </td>
+      <td style="font-family:monospace;font-size:11px;color:#888;">{{ r.ip or '—' }}</td>
+      <td style="font-size:12px;color:{{ '#c0392b' if r.status and r.status >= 400 else '#27ae60' }};">
+        {{ r.status or '—' }}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">
+    Nenhum registro encontrado para esse filtro.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

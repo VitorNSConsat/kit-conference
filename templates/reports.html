@@ -132,10 +132,12 @@
                             onclick="abrirModalReimprimir('{{ k.kit_id }}', '{{ k.garagem | e }}')">
                         ♻️ Reimprimir
                     </button>
+                    {% if user and user.admin %}
                     <form method="post" action="/reports/{{ k.kit_id }}/delete" style="display:inline;"
                           onsubmit="return confirm('Excluir este kit permanentemente? Esta ação não pode ser desfeita.')">
                         <button class="btn btn-sm btn-danger">🗑️ Excluir</button>
                     </form>
+                    {% endif %}
                 </div>
             </td>
         </tr>

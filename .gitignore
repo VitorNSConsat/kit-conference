@@ -4,6 +4,10 @@
 .env
 kit_conference.db
 *.db
+# Backups automáticos do banco (feitos antes de cada migração de schema):
+# contêm dados reais de produção e NUNCA devem ir para o repositório.
+backups/
+*.bak
 certs/
 .claude/
 .superpowers/

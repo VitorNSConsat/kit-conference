@@ -102,9 +102,11 @@
               {{ item.quantidade_atual }}
               {% if esgotado %}<span class="pcell-item-esgotado-label">ESGOTADO</span>{% endif %}
             </div>
+            {% if user and user.admin %}
             <form method="post" action="/admin/prateleira/blocos/{{ item.bloco_id }}/remover" style="margin:0;">
               <button type="submit" class="pcell-item-remover" title="Remover deste bloco">✕</button>
             </form>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -172,9 +174,11 @@
         {{ item.quantidade_atual }}
         {% if esgotado %}<span class="pcell-item-esgotado-label">ESGOTADO</span>{% endif %}
       </div>
+      {% if user and user.admin %}
       <form method="post" action="/admin/prateleira/livre/{{ item.livre_id }}/remover" style="margin:0;">
         <button type="submit" class="pcell-item-remover" title="Remover da área livre">✕</button>
       </form>
+      {% endif %}
     </div>
     {% endfor %}
   </div>

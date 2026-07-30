@@ -89,11 +89,13 @@
                    class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                 <a href="/admin/estoque/{{ item.id }}/historico"
                    class="btn btn-sm btn-primary">📋 Histórico</a>
+                {% if user and user.admin %}
                 <form method="post" action="/admin/estoque/{{ item.id }}/delete"
                       style="display:inline;"
                       onsubmit="return confirm('Remover {{ item.tipo_nome }} do estoque?')">
                     <button class="btn btn-sm btn-danger">🗑️</button>
                 </form>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}

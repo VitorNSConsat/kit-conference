@@ -1,5 +1,6 @@
 import io
 import os
+import html
 import base64
 import unicodedata
 from datetime import datetime
@@ -11,6 +12,18 @@ SERVIDOR_URL = os.getenv("SERVIDOR_URL", "http://localhost:8011")
 def _ascii(s: str) -> str:
     """Remove acentos para compatibilidade com Zebra sem ^CI28."""
     return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+
+
+def _esc(valor) -> str:
+    """Escapa texto que vai para dentro do HTML da etiqueta.
+
+    Estes valores (veículo, garagem, modelo, nome do item) são digitados
+    por usuários. Sem escapar, alguém cadastra um veículo chamado
+    `<script>...</script>` e o código roda no navegador de QUEM ABRIR a
+    etiqueta — inclusive um administrador, com a sessão dele. É XSS
+    armazenado, com escalada de privilégio.
+    """
+    return html.escape("" if valor is None else str(valor), quote=True)
 
 
 def _kit_url(kit_id: str) -> str:
@@ -148,7 +161,7 @@ def _barcode_img(codigo: str) -> str:
     except Exception as e:
         print(f"[ETIQUETA] Falha ao gerar código de barras ({e.__class__.__name__}: {e}) "
               f"— verifique se Pillow está instalado (pip install -r requirements.txt)")
-        return f'<p style="font-size:9px;color:#000;font-weight:700;text-align:center;">{codigo}</p>'
+        return f'<p style="font-size:9px;color:#000;font-weight:700;text-align:center;">{_esc(codigo)}</p>'
 
 
 def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) -> str:
@@ -163,6 +176,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
         qr_src = ""
 
     barcode_html = _barcode_img(codigo_barra)
+    tipo_nome = _esc(tipo_nome)
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -276,20 +290,20 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
 
     logo_b64 = _logo_base64()
     empresa_html = (
-        f'<img src="data:image/png;base64,{logo_b64}" alt="{EMPRESA_NOME}" class="logo-img">'
+        f'<img src="data:image/png;base64,{logo_b64}" alt="{_esc(EMPRESA_NOME)}" class="logo-img">'
         if logo_b64
-        else f'<div class="empresa-nome">{EMPRESA_NOME}</div>'
+        else f'<div class="empresa-nome">{_esc(EMPRESA_NOME)}</div>'
     )
 
     vg_html = ""
     if veiculo or garagem or modelo:
         vg_html = '<div class="vg-block">'
         if veiculo:
-            vg_html += f'<div class="vg-linha"><span class="vg-label">Veículo</span><span class="vg-val">{veiculo}</span></div>'
+            vg_html += f'<div class="vg-linha"><span class="vg-label">Veículo</span><span class="vg-val">{_esc(veiculo)}</span></div>'
         if garagem:
-            vg_html += f'<div class="vg-linha"><span class="vg-label">Garagem</span><span class="vg-val">{garagem}</span></div>'
+            vg_html += f'<div class="vg-linha"><span class="vg-label">Garagem</span><span class="vg-val">{_esc(garagem)}</span></div>'
         if modelo:
-            vg_html += f'<div class="vg-linha"><span class="vg-label">Modelo</span><span class="vg-val">{modelo}</span></div>'
+            vg_html += f'<div class="vg-linha"><span class="vg-label">Modelo</span><span class="vg-val">{_esc(modelo)}</span></div>'
         vg_html += '</div>'
 
     return f"""<!DOCTYPE html>

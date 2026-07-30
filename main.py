@@ -16,7 +16,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 
 from database import init_db, db, now_brt
-from app.auth import hash_password, verify_password, get_current_user, require_login
+from app.auth import (hash_password, verify_password, get_current_user,
+                      require_login, require_admin, is_admin)
 import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
@@ -31,6 +32,8 @@ import app.codigos_gerados as codigos_gerados_mod
 import app.prateleira as prateleira_mod
 import app.pedidos as pedidos_mod
 import app.consumo as consumo_mod
+import app.auditoria as auditoria_mod
+import app.usuarios as usuarios_mod
 
 load_dotenv()
 
@@ -53,6 +56,85 @@ class _MobileGateMiddleware(BaseHTTPMiddleware):
         return RedirectResponse('/mobile', status_code=302)
 
 
+class _AuditoriaMiddleware(BaseHTTPMiddleware):
+    """Grava toda requisição que altera dados.
+
+    Fica no middleware, e não em cada rota, porque cobertura é o requisito:
+    rota criada amanhã já nasce auditada. Roda DEPOIS da resposta e nunca
+    propaga erro — auditoria com defeito não pode derrubar a operação.
+    """
+
+    _IGNORAR = ("/static/", "/ping")
+
+    async def dispatch(self, request: Request, call_next):
+        caminho = request.url.path
+        if any(caminho.startswith(p) for p in self._IGNORAR):
+            return await call_next(request)
+
+        if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+            # GET não altera dados e logar todos inundaria a tabela — mas
+            # uma tentativa NEGADA é exatamente o sinal que interessa quando
+            # alguém está sondando o que consegue acessar.
+            resposta = await call_next(request)
+            if resposta.status_code == 403:
+                try:
+                    user = get_current_user(request)
+                    auditoria_mod.registrar(
+                        user_id=user["id"] if user else None,
+                        user_nome=user["nome"] if user else None,
+                        acao="ACESSO NEGADO",
+                        metodo=request.method, caminho=caminho,
+                        detalhe="", ip=_ip_do_cliente(request),
+                        status=403,
+                    )
+                except Exception:
+                    pass
+            return resposta
+
+        # O corpo precisa ser lido aqui para virar detalhe do log, mas ler
+        # consome o stream — então reinjetamos para a rota receber intacto.
+        detalhe = ""
+        try:
+            corpo = await request.body()
+
+            async def _receive():
+                return {"type": "http.request", "body": corpo, "more_body": False}
+
+            request._receive = _receive
+
+            tipo = request.headers.get("content-type", "")
+            if corpo and ("form-urlencoded" in tipo or "multipart/form-data" in tipo):
+                detalhe = auditoria_mod._resumir_form(await request.form())
+                request._receive = _receive   # form() reconsome; restaura
+        except Exception:
+            detalhe = "<corpo nao capturado>"
+
+        resposta = await call_next(request)
+
+        try:
+            user = None
+            try:
+                user = get_current_user(request)
+            except Exception:
+                pass
+            # No POST /login o usuário só existe depois da resposta; o nome
+            # digitado já foi para o detalhe, então o log não fica anônimo.
+            auditoria_mod.registrar(
+                user_id=user["id"] if user else None,
+                user_nome=user["nome"] if user else None,
+                acao=auditoria_mod.classificar(caminho),
+                metodo=request.method,
+                caminho=caminho,
+                detalhe=detalhe,
+                ip=_ip_do_cliente(request),
+                status=resposta.status_code,
+            )
+        except Exception as e:
+            print(f"[AUDITORIA] falha ao gravar {request.method} {caminho}: {e}")
+
+        return resposta
+
+
 app = FastAPI(title="Conferência de Kits")
 
 # COOKIE_SECURE=1 marca o cookie de sessão como "só por HTTPS". Fica
@@ -62,9 +144,44 @@ app = FastAPI(title="Conferência de Kits")
 # HTTPS (ex: atrás do Cloudflare Tunnel).
 _COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").strip() in ("1", "true", "True")
 
+# Planilha grande é lida inteira na memória; sem teto, um upload de 1 GB
+# derruba o processo. 25 MB cobre com folga qualquer BOM/planilha real.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "25")) * 1024 * 1024
+
+
+async def _ler_upload(arquivo) -> bytes:
+    """Lê um upload recusando arquivos acima do teto."""
+    conteudo = await arquivo.read()
+    if len(conteudo) > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"Arquivo muito grande ({len(conteudo) // (1024*1024)} MB). "
+            f"O limite é {MAX_UPLOAD_BYTES // (1024*1024)} MB."
+        )
+    return conteudo
+
+
+_SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+if not _SECRET_KEY:
+    # Sem SECRET_KEY, qualquer um forja o cookie de sessão e entra como
+    # quem quiser. Numa máquina exposta isso é crítico, então o processo
+    # se recusa a subir; em uso local o aviso é gritante mas não trava.
+    if _COOKIE_SECURE or os.getenv("SERVIDOR_URL", "").startswith("https://"):
+        raise RuntimeError(
+            "SECRET_KEY nao definido no .env. Como este servidor esta configurado "
+            "para acesso externo, subir com a chave padrao permitiria a qualquer "
+            "pessoa forjar uma sessao. Defina SECRET_KEY antes de iniciar."
+        )
+    _SECRET_KEY = "dev-secret"
+    print("[KIT] AVISO: SECRET_KEY nao definido — usando chave de desenvolvimento. "
+          "NAO exponha este servidor sem definir SECRET_KEY no .env.")
+
+# Ordem importa: quem é adicionado por último fica por fora. A auditoria
+# precisa enxergar a sessão, então entra ANTES do SessionMiddleware para
+# ficar por dentro dele.
+app.add_middleware(_AuditoriaMiddleware)
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY", "dev-secret"),
+    secret_key=_SECRET_KEY,
     same_site="lax",
     https_only=_COOKIE_SECURE,
     max_age=12 * 60 * 60,   # 12h — uma jornada; antes eram 14 dias
@@ -240,8 +357,18 @@ async def login_post(request: Request):
         row = conn.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
+    if row and not row["ativo"]:
+        return render(request, "login.html", {
+            "erro": "Este usuário está desativado. Procure um administrador.",
+            "next": next_url,
+        })
+
     if row and verify_password(password, row["password_hash"]):
         _login_ok(chave)
+        # Descarta qualquer conteúdo de sessão anterior antes de autenticar,
+        # para que um valor plantado na sessão pré-login não sobreviva à
+        # troca de identidade (fixação de sessão).
+        request.session.clear()
         request.session["user_id"] = row["id"]
         return RedirectResponse(next_url, status_code=302)
 
@@ -253,6 +380,83 @@ async def login_post(request: Request):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/login", status_code=302)
+
+
+# ── Usuários (só admin) ───────────────────────────────────────────────────────
+
+@app.get("/admin/usuarios", response_class=HTMLResponse)
+@require_admin
+async def admin_usuarios(request: Request):
+    return render(request, "admin_usuarios.html", {"usuarios": usuarios_mod.listar()})
+
+
+@app.post("/admin/usuarios")
+@require_admin
+async def admin_usuarios_criar(request: Request):
+    form = await request.form()
+    try:
+        usuarios_mod.criar(
+            nome=str(form.get("nome", "")),
+            username=str(form.get("username", "")),
+            senha=str(form.get("senha", "")),
+            admin=bool(form.get("admin")),
+        )
+    except ValueError as e:
+        return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/usuarios?ok=criado", status_code=302)
+
+
+@app.post("/admin/usuarios/{user_id}/admin")
+@require_admin
+async def admin_usuario_toggle_admin(request: Request, user_id: int):
+    alvo = usuarios_mod.buscar(user_id)
+    if not alvo:
+        raise HTTPException(status_code=404)
+    try:
+        usuarios_mod.definir_admin(user_id, not alvo["admin"])
+    except ValueError as e:
+        return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/usuarios?ok=perfil", status_code=302)
+
+
+@app.post("/admin/usuarios/{user_id}/ativo")
+@require_admin
+async def admin_usuario_toggle_ativo(request: Request, user_id: int):
+    alvo = usuarios_mod.buscar(user_id)
+    if not alvo:
+        raise HTTPException(status_code=404)
+    try:
+        usuarios_mod.definir_ativo(user_id, not alvo["ativo"])
+    except ValueError as e:
+        return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/usuarios?ok=status", status_code=302)
+
+
+@app.post("/admin/usuarios/{user_id}/senha")
+@require_admin
+async def admin_usuario_senha(request: Request, user_id: int):
+    form = await request.form()
+    try:
+        usuarios_mod.trocar_senha(user_id, str(form.get("senha", "")))
+    except ValueError as e:
+        return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/usuarios?ok=senha", status_code=302)
+
+
+# ── Auditoria (só admin) ──────────────────────────────────────────────────────
+
+@app.get("/admin/auditoria", response_class=HTMLResponse)
+@require_admin
+async def admin_auditoria(request: Request,
+                          data_ini: str = "", data_fim: str = "",
+                          user_id: str = "", acao: str = ""):
+    return render(request, "admin_auditoria.html", {
+        "registros": auditoria_mod.listar(data_ini, data_fim, user_id, acao),
+        "usuarios": usuarios_mod.listar(),
+        "acoes": auditoria_mod.acoes_distintas(),
+        "data_ini": data_ini, "data_fim": data_fim,
+        "filtro_user_id": user_id, "filtro_acao": acao,
+    })
 
 
 # ── Rede ──────────────────────────────────────────────────────────────────────
@@ -345,8 +549,8 @@ async def session_start(request: Request, kit_template_id: int = Form(...)):
 @app.post("/admin/tipos/importar")
 @require_login
 async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)):
-    conteudo = await arquivo.read()
     try:
+        conteudo = await _ler_upload(arquivo)
         resultado = items_mod.importar_tipos_xlsx(conteudo)
         params = f"importado={resultado['criados']}&ignorado={resultado['ignorados']}"
     except Exception as e:
@@ -358,8 +562,8 @@ async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)
 @require_login
 async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(...)):
     user = get_current_user(request)
-    conteudo = await arquivo.read()
     try:
+        conteudo = await _ler_upload(arquivo)
         resultado = items_mod.importar_bom_xlsx(conteudo, user["id"])
         if "erro" in resultado:
             params = f"erro_import={quote(resultado['erro'])}"
@@ -414,7 +618,7 @@ async def admin_tipo_renomear(request: Request, tipo_id: int):
 
 
 @app.post("/admin/tipos/{tipo_id}/delete")
-@require_login
+@require_admin
 async def admin_tipo_delete(request: Request, tipo_id: int):
     try:
         items_mod.deletar_tipo(tipo_id)
@@ -428,7 +632,7 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
 
 
 @app.post("/admin/tipos/{tipo_id}/delete-force")
-@require_login
+@require_admin
 async def admin_tipo_delete_force(request: Request, tipo_id: int):
     items_mod.deletar_tipo_cascade(tipo_id)
     return RedirectResponse("/admin/items", status_code=302)
@@ -556,7 +760,7 @@ async def admin_items_clear(request: Request):
 
 
 @app.post("/admin/items/{item_id}/delete")
-@require_login
+@require_admin
 async def admin_items_delete(request: Request, item_id: int):
     try:
         items_mod.deletar_item(item_id)
@@ -605,7 +809,7 @@ async def admin_templates_import_bom(request: Request,
             "tab_ativo": tipo,
         })
     try:
-        conteudo = await arquivo.read()
+        conteudo = await _ler_upload(arquivo)
         template_id, stats = templates_mod.criar_template_do_bom(
             nome, cliente, user["id"], conteudo, tipo=tipo
         )
@@ -640,7 +844,7 @@ async def admin_templates_import_pedido(request: Request,
             "tab_ativo": "pedido",
         })
     try:
-        conteudo = await arquivo.read()
+        conteudo = await _ler_upload(arquivo)
         template_id, stats = pedidos_mod.importar_planilha(
             cliente, numero_pedido, user["id"], conteudo
         )
@@ -795,7 +999,7 @@ async def admin_template_unidades_exportar(request: Request, template_id: int):
 
 
 @app.post("/admin/templates/{template_id}/delete")
-@require_login
+@require_admin
 async def admin_template_delete(request: Request, template_id: int):
     template = templates_mod.buscar_template(template_id)
     tipo = template.get("tipo", "kit") if template else "kit"
@@ -1707,7 +1911,7 @@ async def reports_exportar_todos(request: Request,
 
 
 @app.post("/reports/{kit_id}/delete")
-@require_login
+@require_admin
 async def report_delete(request: Request, kit_id: str):
     sessions_mod.deletar_kit_record(kit_id)
     return RedirectResponse("/reports?ok=excluido", status_code=302)
@@ -1858,7 +2062,7 @@ async def admin_prateleira_criar_bloco(request: Request):
 
 
 @app.post("/admin/prateleira/blocos/{bloco_id}/remover")
-@require_login
+@require_admin
 async def admin_prateleira_remover_bloco(request: Request, bloco_id: int):
     prateleira_mod.remover_bloco(bloco_id)
     return RedirectResponse("/admin/prateleira", status_code=302)
@@ -1876,7 +2080,7 @@ async def admin_prateleira_adicionar_livre(request: Request):
 
 
 @app.post("/admin/prateleira/livre/{livre_id}/remover")
-@require_login
+@require_admin
 async def admin_prateleira_remover_livre(request: Request, livre_id: int):
     prateleira_mod.remover_livre(livre_id)
     return RedirectResponse("/admin/prateleira", status_code=302)
@@ -2071,7 +2275,7 @@ async def admin_estoque_historico(request: Request, estoque_id: int):
 
 
 @app.post("/admin/estoque/{estoque_id}/delete")
-@require_login
+@require_admin
 async def admin_estoque_delete(request: Request, estoque_id: int):
     estoque_mod.deletar_estoque(estoque_id)
     return RedirectResponse("/admin/estoque?ok=excluido", status_code=302)
@@ -2192,7 +2396,10 @@ async def admin_veiculos_import_post(request: Request):
     if not arquivo or not arquivo.filename:
         return render(request, "admin_veiculos_import.html",
                       {"erro": "Selecione um arquivo .xlsx."})
-    file_bytes = await arquivo.read()
+    try:
+        file_bytes = await _ler_upload(arquivo)
+    except ValueError as e:
+        return render(request, "admin_veiculos_import.html", {"erro": str(e)})
     resultado = veiculos_mod.importar_excel(file_bytes)
     return render(request, "admin_veiculos_import.html", {"resultado": resultado})
 
@@ -2247,7 +2454,7 @@ async def admin_veiculo_reativar(request: Request, veiculo_id: int):
 
 
 @app.post("/admin/veiculos/{veiculo_id}/delete")
-@require_login
+@require_admin
 async def admin_veiculo_delete(request: Request, veiculo_id: int):
     veiculos_mod.deletar(veiculo_id)
     return RedirectResponse("/admin/veiculos?ok=excluido", status_code=302)
@@ -2267,7 +2474,7 @@ async def admin_clientes_post(request: Request):
 
 
 @app.post("/admin/clientes/{cliente_id}/delete")
-@require_login
+@require_admin
 async def admin_cliente_delete(request: Request, cliente_id: int):
     clientes_mod.deletar(cliente_id)
     return RedirectResponse("/admin/veiculos?ok=cliente_excluido", status_code=302)
@@ -2287,7 +2494,7 @@ async def admin_garagens_post(request: Request):
 
 
 @app.post("/admin/garagens/{garagem_id}/delete")
-@require_login
+@require_admin
 async def admin_garagem_delete(request: Request, garagem_id: int):
     garagens_mod.deletar(garagem_id)
     return RedirectResponse("/admin/veiculos?ok=garagem_excluida", status_code=302)

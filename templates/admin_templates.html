@@ -132,10 +132,12 @@
                 <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
                     <button class="btn btn-sm btn-warning">Nova Versão</button>
                 </form>
+                {% if user and user.admin %}
                 <form method="post" action="/admin/templates/{{ t.id }}/delete"
                       onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
                     <button class="btn btn-sm btn-danger">Excluir</button>
                 </form>
+                {% endif %}
             </td>
         </tr>
         {% else %}

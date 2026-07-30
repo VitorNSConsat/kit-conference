@@ -26,6 +26,9 @@
         <a href="/admin/veiculos" class="{{ 'nav-active' if p.startswith('/admin/veiculos') else '' }}">🚗 Veículos e Clientes</a>
         <a href="/admin/prateleira" class="{{ 'nav-active' if p.startswith('/admin/prateleira') else '' }}">🗄️ Prateleira</a>
         <a href="/reports" class="{{ 'nav-active' if p.startswith('/reports') else '' }}">📊 Relatórios</a>
+        {% if user.admin %}
+        <a href="/admin/usuarios" class="{{ 'nav-active' if p.startswith('/admin/usuarios') or p.startswith('/admin/auditoria') else '' }}">👥 Usuários</a>
+        {% endif %}
         <a href="/rede" class="{{ 'nav-active' if p.startswith('/rede') else '' }}" style="color:#7ecfff;">🌐 Rede</a>
         <a href="/logout" class="nav-logout">🚪 Sair ({{ user.nome }})</a>
     </div>

@@ -62,7 +62,44 @@ def db():
         conn.close()
 
 
+def _backup_antes_de_migrar() -> str | None:
+    """Copia o banco antes de aplicar mudanças de estrutura.
+
+    Roda só quando há migração pendente (não a cada startup), e nunca no
+    banco em memória dos testes. Se o backup falhar por qualquer motivo,
+    a migração é abortada — é preferível o sistema não subir a alterar um
+    banco de produção sem cópia de segurança.
+    """
+    import shutil
+    from datetime import datetime as _dt
+
+    path = _get_db_path()
+    if path == ":memory:" or not os.path.exists(path):
+        return None
+
+    with db() as conn:
+        colunas_users = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        tabelas = {
+            r["name"] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+    pendente = "admin" not in colunas_users or "auditoria" not in tabelas
+    if not pendente:
+        return None
+
+    destino_dir = os.path.join(os.path.dirname(os.path.abspath(path)) or ".", "backups")
+    os.makedirs(destino_dir, exist_ok=True)
+    carimbo = _dt.now().strftime("%Y%m%d_%H%M%S")
+    base = os.path.basename(path)
+    destino = os.path.join(destino_dir, f"{base}.{carimbo}.bak")
+    shutil.copy2(path, destino)
+    print(f"[KIT] Backup do banco criado antes da migracao: {destino}")
+    return destino
+
+
 def init_db():
+    _backup_antes_de_migrar()
     with db() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
@@ -213,6 +250,26 @@ def init_db():
             );
         """)
 
+        # Trilha de auditoria: toda ação que altera dados, de admin ou não.
+        # user_id sem FOREIGN KEY de propósito — o log precisa sobreviver à
+        # exclusão do usuário, senão some justamente o rastro de quem saiu.
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS auditoria (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER,
+                user_nome   TEXT,
+                acao        TEXT NOT NULL,
+                metodo      TEXT NOT NULL,
+                caminho     TEXT NOT NULL,
+                detalhe     TEXT,
+                ip          TEXT,
+                status      INTEGER,
+                criado_em   TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_auditoria_criado_em ON auditoria(criado_em);
+            CREATE INDEX IF NOT EXISTS idx_auditoria_user ON auditoria(user_id);
+        """)
+
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS codigo_gerado (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -303,11 +360,33 @@ def init_db():
             "ALTER TABLE kit_template ADD COLUMN tipo TEXT NOT NULL DEFAULT 'kit'",
             "ALTER TABLE kit_template ADD COLUMN concluido BOOLEAN DEFAULT 0",
             "ALTER TABLE kit_record ADD COLUMN modelo TEXT DEFAULT ''",
+            "ALTER TABLE users ADD COLUMN admin BOOLEAN NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT 1",
         ]:
             try:
                 conn.execute(stmt)
             except Exception:
                 pass
+
+    # ── Backfill único de admin ────────────────────────────────────────────
+    # A coluna `admin` nasce com default 0. Sem isto, ao atualizar um sistema
+    # já em uso TODO MUNDO perderia de uma vez a permissão de excluir —
+    # inclusive quem administra. Então, na primeira vez (e só nela), quem já
+    # existia vira admin: ninguém perde acesso que tinha ontem, e a partir
+    # daí o rebaixamento é feito conscientemente na tela de usuários.
+    #
+    # Controlado por PRAGMA user_version, não por "existe algum admin?" —
+    # senão, no dia em que sobrasse zero admin, o startup silenciosamente
+    # promoveria todo mundo de novo e desfaria a configuração.
+    with db() as conn:
+        versao = conn.execute("PRAGMA user_version").fetchone()[0]
+        if versao < 1:
+            n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            if n:
+                conn.execute("UPDATE users SET admin = 1")
+                print(f"[KIT] {n} usuario(s) existente(s) marcado(s) como ADMIN para nao "
+                      f"perder acesso. Revise em /admin/usuarios e rebaixe quem for comum.")
+            conn.execute("PRAGMA user_version = 1")
 
     # Backfill clientes from existing free-text data (no-op when already present)
     ts = now_brt()
