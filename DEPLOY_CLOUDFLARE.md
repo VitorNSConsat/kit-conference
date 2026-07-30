@@ -1,7 +1,108 @@
-# Expondo o sistema com Cloudflare Tunnel
+# Acessando o sistema de fora com Cloudflare
 
-Guia para acessar o Conferência de Kits de fora do galpão, com HTTPS válido
-e sem abrir nenhuma porta no roteador.
+Guia para usar o Conferência de Kits fora do galpão sem abrir nenhuma
+porta no roteador.
+
+Existem **dois caminhos**, e eles resolvem problemas diferentes.
+
+| | Rede Privada (WARP) | Hostname público + Access |
+|---|---|---|
+| Domínio próprio | **não precisa** | obrigatório (~US$5–10/ano) |
+| Exposto na internet | **nada** | o app, com o Access na porta |
+| Nos aparelhos | precisa instalar o cliente | nada, abre em qualquer navegador |
+| Quem pode acessar | só quem você autoriza na organização | qualquer um que passe no Access |
+| Custo | grátis até 50 usuários | grátis até 50 usuários + o domínio |
+
+**Se todo mundo que acessa (inclusive quem escaneia o QR) é da empresa, use
+a Rede Privada.** É mais seguro e não custa nada: sem hostname público, um
+atacante de fora não tem nem endereço para tentar. A diferença é entre "uma
+porta com fechadura boa" e "não existe porta".
+
+O caminho do hostname público só se torna necessário quando alguém **de
+fora da empresa** (cliente final, terceirizado) precisa abrir o QR.
+
+Os dois usam o mesmo túnel — dá para começar pela Rede Privada e adicionar
+o hostname público depois, sem refazer nada.
+
+---
+
+# Caminho A — Rede Privada (sem domínio)
+
+## 1. Ativar o Zero Trust
+
+No painel da Cloudflare, entre em **Zero Trust**, escolha um nome de equipe
+(vira `suaempresa.cloudflareaccess.com`, fornecido de graça) e selecione o
+plano **Free** — até 50 usuários, sem cartão.
+
+## 2. Fixar o IP do servidor ⚠️
+
+Antes de qualquer coisa, garanta que a máquina do sistema tenha **IP fixo**
+(reserva de DHCP no roteador).
+
+Isso não é detalhe: o IP vai **impresso no QR de cada etiqueta**. Se o
+roteador trocar o IP da máquina, todas as etiquetas já impressas param de
+funcionar — e papel não se atualiza.
+
+## 3. Criar o túnel
+
+Instale o conector:
+
+```bash
+winget install --id Cloudflare.cloudflared
+```
+
+No painel: **Networks → Tunnels → Create a tunnel → Cloudflared**. Dê um
+nome (ex: `galpao`) e copie o comando de instalação que ele mostra — já vem
+com o token, e instala como serviço do Windows (sobe junto com a máquina).
+
+## 4. Rotear só o servidor
+
+Na aba **Private Network** do túnel, adicione o IP da máquina com máscara
+`/32`:
+
+```
+192.168.1.85/32
+```
+
+Use `/32` (só o servidor), **não** a faixa inteira `192.168.1.0/24` — senão
+qualquer aparelho autorizado passa a enxergar a rede inteira do escritório,
+não apenas o sistema de kits.
+
+## 5. Autorizar os aparelhos
+
+Em **Settings → WARP Client → Device enrollment permissions**, defina quem
+pode entrar na organização (lista de e-mails ou domínio da empresa).
+
+Em cada celular/notebook, instale o **Cloudflare One client** (antigo WARP),
+faça login com o nome da equipe e autentique.
+
+Pronto: com o cliente ligado, `http://192.168.1.85:8080` abre de qualquer
+rede do mundo.
+
+## 6. Ajustar o `.env`
+
+```
+SERVIDOR_URL=http://192.168.1.85:8080
+```
+
+Fixe explicitamente em vez de deixar o app detectar sozinho — assim o QR
+sai sempre igual, mesmo que a detecção falhe algum dia.
+
+Repare que **o mesmo endereço funciona dentro e fora do galpão**: na LAN vai
+direto, fora vai pelo cliente. Uma URL só, etiquetas sempre válidas.
+
+`COOKIE_SECURE` e `TRUST_PROXY_IP` ficam **desligados** neste caminho (não há
+HTTPS público nem proxy na frente).
+
+Bônus: como o tráfego já é cifrado pela Cloudflare de ponta a ponta, dá para
+usar a porta 8080 (HTTP) e abandonar o certificado autoassinado — acabam os
+avisos de "site não seguro".
+
+---
+
+# Caminho B — Hostname público + Access (precisa de domínio)
+
+Use este caminho **apenas** se gente de fora da empresa precisar abrir o QR.
 
 ## Como funciona
 
@@ -158,6 +259,10 @@ Se for liberar `/prateleira/tv` (o painel da TV), libere também `/static`,
 porque essa tela carrega o logo de lá. As telas de kit e estoque têm o CSS
 embutido e não precisam.
 
+---
+
+# Vale para os dois caminhos
+
 ## Perfis de usuário e auditoria
 
 O sistema tem **dois perfis**. O usuário comum faz tudo no dia a dia —
@@ -179,7 +284,7 @@ Usuários não são excluídos, apenas desativados — o histórico de kits e
 movimentações aponta para eles. Desativar corta o acesso na hora, sem
 esperar o cookie expirar.
 
-## Checklist antes de expor
+## Checklist antes de liberar o acesso
 
 - [ ] `SECRET_KEY` no `.env` é longo e aleatório. Com `COOKIE_SECURE=1` ou
       `SERVIDOR_URL` em `https://`, o app **se recusa a subir** sem ela —
