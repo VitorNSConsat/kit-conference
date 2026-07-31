@@ -68,18 +68,71 @@ Use `/32` (só o servidor), **não** a faixa inteira `192.168.1.0/24` — senão
 qualquer aparelho autorizado passa a enxergar a rede inteira do escritório,
 não apenas o sistema de kits.
 
-## 5. Autorizar os aparelhos
+## 5. Liberar a faixa privada no Split Tunnel ⚠️
 
-Em **Settings → WARP Client → Device enrollment permissions**, defina quem
-pode entrar na organização (lista de e-mails ou domínio da empresa).
+**Este é o passo que faz tudo funcionar ou nada funcionar.**
 
-Em cada celular/notebook, instale o **Cloudflare One client** (antigo WARP),
-faça login com o nome da equipe e autentique.
+Por padrão o cliente **exclui** as faixas de rede privada (RFC 1918) do
+túnel — e o IP do servidor está exatamente dentro delas. Se você pular isto,
+o resto fica configurado corretamente e mesmo assim **não funciona**, sem
+mensagem de erro: só dá timeout.
+
+O painel da Cloudflare vem reorganizando esse menu (o cliente que se
+chamava "WARP" agora é o **Cloudflare One Client**), então o caminho muda
+conforme a versão do seu painel:
+
+- **Painel novo:** Zero Trust → **Team & Resources → Devices → Device
+  profiles** → abra o perfil (geralmente chamado *"Default"* ou *"General
+  profile"*) → **Configure** → role até **Split Tunnels** → **Manage**.
+- **Painel antigo:** Zero Trust → **Settings → WARP Client → Device
+  settings** → abra o perfil → **Configure** → **Split Tunnels** → **Manage**.
+
+Se mesmo assim não achar, use a busca do painel (ícone de lupa no topo) e
+digite "split tunnel" — ela leva direto à tela, independente do menu.
+
+No modo *Exclude*, **remova** a entrada:
+
+```
+192.168.0.0/16
+```
+
+Efeito colateral: a partir daí *todo* tráfego `192.168.x.x` do aparelho vai
+pelo túnel — inclusive o roteador da casa do funcionário, que quase sempre
+também é `192.168.1.x`. Costuma ser inofensivo, mas pode atrapalhar coisas
+locais (impressora de casa, Chromecast). Para evitar de vez, a rede do
+galpão precisaria usar uma faixa incomum (ex: `10.42.x.x`) em vez de
+`192.168.1.x`.
+
+## 6. Autorizar os aparelhos
+
+Em **Settings → Authentication** (painel antigo, também pode aparecer como
+**Team & Resources → Device enrollment permissions** no novo), defina quem
+pode entrar na organização — normalmente uma regra por domínio de e-mail
+(ex: qualquer `@suaempresa.com.br`) ou lista de e-mails específicos.
+
+Em cada aparelho:
+
+| Plataforma | App |
+|---|---|
+| iOS | **Cloudflare One Agent** (App Store) |
+| Android | **Cloudflare One Agent** (Google Play) |
+| Windows / macOS | **Cloudflare One client** (site da Cloudflare) |
+
+No celular: abrir o app → **Login with Cloudflare Zero Trust** → digitar o
+nome da equipe → autenticar → **permitir a configuração de VPN** (o iOS pede
+isso explicitamente) → deixar conectado.
+
+> A Cloudflare separou o app corporativo do `1.1.1.1` de consumidor. O que
+> serve aqui é o **One Agent**.
 
 Pronto: com o cliente ligado, `http://192.168.1.85:8080` abre de qualquer
-rede do mundo.
+rede do mundo, e escanear o QR da etiqueta funciona normalmente.
 
-## 6. Ajustar o `.env`
+**Avise a equipe:** se o VPN estiver desligado, a etiqueta simplesmente não
+abre — e a falha é silenciosa, parece que o sistema caiu. Vale a instrução
+*"se o QR não abrir, confira se o Cloudflare está conectado"*.
+
+## 7. Ajustar o `.env`
 
 ```
 SERVIDOR_URL=http://192.168.1.85:8080
