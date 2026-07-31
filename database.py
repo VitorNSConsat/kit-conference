@@ -79,12 +79,17 @@ def _backup_antes_de_migrar() -> str | None:
 
     with db() as conn:
         colunas_users = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+        colunas_kit_record = {r["name"] for r in conn.execute("PRAGMA table_info(kit_record)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()
         }
-    pendente = "admin" not in colunas_users or "auditoria" not in tabelas
+    pendente = (
+        "admin" not in colunas_users
+        or "auditoria" not in tabelas
+        or "status_producao" not in colunas_kit_record
+    )
     if not pendente:
         return None
 
@@ -362,6 +367,13 @@ def init_db():
             "ALTER TABLE kit_record ADD COLUMN modelo TEXT DEFAULT ''",
             "ALTER TABLE users ADD COLUMN admin BOOLEAN NOT NULL DEFAULT 0",
             "ALTER TABLE users ADD COLUMN ativo BOOLEAN NOT NULL DEFAULT 1",
+            # Esteira Consat -> Transito -> Cliente. 'produzido' e o estado
+            # inicial de todo kit_record — a etapa "em producao" (Consat)
+            # nao mora aqui, vem de scan_session.status='em_andamento'.
+            "ALTER TABLE kit_record ADD COLUMN status_producao TEXT NOT NULL DEFAULT 'produzido'",
+            "ALTER TABLE kit_record ADD COLUMN transito_em TEXT",
+            "ALTER TABLE kit_record ADD COLUMN cliente_instalando_em TEXT",
+            "ALTER TABLE kit_record ADD COLUMN cliente_concluido_em TEXT",
         ]:
             try:
                 conn.execute(stmt)

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Produção</title>
+<style>
+  :root {
+    color-scheme: light;
+    --brand:          #016984;
+    --brand-text:     #94fff7;
+    --surface-1:      #ffffff;
+    --surface-2:      #f7f8f9;
+    --page:           #f0f0f0;
+    --text-primary:   #222222;
+    --text-secondary: #575760;
+    --text-muted:     #898781;
+    --gridline:       #e2e4e6;
+    --border:         #e2e4e6;
+
+    --good:     #2c622c;
+    --warning:  #e0980c;
+    --transito: #1a56c4;
+    --critical: #d9704a;
+
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --surface-2:      #232322;
+    --page:           #141413;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --border:         rgba(255,255,255,0.10);
+
+    --good:     #0ca30c;
+    --warning:  #fab219;
+    --transito: #5b9bff;
+    --critical: #e66767;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: var(--font);
+    padding: 20px 28px 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .title-block { display: flex; align-items: center; gap: 16px; }
+  .title-block img.logo { max-height: 42px; max-width: 150px; object-fit: contain; }
+  .title-block h1 { font-size: 20px; font-weight: 700; margin: 0 0 3px; letter-spacing: -0.01em; }
+  .title-block .sub { font-size: 12.5px; color: var(--text-muted); }
+
+  .header-controls { display: flex; align-items: center; gap: 18px; font-size: 12px; color: var(--text-muted); }
+
+  .refresh { display: flex; align-items: center; gap: 8px; }
+  .refresh input {
+    width: 44px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 6px;
+    text-align: center;
+  }
+
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .theme-toggle:hover { opacity: .85; }
+
+  .alert-strip { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; flex-shrink: 0; }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
+  .chip .icon {
+    width: 17px; height: 17px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: #fff;
+  }
+  .chip .count { font-weight: 700; font-size: 14px; }
+  .chip .label { color: var(--text-secondary); }
+  .chip.warning  .icon { background: var(--warning); }
+  .chip.good     .icon { background: var(--good); }
+  .chip.transito .icon { background: var(--transito); }
+
+  /* ── Board de 3 colunas ────────────────────────────────────────── */
+  .board {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr 1.3fr;
+    gap: 16px;
+  }
+
+  .coluna {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .coluna-titulo {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--brand);
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--brand);
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .secao { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .secao + .secao { margin-top: 12px; }
+  .secao-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  .secao-titulo .n {
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .lista { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .vazio { font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px 0; }
+
+  .kit-card {
+    border-left: 4px solid var(--gridline);
+    border-radius: 8px;
+    background: var(--surface-2);
+    padding: 6px 10px;
+  }
+  .kit-card.warning  { border-left-color: var(--warning); }
+  .kit-card.good     { border-left-color: var(--good); }
+  .kit-card.transito { border-left-color: var(--transito); }
+  .kit-nome { font-size: 13px; font-weight: 700; line-height: 1.25; }
+  .kit-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+</style>
+<script>
+  (function () {
+    var tema = localStorage.getItem('prateleira_tema') || 'light';
+    document.documentElement.setAttribute('data-theme', tema);
+  })();
+</script>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <img src="/static/logo.png" class="logo" alt="Logo">
+    <div>
+      <h1>Painel de Produção</h1>
+      <div class="sub">Consat → Trânsito → Cliente · atualizado às <span id="now"></span></div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <button type="button" class="theme-toggle" id="btn-theme" onclick="alternarTema()">
+      <span id="theme-icon">🌙</span><span id="theme-label">Modo escuro</span>
+    </button>
+    <div class="refresh">
+      Atualiza a cada <input type="number" min="1" id="input-minutos" value="{{ minutos }}" onchange="ajustarIntervalo()"> min
+    </div>
+  </div>
+</header>
+
+<div class="alert-strip">
+  <div class="chip warning"><span class="icon">●</span><span class="count">{{ resumo.em_producao }}</span><span class="label">em produção (Consat)</span></div>
+  <div class="chip good"><span class="icon">✓</span><span class="count">{{ resumo.produzido }}</span><span class="label">produzido</span></div>
+  <div class="chip transito"><span class="icon">➜</span><span class="count">{{ resumo.transito }}</span><span class="label">em trânsito</span></div>
+  <div class="chip warning"><span class="icon">●</span><span class="count">{{ resumo.cliente_instalando }}</span><span class="label">em produção (Cliente)</span></div>
+  <div class="chip good"><span class="icon">✓</span><span class="count">{{ resumo.cliente_concluido }}</span><span class="label">produzido (Cliente)</span></div>
+</div>
+
+<div class="board">
+
+  <!-- ── Consat ─────────────────────────────────────────────────── -->
+  <div class="coluna">
+    <div class="coluna-titulo">Consat</div>
+
+    <div class="secao">
+      <div class="secao-titulo">Em Produção <span class="n">{{ em_producao | length }}</span></div>
+      <div class="lista">
+        {% for s in em_producao %}
+        <div class="kit-card warning">
+          <div class="kit-nome">{{ s.kit_nome }}</div>
+          <div class="kit-sub">{{ s.cliente }} · {{ s.operador_nome }} · desde {{ s.iniciado_em[11:16] }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nenhuma bipagem em andamento —</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">Produzido <span class="n">{{ produzido | length }}</span></div>
+      <div class="lista">
+        {% for k in produzido %}
+        <div class="kit-card good">
+          <div class="kit-nome">{{ k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.cliente }} · {{ k.finalizado_em[:10] }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nada esperando envio —</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Em Trânsito ────────────────────────────────────────────── -->
+  <div class="coluna">
+    <div class="coluna-titulo">Em Trânsito</div>
+    <div class="secao">
+      <div class="lista">
+        {% for k in transito %}
+        <div class="kit-card transito">
+          <div class="kit-nome">{{ k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.cliente }} · desde {{ k.transito_em[:10] }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nada em trânsito —</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cliente ────────────────────────────────────────────────── -->
+  <div class="coluna">
+    <div class="coluna-titulo">Cliente</div>
+
+    <div class="secao">
+      <div class="secao-titulo">Em Produção <span class="n">{{ cliente_instalando | length }}</span></div>
+      <div class="lista">
+        {% for k in cliente_instalando %}
+        <div class="kit-card warning">
+          <div class="kit-nome">{{ k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.cliente }} · chegou {{ k.cliente_instalando_em[:10] }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nada instalando —</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="secao">
+      <div class="secao-titulo">Produzido <span class="n">{{ cliente_concluido | length }}</span></div>
+      <div class="lista">
+        {% for k in cliente_concluido %}
+        <div class="kit-card good">
+          <div class="kit-nome">{{ k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.cliente }} · concluído {{ k.cliente_concluido_em[:10] }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nada concluído ainda —</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function ajustarIntervalo() {
+    const min = Math.max(1, parseInt(document.getElementById('input-minutos').value) || 5);
+    const url = new URL(window.location);
+    url.searchParams.set('minutos', min);
+    window.location = url;
+}
+
+document.getElementById('now').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+function aplicarTema(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    document.getElementById('theme-icon').textContent = tema === 'dark' ? '☀️' : '🌙';
+    document.getElementById('theme-label').textContent = tema === 'dark' ? 'Modo claro' : 'Modo escuro';
+}
+
+function alternarTema() {
+    const atual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const novo = atual === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('prateleira_tema', novo);
+    aplicarTema(novo);
+}
+
+aplicarTema(localStorage.getItem('prateleira_tema') || 'light');
+
+(function () {
+    const minutos = {{ minutos }};
+    setTimeout(() => location.reload(), Math.max(1, minutos) * 60000);
+})();
+</script>
+
+</body>
+</html>

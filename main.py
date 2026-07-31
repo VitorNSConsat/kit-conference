@@ -34,6 +34,7 @@ import app.pedidos as pedidos_mod
 import app.consumo as consumo_mod
 import app.auditoria as auditoria_mod
 import app.usuarios as usuarios_mod
+import app.producao as producao_mod
 
 load_dotenv()
 
@@ -41,7 +42,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 
 # Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/')
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -2101,6 +2102,64 @@ async def prateleira_tv(request: Request, minutos: int = 5):
         "minutos": minutos,
         "contagem_status": prateleira_mod.contar_status(blocos, livre),
     })
+
+
+# ── Produção (Consat → Trânsito → Cliente) ────────────────────────────────────
+
+@app.get("/producao/tv", response_class=HTMLResponse)
+async def producao_tv(request: Request, minutos: int = 5):
+    minutos = max(1, minutos)
+    return render(request, "producao_tv.html", {
+        "em_producao": producao_mod.listar_em_producao(),
+        "produzido": producao_mod.listar_produzido(),
+        "transito": producao_mod.listar_transito(),
+        "cliente_instalando": producao_mod.listar_cliente_instalando(),
+        "cliente_concluido": producao_mod.listar_cliente_concluido(limite=12),
+        "resumo": producao_mod.resumo(),
+        "minutos": minutos,
+    })
+
+
+@app.get("/admin/producao", response_class=HTMLResponse)
+@require_login
+async def admin_producao(request: Request):
+    return render(request, "admin_producao.html", {
+        "em_producao": producao_mod.listar_em_producao(),
+        "produzido": producao_mod.listar_produzido(),
+        "transito": producao_mod.listar_transito(),
+        "cliente_instalando": producao_mod.listar_cliente_instalando(),
+        "cliente_concluido": producao_mod.listar_cliente_concluido(limite=30),
+    })
+
+
+@app.post("/admin/producao/transito")
+@require_login
+async def admin_producao_transito(request: Request):
+    form = await request.form()
+    kit_ids = form.getlist("kit_ids")
+    n = producao_mod.marcar_transito(kit_ids)
+    return RedirectResponse(f"/admin/producao?ok=transito&n={n}", status_code=302)
+
+
+@app.post("/admin/producao/{kit_id}/cliente-instalando")
+@require_login
+async def admin_producao_cliente_instalando(request: Request, kit_id: str):
+    producao_mod.marcar_cliente_instalando(kit_id)
+    return RedirectResponse("/admin/producao?ok=instalando", status_code=302)
+
+
+@app.post("/admin/producao/{kit_id}/cliente-concluido")
+@require_login
+async def admin_producao_cliente_concluido(request: Request, kit_id: str):
+    producao_mod.marcar_cliente_concluido(kit_id)
+    return RedirectResponse("/admin/producao?ok=concluido", status_code=302)
+
+
+@app.post("/admin/producao/{kit_id}/voltar")
+@require_login
+async def admin_producao_voltar(request: Request, kit_id: str):
+    producao_mod.voltar_estagio(kit_id)
+    return RedirectResponse("/admin/producao?ok=voltou", status_code=302)
 
 
 # ── Estoque ───────────────────────────────────────────────────────────────────
