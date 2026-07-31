@@ -16,8 +16,27 @@ import re
 
 from database import db, now_brt
 import app.auditoria as auditoria_mod
+import app.sessions as sessions_mod
+import app.kit_templates as templates_mod
 
 ESTAGIOS = ["produzido", "transito", "cliente_instalando", "cliente_concluido"]
+
+
+def _percentual_concluido(kit_template_id: int, sessao_id: int) -> int:
+    """% de itens obrigatórios já bipados nessa sessão — a mesma conta que
+    libera o botão "Finalizar" na tela de bipagem (itens opcionais não
+    contam, pra não distorcer o progresso de quem ainda não bipou nada
+    opcional). Cada item é limitado ao que falta dele, então bipar demais
+    de um item não estoura o percentual pra além de 100%."""
+    itens = [i for i in templates_mod.get_itens_template(kit_template_id) if i["obrigatorio"]]
+    if not itens:
+        return 100
+    contagem = sessions_mod.get_contagem(sessao_id)
+    exigido = sum(i["quantidade_exigida"] for i in itens)
+    bipado = sum(min(contagem.get(i["item_tipo_id"], 0), i["quantidade_exigida"]) for i in itens)
+    if exigido == 0:
+        return 100
+    return round(bipado / exigido * 100)
 
 
 def listar_em_producao() -> list[dict]:
@@ -25,7 +44,8 @@ def listar_em_producao() -> list[dict]:
     do lado Consat, que não tem kit_record ainda."""
     with db() as conn:
         rows = conn.execute(
-            "SELECT s.id AS sessao_id, s.iniciado_em, t.nome AS kit_nome, t.cliente, "
+            "SELECT s.id AS sessao_id, s.iniciado_em, s.kit_template_id, "
+            "s.veiculo, s.garagem, s.modelo, t.nome AS kit_nome, t.cliente, "
             "u.nome AS operador_nome "
             "FROM scan_session s "
             "JOIN kit_template t ON t.id = s.kit_template_id "
@@ -33,7 +53,10 @@ def listar_em_producao() -> list[dict]:
             "WHERE s.status = 'em_andamento' AND t.tipo = 'kit' "
             "ORDER BY s.iniciado_em"
         ).fetchall()
-    return [dict(r) for r in rows]
+    sessoes = [dict(r) for r in rows]
+    for s in sessoes:
+        s["percentual"] = _percentual_concluido(s["kit_template_id"], s["sessao_id"])
+    return sessoes
 
 
 _CAMPOS_KIT = (

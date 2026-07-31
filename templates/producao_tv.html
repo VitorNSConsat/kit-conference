@@ -196,6 +196,17 @@
   .kit-card.transito { border-left-color: var(--transito); }
   .kit-nome { font-size: 13px; font-weight: 700; line-height: 1.25; }
   .kit-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+  .progresso { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .progresso-trilha {
+    flex: 1;
+    height: 6px;
+    background: var(--surface-2);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progresso-preenchido { height: 100%; background: var(--warning); border-radius: 999px; }
+  .progresso-pct { font-size: 10.5px; font-weight: 800; color: var(--warning); flex-shrink: 0; min-width: 28px; text-align: right; }
 </style>
 <script>
   (function () {
@@ -243,8 +254,12 @@
       <div class="lista">
         {% for s in em_producao %}
         <div class="kit-card warning">
-          <div class="kit-nome">{{ s.kit_nome }}</div>
-          <div class="kit-sub">{{ s.cliente }} · {{ s.operador_nome }} · desde {{ s.iniciado_em[11:16] }}</div>
+          <div class="kit-nome">{{ s.veiculo or s.kit_nome }}</div>
+          <div class="kit-sub">{{ s.garagem or '—' }} · {{ s.cliente }} · {{ s.operador_nome }} · desde {{ s.iniciado_em[11:16] }}</div>
+          <div class="progresso">
+            <div class="progresso-trilha"><div class="progresso-preenchido" style="width:{{ s.percentual }}%;"></div></div>
+            <span class="progresso-pct">{{ s.percentual }}%</span>
+          </div>
         </div>
         {% else %}
         <div class="vazio">— nenhuma bipagem em andamento —</div>
