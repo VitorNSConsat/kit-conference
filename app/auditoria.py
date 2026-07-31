@@ -70,11 +70,22 @@ def classificar(caminho: str) -> str:
         return "BIPAGEM"
     if "/toggle" in c:
         return "ALTERACAO DE STATUS"
+    if "/admin/producao/" in c:
+        if "/nota-fiscal" in c:
+            return "PRODUCAO: NOTA FISCAL"
+        if c.endswith("/transito"):
+            return "PRODUCAO: EM TRANSITO"
+        if "/cliente-instalando" in c:
+            return "PRODUCAO: CHEGADA NO CLIENTE"
+        if "/cliente-concluido" in c:
+            return "PRODUCAO: INSTALACAO CONCLUIDA"
+        if "/voltar" in c:
+            return "PRODUCAO: VOLTAR ESTAGIO"
     return "ALTERACAO"
 
 
 def listar(data_ini: str = "", data_fim: str = "", user_id: str = "",
-           acao: str = "", limite: int = 500) -> list[dict]:
+           acao: str = "", limite: int = 500, caminho_prefixo: str = "") -> list[dict]:
     query = "SELECT * FROM auditoria WHERE 1=1"
     params: list = []
     if data_ini:
@@ -89,6 +100,9 @@ def listar(data_ini: str = "", data_fim: str = "", user_id: str = "",
     if acao:
         query += " AND acao = ?"
         params.append(acao)
+    if caminho_prefixo:
+        query += " AND caminho LIKE ?"
+        params.append(caminho_prefixo + "%")
     query += " ORDER BY id DESC LIMIT ?"
     params.append(int(limite))
     with db() as conn:

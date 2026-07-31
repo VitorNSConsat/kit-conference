@@ -2,20 +2,37 @@
 {% block title %}Produção{% endblock %}
 
 {% macro nota_fiscal_form(k) %}
-<form method="post" action="/admin/producao/{{ k.kit_id }}/nota-fiscal"
-      style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
-  <input type="text" name="nota_fiscal" value="{{ k.nota_fiscal or '' }}" placeholder="Nº NF"
-         style="width:80px;margin:0;font-size:12px;padding:4px 6px;">
-  <input type="date" name="nota_fiscal_data" value="{{ k.nota_fiscal_data or '' }}"
-         style="width:132px;margin:0;font-size:12px;padding:4px 6px;">
-  <button type="submit" class="btn btn-sm btn-primary" style="padding:4px 8px;" title="Salvar nota fiscal">💾</button>
-</form>
+{% set tem_nf = (k.nota_fiscal or '') | trim %}
+<div class="nf-bloco">
+  <div class="nf-visual" style="display:{{ 'flex' if tem_nf else 'none' }};gap:6px;align-items:center;font-size:12px;">
+    <span>📄 {{ k.nota_fiscal }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
+    <button type="button" class="btn btn-sm" onclick="editarNotaFiscal(this)" style="padding:2px 6px;" title="Editar nota fiscal (exige motivo)">✏️ NF</button>
+  </div>
+  <form method="post" action="/admin/producao/{{ k.kit_id }}/nota-fiscal" class="nf-form"
+        style="display:{{ 'none' if tem_nf else 'flex' }};gap:4px;align-items:center;flex-wrap:wrap;">
+    <input type="text" name="nota_fiscal" value="{{ k.nota_fiscal or '' }}" placeholder="Nº NF"
+           style="width:80px;margin:0;font-size:12px;padding:4px 6px;">
+    <input type="date" name="nota_fiscal_data" value="{{ k.nota_fiscal_data or '' }}"
+           style="width:132px;margin:0;font-size:12px;padding:4px 6px;">
+    {% if tem_nf %}
+    <input type="text" name="motivo" placeholder="Motivo da alteração" required
+           style="width:150px;margin:0;font-size:12px;padding:4px 6px;">
+    {% endif %}
+    <button type="submit" class="btn btn-sm btn-primary" style="padding:4px 8px;" title="Salvar nota fiscal">💾</button>
+    {% if tem_nf %}
+    <button type="button" class="btn btn-sm" onclick="cancelarNotaFiscal(this)" style="padding:4px 6px;" title="Cancelar edição">✖</button>
+    {% endif %}
+  </form>
+</div>
 {% endmacro %}
 
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1>🚚 Produção</h1>
-  <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/admin/producao/historico" class="btn btn-warning">📜 Histórico de Alterações</a>
+    <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
+  </div>
 </div>
 
 {% if request.query_params.get('ok') == 'transito' %}
@@ -28,6 +45,8 @@
 <div class="alert alert-success">↩️ Kit voltou para o estágio anterior.</div>
 {% elif request.query_params.get('ok') == 'nota_fiscal' %}
 <div class="alert alert-success">✅ Nota fiscal salva.</div>
+{% elif request.query_params.get('erro') == 'nf_motivo' %}
+<div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
@@ -187,4 +206,19 @@
   {% endif %}
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+function editarNotaFiscal(btn) {
+    const bloco = btn.closest('.nf-bloco');
+    bloco.querySelector('.nf-visual').style.display = 'none';
+    bloco.querySelector('.nf-form').style.display = 'flex';
+}
+function cancelarNotaFiscal(btn) {
+    const bloco = btn.closest('.nf-bloco');
+    bloco.querySelector('.nf-form').style.display = 'none';
+    bloco.querySelector('.nf-visual').style.display = 'flex';
+}
+</script>
 {% endblock %}

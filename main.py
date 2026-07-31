@@ -2166,12 +2166,73 @@ async def admin_producao_voltar(request: Request, kit_id: str):
 @require_login
 async def admin_producao_nota_fiscal(request: Request, kit_id: str):
     form = await request.form()
-    producao_mod.atualizar_nota_fiscal(
+    ok = producao_mod.atualizar_nota_fiscal(
         kit_id,
         str(form.get("nota_fiscal", "")),
         str(form.get("nota_fiscal_data", "")),
+        str(form.get("motivo", "")),
     )
+    if not ok:
+        return RedirectResponse("/admin/producao?erro=nf_motivo", status_code=302)
     return RedirectResponse("/admin/producao?ok=nota_fiscal", status_code=302)
+
+
+@app.get("/admin/producao/historico", response_class=HTMLResponse)
+@require_login
+async def admin_producao_historico(request: Request,
+                                    data_ini: str = "", data_fim: str = ""):
+    return render(request, "admin_producao_historico.html", {
+        "registros": producao_mod.listar_historico(data_ini, data_fim),
+        "data_ini": data_ini, "data_fim": data_fim,
+    })
+
+
+@app.get("/admin/producao/historico/exportar.xlsx")
+@require_login
+async def admin_producao_historico_exportar(request: Request,
+                                             data_ini: str = "", data_fim: str = ""):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    registros = producao_mod.listar_historico(data_ini, data_fim, limite=5000)
+
+    wb = openpyxl.Workbook()
+    azul, branco = "1A3A5C", "FFFFFF"
+    ws = wb.active
+    ws.title = "Historico Producao"
+
+    def hdr_cell(row, col, value):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        return c
+
+    for col, h in enumerate(
+        ["Data/Hora", "Usuário", "Ação", "Kit", "Detalhe", "IP", "Status"], 1):
+        hdr_cell(1, col, h)
+    for i, r in enumerate(registros):
+        row = i + 2
+        ws.cell(row, 1, (r["criado_em"] or "")[:16])
+        ws.cell(row, 2, r["user_nome"] or "—")
+        ws.cell(row, 3, r["acao"])
+        ws.cell(row, 4, r["kit_desc"])
+        ws.cell(row, 5, r["detalhe"] or "")
+        ws.cell(row, 6, r["ip"] or "")
+        ws.cell(row, 7, r["status"])
+    larguras = [17, 18, 26, 20, 60, 15, 8]
+    for col, largura in enumerate(larguras, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = largura
+
+    buf = BytesIO()
+    wb.save(buf)
+    return _Resp(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="historico_producao.xlsx"'},
+    )
 
 
 # ── Estoque ───────────────────────────────────────────────────────────────────

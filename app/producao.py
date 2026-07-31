@@ -12,7 +12,10 @@ Só Kits entram nessa esteira — Pedidos continuam com o fluxo próprio de
 "Feito/Não feito" que já existia.
 """
 
+import re
+
 from database import db, now_brt
+import app.auditoria as auditoria_mod
 
 ESTAGIOS = ["produzido", "transito", "cliente_instalando", "cliente_concluido"]
 
@@ -86,14 +89,85 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str) -> None:
+def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str,
+                           motivo: str = "") -> bool:
     """Registro manual só pro controle interno — não faz parte da esteira,
-    não trava nem depende de estágio."""
+    não trava nem depende de estágio.
+
+    Se já havia nota fiscal salva e o valor está mudando, exige motivo —
+    quem só está preenchendo pela primeira vez não precisa justificar nada.
+    Sem motivo nesse caso, não grava e retorna False; o motivo em si não é
+    guardado em kit_record, ele fica só no log de auditoria (que já
+    registra os campos exatos submetidos no formulário)."""
+    nota_fiscal = nota_fiscal.strip()
+    nota_fiscal_data = nota_fiscal_data.strip()
+    motivo = motivo.strip()
     with db() as conn:
+        atual = conn.execute(
+            "SELECT nota_fiscal, nota_fiscal_data FROM kit_record WHERE kit_id = ?",
+            (kit_id,)
+        ).fetchone()
+        tinha_valor = bool(atual and (atual["nota_fiscal"] or "").strip())
+        mudou = tinha_valor and (
+            (atual["nota_fiscal"] or "").strip() != nota_fiscal
+            or (atual["nota_fiscal_data"] or "").strip() != nota_fiscal_data
+        )
+        if mudou and not motivo:
+            return False
         conn.execute(
             "UPDATE kit_record SET nota_fiscal = ?, nota_fiscal_data = ? WHERE kit_id = ?",
-            (nota_fiscal.strip(), nota_fiscal_data.strip() or None, kit_id)
+            (nota_fiscal, nota_fiscal_data or None, kit_id)
         )
+        return True
+
+
+_RE_KIT_ID_PATH = re.compile(
+    r"^/admin/producao/([^/]+)/(cliente-instalando|cliente-concluido|voltar|nota-fiscal)$"
+)
+_RE_KIT_IDS_DETALHE = re.compile(r"kit_ids=([^|]+)")
+
+
+def _kit_ids_da_linha(caminho: str, detalhe: str) -> list[str]:
+    """Extrai o(s) kit_id envolvido(s) num registro de auditoria da
+    esteira — a maioria das rotas leva o kit_id na própria URL, só o envio
+    em lote pra 'em trânsito' leva vários dentro do corpo do formulário."""
+    m = _RE_KIT_ID_PATH.match(caminho)
+    if m:
+        return [m.group(1)]
+    if caminho == "/admin/producao/transito":
+        return [v.strip() for v in _RE_KIT_IDS_DETALHE.findall(detalhe or "")]
+    return []
+
+
+def listar_historico(data_ini: str = "", data_fim: str = "", limite: int = 500) -> list[dict]:
+    """Histórico de ações manuais da esteira (mudança de estágio + edição
+    de nota fiscal), lido da auditoria geral (que já cobre toda rota de
+    /admin/producao automaticamente) e enriquecido com veículo/garagem
+    quando dá pra casar o kit_id da linha."""
+    linhas = auditoria_mod.listar(
+        data_ini=data_ini, data_fim=data_fim,
+        caminho_prefixo="/admin/producao/", limite=limite
+    )
+    with db() as conn:
+        kits = {
+            r["kit_id"]: dict(r)
+            for r in conn.execute(
+                "SELECT kr.kit_id, kr.veiculo, kr.garagem, kt.nome AS kit_nome "
+                "FROM kit_record kr JOIN kit_template kt ON kt.id = kr.kit_template_id"
+            ).fetchall()
+        }
+    for linha in linhas:
+        descricoes = []
+        for kid in _kit_ids_da_linha(linha["caminho"], linha["detalhe"] or ""):
+            info = kits.get(kid)
+            if info and (info["veiculo"] or "").strip():
+                descricoes.append(info["veiculo"])
+            elif info:
+                descricoes.append(info["kit_nome"])
+            else:
+                descricoes.append(kid)
+        linha["kit_desc"] = ", ".join(descricoes) if descricoes else "—"
+    return linhas
 
 
 def _buscar_estagio(conn, kit_id: str) -> str | None:

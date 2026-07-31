@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Histórico de Produção{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>📜 Histórico de Alterações — Produção</h1>
+  <a href="/admin/producao" class="btn btn-primary">🚚 Voltar pra Produção</a>
+</div>
+
+<p style="color:#666;font-size:13px;margin-bottom:16px;">
+  Toda mudança de estágio e edição de nota fiscal feita manualmente na esteira fica
+  registrada aqui — quem fez, quando e o quê. Mostrando os {{ registros | length }}
+  registros mais recentes que batem com o filtro.
+</p>
+
+<div class="card">
+  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>De</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Até</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}">
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <a href="/admin/producao/historico" class="btn btn-warning">✕ Limpar</a>
+    <a href="/admin/producao/historico/exportar.xlsx?data_ini={{ data_ini }}&data_fim={{ data_fim }}" class="btn btn-success">📥 Exportar Excel</a>
+  </form>
+</div>
+
+<div class="card">
+  {% if registros %}
+  <input type="text" class="busca-box" placeholder="🔍 Buscar no detalhe..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-historico-producao tr.filtro-item">
+  <div style="overflow-x:auto;">
+  <table id="tabela-historico-producao">
+    <thead>
+      <tr>
+        <th>Quando</th><th>Quem</th><th>Ação</th><th>Kit</th><th>Detalhe</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in registros %}
+    <tr class="filtro-item">
+      <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
+      <td>{{ r.user_nome or '—' }}</td>
+      <td>
+        <span class="badge {{ 'badge-danger' if r.status and r.status >= 400 else 'badge-success' }}">
+          {{ r.acao }}
+        </span>
+      </td>
+      <td style="font-size:12px;">{{ r.kit_desc }}</td>
+      <td style="font-size:11px;color:#666;max-width:340px;word-break:break-word;">
+        {{ r.detalhe or '—' }}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">
+    Nenhum registro encontrado para esse filtro.
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}
