@@ -677,6 +677,7 @@ def _admin_items_context() -> dict:
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
         "codigos_gerados": codigos_gerados_mod.listar(),
         "estoque_itens": estoque_mod.listar_estoque(),
+        "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
     }
 
 
@@ -2333,6 +2334,7 @@ async def admin_estoque_exportar(request: Request):
     movimento_labels = {
         "entrada": "Entrada", "saida": "Saída", "saida_cancelada": "Saída cancelada",
         "correcao": "Correção", "ajuste_minimo": "Ajuste mínimo",
+        "status_compra": "Status de compra",
     }
     for i, m in enumerate(historico):
         row = i + 2
@@ -2372,6 +2374,7 @@ async def admin_estoque(request: Request):
         "itens": itens,
         "alertas": alertas,
         "url_http_base": url_http,
+        "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
     })
 
 
@@ -2433,6 +2436,15 @@ async def admin_estoque_minimo(request: Request, estoque_id: int):
     novo_minimo = max(0, int(form.get("quantidade_minima", 0) or 0))
     estoque_mod.atualizar_minimo(estoque_id, novo_minimo, user["id"])
     return RedirectResponse("/admin/items?ok=minimo", status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/status-compra")
+@require_permission("estoque_editar")
+async def admin_estoque_status_compra(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    estoque_mod.atualizar_status_compra(estoque_id, str(form.get("status_compra", "")), user["id"])
+    return RedirectResponse("/admin/items?ok=status_compra", status_code=302)
 
 
 @app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)

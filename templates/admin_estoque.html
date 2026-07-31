@@ -11,6 +11,8 @@
 <div class="alert alert-success">Item removido do estoque.</div>
 {% elif request.query_params.get('ok') == 'minimo' %}
 <div class="alert alert-success">Quantidade mínima atualizada.</div>
+{% elif request.query_params.get('ok') == 'status_compra' %}
+<div class="alert alert-success">Status de compra atualizado.</div>
 {% endif %}
 {% if erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -40,6 +42,7 @@
                 <th>Código de Barras</th>
                 <th>Mínimo</th>
                 <th>Status</th>
+                <th>Compra</th>
                 <th>Repor</th>
                 <th></th>
             </tr>
@@ -56,12 +59,16 @@
             <td><strong>{{ item.tipo_nome }}</strong></td>
             <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
             <td>
+                {% if pode('estoque_editar') %}
                 <form id="form-min-{{ item.id }}" method="post"
                       action="/admin/estoque/{{ item.id }}/minimo">
                     <input type="number" name="quantidade_minima"
                            value="{{ item.quantidade_minima }}" min="0"
                            style="width:60px;text-align:center;margin-bottom:0;">
                 </form>
+                {% else %}
+                {{ item.quantidade_minima }}
+                {% endif %}
             </td>
             <td>
                 {% if abaixo %}
@@ -73,18 +80,41 @@
                 {% endif %}
             </td>
             <td>
+                {% set status_atual = item.status_compra or '' %}
+                {% if pode('estoque_editar') %}
+                <form method="post" action="/admin/estoque/{{ item.id }}/status-compra">
+                    <select name="status_compra" onchange="this.form.submit()" style="margin:0;font-size:12px;">
+                        <option value="" {{ 'selected' if not status_atual }}>Sem pendência</option>
+                        {% for chave, rotulo in status_compra_opcoes.items() %}
+                        <option value="{{ chave }}" {{ 'selected' if status_atual == chave }}>{{ rotulo }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% elif status_atual %}
+                <span class="badge badge-info">{{ status_compra_opcoes.get(status_atual, status_atual) }}</span>
+                {% else %}
+                <span style="color:#bbb;">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if pode('estoque_editar') %}
                 <form method="post" action="/admin/estoque/{{ item.id }}/repor"
-                      style="display:flex;gap:6px;align-items:center;">
+                      style="display:flex;gap:4px;align-items:center;">
                     <input type="number" name="quantidade" value="1" min="1"
                            style="width:64px;text-align:center;" required>
                     <input type="text" name="observacao" placeholder="Obs (opcional)"
                            style="width:130px;font-size:12px;">
                     <button type="submit" class="btn btn-sm btn-success">+ Repor</button>
                 </form>
+                {% else %}
+                <span style="color:#bbb;">—</span>
+                {% endif %}
             </td>
             <td style="white-space:nowrap;">
+                {% if pode('estoque_editar') %}
                 <button type="submit" form="form-min-{{ item.id }}"
                         class="btn btn-sm btn-warning" title="Salvar mínimo">💾</button>
+                {% endif %}
                 <a href="/admin/estoque/{{ item.id }}/etiqueta" target="_blank"
                    class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                 <a href="/admin/estoque/{{ item.id }}/historico"

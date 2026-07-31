@@ -80,6 +80,7 @@ def _backup_antes_de_migrar() -> str | None:
     with db() as conn:
         colunas_users = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
         colunas_kit_record = {r["name"] for r in conn.execute("PRAGMA table_info(kit_record)").fetchall()}
+        colunas_estoque = {r["name"] for r in conn.execute("PRAGMA table_info(estoque)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -91,6 +92,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "status_producao" not in colunas_kit_record
         or "nota_fiscal" not in colunas_kit_record
         or "user_permissoes_negadas" not in tabelas
+        or "status_compra" not in colunas_estoque
     )
     if not pendente:
         return None
@@ -389,6 +391,9 @@ def init_db():
             # Controle interno — nao afeta a esteira, so registro manual.
             "ALTER TABLE kit_record ADD COLUMN nota_fiscal TEXT DEFAULT ''",
             "ALTER TABLE kit_record ADD COLUMN nota_fiscal_data TEXT",
+            # Status de compra do item — independente do status de quantidade
+            # (abaixo/proximo/ok). Vazio = sem pendencia.
+            "ALTER TABLE estoque ADD COLUMN status_compra TEXT NOT NULL DEFAULT ''",
         ]:
             try:
                 conn.execute(stmt)

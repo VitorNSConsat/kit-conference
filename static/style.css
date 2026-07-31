@@ -224,6 +224,7 @@ tr:hover td { background: var(--surface-alt); }
 .badge-success { background: var(--ok-bg); color: var(--ok-text); }
 .badge-danger  { background: var(--danger-bg); color: var(--danger-text); }
 .badge-warning { background: var(--warn-bg); color: var(--warn-text); }
+.badge-info    { background: #e3ecf5; color: var(--brand); }
 
 /* Session scan screen */
 .scan-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

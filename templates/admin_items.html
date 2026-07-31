@@ -28,6 +28,8 @@
 <div class="alert alert-success">Código de barras atualizado.</div>
 {% elif request.query_params.get('ok') == 'minimo' %}
 <div class="alert alert-success">Quantidade mínima atualizada.</div>
+{% elif request.query_params.get('ok') == 'status_compra' %}
+<div class="alert alert-success">Status de compra atualizado.</div>
 {% elif request.query_params.get('ok') == 'reposto' %}
 <div class="alert alert-success">Estoque reposto com sucesso.</div>
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
@@ -161,6 +163,9 @@
                                  color:#555;background:#e8ecf0;padding:4px 12px;border-radius:20px;margin-left:6px;">
                         mín. {{ est.quantidade_minima }}
                     </span>
+                    {% if est.status_compra %}
+                    <span class="badge badge-info" style="margin-left:6px;">{{ status_compra_opcoes.get(est.status_compra, est.status_compra) }}</span>
+                    {% endif %}
                     {% else %}
                     <span style="font-size:12px;color:#bbb;">— sem estoque —</span>
                     {% endif %}
@@ -313,9 +318,24 @@
                             <button type="submit" class="btn btn-sm btn-success" style="flex:1;padding:6px 12px;">+ Repor</button>
                         </form>
                     </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Status de Compra</label>
+                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Independente da quantidade — sinaliza se já tem reposição a caminho</div>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/status-compra">
+                            <select name="status_compra" onchange="this.form.submit()" style="margin:0;">
+                                <option value="" {{ 'selected' if not est.status_compra }}>Sem pendência</option>
+                                {% for chave, rotulo in status_compra_opcoes.items() %}
+                                <option value="{{ chave }}" {{ 'selected' if est.status_compra == chave }}>{{ rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </div>
                     {% else %}
                     <div style="margin-bottom:12px;font-size:12px;color:#888;">
                         Quantidade atual: <strong>{{ est.quantidade_atual }}</strong> · mínima: {{ est.quantidade_minima }}
+                        {% if est.status_compra %}
+                        <br>Status de compra: <span class="badge badge-info">{{ status_compra_opcoes.get(est.status_compra, est.status_compra) }}</span>
+                        {% endif %}
                         <br>Seu usuário não tem permissão pra alterar o estoque.
                     </div>
                     {% endif %}

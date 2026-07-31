@@ -1,6 +1,14 @@
 import re
 from database import db, now_brt
 
+# Status de compra — independente do status de quantidade (abaixo/proximo/ok).
+# Vazio ('') = sem pendencia, nao aparece nenhum aviso.
+STATUS_COMPRA = {
+    "pedido": "Pedido ao fornecedor",
+    "andamento": "Em andamento",
+    "recebido": "Recebido",
+}
+
 
 def listar_estoque() -> list:
     with db() as conn:
@@ -234,6 +242,34 @@ def atualizar_minimo(estoque_id: int, novo_minimo: int, criado_por: int) -> None
             "VALUES (?, 'ajuste_minimo', ?, ?, ?, ?)",
             (estoque_id, novo_minimo, criado_por,
              f"Mínimo alterado: {antigo} → {novo_minimo}", now_brt())
+        )
+
+
+def atualizar_status_compra(estoque_id: int, novo_status: str, criado_por: int) -> None:
+    """Marca se o item já foi pedido ao fornecedor / está a caminho / chegou.
+    Independente do status de quantidade (abaixo/proximo/ok) — um item pode
+    estar OK em quantidade e ainda ter uma reposição futura já encomendada."""
+    novo_status = novo_status if novo_status in STATUS_COMPRA else ""
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT status_compra FROM estoque WHERE id = ?", (estoque_id,)
+        ).fetchone()
+        if atual is None:
+            return
+        antigo = atual["status_compra"] or ""
+        if antigo == novo_status:
+            return
+        conn.execute(
+            "UPDATE estoque SET status_compra = ? WHERE id = ?",
+            (novo_status, estoque_id)
+        )
+        conn.execute(
+            "INSERT INTO estoque_movimentos "
+            "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+            "VALUES (?, 'status_compra', 0, ?, ?, ?)",
+            (estoque_id, criado_por,
+             f"Status de compra: {STATUS_COMPRA.get(antigo, 'Sem pendência')} → "
+             f"{STATUS_COMPRA.get(novo_status, 'Sem pendência')}", now_brt())
         )
 
 
