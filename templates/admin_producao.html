@@ -33,7 +33,7 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1>🚚 Produção</h1>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+  <div style="display:flex;gap:5px;flex-wrap:wrap;">
     <a href="/admin/producao/historico" class="btn btn-warning">📜 Histórico de Alterações</a>
     <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
   </div>
@@ -127,7 +127,7 @@
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
           <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
         </form>
@@ -160,7 +160,7 @@
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_instalando_em[:16] }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+      <td style="display:flex;gap:4px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
           <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
         </form>

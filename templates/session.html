@@ -16,7 +16,7 @@
             <span id="ws-status">⏳ Conectando...</span>
         </span>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:5px;">
         <a href="/" class="btn btn-warning">💾 Salvar e Sair</a>
         <form method="post" action="/session/{{ session.id }}/cancel"
               onsubmit="return confirm('Cancelar a sessão? Todos os itens bipados serão descartados.')">
@@ -128,7 +128,7 @@
             Ajuste as quantidades que estão neste saquinho e confirme.
         </p>
         <div id="comp-itens-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <div style="display:flex;gap:5px;justify-content:flex-end;">
             <button onclick="cancelarComponente()" class="btn btn-danger">Cancelar</button>
             <button onclick="confirmarComponente()" class="btn btn-success">✅ Confirmar</button>
         </div>
@@ -150,7 +150,7 @@
                 <span id="qtd-sufixo" style="font-size:20px;font-weight:700;color:#1a3a5c;min-width:24px;"></span>
             </div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <div style="display:flex;gap:5px;justify-content:flex-end;margin-top:20px;">
             <button onclick="fecharModalQuantidade()" class="btn btn-danger">Cancelar</button>
             <button onclick="confirmarQuantidade()" class="btn btn-success">✅ Confirmar</button>
         </div>
@@ -169,7 +169,7 @@
                    style="width:100%;box-sizing:border-box;" autocomplete="off"
                    onkeydown="if(event.key==='Enter'){confirmarSubstituicao();}">
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+        <div style="display:flex;gap:5px;justify-content:flex-end;margin-top:20px;">
             <button onclick="fecharModalSubstituicao()" class="btn btn-danger">Cancelar</button>
             <button onclick="confirmarSubstituicao()" class="btn btn-success">✅ Confirmar Substituição</button>
         </div>
@@ -212,7 +212,7 @@
                 <input type="text" name="modelo" id="input-modelo"
                        placeholder="ex: Fiat Strada" autocomplete="off">
             </div>
-            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
+            <div style="display:flex; gap:5px; justify-content:flex-end; margin-top:4px;">
                 <button type="button" onclick="fecharModalFinalizar()" class="btn btn-danger">Cancelar</button>
                 <button type="submit" class="btn btn-success">✅ Confirmar e Finalizar</button>
             </div>
