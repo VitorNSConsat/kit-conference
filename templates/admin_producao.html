@@ -1,5 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Produção{% endblock %}
+
+{% macro nota_fiscal_form(k) %}
+<form method="post" action="/admin/producao/{{ k.kit_id }}/nota-fiscal"
+      style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+  <input type="text" name="nota_fiscal" value="{{ k.nota_fiscal or '' }}" placeholder="Nº NF"
+         style="width:80px;margin:0;font-size:12px;padding:4px 6px;">
+  <input type="date" name="nota_fiscal_data" value="{{ k.nota_fiscal_data or '' }}"
+         style="width:132px;margin:0;font-size:12px;padding:4px 6px;">
+  <button type="submit" class="btn btn-sm btn-primary" style="padding:4px 8px;" title="Salvar nota fiscal">💾</button>
+</form>
+{% endmacro %}
+
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1>🚚 Produção</h1>
@@ -14,6 +26,8 @@
 <div class="alert alert-success">✅ Instalação marcada como concluída.</div>
 {% elif request.query_params.get('ok') == 'voltou' %}
 <div class="alert alert-success">↩️ Kit voltou para o estágio anterior.</div>
+{% elif request.query_params.get('ok') == 'nota_fiscal' %}
+<div class="alert alert-success">✅ Nota fiscal salva.</div>
 {% endif %}
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
@@ -51,24 +65,25 @@
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
   </p>
   {% if produzido %}
-  <form method="post" action="/admin/producao/transito">
-    <div style="overflow-x:auto;">
+  <form id="form-transito" method="post" action="/admin/producao/transito"></form>
+  <div style="overflow-x:auto;">
     <table>
-      <thead><tr><th style="width:32px;"></th><th>Kit</th><th>Cliente</th><th>Produzido em</th></tr></thead>
+      <thead><tr><th style="width:32px;"></th><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Nota Fiscal</th></tr></thead>
       <tbody>
       {% for k in produzido %}
       <tr>
-        <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" style="margin:0;width:auto;"></td>
-        <td>{{ k.kit_nome }}</td>
+        <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito" style="margin:0;width:auto;"></td>
+        <td>{{ k.veiculo or k.kit_nome }}</td>
+        <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
         <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] }}</td>
+        <td>{{ nota_fiscal_form(k) }}</td>
       </tr>
       {% endfor %}
       </tbody>
     </table>
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:10px;">🚚 Marcar selecionados como Em Trânsito</button>
-  </form>
+  </div>
+  <button type="submit" form="form-transito" class="btn btn-primary" style="margin-top:10px;">🚚 Marcar selecionados como Em Trânsito</button>
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nada esperando envio no momento.</p>
   {% endif %}
@@ -80,13 +95,15 @@
   {% if transito %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Kit</th><th>Cliente</th><th>Em trânsito desde</th><th></th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Em trânsito desde</th><th>Nota Fiscal</th><th></th></tr></thead>
     <tbody>
     {% for k in transito %}
     <tr>
-      <td>{{ k.kit_nome }}</td>
+      <td>{{ k.veiculo or k.kit_nome }}</td>
+      <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] }}</td>
+      <td>{{ nota_fiscal_form(k) }}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
           <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
@@ -111,13 +128,15 @@
   {% if cliente_instalando %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Kit</th><th>Cliente</th><th>Chegou em</th><th></th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Chegou em</th><th>Nota Fiscal</th><th></th></tr></thead>
     <tbody>
     {% for k in cliente_instalando %}
     <tr>
-      <td>{{ k.kit_nome }}</td>
+      <td>{{ k.veiculo or k.kit_nome }}</td>
+      <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_instalando_em[:16] }}</td>
+      <td>{{ nota_fiscal_form(k) }}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
           <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
@@ -140,17 +159,19 @@
 <div class="card">
   <h2 style="margin-bottom:4px;">Cliente — Produzido <span style="font-weight:400;color:#888;">(concluído — últimos 30)</span></h2>
   {% if cliente_concluido %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar por kit ou cliente..."
+  <input type="text" class="busca-box" placeholder="🔍 Buscar por veículo, garagem ou cliente..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-concluido tr.filtro-item">
   <div style="overflow-x:auto;">
   <table id="tabela-concluido">
-    <thead><tr><th>Kit</th><th>Cliente</th><th>Concluído em</th><th></th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Concluído em</th><th>Nota Fiscal</th><th></th></tr></thead>
     <tbody>
     {% for k in cliente_concluido %}
     <tr class="filtro-item">
-      <td>{{ k.kit_nome }}</td>
+      <td>{{ k.veiculo or k.kit_nome }}</td>
+      <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_concluido_em[:16] }}</td>
+      <td>{{ nota_fiscal_form(k) }}</td>
       <td>
         <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
           <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Cliente: Em Produção">↩️ Voltar</button>

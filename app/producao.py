@@ -33,12 +33,18 @@ def listar_em_producao() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+_CAMPOS_KIT = (
+    "kr.kit_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
+    "kr.cliente_concluido_em, kr.veiculo, kr.garagem, kr.modelo, "
+    "kr.nota_fiscal, kr.nota_fiscal_data, "
+    "kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome"
+)
+
+
 def _listar_por_estagio(estagio: str) -> list[dict]:
     with db() as conn:
         rows = conn.execute(
-            "SELECT kr.kit_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
-            "kr.cliente_concluido_em, kr.veiculo, kr.garagem, kr.modelo, "
-            "kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome "
+            f"SELECT {_CAMPOS_KIT} "
             "FROM kit_record kr "
             "JOIN kit_template kt ON kt.id = kr.kit_template_id "
             "JOIN users u ON u.id = kr.operador_id "
@@ -67,8 +73,7 @@ def listar_cliente_instalando() -> list[dict]:
 def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
     with db() as conn:
         query = (
-            "SELECT kr.kit_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
-            "kr.cliente_concluido_em, kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome "
+            f"SELECT {_CAMPOS_KIT} "
             "FROM kit_record kr "
             "JOIN kit_template kt ON kt.id = kr.kit_template_id "
             "JOIN users u ON u.id = kr.operador_id "
@@ -79,6 +84,16 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
             query += f" LIMIT {int(limite)}"
         rows = conn.execute(query).fetchall()
     return [dict(r) for r in rows]
+
+
+def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str) -> None:
+    """Registro manual só pro controle interno — não faz parte da esteira,
+    não trava nem depende de estágio."""
+    with db() as conn:
+        conn.execute(
+            "UPDATE kit_record SET nota_fiscal = ?, nota_fiscal_data = ? WHERE kit_id = ?",
+            (nota_fiscal.strip(), nota_fiscal_data.strip() or None, kit_id)
+        )
 
 
 def _buscar_estagio(conn, kit_id: str) -> str | None:

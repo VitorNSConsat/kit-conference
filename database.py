@@ -89,6 +89,7 @@ def _backup_antes_de_migrar() -> str | None:
         "admin" not in colunas_users
         or "auditoria" not in tabelas
         or "status_producao" not in colunas_kit_record
+        or "nota_fiscal" not in colunas_kit_record
     )
     if not pendente:
         return None
@@ -374,6 +375,9 @@ def init_db():
             "ALTER TABLE kit_record ADD COLUMN transito_em TEXT",
             "ALTER TABLE kit_record ADD COLUMN cliente_instalando_em TEXT",
             "ALTER TABLE kit_record ADD COLUMN cliente_concluido_em TEXT",
+            # Controle interno — nao afeta a esteira, so registro manual.
+            "ALTER TABLE kit_record ADD COLUMN nota_fiscal TEXT DEFAULT ''",
+            "ALTER TABLE kit_record ADD COLUMN nota_fiscal_data TEXT",
         ]:
             try:
                 conn.execute(stmt)

@@ -257,8 +257,8 @@
       <div class="lista">
         {% for k in produzido %}
         <div class="kit-card good">
-          <div class="kit-nome">{{ k.kit_nome }}</div>
-          <div class="kit-sub">{{ k.cliente }} · {{ k.finalizado_em[:10] }}</div>
+          <div class="kit-nome">{{ k.veiculo or k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.garagem or '—' }} · {{ k.cliente }} · {{ k.finalizado_em[:10] }}</div>
         </div>
         {% else %}
         <div class="vazio">— nada esperando envio —</div>
@@ -274,8 +274,8 @@
       <div class="lista">
         {% for k in transito %}
         <div class="kit-card transito">
-          <div class="kit-nome">{{ k.kit_nome }}</div>
-          <div class="kit-sub">{{ k.cliente }} · desde {{ k.transito_em[:10] }}</div>
+          <div class="kit-nome">{{ k.veiculo or k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.garagem or '—' }} · {{ k.cliente }} · desde {{ k.transito_em[:10] }}</div>
         </div>
         {% else %}
         <div class="vazio">— nada em trânsito —</div>
@@ -293,8 +293,8 @@
       <div class="lista">
         {% for k in cliente_instalando %}
         <div class="kit-card warning">
-          <div class="kit-nome">{{ k.kit_nome }}</div>
-          <div class="kit-sub">{{ k.cliente }} · chegou {{ k.cliente_instalando_em[:10] }}</div>
+          <div class="kit-nome">{{ k.veiculo or k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.garagem or '—' }} · {{ k.cliente }} · chegou {{ k.cliente_instalando_em[:10] }}</div>
         </div>
         {% else %}
         <div class="vazio">— nada instalando —</div>
@@ -307,8 +307,8 @@
       <div class="lista">
         {% for k in cliente_concluido %}
         <div class="kit-card good">
-          <div class="kit-nome">{{ k.kit_nome }}</div>
-          <div class="kit-sub">{{ k.cliente }} · concluído {{ k.cliente_concluido_em[:10] }}</div>
+          <div class="kit-nome">{{ k.veiculo or k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.garagem or '—' }} · {{ k.cliente }} · concluído {{ k.cliente_concluido_em[:10] }}</div>
         </div>
         {% else %}
         <div class="vazio">— nada concluído ainda —</div>

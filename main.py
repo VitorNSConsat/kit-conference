@@ -2162,6 +2162,18 @@ async def admin_producao_voltar(request: Request, kit_id: str):
     return RedirectResponse("/admin/producao?ok=voltou", status_code=302)
 
 
+@app.post("/admin/producao/{kit_id}/nota-fiscal")
+@require_login
+async def admin_producao_nota_fiscal(request: Request, kit_id: str):
+    form = await request.form()
+    producao_mod.atualizar_nota_fiscal(
+        kit_id,
+        str(form.get("nota_fiscal", "")),
+        str(form.get("nota_fiscal_data", "")),
+    )
+    return RedirectResponse("/admin/producao?ok=nota_fiscal", status_code=302)
+
+
 # ── Estoque ───────────────────────────────────────────────────────────────────
 
 @app.get("/admin/estoque/exportar.xlsx")
