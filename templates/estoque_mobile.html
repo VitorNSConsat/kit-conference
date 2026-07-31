@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>{{ est.tipo_nome }} — Estoque</title>
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1a3a5c">
+<meta name="theme-color" content="#1e4976">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kit Conf">
@@ -14,15 +14,15 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: -apple-system, Arial, sans-serif;
-    background: #f0f2f5;
-    color: #1a1a1a;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: #f5f2ec;
+    color: #2b2a27;
     min-height: 100vh;
     padding-bottom: 40px;
   }
 
   .header {
-    background: #1a3a5c;
+    background: linear-gradient(135deg, #1e4976 0%, #16324f 100%);
     color: #fff;
     padding: 16px 18px;
     display: flex;
@@ -31,7 +31,7 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    box-shadow: 0 2px 10px rgba(0,0,0,.3);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
   }
   .header a.voltar {
     color: #fff;
@@ -46,29 +46,29 @@
 
   .card {
     background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(30,73,118,.08);
     padding: 16px;
     margin-bottom: 12px;
   }
 
   .alert {
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 12px 16px;
     margin-bottom: 14px;
     font-size: 14px;
     font-weight: 600;
     text-align: center;
   }
-  .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-  .alert-danger  { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
+  .alert-success { background: #e3f5ea; color: #127a45; border: 1px solid #c9e9d6; }
+  .alert-danger  { background: #fbe4e1; color: #b23325; border: 1px solid #f3c9c2; }
 
   .em-header { text-align: center; padding: 8px 0 16px; }
-  .em-nome { font-size: 20px; font-weight: 800; color: #1a3a5c; margin-bottom: 6px; }
-  .em-codigo { font-family: monospace; font-size: 12px; color: #999; word-break: break-all; }
+  .em-nome { font-size: 20px; font-weight: 800; color: #1e4976; margin-bottom: 6px; }
+  .em-codigo { font-family: monospace; font-size: 12px; color: #7a7468; word-break: break-all; }
   .em-qty { font-size: 64px; font-weight: 800; line-height: 1; margin: 14px 0 4px; }
-  .em-qty-label { font-size: 12px; color: #999; margin-bottom: 4px; }
-  .em-min { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+  .em-qty-label { font-size: 12px; color: #7a7468; margin-bottom: 4px; }
+  .em-min { font-size: 13px; color: #a39c8c; margin-bottom: 4px; }
 
   .em-btns {
     display: grid;
@@ -93,24 +93,24 @@
   .em-btn-op.sub.active  { background: #e74c3c; color: #fff; }
 
   .em-form {
-    background: #f9f9f9;
-    border-radius: 12px;
+    background: #faf7f1;
+    border-radius: 14px;
     padding: 16px;
     margin-bottom: 4px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid #e8e1d4;
     display: none;
   }
   .em-form.show { display: block; }
   .em-form.tipo-entrada { border-color: #27ae60; }
   .em-form.tipo-saida   { border-color: #e74c3c; }
-  .em-form label { font-size: 13px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
+  .em-form label { font-size: 13px; font-weight: 600; color: #7a7468; display: block; margin-bottom: 6px; }
   .em-form input[type=number],
   .em-form textarea {
     width: 100%;
     padding: 12px;
     font-size: 16px;
-    border: 1.5px solid #ddd;
-    border-radius: 8px;
+    border: 1.5px solid #e8e1d4;
+    border-radius: 10px;
     margin-bottom: 12px;
     box-sizing: border-box;
   }
@@ -129,9 +129,9 @@
   .em-submit.sub { background: #e74c3c; }
 
   .login-cta {
-    background: #1a3a5c;
+    background: linear-gradient(135deg, #1e4976 0%, #16324f 100%);
     color: #fff;
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 18px;
     text-align: center;
   }
@@ -139,9 +139,9 @@
   .login-cta a {
     display: inline-block;
     background: #fff;
-    color: #1a3a5c;
+    color: #1e4976;
     padding: 11px 24px;
-    border-radius: 10px;
+    border-radius: 999px;
     font-size: 14px;
     font-weight: 700;
     text-decoration: none;
@@ -152,7 +152,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #999;
+    color: #7a7468;
     margin: 4px 0 8px;
   }
   .em-hist-row {
@@ -160,13 +160,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0ece2;
     font-size: 13px;
     gap: 8px;
   }
   .em-hist-row:last-child { border-bottom: none; }
   .em-hist-qtd { font-weight: 700; font-size: 14px; white-space: nowrap; }
-  .em-hist-meta { color: #999; font-size: 11px; }
+  .em-hist-meta { color: #7a7468; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -234,6 +234,7 @@
     {% set is_saida = m.tipo == 'saida' %}
     {% set is_ajuste = m.tipo == 'ajuste_minimo' %}
     {% set is_correcao = m.tipo == 'correcao' %}
+    {% set is_status_compra = m.tipo == 'status_compra' %}
     <div class="em-hist-row">
       <div>
         <div style="font-weight:600;font-size:13px;">
@@ -241,6 +242,7 @@
           {% elif is_saida %}⬇️ Saída
           {% elif is_ajuste %}✏️ Ajuste mínimo
           {% elif is_correcao %}🔧 Correção
+          {% elif is_status_compra %}🛒 Status de compra
           {% else %}↩️ Cancelado{% endif %}
         </div>
         <div class="em-hist-meta">{{ m.criado_em[:16] }} · {{ m.operador_nome or '—' }}</div>
@@ -249,15 +251,16 @@
         {% endif %}
       </div>
       <div class="em-hist-qtd"
-           style="color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#1a3a5c' if is_correcao else '#e67e22')) }};">
-        {% if is_ajuste or is_correcao %}→ {{ m.quantidade }}
+           style="color:{{ '#27ae60' if is_entrada else ('#e74c3c' if is_saida else ('#1e4976' if is_correcao else '#a15c07')) }};">
+        {% if is_status_compra %}—
+        {% elif is_ajuste or is_correcao %}→ {{ m.quantidade }}
         {% else %}{{ '+' if is_entrada else '-' }}{{ m.quantidade }}{% endif %}
       </div>
     </div>
     {% endfor %}
     {% if user %}
     <div style="text-align:center;margin-top:12px;">
-      <a href="/admin/estoque/{{ est.id }}/historico" style="font-size:13px;color:#1a3a5c;font-weight:600;">
+      <a href="/admin/estoque/{{ est.id }}/historico" style="font-size:13px;color:#1e4976;font-weight:600;">
         Ver histórico completo →
       </a>
     </div>
