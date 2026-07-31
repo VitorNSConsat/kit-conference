@@ -48,6 +48,24 @@ def start_session(kit_template_id: int, operador_id: int) -> int:
     return sessao_id
 
 
+def definir_destino(sessao_id: int, veiculo_id: int | None, veiculo: str,
+                     garagem: str, modelo: str) -> bool:
+    """Grava o destino (veículo/garagem/modelo) escolhido ANTES de começar a
+    bipar. Só age em sessão em_andamento — garagem vazia é o sinal usado em
+    todo o resto do fluxo pra saber que o destino ainda não foi definido,
+    então essa função nunca grava garagem vazia de propósito."""
+    garagem = garagem.strip().upper()
+    if not garagem:
+        return False
+    with db() as conn:
+        cur = conn.execute(
+            "UPDATE scan_session SET veiculo_id = ?, veiculo = ?, garagem = ?, modelo = ? "
+            "WHERE id = ? AND status = 'em_andamento'",
+            (veiculo_id, veiculo.strip(), garagem, modelo.strip(), sessao_id)
+        )
+        return cur.rowcount > 0
+
+
 def get_session(sessao_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute(

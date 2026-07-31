@@ -81,6 +81,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_users = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
         colunas_kit_record = {r["name"] for r in conn.execute("PRAGMA table_info(kit_record)").fetchall()}
         colunas_estoque = {r["name"] for r in conn.execute("PRAGMA table_info(estoque)").fetchall()}
+        colunas_scan_session = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -93,6 +94,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "nota_fiscal" not in colunas_kit_record
         or "user_permissoes_negadas" not in tabelas
         or "status_compra" not in colunas_estoque
+        or "garagem" not in colunas_scan_session
     )
     if not pendente:
         return None
@@ -394,6 +396,13 @@ def init_db():
             # Status de compra do item — independente do status de quantidade
             # (abaixo/proximo/ok). Vazio = sem pendencia.
             "ALTER TABLE estoque ADD COLUMN status_compra TEXT NOT NULL DEFAULT ''",
+            # Destino (veiculo/garagem/modelo) escolhido ANTES de comecar a bipar
+            # — nao mais perguntado so na finalizacao. garagem vazia = destino
+            # ainda nao definido (session_page redireciona pra /destino nesse caso).
+            "ALTER TABLE scan_session ADD COLUMN veiculo_id INTEGER REFERENCES veiculos(id)",
+            "ALTER TABLE scan_session ADD COLUMN veiculo TEXT DEFAULT ''",
+            "ALTER TABLE scan_session ADD COLUMN garagem TEXT DEFAULT ''",
+            "ALTER TABLE scan_session ADD COLUMN modelo TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(stmt)

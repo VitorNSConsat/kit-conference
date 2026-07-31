@@ -273,7 +273,7 @@
       <div class="row-icon scan">📋</div>
       <div class="row-info">
         <div class="row-nome">{{ s.kit_nome }}</div>
-        <div class="row-meta">{{ s.cliente }} · {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}</div>
+        <div class="row-meta">{{ s.cliente }} · {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}{% if s.garagem %} · 🚚 {{ s.veiculo }}{% endif %}</div>
       </div>
       <div class="row-arrow">›</div>
     </a>

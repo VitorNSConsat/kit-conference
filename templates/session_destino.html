@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Destino — {{ session.kit_nome }}{% endblock %}
+{% block content %}
+
+<div class="card" style="max-width: 480px; margin: 0 auto;">
+  <h1 style="margin-bottom:4px;">🚚 Pra onde vai esse kit?</h1>
+  <p style="color:#666; font-size:14px; margin-bottom:20px;">
+    <strong>{{ session.kit_nome }}</strong> — {{ session.cliente }}<br>
+    Escolha o veículo e a garagem antes de começar a bipagem.
+  </p>
+
+  {% if erro %}
+  <div class="alert alert-danger">{{ erro }}</div>
+  {% endif %}
+
+  {% if not veiculos_lista %}
+  <div class="alert alert-danger">
+    ⚠️ Nenhum veículo cadastrado para <strong>{{ session.cliente }}</strong> ainda.
+    Cadastre um em <a href="/admin/veiculos" style="font-weight:700;">🚗 Veículos e Clientes</a>
+    e volte pra esta tela.
+  </div>
+  {% else %}
+  <form method="post" action="/session/{{ session.id }}/destino">
+    <div class="form-group">
+        <label>Veículo *</label>
+        <select id="select-veiculo" name="veiculo_id" onchange="onVeiculoChange()" required>
+            <option value="">— escolha o veículo —</option>
+            {% for v in veiculos_lista %}
+            <option value="{{ v.id }}"
+                    data-garagem="{{ v.garagem }}">
+                {{ v.numero }}{% if v.garagem %} · {{ v.garagem }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Garagem *</label>
+        <select name="garagem" id="input-garagem" required>
+            <option value="">— escolha a garagem —</option>
+            {% for g in garagens_lista %}
+            <option value="{{ g.nome }}">{{ g.nome }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Modelo</label>
+        <input type="text" name="modelo" id="input-modelo"
+               placeholder="ex: Fiat Strada" autocomplete="off">
+    </div>
+    <div style="display:flex; gap:5px; justify-content:flex-end; margin-top:4px;">
+        <button type="submit" class="btn btn-success">▶️ Começar Bipagem</button>
+    </div>
+  </form>
+  {% endif %}
+
+  <div style="margin-top:20px; text-align:center;">
+    <form method="post" action="/session/{{ session.id }}/cancel"
+          onsubmit="return confirm('Cancelar essa sessão? O kit escolhido não fica salvo.')">
+        <button type="submit" class="btn btn-sm btn-danger">🗑 Cancelar e Escolher Outro Kit</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function onVeiculoChange() {
+    var sel = document.getElementById('select-veiculo');
+    var opt = sel.options[sel.selectedIndex];
+    var garagemSel = document.getElementById('input-garagem');
+    garagemSel.value = opt.dataset.garagem || '';
+    if (garagemSel.selectedIndex === -1) garagemSel.value = '';
+}
+</script>
+{% endblock %}

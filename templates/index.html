@@ -17,6 +17,7 @@
             <span style="font-size:12px; color:#999;">
                 Operador: <strong style="color:#666;">{{ s.operador_nome }}</strong>
                 &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
+                {% if s.garagem %}&nbsp;·&nbsp; 🚚 {{ s.veiculo }} · {{ s.garagem }}{% endif %}
             </span>
         </div>
         <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">▶ Retomar</a>

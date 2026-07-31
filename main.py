@@ -561,7 +561,7 @@ async def home(request: Request):
 async def session_start(request: Request, kit_template_id: int = Form(...)):
     user = get_current_user(request)
     sessao_id = sessions_mod.start_session(kit_template_id, user["id"])
-    return RedirectResponse(f"/session/{sessao_id}", status_code=302)
+    return RedirectResponse(f"/session/{sessao_id}/destino", status_code=302)
 
 
 # ── Admin: Tipos de Item ──────────────────────────────────────────────────────
@@ -1095,17 +1095,69 @@ async def session_page(request: Request, sessao_id: int):
         return RedirectResponse("/", status_code=302)
     if session["status"] != "em_andamento":
         return RedirectResponse("/", status_code=302)
+    if not session.get("garagem"):
+        # Destino ainda não escolhido — obrigatório antes de bipar (pode
+        # acontecer com link direto/voltar do navegador, ou sessão antiga
+        # de antes dessa mudança existir).
+        return RedirectResponse(f"/session/{sessao_id}/destino", status_code=302)
     itens = templates_mod.get_itens_template(session["kit_template_id"])
     contagem = sessions_mod.get_contagem(sessao_id)
-    veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
-    garagens_lista = garagens_mod.listar()
     return render(request, "session.html", {
         "session": session,
         "itens": itens,
         "contagem": contagem,
+    })
+
+
+@app.get("/session/{sessao_id}/destino", response_class=HTMLResponse)
+@require_login
+async def session_destino_page(request: Request, sessao_id: int, erro: str = ""):
+    session = sessions_mod.get_session(sessao_id)
+    if not session:
+        return RedirectResponse("/", status_code=302)
+    if session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+    if session.get("garagem"):
+        # Destino já escolhido — não pergunta de novo, vai direto pra bipagem.
+        return RedirectResponse(f"/session/{sessao_id}", status_code=302)
+    veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
+    garagens_lista = garagens_mod.listar()
+    return render(request, "session_destino.html", {
+        "session": session,
         "veiculos_lista": veiculos_lista,
         "garagens_lista": garagens_lista,
+        "erro": erro,
     })
+
+
+@app.post("/session/{sessao_id}/destino")
+@require_login
+async def session_destino_post(request: Request, sessao_id: int):
+    session = sessions_mod.get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+
+    form = await request.form()
+    veiculo_id_str = str(form.get("veiculo_id", "")).strip()
+    veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
+    garagem = str(form.get("garagem", "")).strip()
+    modelo = str(form.get("modelo", "")).strip()
+
+    veiculo_texto = ""
+    if veiculo_id:
+        v = veiculos_mod.buscar(veiculo_id)
+        if v:
+            veiculo_texto = v["numero"]
+
+    if not veiculo_id or not garagem:
+        return RedirectResponse(
+            f"/session/{sessao_id}/destino?erro=" +
+            quote("Selecione o veículo e a garagem antes de continuar."),
+            status_code=302)
+
+    sessions_mod.definir_destino(sessao_id, veiculo_id, veiculo_texto, garagem, modelo)
+    veiculos_mod.atualizar_garagem(veiculo_id, garagem.upper())
+    return RedirectResponse(f"/session/{sessao_id}", status_code=302)
 
 
 @app.post("/session/{sessao_id}/cancel")
@@ -1192,17 +1244,15 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
 @app.post("/session/{sessao_id}/finalize")
 @require_login
 async def session_finalize(request: Request, sessao_id: int):
-    form = await request.form()
-    veiculo_id_str = str(form.get("veiculo_id", "")).strip()
-    veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
-    veiculo = str(form.get("veiculo", "")).strip()
-    garagem = str(form.get("garagem", "")).strip().upper()
-    modelo = str(form.get("modelo", "")).strip()
     user = get_current_user(request)
 
     session_check = sessions_mod.get_session(sessao_id)
     if not session_check or session_check["status"] != "em_andamento":
         return RedirectResponse("/", status_code=302)
+    if not session_check.get("garagem"):
+        # Destino não foi definido (não deveria acontecer — a tela de bipagem
+        # só é alcançada depois do /destino — mas não finaliza sem isso).
+        return RedirectResponse(f"/session/{sessao_id}/destino", status_code=302)
 
     validation = sessions_mod.validate_kit_complete(sessao_id)
     if validation["status"] != "completo":
@@ -1226,6 +1276,11 @@ async def session_finalize(request: Request, sessao_id: int):
 
     kit_id = str(uuid.uuid4())
     ts = datetime.now(tz=BRT)
+
+    veiculo = session.get("veiculo") or ""
+    garagem = session.get("garagem") or ""
+    modelo = session.get("modelo") or ""
+    veiculo_id = session.get("veiculo_id")
 
     zpl = zpl_mod.generate_zpl(
         kit_id=kit_id,
@@ -1271,9 +1326,6 @@ async def session_finalize(request: Request, sessao_id: int):
             "VALUES (?, ?, ?, ?, ?)",
             (kit_id, zpl, html_label, user["id"], now_brt())
         )
-
-    if veiculo_id and garagem:
-        veiculos_mod.atualizar_garagem(veiculo_id, garagem)
 
     if session.get("kit_tipo") == "pedido":
         templates_mod.marcar_concluido(session["kit_template_id"])
