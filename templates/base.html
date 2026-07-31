@@ -65,6 +65,32 @@ function filtrarLista(input) {
     });
 }
 
+// Menu "⋯" de ações secundárias — posição calculada em JS (position:fixed) pra
+// nunca ficar cortado por uma tabela com rolagem horizontal (.table-scroll) nem
+// vazar pra fora da viewport no celular. Abre um, fecha os outros; clique fora
+// ou rolar a página fecha tudo (fixed não acompanha o scroll do conteúdo).
+function toggleMenu(btn) {
+    const dropdown = btn.nextElementSibling;
+    const estavaAberto = dropdown.classList.contains('open');
+    document.querySelectorAll('.menu-mais-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    if (estavaAberto) return;
+    const rect = btn.getBoundingClientRect();
+    const largura = dropdown.offsetWidth || 180;
+    let left = rect.right - largura;
+    left = Math.max(8, Math.min(left, window.innerWidth - largura - 8));
+    dropdown.style.left = left + 'px';
+    dropdown.style.top = (rect.bottom + 4) + 'px';
+    dropdown.classList.add('open');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.menu-mais')) {
+        document.querySelectorAll('.menu-mais-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    }
+});
+document.addEventListener('scroll', function() {
+    document.querySelectorAll('.menu-mais-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+}, true);
+
 // Leitores de código de barras enviam Enter após o código.
 // Nas páginas admin isso submetia formulários involuntariamente.
 // Na tela de bipagem (/session/) o Enter é necessário — não bloqueia.

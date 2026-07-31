@@ -226,6 +226,36 @@ tr:hover td { background: var(--surface-alt); }
 .badge-warning { background: var(--warn-bg); color: var(--warn-text); }
 .badge-info    { background: #e3ecf5; color: var(--brand); }
 
+/* Menu "⋯" — agrupa ações secundárias de uma linha atrás de um botão só.
+   A ação principal fica solta ao lado, fora do menu. */
+.menu-mais { position: relative; display: inline-block; }
+.menu-mais-dropdown {
+    display: none;
+    flex-direction: column;
+    gap: 3px;
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+    padding: 6px;
+    min-width: 180px;
+    z-index: 50;
+}
+.menu-mais-dropdown.open { display: flex; }
+.menu-mais-dropdown form { margin: 0; }
+.menu-mais-dropdown .btn, .menu-mais-dropdown a:not(.btn) {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.menu-mais-dropdown a:not(.btn) { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+.menu-mais-dropdown a:not(.btn):hover { background: var(--surface-alt); }
+
 /* Session scan screen */
 .scan-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 

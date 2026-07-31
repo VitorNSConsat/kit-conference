@@ -117,27 +117,32 @@
               {% endif %}
             </td>
             <td>
-                <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:flex-start;">
                     <a href="/kit/{{ k.kit_id }}" target="_blank"
                        class="btn btn-sm btn-warning">🔍 Detalhes</a>
-                    {% if k.pq_id %}
-                    <a href="/print-queue/{{ k.pq_id }}/etiqueta" target="_blank"
-                       class="btn btn-sm btn-primary">🖨️ Etiqueta</a>
-                    {% endif %}
-                    <a href="/reports/{{ k.kit_id }}/excel"
-                       class="btn btn-sm btn-success" title="Baixar planilha Excel deste kit">
-                        📊 Excel
-                    </a>
-                    <button type="button" class="btn btn-sm btn-success"
-                            onclick="abrirModalReimprimir('{{ k.kit_id }}', '{{ k.garagem | e }}')">
-                        ♻️ Reimprimir
-                    </button>
-                    {% if user and user.admin %}
-                    <form method="post" action="/reports/{{ k.kit_id }}/delete" style="display:inline;"
-                          onsubmit="return confirm('Excluir este kit permanentemente? Esta ação não pode ser desfeita.')">
-                        <button class="btn btn-sm btn-danger">🗑️ Excluir</button>
-                    </form>
-                    {% endif %}
+                    <div class="menu-mais">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
+                        <div class="menu-mais-dropdown">
+                            {% if k.pq_id %}
+                            <a href="/print-queue/{{ k.pq_id }}/etiqueta" target="_blank"
+                               class="btn btn-sm btn-primary">🖨️ Etiqueta</a>
+                            {% endif %}
+                            <a href="/reports/{{ k.kit_id }}/excel"
+                               class="btn btn-sm btn-success" title="Baixar planilha Excel deste kit">
+                                📊 Excel
+                            </a>
+                            <button type="button" class="btn btn-sm btn-success"
+                                    onclick="abrirModalReimprimir('{{ k.kit_id }}', '{{ k.garagem | e }}')">
+                                ♻️ Reimprimir
+                            </button>
+                            {% if user and user.admin %}
+                            <form method="post" action="/reports/{{ k.kit_id }}/delete"
+                                  onsubmit="return confirm('Excluir este kit permanentemente? Esta ação não pode ser desfeita.')">
+                                <button class="btn btn-sm btn-danger">🗑️ Excluir</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </td>
         </tr>

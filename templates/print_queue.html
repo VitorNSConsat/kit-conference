@@ -31,7 +31,7 @@
             <td>{{ item.solicitado_por_nome }}</td>
             <td style="white-space:nowrap;font-size:12px;">{{ item.solicitado_em }}</td>
             <td>
-                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:flex-start;">
 
                     <!-- Botão único: abre etiqueta e diálogo de impressão do SO -->
                     <button class="btn btn-sm btn-success"
@@ -39,28 +39,32 @@
                         🖨️ Imprimir
                     </button>
 
-                    <!-- Preview ZPL (validação visual) -->
-                    <a href="/print-queue/{{ item.id }}/preview" target="_blank"
-                       class="btn btn-sm" style="background:#6c5ce7;color:white;">
-                        👁️ Preview
-                    </a>
+                    <div class="menu-mais">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
+                        <div class="menu-mais-dropdown">
+                            <!-- Preview ZPL (validação visual) -->
+                            <a href="/print-queue/{{ item.id }}/preview" target="_blank"
+                               class="btn btn-sm" style="background:#6c5ce7;color:white;">
+                                👁️ Preview
+                            </a>
 
-                    <form method="post" action="/print-queue/{{ item.id }}/impresso" style="display:inline;">
-                        <button class="btn btn-sm btn-primary">✔ Marcado</button>
-                    </form>
+                            <form method="post" action="/print-queue/{{ item.id }}/impresso">
+                                <button class="btn btn-sm btn-primary">✔ Marcado</button>
+                            </form>
 
-                    <form method="post" action="/print-queue/{{ item.id }}/cancelar" style="display:inline;"
-                          onsubmit="return confirm('Cancelar este item da fila?')">
-                        <button class="btn btn-sm btn-danger">✕</button>
-                    </form>
+                            <form method="post" action="/print-queue/{{ item.id }}/cancelar"
+                                  onsubmit="return confirm('Cancelar este item da fila?')">
+                                <button class="btn btn-sm btn-danger">✕ Cancelar</button>
+                            </form>
 
-                    <!-- ZPL avançado (discreto) -->
-                    <a href="/print-queue/{{ item.id }}/zpl"
-                       download="etiqueta_{{ item.id }}.zpl"
-                       title="Baixar arquivo ZPL (avançado)"
-                       style="font-size:11px;color:#bbb;text-decoration:none;align-self:center;">
-                        ⬇ .zpl
-                    </a>
+                            <!-- ZPL avançado -->
+                            <a href="/print-queue/{{ item.id }}/zpl"
+                               download="etiqueta_{{ item.id }}.zpl"
+                               title="Baixar arquivo ZPL (avançado)">
+                                ⬇ Baixar .zpl
+                            </a>
+                        </div>
+                    </div>
 
                 </div>
             </td>

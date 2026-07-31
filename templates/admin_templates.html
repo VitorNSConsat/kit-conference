@@ -120,30 +120,35 @@
                 {% endif %}
             </td>
             {% endif %}
-            <td style="display:flex;gap:4px;flex-wrap:wrap;">
+            <td style="display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;">
                 {% if tipo == 'pedido' %}
                 <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
                 {% endif %}
                 {% if tipo != 'pedido' or pode('pedidos_criar_editar') %}
                 <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
                 {% endif %}
-                <form method="post" action="/admin/templates/{{ t.id }}/toggle">
-                    <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
-                </form>
-                {% if tipo == 'pedido' %}
-                <form method="post" action="/admin/templates/{{ t.id }}/toggle-concluido">
-                    <button class="btn btn-sm {{ 'btn-warning' if not t.concluido else 'btn-primary' }}">{{ 'Reabrir Pedido' if t.concluido else 'Marcar Feito' }}</button>
-                </form>
-                {% endif %}
-                <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
-                    <button class="btn btn-sm btn-warning">Nova Versão</button>
-                </form>
-                {% if user and user.admin %}
-                <form method="post" action="/admin/templates/{{ t.id }}/delete"
-                      onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
-                    <button class="btn btn-sm btn-danger">Excluir</button>
-                </form>
-                {% endif %}
+                <div class="menu-mais">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
+                    <div class="menu-mais-dropdown">
+                        <form method="post" action="/admin/templates/{{ t.id }}/toggle">
+                            <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
+                        </form>
+                        {% if tipo == 'pedido' %}
+                        <form method="post" action="/admin/templates/{{ t.id }}/toggle-concluido">
+                            <button class="btn btn-sm {{ 'btn-warning' if not t.concluido else 'btn-primary' }}">{{ 'Reabrir Pedido' if t.concluido else 'Marcar Feito' }}</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
+                            <button class="btn btn-sm btn-warning">Nova Versão</button>
+                        </form>
+                        {% if user and user.admin %}
+                        <form method="post" action="/admin/templates/{{ t.id }}/delete"
+                              onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
+                            <button class="btn btn-sm btn-danger">Excluir</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
             </td>
         </tr>
         {% else %}
