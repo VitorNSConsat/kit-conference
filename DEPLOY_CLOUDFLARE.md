@@ -337,6 +337,22 @@ Usuários não são excluídos, apenas desativados — o histórico de kits e
 movimentações aponta para eles. Desativar corta o acesso na hora, sem
 esperar o cookie expirar.
 
+## Deixar só a porta HTTPS (8011) no ar
+
+Por padrão, quando existe certificado (`certs/cert.pem`/`certs/key.pem`),
+o app sobe **as duas portas** — 8011 (HTTPS) e 8080 (HTTP) — porque tem
+gente que só consegue acessar por HTTP (aparelho sem o certificado
+confiável instalado). Se todo mundo que acessa já confia no certificado,
+dá pra desligar a 8080 de vez:
+
+```
+SOMENTE_HTTPS=1
+```
+
+Com isso, só a 8011 fica escutando. Reinicie o app depois de definir.
+⚠️ Antes de ligar, confirme que ninguém depende de HTTP puro — inclusive
+o próprio acesso pela LAN local, se for o caso.
+
 ## Checklist antes de liberar o acesso
 
 - [ ] `SECRET_KEY` no `.env` é longo e aleatório. Com `COOKIE_SECURE=1` ou

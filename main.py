@@ -2606,7 +2606,19 @@ if __name__ == "__main__":
 
     _tem_ssl = os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
 
-    if _tem_ssl:
+    # SOMENTE_HTTPS=1 desliga a porta 8080 (HTTP puro) quando o certificado
+    # existe, deixando só a 8011 (HTTPS) no ar. Fica atrás de uma flag —
+    # desligado por padrão — porque sem 8080 quem ainda depende de HTTP na
+    # LAN (ou não tem o certificado instalado/confiável no aparelho) perde
+    # acesso.
+    _somente_https = os.getenv("SOMENTE_HTTPS", "").strip() in ("1", "true", "True")
+
+    if _tem_ssl and _somente_https:
+        uvicorn.run(
+            "main:app", host="0.0.0.0", port=8011, reload=False,
+            ssl_certfile="certs/cert.pem", ssl_keyfile="certs/key.pem",
+        )
+    elif _tem_ssl:
         async def _serve_dual():
             cfg_https = uvicorn.Config(
                 "main:app", host="0.0.0.0", port=8011, reload=False,
