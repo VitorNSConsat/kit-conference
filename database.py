@@ -90,6 +90,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "auditoria" not in tabelas
         or "status_producao" not in colunas_kit_record
         or "nota_fiscal" not in colunas_kit_record
+        or "user_permissoes_negadas" not in tabelas
     )
     if not pendente:
         return None
@@ -274,6 +275,16 @@ def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_auditoria_criado_em ON auditoria(criado_em);
             CREATE INDEX IF NOT EXISTS idx_auditoria_user ON auditoria(user_id);
+
+            -- Lista de bloqueios por usuário comum: a PRESENÇA de uma linha
+            -- nega aquela permissão. Ausência = permitido — assim nenhum
+            -- usuário existente perde acesso quando essa tabela nasce vazia.
+            -- Admin nunca é consultado aqui (sempre passa).
+            CREATE TABLE IF NOT EXISTS user_permissoes_negadas (
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                chave   TEXT NOT NULL,
+                PRIMARY KEY (user_id, chave)
+            );
         """)
 
         conn.executescript("""

@@ -3,6 +3,7 @@ from functools import wraps
 from fastapi import Request
 from fastapi.responses import RedirectResponse, HTMLResponse
 from database import db
+import app.permissoes as permissoes_mod
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -45,6 +46,30 @@ def require_login(func):
         request.state.user = user
         return await func(request, *args, **kwargs)
     return wrapper
+
+
+def require_permission(chave: str):
+    """Admin sempre passa. Usuário comum é barrado no servidor se essa
+    chave estiver na lista de bloqueios dele — esconder o botão na tela
+    não basta, a rota é chamável direto (mesma razão do require_admin)."""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(request: Request, *args, **kwargs):
+            user = get_current_user(request)
+            if not user:
+                return RedirectResponse("/login", status_code=302)
+            if not permissoes_mod.tem_permissao(user, chave):
+                return HTMLResponse(
+                    "<h2 style='font-family:sans-serif;padding:32px'>Acesso negado</h2>"
+                    "<p style='font-family:sans-serif;padding:0 32px'>Seu usuário não "
+                    "tem permissão pra essa ação. Fale com um administrador.</p>"
+                    "<p style='padding:0 32px'><a href='/'>Voltar ao início</a></p>",
+                    status_code=403,
+                )
+            request.state.user = user
+            return await func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def require_admin(func):

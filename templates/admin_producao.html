@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Produção{% endblock %}
 
-{% macro nota_fiscal_form(k) %}
+{% macro nota_fiscal_form(k, pode_editar) %}
 {% set tem_nf = (k.nota_fiscal or '') | trim %}
+{% if not pode_editar %}
+<span style="font-size:12px;">📄 {{ k.nota_fiscal or '—' }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
+{% else %}
 <div class="nf-bloco">
   <div class="nf-visual" style="display:{{ 'flex' if tem_nf else 'none' }};gap:6px;align-items:center;font-size:12px;">
     <span>📄 {{ k.nota_fiscal }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
@@ -24,6 +27,7 @@
     {% endif %}
   </form>
 </div>
+{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -96,7 +100,7 @@
         <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
         <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] }}</td>
-        <td>{{ nota_fiscal_form(k) }}</td>
+        <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       </tr>
       {% endfor %}
       </tbody>
@@ -122,7 +126,7 @@
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] }}</td>
-      <td>{{ nota_fiscal_form(k) }}</td>
+      <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
           <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
@@ -155,7 +159,7 @@
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_instalando_em[:16] }}</td>
-      <td>{{ nota_fiscal_form(k) }}</td>
+      <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
           <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
@@ -190,7 +194,7 @@
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_concluido_em[:16] }}</td>
-      <td>{{ nota_fiscal_form(k) }}</td>
+      <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td>
         <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
           <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Cliente: Em Produção">↩️ Voltar</button>

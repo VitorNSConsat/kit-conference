@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from database import init_db, db, now_brt
 from app.auth import (hash_password, verify_password, get_current_user,
-                      require_login, require_admin, is_admin)
+                      require_login, require_admin, require_permission, is_admin)
 import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
@@ -35,6 +35,7 @@ import app.consumo as consumo_mod
 import app.auditoria as auditoria_mod
 import app.usuarios as usuarios_mod
 import app.producao as producao_mod
+import app.permissoes as permissoes_mod
 
 load_dotenv()
 
@@ -269,7 +270,8 @@ def _parse_itens_form(form) -> list[dict]:
 def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
     alertas_estoque = estoque_mod.alertas_abaixo_minimo() if user else []
-    return jinja.TemplateResponse(template, {"request": request, "user": user, "alertas_estoque": alertas_estoque, **ctx})
+    pode = (lambda chave: permissoes_mod.tem_permissao(user, chave)) if user else (lambda chave: False)
+    return jinja.TemplateResponse(template, {"request": request, "user": user, "alertas_estoque": alertas_estoque, "pode": pode, **ctx})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -388,7 +390,13 @@ async def logout(request: Request):
 @app.get("/admin/usuarios", response_class=HTMLResponse)
 @require_admin
 async def admin_usuarios(request: Request):
-    return render(request, "admin_usuarios.html", {"usuarios": usuarios_mod.listar()})
+    usuarios = usuarios_mod.listar()
+    negadas_por_usuario = {u["id"]: permissoes_mod.negadas_do_usuario(u["id"]) for u in usuarios}
+    return render(request, "admin_usuarios.html", {
+        "usuarios": usuarios,
+        "permissoes": permissoes_mod.PERMISSOES,
+        "negadas_por_usuario": negadas_por_usuario,
+    })
 
 
 @app.post("/admin/usuarios")
@@ -433,6 +441,18 @@ async def admin_usuario_toggle_ativo(request: Request, user_id: int):
     return RedirectResponse("/admin/usuarios?ok=status", status_code=302)
 
 
+@app.post("/admin/usuarios/{user_id}/permissoes")
+@require_admin
+async def admin_usuario_permissoes(request: Request, user_id: int):
+    alvo = usuarios_mod.buscar(user_id)
+    if not alvo:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    permitidas = {chave for chave in permissoes_mod.PERMISSOES if form.get(chave)}
+    permissoes_mod.definir_permissoes(user_id, permitidas)
+    return RedirectResponse("/admin/usuarios?ok=permissoes", status_code=302)
+
+
 @app.post("/admin/usuarios/{user_id}/senha")
 @require_admin
 async def admin_usuario_senha(request: Request, user_id: int):
@@ -463,7 +483,7 @@ async def admin_auditoria(request: Request,
 # ── Rede ──────────────────────────────────────────────────────────────────────
 
 @app.get("/rede", response_class=HTMLResponse)
-@require_login
+@require_permission("ver_rede")
 async def rede(request: Request):
     import app.zpl as _zpl
     url_http  = getattr(app.state, "url_http",  _zpl.SERVIDOR_URL)
@@ -754,14 +774,14 @@ async def admin_items_post(request: Request,
 
 
 @app.post("/admin/items/clear")
-@require_login
+@require_admin
 async def admin_items_clear(request: Request):
     items_mod.apagar_todos_itens()
     return RedirectResponse("/admin/items", status_code=302)
 
 
 @app.post("/admin/items/{item_id}/delete")
-@require_admin
+@require_permission("itens_apagar")
 async def admin_items_delete(request: Request, item_id: int):
     try:
         items_mod.deletar_item(item_id)
@@ -790,7 +810,10 @@ def _admin_templates_context() -> dict:
 @app.get("/admin/templates", response_class=HTMLResponse)
 @require_login
 async def admin_templates(request: Request):
-    return render(request, "admin_templates.html", _admin_templates_context())
+    return render(request, "admin_templates.html", {
+        **_admin_templates_context(),
+        "erro": request.query_params.get("erro"),
+    })
 
 
 @app.post("/admin/templates/import-bom")
@@ -825,7 +848,7 @@ async def admin_templates_import_bom(request: Request,
 
 
 @app.post("/admin/templates/import-pedido")
-@require_login
+@require_permission("pedidos_criar_editar")
 async def admin_templates_import_pedido(request: Request,
                                          cliente: str = Form(""),
                                          numero_pedido: str = Form(""),
@@ -872,6 +895,12 @@ async def admin_templates_post(request: Request):
     cliente = form.get("cliente", "").strip()
     tipo = form.get("tipo", "kit").strip()
     tipo = tipo if tipo in ("kit", "pedido") else "kit"
+    if tipo == "pedido" and not permissoes_mod.tem_permissao(user, "pedidos_criar_editar"):
+        return render(request, "admin_templates.html", {
+            **_admin_templates_context(),
+            "erro": "Seu usuário não tem permissão pra criar Pedidos.",
+            "tab_ativo": tipo,
+        })
     itens = _parse_itens_form(form)
     if not nome or not cliente or not itens:
         return render(request, "admin_templates.html", {
@@ -889,6 +918,11 @@ async def admin_template_edit_page(request: Request, template_id: int):
     template = templates_mod.buscar_template(template_id)
     if not template:
         return RedirectResponse("/admin/templates", status_code=302)
+    user = get_current_user(request)
+    if template.get("tipo") == "pedido" and not permissoes_mod.tem_permissao(user, "pedidos_criar_editar"):
+        return RedirectResponse(
+            "/admin/templates?erro=" + quote("Seu usuário não tem permissão pra editar Pedidos.")
+            + "&tab=pedido", status_code=302)
     itens = templates_mod.get_itens_template(template_id)
     tipos_ativos = items_mod.listar_tipos(apenas_ativos=True)
     clientes = clientes_mod.listar()
@@ -909,6 +943,13 @@ async def admin_template_edit_page(request: Request, template_id: int):
 @app.post("/admin/templates/{template_id}/edit")
 @require_login
 async def admin_template_edit_post(request: Request, template_id: int):
+    template_atual = templates_mod.buscar_template(template_id)
+    if template_atual and template_atual.get("tipo") == "pedido":
+        user = get_current_user(request)
+        if not permissoes_mod.tem_permissao(user, "pedidos_criar_editar"):
+            return RedirectResponse(
+                "/admin/templates?erro=" + quote("Seu usuário não tem permissão pra editar Pedidos.")
+                + "&tab=pedido", status_code=302)
     form = await request.form()
     nome = form.get("nome", "").strip()
     cliente = form.get("cliente", "").strip()
@@ -1455,7 +1496,7 @@ async def kit_validar(request: Request, kit_id: str):
 # ── Relatórios ────────────────────────────────────────────────────────────────
 
 @app.get("/reports", response_class=HTMLResponse)
-@require_login
+@require_permission("ver_relatorios")
 async def reports(request: Request,
                   data_ini: str = "",
                   data_fim: str = "",
@@ -1532,7 +1573,7 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
 
 
 @app.post("/reports/reprint/{kit_id}")
-@require_login
+@require_permission("ver_relatorios")
 async def reprint_kit(request: Request, kit_id: str):
     """Recria a entrada na fila de impressão para um kit já finalizado.
     Se a garagem enviada for diferente da gravada, atualiza o kit_record e
@@ -1600,7 +1641,7 @@ async def reprint_kit(request: Request, kit_id: str):
 
 
 @app.get("/reports/{kit_id}/excel")
-@require_login
+@require_permission("ver_relatorios")
 async def report_excel(request: Request, kit_id: str):
     from fastapi.responses import Response as _Resp
     import openpyxl
@@ -1747,7 +1788,7 @@ async def report_excel(request: Request, kit_id: str):
 
 
 @app.get("/reports/exportar-todos.xlsx")
-@require_login
+@require_permission("ver_relatorios")
 async def reports_exportar_todos(request: Request,
                                   data_ini: str = "",
                                   data_fim: str = "",
@@ -1919,7 +1960,7 @@ async def report_delete(request: Request, kit_id: str):
 
 
 @app.get("/reports/validacoes", response_class=HTMLResponse)
-@require_login
+@require_permission("ver_relatorios")
 async def reports_validacoes(request: Request,
                              data_ini: str = "",
                              data_fim: str = "",
@@ -1937,7 +1978,7 @@ async def reports_validacoes(request: Request,
 
 
 @app.get("/reports/validacoes/export")
-@require_login
+@require_permission("ver_relatorios")
 async def reports_validacoes_export(request: Request,
                                     data_ini: str = "",
                                     data_fim: str = "",
@@ -2163,7 +2204,7 @@ async def admin_producao_voltar(request: Request, kit_id: str):
 
 
 @app.post("/admin/producao/{kit_id}/nota-fiscal")
-@require_login
+@require_permission("producao_nota_fiscal")
 async def admin_producao_nota_fiscal(request: Request, kit_id: str):
     form = await request.form()
     ok = producao_mod.atualizar_nota_fiscal(
@@ -2359,7 +2400,7 @@ async def admin_estoque_post(request: Request):
 
 
 @app.post("/admin/estoque/{estoque_id}/repor")
-@require_login
+@require_permission("estoque_editar")
 async def admin_estoque_repor(request: Request, estoque_id: int):
     user = get_current_user(request)
     form = await request.form()
@@ -2370,7 +2411,7 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
 
 
 @app.post("/admin/estoque/{estoque_id}/corrigir")
-@require_login
+@require_permission("estoque_editar")
 async def admin_estoque_corrigir(request: Request, estoque_id: int):
     user = get_current_user(request)
     form = await request.form()
@@ -2385,7 +2426,7 @@ async def admin_estoque_corrigir(request: Request, estoque_id: int):
 
 
 @app.post("/admin/estoque/{estoque_id}/minimo")
-@require_login
+@require_permission("estoque_editar")
 async def admin_estoque_minimo(request: Request, estoque_id: int):
     user = get_current_user(request)
     form = await request.form()

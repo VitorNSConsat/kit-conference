@@ -37,6 +37,10 @@
         </div>
     </form>
 </div>
+{% elif not pode('pedidos_criar_editar') %}
+<div class="card" style="border:1px solid #e0c9a6;background:#fdf6ea;">
+    <p style="margin:0;color:#8a6d3b;">Seu usuário não tem permissão pra criar Pedidos.</p>
+</div>
 {% else %}
 <!-- ── Importar Planilha do Pedido (ICCID/Telefone/CDT/ID Hardware) ──────── -->
 <div class="card" style="border:1px solid #b0c4de;">
@@ -120,7 +124,9 @@
                 {% if tipo == 'pedido' %}
                 <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
                 {% endif %}
+                {% if tipo != 'pedido' or pode('pedidos_criar_editar') %}
                 <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
+                {% endif %}
                 <form method="post" action="/admin/templates/{{ t.id }}/toggle">
                     <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
                 </form>

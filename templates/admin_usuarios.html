@@ -14,15 +14,19 @@
 <div class="alert alert-success">✅ Status alterado.</div>
 {% elif request.query_params.get('ok') == 'senha' %}
 <div class="alert alert-success">✅ Senha alterada.</div>
+{% elif request.query_params.get('ok') == 'permissoes' %}
+<div class="alert alert-success">✅ Permissões atualizadas.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <div class="alert" style="background:#eef4fb;border:1px solid #d3e2f3;color:#2c4a6b;">
-  <strong>Como funcionam os perfis:</strong> o usuário comum faz tudo no dia a dia —
-  bipa, finaliza kit, imprime, cadastra e edita. A <strong>única</strong> coisa que ele
-  não pode é <strong>excluir</strong>. Administrador pode excluir e gerir usuários.
+  <strong>Como funcionam os perfis:</strong> administrador tem acesso total sempre,
+  inclusive pra configurar os outros usuários. Usuário comum nasce com tudo liberado
+  (igual antes) e o admin pode restringir individualmente em <strong>🔐 Permissões</strong> —
+  ver Rede/Relatórios, alterar estoque, editar nota fiscal, criar/editar Pedidos e
+  apagar itens do catálogo. As demais exclusões do sistema continuam só pra admin.
   Toda ação, de qualquer perfil, fica registrada na
   <a href="/admin/auditoria">auditoria</a>.
 </div>
@@ -92,6 +96,10 @@
         </form>
         <button type="button" class="btn btn-sm btn-secondary"
                 onclick="mostrarSenha({{ u.id }})">Trocar senha</button>
+        {% if not u.admin %}
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="mostrarPermissoes({{ u.id }})">🔐 Permissões</button>
+        {% endif %}
       </td>
     </tr>
     <tr id="senha-{{ u.id }}" style="display:none;">
@@ -107,6 +115,28 @@
         </form>
       </td>
     </tr>
+    {% if not u.admin %}
+    <tr id="permissoes-{{ u.id }}" style="display:none;">
+      <td colspan="6" style="background:#f7f9fc;">
+        <form method="post" action="/admin/usuarios/{{ u.id }}/permissoes">
+          <div style="font-size:13px;margin-bottom:8px;">
+            Permissões de <strong>{{ u.nome }}</strong> — desmarcado significa negado:
+          </div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+            {% set negadas = negadas_por_usuario.get(u.id, []) %}
+            {% for chave, rotulo in permissoes.items() %}
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+              <input type="checkbox" name="{{ chave }}" style="width:auto;margin:0;"
+                     {{ 'checked' if chave not in negadas }}>
+              {{ rotulo }}
+            </label>
+            {% endfor %}
+          </div>
+          <button type="submit" class="btn btn-sm btn-success">Salvar Permissões</button>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
     {% endfor %}
     </tbody>
   </table>
@@ -121,6 +151,10 @@
 <script>
 function mostrarSenha(id) {
     const linha = document.getElementById('senha-' + id);
+    linha.style.display = linha.style.display === 'none' ? 'table-row' : 'none';
+}
+function mostrarPermissoes(id) {
+    const linha = document.getElementById('permissoes-' + id);
     linha.style.display = linha.style.display === 'none' ? 'table-row' : 'none';
 }
 </script>
