@@ -34,7 +34,7 @@
             <option value="">— escolha o veículo —</option>
             {% for v in disponiveis %}
             <option value="{{ v.id }}" data-garagem="{{ v.garagem }}">
-                {{ v.numero }}{% if v.garagem %} · {{ v.garagem }}{% endif %}
+                {{ v.numero }}
             </option>
             {% endfor %}
         </select>
