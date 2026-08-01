@@ -23,10 +23,17 @@
         {% for item in fila %}
         <tr>
             <td>{{ item.id }}</td>
+            {% if item.tipo == 'pausa' %}
+            <td>
+                <div style="font-weight:600;">🏷️ {{ item.veiculo or item.kit_nome }}</div>
+                <div style="font-size:11px;color:#888;">{{ item.kit_nome }} · SEQ {{ '%04d' | format(item.sequencia) }} · <span class="badge badge-warning" style="font-size:9px;">Em andamento</span></div>
+            </td>
+            {% else %}
             <td>
                 <div style="font-weight:600;">{{ item.kit_nome }}</div>
                 <div style="font-family:monospace;font-size:10px;color:#aaa;">{{ item.kit_id[:12] }}…</div>
             </td>
+            {% endif %}
             <td>{{ item.cliente }}</td>
             <td>{{ item.solicitado_por_nome }}</td>
             <td style="white-space:nowrap;font-size:12px;">{{ item.solicitado_em }}</td>
@@ -35,34 +42,38 @@
 
                     <!-- Botão único: abre etiqueta e diálogo de impressão do SO -->
                     <button class="btn btn-sm btn-success"
-                            onclick="imprimir({{ item.id }})">
+                            onclick="imprimir({{ item.id }}, '{{ item.tipo }}')">
                         🖨️ Imprimir
                     </button>
 
                     <div class="menu-mais">
                         <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
                         <div class="menu-mais-dropdown">
+                            {% if item.tipo == 'kit' %}
                             <!-- Preview ZPL (validação visual) -->
                             <a href="/print-queue/{{ item.id }}/preview" target="_blank"
                                class="btn btn-sm" style="background:#6c5ce7;color:white;">
                                 👁️ Preview
                             </a>
+                            {% endif %}
 
-                            <form method="post" action="/print-queue/{{ item.id }}/impresso">
+                            <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/impresso">
                                 <button class="btn btn-sm btn-primary">✔ Marcado</button>
                             </form>
 
-                            <form method="post" action="/print-queue/{{ item.id }}/cancelar"
+                            <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/cancelar"
                                   onsubmit="return confirm('Cancelar este item da fila?')">
                                 <button class="btn btn-sm btn-danger">✕ Cancelar</button>
                             </form>
 
+                            {% if item.tipo == 'kit' %}
                             <!-- ZPL avançado -->
                             <a href="/print-queue/{{ item.id }}/zpl"
                                download="etiqueta_{{ item.id }}.zpl"
                                title="Baixar arquivo ZPL (avançado)">
                                 ⬇ Baixar .zpl
                             </a>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -84,14 +95,15 @@
 <script>
 setTimeout(() => location.reload(), 10000);
 
-function imprimir(pqId) {
+function imprimir(pqId, tipo) {
     // Abre a etiqueta em nova aba — ela auto-dispara o diálogo de impressão do SO
     // O usuário escolhe a impressora (Zebra, normal, PDF, etc.) e configura lá
-    window.open(`/print-queue/${pqId}/etiqueta`, '_blank');
+    const prefixo = tipo === 'pausa' ? '/print-queue/pausa/' : '/print-queue/';
+    window.open(`${prefixo}${pqId}/etiqueta`, '_blank');
 
     // Marca como impresso após 3s (tempo para a janela abrir e o usuário ver)
     setTimeout(() => {
-        fetch(`/print-queue/${pqId}/impresso`, { method: 'POST' })
+        fetch(`${prefixo}${pqId}/impresso`, { method: 'POST' })
             .then(() => setTimeout(() => location.reload(), 800));
     }, 3000);
 }

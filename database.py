@@ -82,6 +82,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_kit_record = {r["name"] for r in conn.execute("PRAGMA table_info(kit_record)").fetchall()}
         colunas_estoque = {r["name"] for r in conn.execute("PRAGMA table_info(estoque)").fetchall()}
         colunas_scan_session = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session)").fetchall()}
+        colunas_veiculos = {r["name"] for r in conn.execute("PRAGMA table_info(veiculos)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -95,6 +96,9 @@ def _backup_antes_de_migrar() -> str | None:
         or "user_permissoes_negadas" not in tabelas
         or "status_compra" not in colunas_estoque
         or "garagem" not in colunas_scan_session
+        or "sequencia" not in colunas_scan_session
+        or "liberado_em" not in colunas_veiculos
+        or "producao_sequencia" not in tabelas
     )
     if not pendente:
         return None
@@ -362,7 +366,31 @@ def init_db():
                 id_hardware     TEXT,
                 criado_em       TEXT NOT NULL
             );
+
+            -- Contador global do numero de sequencia impresso na etiqueta
+            -- "Em Andamento" (linha unica, tipo singleton — mesmo padrao de
+            -- prateleira_layout). Continuo por padrao; admin pode zerar.
+            CREATE TABLE IF NOT EXISTS producao_sequencia (
+                id    INTEGER PRIMARY KEY CHECK (id = 1),
+                valor INTEGER NOT NULL DEFAULT 0
+            );
+
+            -- Fila de impressao das etiquetas "Em Andamento" (kit ainda sendo
+            -- bipado, nao existe kit_record ainda) — separada de print_queue
+            -- (que exige kit_id NOT NULL referenciando um kit ja finalizado)
+            -- pra nao precisar reconstruir aquela tabela. As duas aparecem
+            -- juntas na tela de Fila de Impressao.
+            CREATE TABLE IF NOT EXISTS print_queue_pausa (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id      INTEGER NOT NULL REFERENCES scan_session(id),
+                html_label     TEXT NOT NULL,
+                solicitado_por INTEGER NOT NULL REFERENCES users(id),
+                solicitado_em  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status         TEXT NOT NULL DEFAULT 'aguardando',
+                impresso_em    DATETIME
+            );
         """)
+        conn.execute("INSERT OR IGNORE INTO producao_sequencia (id, valor) VALUES (1, 0)")
 
         # Migrations (no-op when column already exists)
         for stmt in [
@@ -403,6 +431,13 @@ def init_db():
             "ALTER TABLE scan_session ADD COLUMN veiculo TEXT DEFAULT ''",
             "ALTER TABLE scan_session ADD COLUMN garagem TEXT DEFAULT ''",
             "ALTER TABLE scan_session ADD COLUMN modelo TEXT DEFAULT ''",
+            # Numero de sequencia da etiqueta "Em Andamento" — atribuido na
+            # 1a impressao, fica fixo depois (reimprimir nao muda o numero).
+            "ALTER TABLE scan_session ADD COLUMN sequencia INTEGER",
+            # Marca que um admin/operador liberou esse veiculo pra uma nova
+            # bipagem mesmo já tendo kit(s) associados. É consumido (volta
+            # pra NULL) assim que uma nova sessão/kit é criado pra ele.
+            "ALTER TABLE veiculos ADD COLUMN liberado_em TEXT",
         ]:
             try:
                 conn.execute(stmt)

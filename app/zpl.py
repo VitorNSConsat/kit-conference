@@ -275,6 +275,150 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
 </html>"""
 
 
+def generate_pausa_html_label(veiculo: str, kit_nome: str, cliente: str,
+                              garagem: str, operador: str, sequencia: int,
+                              timestamp: datetime) -> str:
+    """Etiqueta pra colar num kit que ainda está sendo bipado (pausado ou
+    em andamento) — sinaliza pra qual veículo ele é e em que ordem foi
+    começado, sem precisar abrir o sistema pra descobrir."""
+    data_str = timestamp.strftime("%d/%m/%Y")
+    hora_str = timestamp.strftime("%H:%M")
+    seq_str = f"{sequencia:04d}"
+
+    logo_b64 = _logo_base64()
+    empresa_html = (
+        f'<img src="data:image/png;base64,{logo_b64}" alt="{_esc(EMPRESA_NOME)}" class="logo-img">'
+        if logo_b64
+        else f'<div class="empresa-nome">{_esc(EMPRESA_NOME)}</div>'
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etiqueta — Em Andamento</title>
+<style>
+  @page {{ size: 100mm 150mm; margin: 0; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+  body {{
+    font-family: Arial, Helvetica, sans-serif;
+    background: #e8e8e8;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px;
+  }}
+
+  .label {{
+    background: #fff;
+    width: 100mm; height: 150mm;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 4px 18px rgba(0,0,0,.2);
+    border: 1px solid #ccc;
+  }}
+
+  .topo {{
+    background: #000; color: #fff; text-align: center;
+    padding: 5px 8px; font-size: 11px; font-weight: bold;
+    letter-spacing: 1.5px; flex-shrink: 0;
+  }}
+  .empresa {{
+    text-align: center; padding: 6px 8px 4px;
+    border-bottom: 1.5px solid #ccc; flex-shrink: 0;
+  }}
+  .logo-img {{ max-height: 34px; max-width: 150px; object-fit: contain; filter: grayscale(100%); }}
+  .empresa-nome {{
+    font-size: 13px; font-weight: 900; color: #000;
+    letter-spacing: 1px; text-transform: uppercase;
+  }}
+
+  .corpo {{
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 12px; gap: 6px;
+  }}
+  .veiculo {{
+    font-size: 40px; font-weight: 900; color: #000;
+    text-align: center; line-height: 1.05; word-break: break-word;
+  }}
+  .kit-nome {{
+    font-size: 16px; font-weight: 700; color: #333;
+    text-align: center; margin-top: 4px;
+  }}
+  .garagem-cliente {{
+    font-size: 13px; color: #555; text-align: center;
+  }}
+
+  .status-box {{
+    margin-top: 14px;
+    border: 3px solid #000; border-radius: 4px;
+    padding: 8px 20px;
+    text-align: center;
+  }}
+  .status-label {{
+    font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #000;
+  }}
+  .seq-label {{
+    font-size: 16px; font-weight: 800; color: #000; margin-top: 4px;
+    letter-spacing: 1px;
+  }}
+
+  .operador {{
+    font-size: 12px; color: #555; margin-top: 14px; text-align: center;
+  }}
+  .operador strong {{ color: #000; }}
+
+  .rodape {{
+    text-align: center; padding: 4px 8px; font-size: 8px;
+    color: #888; letter-spacing: .5px;
+    border-top: 1px solid #e0e0e0; flex-shrink: 0;
+  }}
+
+  .actions {{ display: flex; gap: 10px; margin-top: 14px; width: 100mm; }}
+  .btn {{
+    flex: 1; padding: 9px; border: none; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: bold;
+  }}
+  .btn-print {{ background: #000; color: white; }}
+  .btn-close  {{ background: #888; color: white; }}
+
+  @media print {{
+    body {{ background: white; padding: 0; margin: 0; }}
+    .label {{
+      width: 100mm; height: 150mm;
+      box-shadow: none; border: none; border-radius: 0;
+    }}
+    .actions {{ display: none; }}
+  }}
+</style>
+</head>
+<body>
+<div class="label">
+  <div class="topo">{data_str} &nbsp;&nbsp; {hora_str}</div>
+  <div class="empresa">{empresa_html}</div>
+  <div class="corpo">
+    <div class="veiculo">{_esc(veiculo) or '— sem veículo —'}</div>
+    <div class="kit-nome">{_esc(kit_nome)}</div>
+    <div class="garagem-cliente">{_esc(garagem) or '—'} &nbsp;·&nbsp; {_esc(cliente)}</div>
+    <div class="status-box">
+      <div class="status-label">EM ANDAMENTO</div>
+      <div class="seq-label">SEQ: {seq_str}</div>
+    </div>
+    <div class="operador">Iniciado por <strong>{_esc(operador)}</strong></div>
+  </div>
+  <div class="rodape">Etiqueta de acompanhamento — gerada {data_str} {hora_str}</div>
+</div>
+<div class="actions">
+  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn btn-close" onclick="window.close()">Fechar</button>
+</div>
+<script>window.onload = () => setTimeout(() => window.print(), 500);</script>
+</body>
+</html>"""
+
+
 def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
                         operador: str, timestamp: datetime,
                         itens: list[dict],

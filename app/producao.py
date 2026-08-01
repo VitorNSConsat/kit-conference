@@ -22,6 +22,27 @@ import app.kit_templates as templates_mod
 ESTAGIOS = ["produzido", "transito", "cliente_instalando", "cliente_concluido"]
 
 
+def atribuir_sequencia(sessao_id: int) -> int:
+    """Número da etiqueta "Em Andamento" — atribuído na 1ª impressão dessa
+    sessão e fixo depois disso (reimprimir não muda o número). Continua de
+    onde o contador global parou; zerar_sequencia() reinicia do zero."""
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT sequencia FROM scan_session WHERE id = ?", (sessao_id,)
+        ).fetchone()
+        if atual and atual["sequencia"] is not None:
+            return atual["sequencia"]
+        conn.execute("UPDATE producao_sequencia SET valor = valor + 1 WHERE id = 1")
+        novo = conn.execute("SELECT valor FROM producao_sequencia WHERE id = 1").fetchone()["valor"]
+        conn.execute("UPDATE scan_session SET sequencia = ? WHERE id = ?", (novo, sessao_id))
+        return novo
+
+
+def zerar_sequencia() -> None:
+    with db() as conn:
+        conn.execute("UPDATE producao_sequencia SET valor = 0 WHERE id = 1")
+
+
 def _percentual_concluido(kit_template_id: int, sessao_id: int) -> int:
     """% de itens obrigatórios já bipados nessa sessão — a mesma conta que
     libera o botão "Finalizar" na tela de bipagem (itens opcionais não

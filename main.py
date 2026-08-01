@@ -1121,6 +1121,8 @@ async def session_destino_page(request: Request, sessao_id: int, erro: str = "")
         # Destino já escolhido — não pergunta de novo, vai direto pra bipagem.
         return RedirectResponse(f"/session/{sessao_id}", status_code=302)
     veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
+    for v in veiculos_lista:
+        v["ocupado"] = veiculos_mod.esta_ocupado(v["id"])
     garagens_lista = garagens_mod.listar()
     return render(request, "session_destino.html", {
         "session": session,
@@ -1155,8 +1157,15 @@ async def session_destino_post(request: Request, sessao_id: int):
             quote("Selecione o veículo e a garagem antes de continuar."),
             status_code=302)
 
+    if veiculos_mod.esta_ocupado(veiculo_id):
+        return RedirectResponse(
+            f"/session/{sessao_id}/destino?erro=" +
+            quote("Esse veículo já tem kit associado. Libere em Veículos e Clientes antes de atribuir de novo."),
+            status_code=302)
+
     sessions_mod.definir_destino(sessao_id, veiculo_id, veiculo_texto, garagem, modelo)
     veiculos_mod.atualizar_garagem(veiculo_id, garagem.upper())
+    veiculos_mod.consumir_liberacao(veiculo_id)
     return RedirectResponse(f"/session/{sessao_id}", status_code=302)
 
 
@@ -1354,7 +1363,7 @@ async def session_complete(request: Request, sessao_id: int, kit_id: str):
 @app.get("/print-queue", response_class=HTMLResponse)
 @require_login
 async def print_queue_page(request: Request):
-    fila = pq_mod.listar_aguardando()
+    fila = pq_mod.listar_aguardando_tudo()
     return render(request, "print_queue.html", {"fila": fila})
 
 
@@ -1422,6 +1431,52 @@ async def print_queue_impresso(request: Request, pq_id: int):
 @require_login
 async def print_queue_cancelar(request: Request, pq_id: int):
     pq_mod.cancelar(pq_id)
+    return RedirectResponse("/print-queue", status_code=302)
+
+
+# ── Fila de etiquetas "Em Andamento" ────────────────────────────────────────────
+
+@app.post("/session/{sessao_id}/imprimir-pausa")
+@require_login
+async def session_imprimir_pausa(request: Request, sessao_id: int):
+    user = get_current_user(request)
+    session = sessions_mod.get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+    sequencia = producao_mod.atribuir_sequencia(sessao_id)
+    html_label = zpl_mod.generate_pausa_html_label(
+        veiculo=session.get("veiculo") or "",
+        kit_nome=session["kit_nome"],
+        cliente=session["cliente"],
+        garagem=session.get("garagem") or "",
+        operador=session["operador_nome"],
+        sequencia=sequencia,
+        timestamp=datetime.now(tz=BRT),
+    )
+    pq_mod.adicionar_pausa(sessao_id, html_label, user["id"])
+    return RedirectResponse(f"/session/{sessao_id}?ok=etiqueta_pausa", status_code=302)
+
+
+@app.get("/print-queue/pausa/{pq_id}/etiqueta")
+@require_login
+async def print_queue_pausa_html_label(request: Request, pq_id: int):
+    item = pq_mod.buscar_pausa(pq_id)
+    if not item or not item.get("html_label"):
+        return PlainTextResponse("Etiqueta HTML não disponível.", status_code=404)
+    return HTMLResponse(item["html_label"])
+
+
+@app.post("/print-queue/pausa/{pq_id}/impresso")
+@require_login
+async def print_queue_pausa_impresso(request: Request, pq_id: int):
+    pq_mod.marcar_impresso_pausa(pq_id)
+    return RedirectResponse("/print-queue", status_code=302)
+
+
+@app.post("/print-queue/pausa/{pq_id}/cancelar")
+@require_login
+async def print_queue_pausa_cancelar(request: Request, pq_id: int):
+    pq_mod.cancelar_pausa(pq_id)
     return RedirectResponse("/print-queue", status_code=302)
 
 
@@ -2226,6 +2281,13 @@ async def admin_producao(request: Request):
     })
 
 
+@app.post("/admin/producao/zerar-sequencia")
+@require_admin
+async def admin_producao_zerar_sequencia(request: Request):
+    producao_mod.zerar_sequencia()
+    return RedirectResponse("/admin/producao?ok=sequencia_zerada", status_code=302)
+
+
 @app.post("/admin/producao/transito")
 @require_login
 async def admin_producao_transito(request: Request):
@@ -2653,6 +2715,7 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
     return render(request, "admin_veiculo_detalhe.html", {
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
         "garagens": garagens_cadastradas,
+        "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
     })
 
 
@@ -2670,10 +2733,22 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
         return render(request, "admin_veiculo_detalhe.html", {
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
             "clientes": clientes, "garagens": garagens_cadastradas,
+            "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
             "erro": "Número e cliente são obrigatórios.",
         })
     veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem)
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
+
+
+@app.post("/admin/veiculos/{veiculo_id}/liberar")
+@require_admin
+async def admin_veiculo_liberar(request: Request, veiculo_id: int):
+    """Destrava o veículo pra uma nova bipagem mesmo já tendo kit(s)
+    associados. Não apaga nem altera nada do kit/sessão existente — só
+    permite atribuir esse veículo de novo. É consumido automaticamente
+    assim que essa nova atribuição acontecer."""
+    veiculos_mod.liberar(veiculo_id)
+    return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=liberado", status_code=302)
 
 
 @app.post("/admin/veiculos/{veiculo_id}/desativar")

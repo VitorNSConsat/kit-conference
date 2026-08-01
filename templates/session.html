@@ -5,6 +5,10 @@
 <div class="alert alert-danger" style="margin-bottom:16px;">
     <strong>Validação Falhou:</strong> {{ request.query_params.get('erro') }}
 </div>
+{% elif request.query_params.get('ok') == 'etiqueta_pausa' %}
+<div class="alert alert-success" style="margin-bottom:16px;">
+    🏷️ Etiqueta "Em Andamento" adicionada à <a href="/print-queue">Fila de Impressão</a>.
+</div>
 {% endif %}
 
 <div class="session-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -18,6 +22,9 @@
         </span>
     </div>
     <div style="display:flex; gap:5px;">
+        <form method="post" action="/session/{{ session.id }}/imprimir-pausa">
+            <button type="submit" class="btn btn-secondary" title="Imprime uma etiqueta sinalizando veículo e sequência deste kit ainda em andamento">🏷️ Imprimir Etiqueta</button>
+        </form>
         <a href="/" class="btn btn-warning">💾 Salvar e Sair</a>
         <form method="post" action="/session/{{ session.id }}/cancel"
               onsubmit="return confirm('Cancelar a sessão? Todos os itens bipados serão descartados.')">

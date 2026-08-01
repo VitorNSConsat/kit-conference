@@ -56,6 +56,48 @@ def atualizar_garagem(veiculo_id: int, garagem: str):
         conn.execute("UPDATE veiculos SET garagem = ? WHERE id = ?", (garagem, veiculo_id))
 
 
+def esta_ocupado(veiculo_id: int) -> bool:
+    """Um veículo fica bloqueado pra nova bipagem assim que tem qualquer
+    kit associado — em andamento ou já finalizado, não importa em que
+    estágio da esteira está, mesmo já entregue ao cliente. Só libera com
+    liberar() (manual); a liberação vale só até a próxima sessão nova ser
+    criada pra ele (consumir_liberacao)."""
+    with db() as conn:
+        v = conn.execute(
+            "SELECT liberado_em FROM veiculos WHERE id = ?", (veiculo_id,)
+        ).fetchone()
+        if not v:
+            return False
+        if v["liberado_em"]:
+            return False
+        tem_sessao_ativa = conn.execute(
+            "SELECT 1 FROM scan_session WHERE veiculo_id = ? AND status = 'em_andamento' LIMIT 1",
+            (veiculo_id,)
+        ).fetchone()
+        if tem_sessao_ativa:
+            return True
+        tem_kit = conn.execute(
+            "SELECT 1 FROM kit_record WHERE veiculo_id = ? LIMIT 1", (veiculo_id,)
+        ).fetchone()
+        return tem_kit is not None
+
+
+def liberar(veiculo_id: int) -> None:
+    with db() as conn:
+        conn.execute(
+            "UPDATE veiculos SET liberado_em = ? WHERE id = ?", (now_brt(), veiculo_id)
+        )
+
+
+def consumir_liberacao(veiculo_id: int) -> None:
+    """Chamado ao criar uma sessão/kit novo pra esse veículo — a liberação
+    manual vale só pra essa próxima atribuição, não pra sempre."""
+    with db() as conn:
+        conn.execute(
+            "UPDATE veiculos SET liberado_em = NULL WHERE id = ?", (veiculo_id,)
+        )
+
+
 def desativar(veiculo_id: int):
     with db() as conn:
         conn.execute("UPDATE veiculos SET ativo=0 WHERE id=?", (veiculo_id,))

@@ -36,6 +36,12 @@
   <div style="display:flex;gap:5px;flex-wrap:wrap;">
     <a href="/admin/producao/historico" class="btn btn-warning">📜 Histórico de Alterações</a>
     <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
+    {% if user and user.admin %}
+    <form method="post" action="/admin/producao/zerar-sequencia"
+          onsubmit="return confirm('Zerar o contador de sequência das etiquetas \'Em Andamento\'? O próximo kit voltará a começar do 0001.')">
+      <button type="submit" class="btn btn-secondary" title="Reinicia o número SEQ das etiquetas de acompanhamento">🔁 Zerar Contador</button>
+    </form>
+    {% endif %}
   </div>
 </div>
 
@@ -49,6 +55,8 @@
 <div class="alert alert-success">↩️ Kit voltou para o estágio anterior.</div>
 {% elif request.query_params.get('ok') == 'nota_fiscal' %}
 <div class="alert alert-success">✅ Nota fiscal salva.</div>
+{% elif request.query_params.get('ok') == 'sequencia_zerada' %}
+<div class="alert alert-success">🔁 Contador de sequência zerado. O próximo kit começa do 0001.</div>
 {% elif request.query_params.get('erro') == 'nf_motivo' %}
 <div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}

@@ -1,12 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Veículo {{ v.numero }}{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-  <h1>Veículo {{ v.numero }}</h1>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>Veículo {{ v.numero }}
+    <span class="badge {{ 'badge-danger' if ocupado else 'badge-success' }}" style="vertical-align:middle;font-size:12px;">
+      {{ '🔒 Ocupado' if ocupado else '✅ Disponível' }}
+    </span>
+  </h1>
   <a href="/admin/veiculos" class="btn btn-secondary">← Voltar</a>
 </div>
 
-{% if request.query_params.get('ok') %}
+{% if request.query_params.get('ok') == 'liberado' %}
+<div class="alert alert-success">🔓 Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
+{% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Dados atualizados.</div>
 {% endif %}
 
@@ -81,6 +87,12 @@
 <div class="card">
   <h2>Ações</h2>
   <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+    {% if ocupado and user and user.admin %}
+    <form method="post" action="/admin/veiculos/{{ v.id }}/liberar"
+          onsubmit="return confirm('Liberar {{ v.numero }} pra uma nova bipagem? O(s) kit(s) já feito(s) pra ele continuam intactos, isso só destrava uma atribuição nova.')">
+      <button type="submit" class="btn btn-primary">🔓 Liberar veículo</button>
+    </form>
+    {% endif %}
     {% if v.ativo %}
     <form method="post" action="/admin/veiculos/{{ v.id }}/desativar"
           onsubmit="return confirm('Desativar este veículo?')">
