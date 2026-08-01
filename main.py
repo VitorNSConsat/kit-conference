@@ -1490,7 +1490,8 @@ async def mobile_hub(request: Request):
     if user:
         with db() as conn:
             sessoes_ativas = conn.execute(
-                "SELECT ss.id, kt.nome AS kit_nome, kt.cliente, ss.iniciado_em "
+                "SELECT ss.id, kt.nome AS kit_nome, kt.cliente, ss.iniciado_em, "
+                "ss.veiculo, ss.garagem "
                 "FROM scan_session ss "
                 "JOIN kit_template kt ON kt.id = ss.kit_template_id "
                 "WHERE ss.operador_id = ? AND ss.status = 'em_andamento' "
