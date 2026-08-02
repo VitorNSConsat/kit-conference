@@ -83,6 +83,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_estoque = {r["name"] for r in conn.execute("PRAGMA table_info(estoque)").fetchall()}
         colunas_scan_session = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session)").fetchall()}
         colunas_veiculos = {r["name"] for r in conn.execute("PRAGMA table_info(veiculos)").fetchall()}
+        colunas_scan_session_items = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session_items)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -99,6 +100,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "sequencia" not in colunas_scan_session
         or "liberado_em" not in colunas_veiculos
         or "producao_sequencia" not in tabelas
+        or "operador_id" not in colunas_scan_session_items
     )
     if not pendente:
         return None
@@ -438,6 +440,11 @@ def init_db():
             # bipagem mesmo já tendo kit(s) associados. É consumido (volta
             # pra NULL) assim que uma nova sessão/kit é criado pra ele.
             "ALTER TABLE veiculos ADD COLUMN liberado_em TEXT",
+            # Quem bipou cada item — permite que mais de um operador
+            # continue a mesma sessão e o sistema saiba atribuir por item.
+            # Nullable: linhas bipadas antes desta coluna existir ficam sem
+            # atribuição (aparecem como "Sem operador registrado").
+            "ALTER TABLE scan_session_items ADD COLUMN operador_id INTEGER REFERENCES users(id)",
         ]:
             try:
                 conn.execute(stmt)
