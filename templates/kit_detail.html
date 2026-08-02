@@ -360,6 +360,24 @@
     {% endfor %}
   </div>
 
+  {% if operadores_kit and operadores_kit | length > 1 %}
+  <div class="card">
+    <div class="card-title">👥 Operadores envolvidos ({{ operadores_kit | length }})</div>
+    {% for op in operadores_kit %}
+    <div class="info-grid" style="padding:8px 0;{% if not loop.last %}border-bottom:1px solid #f0f0f0;{% endif %}">
+      <div class="info-item">
+        <div class="label">Operador</div>
+        <div class="value">{{ op.operador_nome }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Itens bipados</div>
+        <div class="value">{{ op.total_itens }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if unidades %}
   <div class="card">
     <div class="card-title">Unidades do Pedido ({{ unidades | length }})</div>
