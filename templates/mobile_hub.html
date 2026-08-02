@@ -281,6 +281,27 @@
   </div>
   {% endif %}
 
+  <!-- ── Outros Kits em Andamento (de outros operadores) ──────────────── -->
+  {% if sessoes_outros %}
+  <details class="card" style="padding:0;">
+    <summary style="padding:14px 16px; font-size:13px; font-weight:700; color:#1e4976; cursor:pointer; list-style:none;">
+      👥 Ver outros kits em andamento ({{ sessoes_outros | length }})
+    </summary>
+    <div style="border-top:1px solid #f0ece2;">
+      {% for s in sessoes_outros %}
+      <a href="/session/{{ s.id }}" class="row-link">
+        <div class="row-icon scan">📋</div>
+        <div class="row-info">
+          <div class="row-nome">{{ s.veiculo or s.kit_nome }}</div>
+          <div class="row-meta">{{ s.kit_nome }} · iniciado por {{ s.operador_nome }} · {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}</div>
+        </div>
+        <div class="row-arrow">›</div>
+      </a>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
   <!-- ── Ações Rápidas ─────────────────────────────────── -->
   <div class="sec-title">Ações</div>
   <div class="quick-nav">
