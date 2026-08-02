@@ -1102,10 +1102,12 @@ async def session_page(request: Request, sessao_id: int):
         return RedirectResponse(f"/session/{sessao_id}/destino", status_code=302)
     itens = templates_mod.get_itens_template(session["kit_template_id"])
     contagem = sessions_mod.get_contagem(sessao_id)
+    itens_por_operador = sessions_mod.listar_itens_por_operador(sessao_id)
     return render(request, "session.html", {
         "session": session,
         "itens": itens,
         "contagem": contagem,
+        "itens_por_operador": itens_por_operador,
     })
 
 
@@ -1209,19 +1211,23 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                 if msg.get("acao") == "identificar":
                     result = sessions_mod.register_scan(
                         sessao_id, msg["codigo"],
-                        item_tipo_id=int(msg["item_tipo_id"])
+                        item_tipo_id=int(msg["item_tipo_id"]),
+                        operador_id=user_id,
                     )
                 elif msg.get("acao") == "confirmar_quantidade":
                     result = sessions_mod.confirmar_quantidade(
-                        sessao_id, msg["codigo_barra"], float(msg.get("quantidade", 1))
+                        sessao_id, msg["codigo_barra"], float(msg.get("quantidade", 1)),
+                        operador_id=user_id,
                     )
                 elif msg.get("acao") == "confirmar_substituicao":
                     result = sessions_mod.confirmar_substituicao(
-                        sessao_id, msg["codigo_barra"], msg.get("motivo", "")
+                        sessao_id, msg["codigo_barra"], msg.get("motivo", ""),
+                        operador_id=user_id,
                     )
                 elif msg.get("acao") == "confirmar_componente":
                     result = sessions_mod.confirmar_componente(
-                        sessao_id, msg["codigo_barra"], msg.get("quantidades", {})
+                        sessao_id, msg["codigo_barra"], msg.get("quantidades", {}),
+                        operador_id=user_id,
                     )
                 elif msg.get("acao") == "cancelar_serial":
                     result = sessions_mod.cancelar_serial(sessao_id)
@@ -1235,15 +1241,15 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                 # Plain barcode scan — priority: serial > patrimônio fixo > componente > normal
                 pendente_serial = sessions_mod.get_pendente_serial(sessao_id)
                 if pendente_serial:
-                    result = sessions_mod.registrar_serial(sessao_id, data)
+                    result = sessions_mod.registrar_serial(sessao_id, data, operador_id=user_id)
                 else:
                     pendente_fixo = sessions_mod.get_pendente_patrimonio_fixo(sessao_id)
                     if pendente_fixo:
-                        result = sessions_mod.registrar_patrimonio_de_fixo(sessao_id, data)
+                        result = sessions_mod.registrar_patrimonio_de_fixo(sessao_id, data, operador_id=user_id)
                     else:
                         result = sessions_mod.checar_componente(sessao_id, data)
                         if result is None:
-                            result = sessions_mod.register_scan(sessao_id, data)
+                            result = sessions_mod.register_scan(sessao_id, data, operador_id=user_id)
             await websocket.send_json(result)
     except WebSocketDisconnect:
         pass
@@ -1486,6 +1492,7 @@ async def print_queue_pausa_cancelar(request: Request, pq_id: int):
 async def mobile_hub(request: Request):
     user = get_current_user(request)
     sessoes_ativas = []
+    sessoes_outros = []
     templates_list = []
     if user:
         with db() as conn:
@@ -1498,6 +1505,16 @@ async def mobile_hub(request: Request):
                 "ORDER BY ss.iniciado_em DESC",
                 (user["id"],)
             ).fetchall()
+            sessoes_outros = conn.execute(
+                "SELECT ss.id, kt.nome AS kit_nome, kt.cliente, ss.iniciado_em, "
+                "ss.veiculo, ss.garagem, u.nome AS operador_nome "
+                "FROM scan_session ss "
+                "JOIN kit_template kt ON kt.id = ss.kit_template_id "
+                "JOIN users u ON u.id = ss.operador_id "
+                "WHERE ss.operador_id != ? AND ss.status = 'em_andamento' "
+                "ORDER BY ss.iniciado_em DESC",
+                (user["id"],)
+            ).fetchall()
             templates_list = conn.execute(
                 "SELECT id, nome, cliente FROM kit_template WHERE ativo = 1 ORDER BY nome"
             ).fetchall()
@@ -1505,6 +1522,7 @@ async def mobile_hub(request: Request):
     return render(request, "mobile_hub.html", {
         "user": user,
         "sessoes_ativas": [dict(s) for s in sessoes_ativas],
+        "sessoes_outros": [dict(s) for s in sessoes_outros],
         "templates_list": [dict(t) for t in templates_list],
     })
 
@@ -1576,6 +1594,7 @@ async def kit_detail(request: Request, kit_id: str):
     validacoes = validacoes_mod.listar_por_kit(kit_id)
     ok = request.query_params.get("ok", "")
     unidades = pedidos_mod.listar_unidades(kit["kit_template_id"]) if kit.get("kit_tipo") == "pedido" else []
+    operadores_kit = sessions_mod.operadores_da_sessao(kit["sessao_id"])
 
     return render(request, "kit_detail.html", {
         "kit": kit,
@@ -1583,6 +1602,7 @@ async def kit_detail(request: Request, kit_id: str):
         "validacoes": validacoes,
         "ok": ok,
         "unidades": unidades,
+        "operadores_kit": operadores_kit,
     })
 
 
