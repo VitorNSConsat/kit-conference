@@ -105,11 +105,11 @@ def get_pendente_serial(sessao_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def registrar_serial(sessao_id: int, serial_barra: str) -> dict:
+def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None = None) -> dict:
     """Registra o serial number do item pendente."""
     pendente = get_pendente_serial(sessao_id)
     if not pendente:
-        return register_scan(sessao_id, serial_barra)
+        return register_scan(sessao_id, serial_barra, operador_id=operador_id)
 
     if serial_barra == pendente["codigo_barra"]:
         return {"resultado": "rejeitado",
@@ -173,11 +173,11 @@ def cancelar_patrimonio_fixo(sessao_id: int) -> dict:
             "mensagem": "Código da caixa cancelado. Bipe novamente se necessário."}
 
 
-def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict:
+def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operador_id: int | None = None) -> dict:
     """Registra o patrimônio do item identificado por código fixo."""
     pendente = get_pendente_patrimonio_fixo(sessao_id)
     if not pendente:
-        return register_scan(sessao_id, codigo_patrimonio)
+        return register_scan(sessao_id, codigo_patrimonio, operador_id=operador_id)
 
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
@@ -225,10 +225,10 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str) -> dict
 
     with db() as conn:
         conn.execute(
-            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (sessao_id, codigo_patrimonio, tipo_id,
-             "aguardando_serial" if requer_serial else "completo", now_brt())
+             "aguardando_serial" if requer_serial else "completo", now_brt(), operador_id)
         )
 
     if requer_serial:
@@ -418,7 +418,7 @@ def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
 
 
 def confirmar_componente(sessao_id: int, codigo_barra: str,
-                         quantidades: dict) -> dict:
+                         quantidades: dict, operador_id: int | None = None) -> dict:
     """Registra as quantidades informadas pelo operador para cada item do componente."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
@@ -449,9 +449,9 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
             adicionar = min(qtd_informada, max(0, exigido - atual))
             for seq in range(adicionar):
                 conn.execute(
-                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
-                    "VALUES (?, ?, ?, 'completo', ?)",
-                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id, now_brt())
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
+                    "VALUES (?, ?, ?, 'completo', ?, ?)",
+                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id, now_brt(), operador_id)
                 )
             atualizacoes.append({
                 "item_tipo_id": tipo_id,
@@ -476,7 +476,8 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
 
 
 def register_scan(sessao_id: int, codigo_barra: str,
-                  item_tipo_id: int | None = None) -> dict:
+                  item_tipo_id: int | None = None,
+                  operador_id: int | None = None) -> dict:
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return {"resultado": "rejeitado",
@@ -500,9 +501,9 @@ def register_scan(sessao_id: int, codigo_barra: str,
         with db() as conn:
             conn.execute(
                 "INSERT INTO scan_session_items "
-                "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
-                "VALUES (?, ?, ?, 'aguardando_patrimonio', ?)",
-                (sessao_id, codigo_barra, tipo_fixo["id"], now_brt())
+                "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
+                "VALUES (?, ?, ?, 'aguardando_patrimonio', ?, ?)",
+                (sessao_id, codigo_barra, tipo_fixo["id"], now_brt(), operador_id)
             )
         return {
             "resultado": "aguardando_patrimonio_fixo",
@@ -545,8 +546,9 @@ def register_scan(sessao_id: int, codigo_barra: str,
             for seq in range(qtd):
                 conn.execute(
                     "INSERT INTO scan_session_items "
-                    "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em) VALUES (?, ?, ?, 'completo', ?)",
-                    (sessao_id, f"ESTOQUE:{est['codigo_barra']}:{seq}", est["item_tipo_id"], now_brt())
+                    "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
+                    "VALUES (?, ?, ?, 'completo', ?, ?)",
+                    (sessao_id, f"ESTOQUE:{est['codigo_barra']}:{seq}", est["item_tipo_id"], now_brt(), operador_id)
                 )
             conn.execute(
                 "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
@@ -654,10 +656,10 @@ def register_scan(sessao_id: int, codigo_barra: str,
 
     with db() as conn:
         conn.execute(
-            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (sessao_id, codigo_barra, item["item_tipo_id"],
-             "aguardando_serial" if requer_serial else "completo", now_brt())
+             "aguardando_serial" if requer_serial else "completo", now_brt(), operador_id)
         )
 
     if requer_serial:
@@ -681,7 +683,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
     }
 
 
-def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> dict:
+def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str, operador_id: int | None = None) -> dict:
     """Registra bip de patrimônio em substituição, ignorando o histórico de kits anteriores."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
@@ -717,10 +719,10 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> di
     with db() as conn:
         conn.execute(
             "INSERT INTO scan_session_items "
-            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, observacao) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, observacao, operador_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (sessao_id, codigo_barra, item["item_tipo_id"],
-             "aguardando_serial" if requer_serial else "completo", now_brt(), obs)
+             "aguardando_serial" if requer_serial else "completo", now_brt(), obs, operador_id)
         )
 
     if requer_serial:
@@ -745,7 +747,7 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str) -> di
     }
 
 
-def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float) -> dict:
+def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float, operador_id: int | None = None) -> dict:
     """Registra N unidades ou metros de um item de uma só vez."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
@@ -785,9 +787,9 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float) -
     with db() as conn:
         conn.execute(
             "INSERT INTO scan_session_items "
-            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade) "
-            "VALUES (?, ?, ?, 'completo', ?, ?)",
-            (sessao_id, codigo_barra, item["item_tipo_id"], now_brt(), quantidade)
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade, operador_id) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?)",
+            (sessao_id, codigo_barra, item["item_tipo_id"], now_brt(), quantidade, operador_id)
         )
 
     novo_atual = atual + quantidade
@@ -856,6 +858,61 @@ def listar_sessoes_em_andamento(template_id: int | None = None,
             f"JOIN users u ON u.id = s.operador_id "
             f"WHERE {where} ORDER BY s.iniciado_em DESC",
             params
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def listar_itens_por_operador(sessao_id: int) -> list[dict]:
+    """Itens já bipados (status completo) nesta sessão, agrupados por quem
+    bipou cada um, na ordem em que cada operador apareceu pela primeira
+    vez. Linhas sem operador_id (bipadas antes desta coluna existir) ficam
+    agrupadas sob a chave None, nome "Sem operador registrado"."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT ssi.operador_id, u.nome AS operador_nome, "
+            "it.nome AS descricao, ssi.codigo_barra, ssi.bipado_em "
+            "FROM scan_session_items ssi "
+            "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            "LEFT JOIN users u ON u.id = ssi.operador_id "
+            "WHERE ssi.sessao_id = ? AND (ssi.status IS NULL OR ssi.status = 'completo') "
+            "ORDER BY ssi.bipado_em",
+            (sessao_id,)
+        ).fetchall()
+
+    grupos: dict = {}
+    ordem: list = []
+    for r in rows:
+        op_id = r["operador_id"]
+        if op_id not in grupos:
+            grupos[op_id] = {
+                "operador_id": op_id,
+                "operador_nome": r["operador_nome"] or "Sem operador registrado",
+                "itens": [],
+            }
+            ordem.append(op_id)
+        grupos[op_id]["itens"].append({
+            "descricao": r["descricao"],
+            "codigo_barra": r["codigo_barra"],
+            "bipado_em": r["bipado_em"],
+        })
+    return [grupos[op_id] for op_id in ordem]
+
+
+def operadores_da_sessao(sessao_id: int) -> list[dict]:
+    """Operadores distintos que bipararam algo (status completo) nesta
+    sessão, na ordem da primeira bipagem de cada um. Ignora linhas sem
+    operador_id (sessões/itens de antes desta coluna existir)."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT ssi.operador_id, u.nome AS operador_nome, COUNT(*) AS total_itens, "
+            "MIN(ssi.bipado_em) AS primeira_bipagem "
+            "FROM scan_session_items ssi "
+            "JOIN users u ON u.id = ssi.operador_id "
+            "WHERE ssi.sessao_id = ? AND ssi.operador_id IS NOT NULL "
+            "AND (ssi.status IS NULL OR ssi.status = 'completo') "
+            "GROUP BY ssi.operador_id "
+            "ORDER BY primeira_bipagem",
+            (sessao_id,)
         ).fetchall()
     return [dict(r) for r in rows]
 

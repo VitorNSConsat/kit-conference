@@ -156,3 +156,40 @@ def test_cancel_session():
     sessions_mod.cancel_session(sessao_id)
     session = sessions_mod.get_session(sessao_id)
     assert session["status"] == "cancelado"
+
+
+def test_listar_itens_por_operador_agrupa_por_quem_bipou():
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO users (id, nome, username, password_hash) VALUES (2, 'Maria', 'maria', 'x')"
+        )
+
+    sessao_id = sessions_mod.start_session(1, 1)  # template 1, operador 1 ("Teste")
+
+    # Cabo (quantidade_exigida=1) aceita direto na primeira bipagem.
+    result_cabo = sessions_mod.register_scan(sessao_id, "CAB001", operador_id=1)
+    assert result_cabo["resultado"] == "aceito"
+
+    # Antena (quantidade_exigida=2) pede confirmação de quantidade — passa
+    # pelo fluxo de confirmar_quantidade, que também precisa gravar o
+    # operador certo.
+    result_ant = sessions_mod.register_scan(sessao_id, "ANT001", operador_id=2)
+    assert result_ant["resultado"] == "quantidade_pendente"
+    result_confirma = sessions_mod.confirmar_quantidade(sessao_id, "ANT001", 1, operador_id=2)
+    assert result_confirma["resultado"] == "aceito"
+
+    grupos = sessions_mod.listar_itens_por_operador(sessao_id)
+    assert len(grupos) == 2
+    assert grupos[0]["operador_nome"] == "Teste"
+    assert len(grupos[0]["itens"]) == 1
+    assert grupos[0]["itens"][0]["codigo_barra"] == "CAB001"
+    assert grupos[1]["operador_nome"] == "Maria"
+    assert len(grupos[1]["itens"]) == 1
+    assert grupos[1]["itens"][0]["codigo_barra"] == "ANT001"
+
+    operadores = sessions_mod.operadores_da_sessao(sessao_id)
+    assert len(operadores) == 2
+    assert operadores[0]["operador_nome"] == "Teste"
+    assert operadores[0]["total_itens"] == 1
+    assert operadores[1]["operador_nome"] == "Maria"
+    assert operadores[1]["total_itens"] == 1
