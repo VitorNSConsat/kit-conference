@@ -2299,6 +2299,11 @@ async def admin_producao(request: Request):
         "transito": producao_mod.listar_transito(),
         "cliente_instalando": producao_mod.listar_cliente_instalando(),
         "cliente_concluido": producao_mod.listar_cliente_concluido(limite=30),
+        "itens_em_producao": producao_mod.resumo_itens_em_producao(),
+        "itens_produzido": producao_mod.resumo_itens_estagio("produzido"),
+        "itens_transito": producao_mod.resumo_itens_estagio("transito"),
+        "itens_cliente_instalando": producao_mod.resumo_itens_estagio("cliente_instalando"),
+        "itens_cliente_concluido": producao_mod.resumo_itens_estagio("cliente_concluido"),
     })
 
 
@@ -2396,7 +2401,7 @@ async def admin_producao_historico_exportar(request: Request,
         ws.cell(row, 2, r["user_nome"] or "—")
         ws.cell(row, 3, r["acao"])
         ws.cell(row, 4, r["kit_desc"])
-        ws.cell(row, 5, r["detalhe"] or "")
+        ws.cell(row, 5, r["resumo"])
         ws.cell(row, 6, r["ip"] or "")
         ws.cell(row, 7, r["status"])
     larguras = [17, 18, 26, 20, 60, 15, 8]

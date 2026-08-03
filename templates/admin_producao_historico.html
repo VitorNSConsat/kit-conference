@@ -50,8 +50,9 @@
         </span>
       </td>
       <td style="font-size:12px;">{{ r.kit_desc }}</td>
-      <td style="font-size:11px;color:#666;max-width:340px;word-break:break-word;">
-        {{ r.detalhe or '—' }}
+      <td style="font-size:12px;color:#444;max-width:340px;word-break:break-word;"
+          {% if r.detalhe %}title="{{ r.detalhe }}"{% endif %}>
+        {{ r.resumo }}
       </td>
     </tr>
     {% endfor %}

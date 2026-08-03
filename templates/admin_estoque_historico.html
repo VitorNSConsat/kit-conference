@@ -2,7 +2,8 @@
 {% block title %}Histórico — {{ est.tipo_nome }}{% endblock %}
 {% block content %}
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <a href="/admin/estoque" class="btn btn-sm btn-primary">← Voltar</a>
+    <a href="/admin/items" class="btn btn-sm btn-primary"
+       onclick="if (window.history.length > 1) { window.history.back(); return false; }">← Voltar</a>
     <h1 style="margin:0;">Histórico: {{ est.tipo_nome }}</h1>
 </div>
 

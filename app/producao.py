@@ -133,6 +133,46 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _somar_itens_por_sessoes(sessao_ids: list[int]) -> list[dict]:
+    """Soma a quantidade de cada tipo de item bipado (status completo) nas
+    sessões informadas — base do resumo agregado por estágio da tela de
+    Produção (ex: "120 Antenas · 80 Cabos aguardando envio")."""
+    if not sessao_ids:
+        return []
+    with db() as conn:
+        placeholders = ",".join("?" * len(sessao_ids))
+        rows = conn.execute(
+            f"SELECT it.nome AS descricao, SUM(COALESCE(ssi.quantidade, 1)) AS total "
+            f"FROM scan_session_items ssi "
+            f"JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            f"WHERE ssi.sessao_id IN ({placeholders}) "
+            f"AND (ssi.status IS NULL OR ssi.status = 'completo') "
+            f"GROUP BY ssi.item_tipo_id ORDER BY it.nome",
+            sessao_ids
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def resumo_itens_em_producao() -> list[dict]:
+    """Itens já bipados (parcialmente) nas sessões ainda em andamento."""
+    with db() as conn:
+        sessao_ids = [r["id"] for r in conn.execute(
+            "SELECT s.id FROM scan_session s JOIN kit_template t ON t.id = s.kit_template_id "
+            "WHERE s.status = 'em_andamento' AND t.tipo = 'kit'"
+        ).fetchall()]
+    return _somar_itens_por_sessoes(sessao_ids)
+
+
+def resumo_itens_estagio(estagio: str) -> list[dict]:
+    """Itens dos kits finalizados que estão parados nesse estágio da esteira."""
+    with db() as conn:
+        sessao_ids = [r["sessao_id"] for r in conn.execute(
+            "SELECT kr.sessao_id FROM kit_record kr JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "WHERE kr.status_producao = ? AND kt.tipo = 'kit'", (estagio,)
+        ).fetchall()]
+    return _somar_itens_por_sessoes(sessao_ids)
+
+
 def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str,
                            motivo: str = "") -> bool:
     """Registro manual só pro controle interno — não faz parte da esteira,
@@ -183,6 +223,46 @@ def _kit_ids_da_linha(caminho: str, detalhe: str) -> list[str]:
     return []
 
 
+def _parse_detalhe(detalhe: str) -> dict:
+    """O log de auditoria grava o formulário cru como 'chave=valor | chave=valor'
+    — aqui a gente quebra de volta num dict pra montar frases legíveis."""
+    campos = {}
+    for parte in (detalhe or "").split(" | "):
+        if "=" in parte:
+            chave, _, valor = parte.partition("=")
+            campos[chave] = valor
+    return campos
+
+
+def _descricao_amigavel(linha: dict) -> str:
+    """Traduz a ação + o formulário cru numa frase pronta pro histórico —
+    em vez de 'kit_ids=... | nota_fiscal=212 | nota_fiscal_data=...'."""
+    acao = linha["acao"]
+    campos = _parse_detalhe(linha["detalhe"] or "")
+    if acao == "PRODUCAO: NOTA FISCAL":
+        nf = campos.get("nota_fiscal") or "—"
+        data = campos.get("nota_fiscal_data")
+        texto = f"Nota fiscal alterada para {nf}"
+        if data:
+            texto += f" (data {data})"
+        motivo = campos.get("motivo")
+        if motivo:
+            texto += f" — motivo: {motivo}"
+        return texto
+    if acao == "PRODUCAO: EM TRANSITO":
+        n = len(_kit_ids_da_linha(linha["caminho"], linha["detalhe"] or ""))
+        return f"Marcou {n} kit(s) como Em Trânsito"
+    if acao == "PRODUCAO: CHEGADA NO CLIENTE":
+        return "Kit marcado como chegando no cliente"
+    if acao == "PRODUCAO: INSTALACAO CONCLUIDA":
+        return "Instalação marcada como concluída"
+    if acao == "PRODUCAO: VOLTAR ESTAGIO":
+        return "Kit voltou para o estágio anterior"
+    if linha["caminho"].endswith("/zerar-sequencia"):
+        return "Contador de sequência (etiqueta Em Andamento) zerado"
+    return linha["detalhe"] or "—"
+
+
 def listar_historico(data_ini: str = "", data_fim: str = "", limite: int = 500) -> list[dict]:
     """Histórico de ações manuais da esteira (mudança de estágio + edição
     de nota fiscal), lido da auditoria geral (que já cobre toda rota de
@@ -211,6 +291,7 @@ def listar_historico(data_ini: str = "", data_fim: str = "", limite: int = 500) 
             else:
                 descricoes.append(kid)
         linha["kit_desc"] = ", ".join(descricoes) if descricoes else "—"
+        linha["resumo"] = _descricao_amigavel(linha)
     return linhas
 
 
