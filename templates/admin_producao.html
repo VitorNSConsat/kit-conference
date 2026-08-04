@@ -1,21 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Produção{% endblock %}
 
-{% macro resumo_itens(itens) %}
-{% if itens %}
-<details style="margin-bottom:10px;" {{ 'open' if itens | length <= 8 }}>
-  <summary style="font-size:12px;color:#666;cursor:pointer;list-style:none;">
-    📦 {{ itens | length }} tipo{{ 's' if itens | length != 1 }} de item bipado{{ 's' if itens | length != 1 }} — ver quantidades
-  </summary>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
-    {% for it in itens %}
-    <span class="badge badge-info">{{ it.total | int }}× {{ it.descricao }}</span>
-    {% endfor %}
-  </div>
-</details>
-{% endif %}
-{% endmacro %}
-
 {% macro nota_fiscal_form(k, pode_editar) %}
 {% set tem_nf = (k.nota_fiscal or '') | trim %}
 {% if not pode_editar %}
@@ -84,8 +69,7 @@
 
 <!-- ── Em Produção (Consat) — só leitura, segue a bipagem sozinha ────────── -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">Em Produção <span style="font-weight:400;color:#888;">(Consat — acompanha a bipagem)</span></h2>
-  {{ resumo_itens(itens_em_producao) }}
+  <h2 style="margin-bottom:4px;">Em Produção <span style="font-weight:400;color:#888;">(Consat — acompanha a bipagem)</span> <span class="badge badge-warning">{{ resumo.em_producao }} kit{{ 's' if resumo.em_producao != 1 }}</span></h2>
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
@@ -118,11 +102,10 @@
 
 <!-- ── Produzido → selecionar pra Em Trânsito ────────────────────────────── -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">Produzido</h2>
+  <h2 style="margin-bottom:4px;">Produzido <span class="badge badge-success">{{ resumo.produzido }} kit{{ 's' if resumo.produzido != 1 }}</span></h2>
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
   </p>
-  {{ resumo_itens(itens_produzido) }}
   {% if produzido %}
   <form id="form-transito" method="post" action="/admin/producao/transito"></form>
   <div style="overflow-x:auto;">
@@ -150,8 +133,7 @@
 
 <!-- ── Em Trânsito → chegada no cliente ──────────────────────────────────── -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">Em Trânsito</h2>
-  {{ resumo_itens(itens_transito) }}
+  <h2 style="margin-bottom:4px;">Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
   {% if transito %}
   <div style="overflow-x:auto;">
   <table>
@@ -184,8 +166,7 @@
 
 <!-- ── Cliente: Em Produção (instalando) → concluir ──────────────────────── -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">Cliente — Em Produção <span style="font-weight:400;color:#888;">(instalando)</span></h2>
-  {{ resumo_itens(itens_cliente_instalando) }}
+  <h2 style="margin-bottom:4px;">Cliente — Em Produção <span style="font-weight:400;color:#888;">(instalando)</span> <span class="badge badge-warning">{{ resumo.cliente_instalando }} kit{{ 's' if resumo.cliente_instalando != 1 }}</span></h2>
   {% if cliente_instalando %}
   <div style="overflow-x:auto;">
   <table>
@@ -218,8 +199,7 @@
 
 <!-- ── Cliente: Produzido (concluído) — histórico recente ────────────────── -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">Cliente — Produzido <span style="font-weight:400;color:#888;">(concluído — últimos 30)</span></h2>
-  {{ resumo_itens(itens_cliente_concluido) }}
+  <h2 style="margin-bottom:4px;">Cliente — Produzido <span style="font-weight:400;color:#888;">(concluído — últimos 30)</span> <span class="badge badge-success">{{ resumo.cliente_concluido }} kit{{ 's' if resumo.cliente_concluido != 1 }} no total</span></h2>
   {% if cliente_concluido %}
   <input type="text" class="busca-box" placeholder="🔍 Buscar por veículo, garagem ou cliente..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-concluido tr.filtro-item">

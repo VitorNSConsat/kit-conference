@@ -133,46 +133,6 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def _somar_itens_por_sessoes(sessao_ids: list[int]) -> list[dict]:
-    """Soma a quantidade de cada tipo de item bipado (status completo) nas
-    sessões informadas — base do resumo agregado por estágio da tela de
-    Produção (ex: "120 Antenas · 80 Cabos aguardando envio")."""
-    if not sessao_ids:
-        return []
-    with db() as conn:
-        placeholders = ",".join("?" * len(sessao_ids))
-        rows = conn.execute(
-            f"SELECT it.nome AS descricao, SUM(COALESCE(ssi.quantidade, 1)) AS total "
-            f"FROM scan_session_items ssi "
-            f"JOIN item_tipo it ON it.id = ssi.item_tipo_id "
-            f"WHERE ssi.sessao_id IN ({placeholders}) "
-            f"AND (ssi.status IS NULL OR ssi.status = 'completo') "
-            f"GROUP BY ssi.item_tipo_id ORDER BY it.nome",
-            sessao_ids
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def resumo_itens_em_producao() -> list[dict]:
-    """Itens já bipados (parcialmente) nas sessões ainda em andamento."""
-    with db() as conn:
-        sessao_ids = [r["id"] for r in conn.execute(
-            "SELECT s.id FROM scan_session s JOIN kit_template t ON t.id = s.kit_template_id "
-            "WHERE s.status = 'em_andamento' AND t.tipo = 'kit'"
-        ).fetchall()]
-    return _somar_itens_por_sessoes(sessao_ids)
-
-
-def resumo_itens_estagio(estagio: str) -> list[dict]:
-    """Itens dos kits finalizados que estão parados nesse estágio da esteira."""
-    with db() as conn:
-        sessao_ids = [r["sessao_id"] for r in conn.execute(
-            "SELECT kr.sessao_id FROM kit_record kr JOIN kit_template kt ON kt.id = kr.kit_template_id "
-            "WHERE kr.status_producao = ? AND kt.tipo = 'kit'", (estagio,)
-        ).fetchall()]
-    return _somar_itens_por_sessoes(sessao_ids)
-
-
 def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str,
                            motivo: str = "") -> bool:
     """Registro manual só pro controle interno — não faz parte da esteira,

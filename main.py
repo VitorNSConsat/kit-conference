@@ -2299,11 +2299,7 @@ async def admin_producao(request: Request):
         "transito": producao_mod.listar_transito(),
         "cliente_instalando": producao_mod.listar_cliente_instalando(),
         "cliente_concluido": producao_mod.listar_cliente_concluido(limite=30),
-        "itens_em_producao": producao_mod.resumo_itens_em_producao(),
-        "itens_produzido": producao_mod.resumo_itens_estagio("produzido"),
-        "itens_transito": producao_mod.resumo_itens_estagio("transito"),
-        "itens_cliente_instalando": producao_mod.resumo_itens_estagio("cliente_instalando"),
-        "itens_cliente_concluido": producao_mod.resumo_itens_estagio("cliente_concluido"),
+        "resumo": producao_mod.resumo(),
     })
 
 
