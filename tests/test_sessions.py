@@ -20,9 +20,9 @@ def setup_db():
             "INSERT INTO users (id, nome, username, password_hash) VALUES (1, 'Teste', 'teste', 'x')"
         )
         # Tipos de item
-        conn.execute("INSERT INTO item_tipo (id, nome, ativo) VALUES (1, 'Antena', 1)")
-        conn.execute("INSERT INTO item_tipo (id, nome, ativo) VALUES (2, 'Cabo', 1)")
-        conn.execute("INSERT INTO item_tipo (id, nome, ativo) VALUES (3, 'Roteador', 1)")
+        conn.execute("INSERT INTO item_tipo (id, nome, ativo, controle_externo) VALUES (1, 'Antena', 1, 1)")
+        conn.execute("INSERT INTO item_tipo (id, nome, ativo, controle_externo) VALUES (2, 'Cabo', 1, 1)")
+        conn.execute("INSERT INTO item_tipo (id, nome, ativo, controle_externo) VALUES (3, 'Roteador', 1, 1)")
         # Patrimônios pré-cadastrados
         conn.execute(
             "INSERT INTO item_master (codigo_barra, item_tipo_id, ativo, criado_por) "
@@ -80,7 +80,11 @@ def test_start_session():
 
 def test_register_scan_aceito():
     sessao_id = sessions_mod.start_session(1, 1)
-    result = sessions_mod.register_scan(sessao_id, "ANT001")
+    # Antena exige 2 unidades — a primeira bipagem pede confirmação de
+    # quantidade em vez de aceitar direto (exigido - atual > 1).
+    pendente = sessions_mod.register_scan(sessao_id, "ANT001")
+    assert pendente["resultado"] == "quantidade_pendente"
+    result = sessions_mod.confirmar_quantidade(sessao_id, "ANT001", 1)
     assert result["resultado"] == "aceito"
     assert result["contagem_atual"] == 1
     assert result["quantidade_exigida"] == 2
@@ -102,6 +106,9 @@ def test_register_scan_identificar_e_aceitar():
     assert result["resultado"] == "desconhecido"
     # operador seleciona tipo 1 (Antena)
     result = sessions_mod.register_scan(sessao_id, "PAT_NOVO_001", item_tipo_id=1)
+    # Antena exige 2 unidades — pede confirmação de quantidade antes de aceitar.
+    assert result["resultado"] == "quantidade_pendente"
+    result = sessions_mod.confirmar_quantidade(sessao_id, "PAT_NOVO_001", 1)
     assert result["resultado"] == "aceito"
     assert result["contagem_atual"] == 1
 
@@ -115,8 +122,9 @@ def test_register_scan_item_fora_do_kit():
 
 def test_register_scan_quantidade_excedida():
     sessao_id = sessions_mod.start_session(1, 1)
-    sessions_mod.register_scan(sessao_id, "ANT001")  # 1ª antena
-    sessions_mod.register_scan(sessao_id, "ANT002")  # 2ª antena — atinge máximo
+    sessions_mod.register_scan(sessao_id, "ANT001")  # 1ª antena — fica pendente (exigido=2)
+    sessions_mod.confirmar_quantidade(sessao_id, "ANT001", 1)  # confirma 1 unidade
+    sessions_mod.register_scan(sessao_id, "ANT002")  # 2ª antena — falta só 1, aceita direto, atinge máximo
     result = sessions_mod.register_scan(sessao_id, "ANT003")  # 3ª — rejeitado
     assert result["resultado"] == "rejeitado"
     assert "quantidade máxima" in result["mensagem"]
@@ -125,7 +133,8 @@ def test_register_scan_quantidade_excedida():
 def test_register_scan_duplicata_na_sessao():
     """Mesmo patrimônio não pode ser bipado duas vezes na mesma sessão."""
     sessao_id = sessions_mod.start_session(1, 1)
-    sessions_mod.register_scan(sessao_id, "ANT001")
+    sessions_mod.register_scan(sessao_id, "ANT001")  # fica pendente (exigido=2)
+    sessions_mod.confirmar_quantidade(sessao_id, "ANT001", 1)  # confirma 1 unidade — aceito
     result = sessions_mod.register_scan(sessao_id, "ANT001")
     assert result["resultado"] == "rejeitado"
     assert "já foi bipado" in result["mensagem"]
@@ -143,9 +152,10 @@ def test_validate_kit_incompleto():
 
 def test_validate_kit_completo():
     sessao_id = sessions_mod.start_session(1, 1)
-    sessions_mod.register_scan(sessao_id, "ANT001")
-    sessions_mod.register_scan(sessao_id, "ANT002")
-    sessions_mod.register_scan(sessao_id, "CAB001")
+    sessions_mod.register_scan(sessao_id, "ANT001")  # fica pendente (exigido=2)
+    sessions_mod.confirmar_quantidade(sessao_id, "ANT001", 1)  # confirma 1ª antena
+    sessions_mod.register_scan(sessao_id, "ANT002")  # falta só 1, aceita direto — 2ª antena
+    sessions_mod.register_scan(sessao_id, "CAB001")  # cabo exige 1 — aceita direto
     result = sessions_mod.validate_kit_complete(sessao_id)
     assert result["status"] == "completo"
     assert result["itens_faltantes"] == []
