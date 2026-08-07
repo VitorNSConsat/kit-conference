@@ -18,6 +18,7 @@ PERMISSOES = {
     "producao_nota_fiscal": "Editar Nota Fiscal na Produção",
     "pedidos_criar_editar": "Criar/editar Pedidos",
     "itens_apagar": "Apagar itens do catálogo",
+    "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
 }
 
 

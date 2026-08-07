@@ -1463,6 +1463,17 @@ async def session_imprimir_pausa(request: Request, sessao_id: int):
     return RedirectResponse(f"/session/{sessao_id}?ok=etiqueta_pausa", status_code=302)
 
 
+@app.post("/session/{sessao_id}/item/{item_id}/remover")
+@require_permission("bipagem_excluir_item")
+async def session_remover_item(request: Request, sessao_id: int, item_id: int):
+    resultado = sessions_mod.remover_item(sessao_id, item_id)
+    if resultado["resultado"] != "item_removido":
+        return RedirectResponse(
+            f"/session/{sessao_id}?erro=" + quote(resultado["mensagem"]), status_code=302
+        )
+    return RedirectResponse(f"/session/{sessao_id}?ok=item_removido", status_code=302)
+
+
 @app.get("/print-queue/pausa/{pq_id}/etiqueta")
 @require_login
 async def print_queue_pausa_html_label(request: Request, pq_id: int):

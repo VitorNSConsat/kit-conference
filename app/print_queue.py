@@ -12,7 +12,7 @@ def adicionar(kit_id: str, zpl: str, solicitado_por: int):
 def listar_aguardando() -> list:
     with db() as conn:
         rows = conn.execute(
-            "SELECT pq.*, kr.kit_template_id, kt.nome AS kit_nome, kt.cliente, "
+            "SELECT pq.*, kr.kit_template_id, kr.veiculo, kr.garagem, kt.nome AS kit_nome, kt.cliente, "
             "u.nome AS solicitado_por_nome "
             "FROM print_queue pq "
             "JOIN kit_record kr ON kr.kit_id = pq.kit_id "

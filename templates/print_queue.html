@@ -30,7 +30,8 @@
             </td>
             {% else %}
             <td>
-                <div style="font-weight:600;">{{ item.kit_nome }}</div>
+                <div style="font-weight:600;">{{ item.veiculo or item.kit_nome }}</div>
+                <div style="font-size:11px;color:#888;">{{ item.kit_nome }}</div>
                 <div style="font-family:monospace;font-size:10px;color:#aaa;">{{ item.kit_id[:12] }}…</div>
             </td>
             {% endif %}

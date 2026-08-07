@@ -869,7 +869,7 @@ def listar_itens_por_operador(sessao_id: int) -> list[dict]:
     agrupadas sob a chave None, nome "Sem operador registrado"."""
     with db() as conn:
         rows = conn.execute(
-            "SELECT ssi.operador_id, u.nome AS operador_nome, "
+            "SELECT ssi.id, ssi.operador_id, u.nome AS operador_nome, "
             "it.nome AS descricao, ssi.codigo_barra, ssi.bipado_em "
             "FROM scan_session_items ssi "
             "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
@@ -891,11 +891,81 @@ def listar_itens_por_operador(sessao_id: int) -> list[dict]:
             }
             ordem.append(op_id)
         grupos[op_id]["itens"].append({
+            "id": r["id"],
             "descricao": r["descricao"],
             "codigo_barra": r["codigo_barra"],
             "bipado_em": r["bipado_em"],
         })
     return [grupos[op_id] for op_id in ordem]
+
+
+def remover_item(sessao_id: int, item_id: int) -> dict:
+    """Remove uma bipagem específica (uma linha só, não o lote inteiro) de
+    uma sessão ainda em andamento — corrige item errado, quantidade errada
+    ou metro errado sem precisar desfazer tudo que veio depois.
+
+    Se o código bipado tiver o prefixo "ESTOQUE:<codigo>:<seq>" (item veio
+    de uma caixa de estoque vinculada, register_scan grava assim), devolve
+    1 unidade ao estoque de origem automaticamente. Casar isso por
+    timestamp (mesmo instante) seria arriscado — o relógio só tem precisão
+    de segundo, então duas bipagens diferentes no mesmo segundo fariam o
+    estorno acertar o movimento errado. O prefixo identifica a origem sem
+    ambiguidade, então só ele decide se estorna ou não."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return {"resultado": "rejeitado", "mensagem": "Sessão inválida ou já encerrada."}
+
+    with db() as conn:
+        item = conn.execute(
+            "SELECT * FROM scan_session_items "
+            "WHERE id = ? AND sessao_id = ? AND status = 'completo'",
+            (item_id, sessao_id)
+        ).fetchone()
+    if not item:
+        return {"resultado": "rejeitado", "mensagem": "Item não encontrado nesta sessão."}
+    item = dict(item)
+
+    with db() as conn:
+        conn.execute("DELETE FROM scan_session_items WHERE id = ?", (item_id,))
+
+    # Só tenta estornar quando dá pra identificar o estoque de origem sem
+    # ambiguidade — pelo prefixo "ESTOQUE:<codigo>:<seq>" que register_scan
+    # grava quando o item veio de uma caixa de estoque vinculada. Casar por
+    # timestamp (mesmo segundo) é arriscado demais: duas bipagens dentro do
+    # mesmo segundo (comum, o timestamp só tem precisão de segundo) fariam
+    # o estorno pegar o movimento de estoque errado.
+    estoque_ajustado = False
+    partes = item["codigo_barra"].split(":")
+    if len(partes) >= 3 and partes[0] == "ESTOQUE":
+        codigo_estoque = ":".join(partes[1:-1])
+        est = estoque_mod.buscar_por_referencia(codigo_estoque)
+        if est:
+            estoque_mod.repor_estoque(
+                est["id"], 1, item.get("operador_id") or session["operador_id"],
+                observacao=f"Estorno automático — exclusão de bipagem (sessão {sessao_id})"
+            )
+            estoque_ajustado = True
+
+    with db() as conn:
+        tipo_row = conn.execute(
+            "SELECT nome FROM item_tipo WHERE id = ?", (item["item_tipo_id"],)
+        ).fetchone()
+    descricao = tipo_row["nome"] if tipo_row else "?"
+
+    itens_template = templates_mod.get_itens_template(session["kit_template_id"])
+    template_item = next(
+        (i for i in itens_template if i["item_tipo_id"] == item["item_tipo_id"]), None
+    )
+    contagem = get_contagem(sessao_id)
+
+    return {
+        "resultado": "item_removido",
+        "mensagem": (f"🗑 Bipagem de '{descricao}' removida."
+                     + (" Estoque devolvido." if estoque_ajustado else "")),
+        "item_tipo_id": item["item_tipo_id"],
+        "contagem_atual": contagem.get(item["item_tipo_id"], 0),
+        "quantidade_exigida": template_item["quantidade_exigida"] if template_item else 0,
+    }
 
 
 def operadores_da_sessao(sessao_id: int) -> list[dict]:
