@@ -89,10 +89,11 @@
 
 <!-- ── Menu de abas ──────────────────────────────────────────────────────── -->
 <div class="tabs-menu">
-    <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📋 Catálogo</button>
+    <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📦 Estoque</button>
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
     <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
     <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🔁 Códigos Gerados</button>
+    <button type="button" class="tab-btn" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">📦 Sobressalentes</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -318,25 +319,6 @@
                             <input type="number" name="quantidade" value="1" min="1"
                                    style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
                             <button type="submit" class="btn btn-sm btn-success" style="flex:1;padding:6px 12px;">+ Repor</button>
-                        </form>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">📦 Enviar Sobressalente</label>
-                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Desconta do estoque atual ({{ est.quantidade_atual }}) e registra pra qual cliente foi</div>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/sobressalente" style="display:flex;flex-direction:column;gap:6px;">
-                            <div style="display:flex;gap:6px;">
-                                <input type="number" name="quantidade" value="1" min="1"
-                                       style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
-                                <select name="cliente" required style="flex:1;margin-bottom:0;">
-                                    <option value="">— cliente —</option>
-                                    {% for c in clientes %}
-                                    <option value="{{ c.nome }}">{{ c.nome }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <input type="text" name="observacao" placeholder="Observação (opcional)"
-                                   style="margin-bottom:0;font-size:12px;padding:6px 8px;">
-                            <button type="submit" class="btn btn-sm btn-warning" style="padding:6px 12px;">📦 Enviar Sobressalente</button>
                         </form>
                     </div>
                     <div style="margin-bottom:12px;">
@@ -579,7 +561,7 @@
             Toda etiqueta impressa pela seção "🏷️ Gerar Códigos" (topo da página) fica listada
             aqui. Marque como reciclável os códigos que são reaproveitados em mais de um kit —
             isso libera automaticamente o tipo do item para ser bipado em vários kits ativos
-            ao mesmo tempo (equivale a marcar "Reutilizável" no Catálogo).
+            ao mesmo tempo (equivale a marcar "Reutilizável" no Estoque).
         </p>
         {% if codigos_gerados %}
         <input type="text" class="busca-box" placeholder="🔍 Buscar código..."
@@ -614,6 +596,94 @@
             {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- ── Aba: Sobressalentes ──────────────────────────────────────────────── -->
+<div id="tab-sobressalentes" class="tab-panel" style="display:none;">
+    <div class="card">
+        <h2 style="margin-bottom:4px;">📦 Peças Sobressalentes</h2>
+        <p style="color:#666;font-size:13px;margin-top:0;">
+            Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza.
+            Escolha o cliente pra ver o que já foi enviado e registrar um novo envio.
+        </p>
+        <form method="get" action="/admin/items" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
+            <input type="hidden" name="tab" value="sobressalentes">
+            <div class="form-group" style="margin:0;min-width:220px;">
+                <label>Cliente</label>
+                <select name="cliente" onchange="this.form.submit()" required>
+                    <option value="">— selecione —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.nome }}" {{ 'selected' if sobressalente_cliente == c.nome }}>{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if sobressalente_cliente %}
+            <div class="form-group" style="margin:0;">
+                <label>De</label>
+                <input type="date" name="data_ini" value="{{ sobressalente_data_ini }}">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>Até</label>
+                <input type="date" name="data_fim" value="{{ sobressalente_data_fim }}">
+            </div>
+            <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+            {% endif %}
+        </form>
+
+        {% if sobressalente_cliente %}
+        <div style="background:#f7f7f7;border-radius:8px;padding:14px;margin-bottom:20px;">
+            <h3 style="margin:0 0 10px;font-size:14px;">➕ Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
+            <form method="post" action="/admin/sobressalente" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                <input type="hidden" name="cliente" value="{{ sobressalente_cliente }}">
+                <div class="form-group" style="margin:0;min-width:240px;">
+                    <label>Item</label>
+                    <select name="estoque_id" required style="margin:0;">
+                        <option value="">— selecione o item —</option>
+                        {% for e in estoque_itens %}
+                        <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }}) — {{ e.quantidade_atual }} em estoque</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Quantidade</label>
+                    <input type="number" name="quantidade" value="1" min="1" style="width:90px;margin:0;text-align:center;" required>
+                </div>
+                <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                    <label>Observação (opcional)</label>
+                    <input type="text" name="observacao" style="margin:0;">
+                </div>
+                <button type="submit" class="btn btn-warning">📦 Enviar</button>
+            </form>
+        </div>
+
+        <h3 style="font-size:14px;margin-bottom:8px;">Itens Enviados pra {{ sobressalente_cliente }} ({{ sobressalente_itens_enviados | length }})</h3>
+        {% if sobressalente_itens_enviados %}
+        <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr><th>Data</th><th>Código</th><th>Nome</th><th>Quantidade</th><th>Enviado Por</th><th>Observação</th></tr>
+            </thead>
+            <tbody>
+            {% for r in sobressalente_itens_enviados %}
+            <tr>
+                <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
+                <td style="font-family:monospace;font-size:12px;">{{ r.codigo_barra }}</td>
+                <td><strong>{{ r.tipo_nome }}</strong></td>
+                <td>{{ r.quantidade }}</td>
+                <td>{{ r.operador_nome or '—' }}</td>
+                <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="color:#888;text-align:center;padding:16px;">Nenhum sobressalente enviado pra {{ sobressalente_cliente }} nesse período.</p>
+        {% endif %}
+        {% else %}
+        <p style="color:#888;text-align:center;padding:24px;">Selecione um cliente acima pra ver e registrar envios.</p>
+        {% endif %}
     </div>
 </div>
 
@@ -753,7 +823,7 @@ function mudarTab(nome) {
     // qual aba estava em uso.
     const tabServidor = "{{ tab_ativo or '' }}";
     const tabInicial = params.get('tab') || tabServidor || 'catalogo';
-    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos'].includes(tabInicial) ? tabInicial : 'catalogo');
+    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos', 'sobressalentes'].includes(tabInicial) ? tabInicial : 'catalogo');
 })();
 </script>
 {% endblock %}

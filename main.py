@@ -670,8 +670,10 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
 
-def _admin_items_context() -> dict:
-    return {
+def _admin_items_context(sobressalente_cliente: str = "",
+                         sobressalente_data_ini: str = "",
+                         sobressalente_data_fim: str = "") -> dict:
+    ctx = {
         "itens": items_mod.listar_itens(),
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
@@ -679,13 +681,22 @@ def _admin_items_context() -> dict:
         "estoque_itens": estoque_mod.listar_estoque(),
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
         "clientes": clientes_mod.listar(),
+        "sobressalente_cliente": sobressalente_cliente,
+        "sobressalente_data_ini": sobressalente_data_ini,
+        "sobressalente_data_fim": sobressalente_data_fim,
+        "sobressalente_itens_enviados": [],
     }
+    if sobressalente_cliente:
+        ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
+            sobressalente_data_ini, sobressalente_data_fim, sobressalente_cliente
+        )
+    return ctx
 
 
 @app.get("/admin/items", response_class=HTMLResponse)
 @require_login
-async def admin_items(request: Request):
-    return render(request, "admin_items.html", _admin_items_context())
+async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = ""):
+    return render(request, "admin_items.html", _admin_items_context(cliente, data_ini, data_fim))
 
 
 @app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)
@@ -2083,6 +2094,28 @@ async def reports_exportar_todos(request: Request,
             ws3.column_dimensions[col].width = w
         ws3.freeze_panes = "A2"
 
+    # ── Aba Sobressalentes (peças extras enviadas, mesmo período do filtro) ────
+    sobressalentes = estoque_mod.listar_sobressalentes(data_ini, data_fim)
+    if sobressalentes:
+        ws4 = wb.create_sheet("Sobressalentes")
+        for col, h in enumerate(
+            ["Data", "Item", "Código", "Quantidade", "Cliente", "Enviado Por", "Observação"], 1):
+            hdr_cell(ws4, 1, col, h)
+        for i, r in enumerate(sobressalentes, 2):
+            ws4.cell(i, 1, (r["criado_em"] or "")[:16])
+            ws4.cell(i, 2, r["tipo_nome"])
+            ws4.cell(i, 3, r["codigo_barra"])
+            ws4.cell(i, 4, r["quantidade"])
+            ws4.cell(i, 5, r["cliente"])
+            ws4.cell(i, 6, r["operador_nome"] or "")
+            ws4.cell(i, 7, r["observacao"] or "")
+            if i % 2 == 0:
+                for col in range(1, 8):
+                    ws4.cell(i, col).fill = PatternFill("solid", fgColor=cinza)
+        for col, w in zip("ABCDEFG", (17, 28, 18, 12, 22, 22, 40)):
+            ws4.column_dimensions[col].width = w
+        ws4.freeze_panes = "A2"
+
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -2624,21 +2657,23 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     return RedirectResponse("/admin/items?ok=reposto", status_code=302)
 
 
-@app.post("/admin/estoque/{estoque_id}/sobressalente")
+@app.post("/admin/sobressalente")
 @require_permission("estoque_editar")
-async def admin_estoque_sobressalente(request: Request, estoque_id: int):
+async def admin_sobressalente_enviar(request: Request):
     user = get_current_user(request)
     form = await request.form()
+    estoque_id = int(form.get("estoque_id", 0) or 0)
     quantidade = max(1, int(form.get("quantidade", 1) or 1))
     cliente = str(form.get("cliente", "")).strip()
     observacao = str(form.get("observacao", "")).strip()
+    destino = f"/admin/items?tab=sobressalentes&cliente={quote(cliente)}"
     try:
         estoque_mod.registrar_sobressalente(estoque_id, quantidade, cliente, user["id"], observacao)
     except ValueError as e:
         return RedirectResponse(
-            "/admin/items?erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
+            destino + "&erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
             status_code=302)
-    return RedirectResponse("/admin/items?ok=sobressalente", status_code=302)
+    return RedirectResponse(destino + "&ok=sobressalente", status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/corrigir")
