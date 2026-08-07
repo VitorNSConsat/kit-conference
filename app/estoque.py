@@ -124,6 +124,68 @@ def registrar_saida(estoque_id: int, quantidade: int,
         )
 
 
+def registrar_sobressalente(estoque_id: int, quantidade: int, cliente: str,
+                            criado_por: int, observacao: str = "") -> None:
+    """Baixa manual de peça sobressalente enviada numa instalação — fora do
+    que o kit bipado já contabiliza. Desconta do estoque e grava o cliente,
+    pra dar pra consultar depois em Relatórios quanto já foi enviado de
+    sobressalente pra cada um. Bloqueia se não tiver saldo suficiente (ação
+    deliberada de escritório, não bipagem em campo — vale travar e pedir
+    pra corrigir o estoque antes, ao contrário do desconto automático do
+    kit que prefere deixar negativo a travar o operador)."""
+    cliente = cliente.strip()
+    if not cliente:
+        raise ValueError("Informe o cliente.")
+    if quantidade <= 0:
+        raise ValueError("Quantidade deve ser maior que zero.")
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT quantidade_atual FROM estoque WHERE id = ?", (estoque_id,)
+        ).fetchone()
+        if atual is None:
+            raise ValueError("Item de estoque não encontrado.")
+        if atual["quantidade_atual"] < quantidade:
+            raise ValueError(
+                f"Estoque insuficiente ({atual['quantidade_atual']} disponíveis, "
+                f"{quantidade} necessários)."
+            )
+        conn.execute(
+            "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
+            (quantidade, estoque_id)
+        )
+        conn.execute(
+            "INSERT INTO estoque_movimentos "
+            "(estoque_id, tipo, quantidade, cliente, criado_por, observacao, criado_em) "
+            "VALUES (?, 'sobressalente', ?, ?, ?, ?, ?)",
+            (estoque_id, quantidade, cliente, criado_por, observacao.strip() or None, now_brt())
+        )
+
+
+def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str = "") -> list[dict]:
+    query = (
+        "SELECT em.*, e.codigo_barra, it.nome AS tipo_nome, u.nome AS operador_nome "
+        "FROM estoque_movimentos em "
+        "JOIN estoque e ON e.id = em.estoque_id "
+        "JOIN item_tipo it ON it.id = e.item_tipo_id "
+        "LEFT JOIN users u ON u.id = em.criado_por "
+        "WHERE em.tipo = 'sobressalente'"
+    )
+    params: list = []
+    if data_ini:
+        query += " AND DATE(em.criado_em) >= ?"
+        params.append(data_ini)
+    if data_fim:
+        query += " AND DATE(em.criado_em) <= ?"
+        params.append(data_fim)
+    if cliente:
+        query += " AND em.cliente = ?"
+        params.append(cliente)
+    query += " ORDER BY em.criado_em DESC"
+    with db() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
+
+
 def reverter_saidas_sessao(sessao_id: int) -> None:
     """Restaura estoque das saídas de uma sessão cancelada."""
     with db() as conn:

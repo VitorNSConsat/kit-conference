@@ -678,6 +678,7 @@ def _admin_items_context() -> dict:
         "codigos_gerados": codigos_gerados_mod.listar(),
         "estoque_itens": estoque_mod.listar_estoque(),
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
+        "clientes": clientes_mod.listar(),
     }
 
 
@@ -2191,6 +2192,69 @@ async def reports_validacoes_export(request: Request,
     )
 
 
+@app.get("/reports/sobressalentes", response_class=HTMLResponse)
+@require_permission("ver_relatorios")
+async def reports_sobressalentes(request: Request,
+                                 data_ini: str = "",
+                                 data_fim: str = "",
+                                 cliente: str = ""):
+    rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
+    return render(request, "reports_sobressalentes.html", {
+        "rows": rows,
+        "clientes": clientes_mod.listar(),
+        "data_ini": data_ini,
+        "data_fim": data_fim,
+        "cliente": cliente,
+    })
+
+
+@app.get("/reports/sobressalentes/export")
+@require_permission("ver_relatorios")
+async def reports_sobressalentes_export(request: Request,
+                                        data_ini: str = "",
+                                        data_fim: str = "",
+                                        cliente: str = ""):
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
+
+    azul, branco = "1A3A5C", "FFFFFF"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sobressalentes"
+
+    headers = ["Data", "Item", "Código", "Quantidade", "Cliente", "Enviado Por", "Observação"]
+    widths = [17, 28, 18, 12, 22, 22, 40]
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        c = ws.cell(row=1, column=col, value=h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[ws.cell(1, col).column_letter].width = w
+
+    for i, r in enumerate(rows, 2):
+        ws.cell(i, 1, (r["criado_em"] or "")[:16])
+        ws.cell(i, 2, r["tipo_nome"])
+        ws.cell(i, 3, r["codigo_barra"])
+        ws.cell(i, 4, r["quantidade"])
+        ws.cell(i, 5, r["cliente"])
+        ws.cell(i, 6, r["operador_nome"] or "")
+        ws.cell(i, 7, r["observacao"] or "")
+
+    ws.freeze_panes = "A2"
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=sobressalentes.xlsx"},
+    )
+
+
 # ── Prateleira ────────────────────────────────────────────────────────────────
 
 def _prateleira_context() -> dict:
@@ -2558,6 +2622,23 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     observacao = form.get("observacao", "").strip()
     estoque_mod.repor_estoque(estoque_id, quantidade, user["id"], observacao)
     return RedirectResponse("/admin/items?ok=reposto", status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/sobressalente")
+@require_permission("estoque_editar")
+async def admin_estoque_sobressalente(request: Request, estoque_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    quantidade = max(1, int(form.get("quantidade", 1) or 1))
+    cliente = str(form.get("cliente", "")).strip()
+    observacao = str(form.get("observacao", "")).strip()
+    try:
+        estoque_mod.registrar_sobressalente(estoque_id, quantidade, cliente, user["id"], observacao)
+    except ValueError as e:
+        return RedirectResponse(
+            "/admin/items?erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
+            status_code=302)
+    return RedirectResponse("/admin/items?ok=sobressalente", status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/corrigir")

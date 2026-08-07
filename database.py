@@ -84,6 +84,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_scan_session = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session)").fetchall()}
         colunas_veiculos = {r["name"] for r in conn.execute("PRAGMA table_info(veiculos)").fetchall()}
         colunas_scan_session_items = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session_items)").fetchall()}
+        colunas_estoque_movimentos = {r["name"] for r in conn.execute("PRAGMA table_info(estoque_movimentos)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -101,6 +102,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "liberado_em" not in colunas_veiculos
         or "producao_sequencia" not in tabelas
         or "operador_id" not in colunas_scan_session_items
+        or "cliente" not in colunas_estoque_movimentos
     )
     if not pendente:
         return None
@@ -445,6 +447,11 @@ def init_db():
             # Nullable: linhas bipadas antes desta coluna existir ficam sem
             # atribuição (aparecem como "Sem operador registrado").
             "ALTER TABLE scan_session_items ADD COLUMN operador_id INTEGER REFERENCES users(id)",
+            # Cliente vinculado a uma baixa de estoque do tipo 'sobressalente'
+            # — peça extra enviada numa instalação, fora do que o kit já
+            # bipado contabiliza. Nula pra todo o resto dos tipos de
+            # movimento (entrada, saida, correcao, etc).
+            "ALTER TABLE estoque_movimentos ADD COLUMN cliente TEXT",
         ]:
             try:
                 conn.execute(stmt)

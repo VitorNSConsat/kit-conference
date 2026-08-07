@@ -3,9 +3,14 @@
 {% block content %}
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
   <h1 style="margin:0;">Relatório de Kits Finalizados</h1>
-  <a href="/reports/validacoes" class="btn btn-primary">
-    📋 Relatório de Verificações
-  </a>
+  <div style="display:flex; gap:8px;">
+    <a href="/reports/validacoes" class="btn btn-primary">
+      📋 Relatório de Verificações
+    </a>
+    <a href="/reports/sobressalentes" class="btn btn-primary">
+      📦 Sobressalentes Enviados
+    </a>
+  </div>
 </div>
 
 {% if ok == 'reimpresso' %}

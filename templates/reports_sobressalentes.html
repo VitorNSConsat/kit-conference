@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Sobressalentes Enviados{% endblock %}
+{% block content %}
+<h1>📦 Sobressalentes Enviados</h1>
+<p style="color:#666;font-size:13px;margin-bottom:16px;">
+  Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza —
+  cada envio desconta do estoque na hora e fica registrado aqui.
+</p>
+
+<div class="card">
+  <h2>Filtros</h2>
+  <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="form-group" style="margin:0;">
+      <label>Data inicial</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Data final</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Cliente</label>
+      <select name="cliente">
+        <option value="">— todos —</option>
+        {% for c in clientes %}
+        <option value="{{ c.nome }}" {{ 'selected' if cliente == c.nome }}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <a href="/reports/sobressalentes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}&cliente={{ cliente }}"
+       class="btn btn-success">📥 Exportar Excel</a>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Envios ({{ rows | length }})</h2>
+  {% if rows %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Item</th>
+        <th>Quantidade</th>
+        <th>Cliente</th>
+        <th>Enviado Por</th>
+        <th>Observação</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td style="white-space:nowrap;">{{ r.criado_em[:16] }}</td>
+      <td><strong>{{ r.tipo_nome }}</strong><br>
+          <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.codigo_barra }}</span>
+      </td>
+      <td>{{ r.quantidade }}</td>
+      <td>{{ r.cliente }}</td>
+      <td>{{ r.operador_nome or '—' }}</td>
+      <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">
+    Nenhum sobressalente enviado ainda pra esses filtros.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

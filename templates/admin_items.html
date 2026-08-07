@@ -34,6 +34,8 @@
 <div class="alert alert-success">Estoque reposto com sucesso.</div>
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
+{% elif request.query_params.get('ok') == 'sobressalente' %}
+<div class="alert alert-success">📦 Sobressalente registrado e descontado do estoque.</div>
 {% elif request.query_params.get('importado') %}
 <div class="alert alert-success">
     Importação concluída: <strong>{{ request.query_params.get('importado') }} tipo(s) criado(s)</strong>
@@ -316,6 +318,25 @@
                             <input type="number" name="quantidade" value="1" min="1"
                                    style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
                             <button type="submit" class="btn btn-sm btn-success" style="flex:1;padding:6px 12px;">+ Repor</button>
+                        </form>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">📦 Enviar Sobressalente</label>
+                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Desconta do estoque atual ({{ est.quantidade_atual }}) e registra pra qual cliente foi</div>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/sobressalente" style="display:flex;flex-direction:column;gap:6px;">
+                            <div style="display:flex;gap:6px;">
+                                <input type="number" name="quantidade" value="1" min="1"
+                                       style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
+                                <select name="cliente" required style="flex:1;margin-bottom:0;">
+                                    <option value="">— cliente —</option>
+                                    {% for c in clientes %}
+                                    <option value="{{ c.nome }}">{{ c.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <input type="text" name="observacao" placeholder="Observação (opcional)"
+                                   style="margin-bottom:0;font-size:12px;padding:6px 8px;">
+                            <button type="submit" class="btn btn-sm btn-warning" style="padding:6px 12px;">📦 Enviar Sobressalente</button>
                         </form>
                     </div>
                     <div style="margin-bottom:12px;">
