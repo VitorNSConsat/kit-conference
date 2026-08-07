@@ -1,19 +1,29 @@
-from passlib.context import CryptContext
+import bcrypt
 from functools import wraps
 from fastapi import Request
 from fastapi.responses import RedirectResponse, HTMLResponse
 from database import db
 import app.permissoes as permissoes_mod
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt só considera os 72 primeiros bytes da senha — trunca aqui pra evitar
+# que versões novas da lib rejeitem com ValueError (versões antigas, e o
+# passlib que usávamos antes, truncavam sozinhas sem reclamar).
+_BCRYPT_MAX_BYTES = 72
+
+
+def _preparar(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_preparar(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    return pwd_context.verify(password, hashed)
+    try:
+        return bcrypt.checkpw(_preparar(password), hashed.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def get_current_user(request: Request):
