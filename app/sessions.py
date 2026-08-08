@@ -17,6 +17,18 @@ def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, cr
         estoque_mod.registrar_saida(est["id"], 1, sessao_id, criado_por)
 
 
+def _aviso_quantidade(template_item: dict | None) -> str:
+    """Lembrete anexado à mensagem de aceite pra item que exige mais de 1
+    unidade e não é saquinho (componente_codigo) — saquinho já tem seu
+    próprio fluxo de conferência de quantidades, não precisa do aviso
+    extra. Ajuda o operador a não perder a conta em itens bipados um a um."""
+    if not template_item or template_item.get("componente_codigo"):
+        return ""
+    if (template_item.get("quantidade_exigida") or 0) <= 1:
+        return ""
+    return " ⚠️ Confira se a quantidade bipada está correta."
+
+
 def deletar_kit_record(kit_id: str):
     """Remove um kit finalizado e todos os dados vinculados em cascade."""
     with db() as conn:
@@ -139,7 +151,8 @@ def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None 
 
     return {
         "resultado": "aceito",
-        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})",
+        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})"
+                    + _aviso_quantidade(template_item),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": pendente["codigo_barra"],
@@ -243,7 +256,7 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operado
     novo_atual = atual + 1
     return {
         "resultado": "aceito",
-        "mensagem": f"'{pendente['descricao']}' aceito. ({novo_atual}/{exigido})",
+        "mensagem": f"'{pendente['descricao']}' aceito. ({novo_atual}/{exigido})" + _aviso_quantidade(template_item),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_patrimonio,
@@ -674,7 +687,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
     novo_atual = atual + 1
     return {
         "resultado": "aceito",
-        "mensagem": f"'{item['descricao']}' aceito. ({novo_atual}/{exigido})",
+        "mensagem": f"'{item['descricao']}' aceito. ({novo_atual}/{exigido})" + _aviso_quantidade(template_item),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
@@ -738,7 +751,8 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str, opera
     motivo_texto = motivo.strip() or "—"
     return {
         "resultado": "aceito",
-        "mensagem": f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})",
+        "mensagem": (f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})"
+                    + _aviso_quantidade(template_item)),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
@@ -803,7 +817,8 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float, o
     return {
         "resultado": "aceito",
         "mensagem": (f"✅ '{item['descricao']}': {_fmt(quantidade)}{sufixo} {label} adicionado(s). "
-                     f"({_fmt(novo_atual)}{sufixo}/{_fmt(exigido)}{sufixo})"),
+                     f"({_fmt(novo_atual)}{sufixo}/{_fmt(exigido)}{sufixo})"
+                     + _aviso_quantidade(template_item)),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
