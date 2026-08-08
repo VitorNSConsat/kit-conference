@@ -579,7 +579,8 @@ def register_scan(sessao_id: int, codigo_barra: str,
                   if novo_qtd <= est["quantidade_minima"] else "")
         return {
             "resultado": "aceito",
-            "mensagem": f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}",
+            "mensagem": (f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}"
+                        + _aviso_quantidade(template_item)),
             "contagem_atual": qtd,
             "quantidade_exigida": qtd,
             "item_tipo_id": est["item_tipo_id"],
