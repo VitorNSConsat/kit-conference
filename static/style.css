@@ -283,6 +283,31 @@ tr:hover td { background: var(--surface-alt); }
 .scan-event.rejeitado { background: var(--danger-bg); border-color: var(--danger-text); color: var(--danger-text); }
 .scan-event.desconhecido { background: var(--warn-bg); border-color: var(--warn-text); color: var(--warn-text); }
 
+/* Popup "confira a quantidade" — some sozinho depois de 5s */
+#aviso-quantidade-toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    background: #e67e22;
+    color: #fff;
+    padding: 14px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    z-index: 600;
+    max-width: 90vw;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+}
+#aviso-quantidade-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 .scan-buffer {
     font-family: 'Consolas', monospace;
     font-size: 13px;

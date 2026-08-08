@@ -148,11 +148,12 @@ def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None 
     exigido = template_item["quantidade_exigida"] if template_item else 1
     contagem = get_contagem(sessao_id)
     novo_atual = contagem.get(pendente["item_tipo_id"], 0)
+    aviso = _aviso_quantidade(template_item)
 
     return {
         "resultado": "aceito",
-        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})"
-                    + _aviso_quantidade(template_item),
+        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})" + aviso,
+        "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": pendente["codigo_barra"],
@@ -254,9 +255,11 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operado
         }
 
     novo_atual = atual + 1
+    aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
-        "mensagem": f"'{pendente['descricao']}' aceito. ({novo_atual}/{exigido})" + _aviso_quantidade(template_item),
+        "mensagem": f"'{pendente['descricao']}' aceito. ({novo_atual}/{exigido})" + aviso,
+        "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_patrimonio,
@@ -577,10 +580,11 @@ def register_scan(sessao_id: int, codigo_barra: str,
         novo_qtd = est["quantidade_atual"] - qtd
         alerta = (f" ⚠️ Estoque baixo ({novo_qtd} restantes)"
                   if novo_qtd <= est["quantidade_minima"] else "")
+        aviso = _aviso_quantidade(template_item)
         return {
             "resultado": "aceito",
-            "mensagem": (f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}"
-                        + _aviso_quantidade(template_item)),
+            "mensagem": f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}" + aviso,
+            "quantidade_aviso": bool(aviso),
             "contagem_atual": qtd,
             "quantidade_exigida": qtd,
             "item_tipo_id": est["item_tipo_id"],
@@ -686,9 +690,11 @@ def register_scan(sessao_id: int, codigo_barra: str,
         }
 
     novo_atual = atual + 1
+    aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
-        "mensagem": f"'{item['descricao']}' aceito. ({novo_atual}/{exigido})" + _aviso_quantidade(template_item),
+        "mensagem": f"'{item['descricao']}' aceito. ({novo_atual}/{exigido})" + aviso,
+        "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
@@ -750,10 +756,12 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str, opera
 
     novo_atual = atual + 1
     motivo_texto = motivo.strip() or "—"
+    aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
         "mensagem": (f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})"
-                    + _aviso_quantidade(template_item)),
+                    + aviso),
+        "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,
@@ -815,11 +823,13 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float, o
 
     sufixo = "m" if unidade == "m" else ""
     label = "metro(s)" if unidade == "m" else "unidade(s)"
+    aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
         "mensagem": (f"✅ '{item['descricao']}': {_fmt(quantidade)}{sufixo} {label} adicionado(s). "
                      f"({_fmt(novo_atual)}{sufixo}/{_fmt(exigido)}{sufixo})"
-                     + _aviso_quantidade(template_item)),
+                     + aviso),
+        "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": codigo_barra,

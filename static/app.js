@@ -53,6 +53,7 @@ function initScanner(sessaoId) {
             atualizarContagem(data.item_tipo_id, data.contagem_atual, data.quantidade_exigida);
             if (data.serial_number) ocultarBannerSerial();
             ocultarBannerPatrimonioFixo();
+            if (data.quantidade_aviso) mostrarAvisoQuantidade();
         } else if (data.resultado === "componente_pendente") {
             mostrarModalComponente(data);
             return;
@@ -106,6 +107,26 @@ function adicionarEvento(data) {
     div.innerHTML = `<strong>${hora}</strong> — ${data.mensagem}`;
     feed.prepend(div);
     while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+}
+
+// ── Popup de "confira a quantidade" — some sozinho depois de 5s ─────────────
+let _avisoQuantidadeTimer = null;
+
+function mostrarAvisoQuantidade() {
+    let toast = document.getElementById("aviso-quantidade-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "aviso-quantidade-toast";
+        toast.textContent = "⚠️ Confira se a quantidade bipada está correta";
+        document.body.appendChild(toast);
+    }
+    // Reinicia a animação mesmo se já estiver visível (bipagem em sequência)
+    toast.classList.remove("show");
+    void toast.offsetWidth; // força reflow pra reiniciar a transição
+    toast.classList.add("show");
+
+    clearTimeout(_avisoQuantidadeTimer);
+    _avisoQuantidadeTimer = setTimeout(() => toast.classList.remove("show"), 5000);
 }
 
 function _fmtQtd(n) {
