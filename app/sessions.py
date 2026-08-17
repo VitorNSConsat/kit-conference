@@ -31,7 +31,7 @@ def _eh_quantidade_lote(template_item: dict | None) -> bool:
 
 def _aviso_quantidade(template_item: dict | None) -> str:
     """Lembrete anexado à mensagem de aceite pra item que exige mais de 1
-    unidade e não é saquinho (componente_codigo) — saquinho já tem seu
+    unidade e não é conjunto (componente_codigo) — conjunto já tem seu
     próprio fluxo de conferência de quantidades, não precisa do aviso
     extra. Ajuda o operador a não perder a conta em itens bipados um a um."""
     if not template_item or template_item.get("componente_codigo"):
@@ -297,7 +297,7 @@ def desfazer_ultimo_item(sessao_id: int) -> dict:
 
     Remove todas as linhas de scan_session_items que compartilham o mesmo
     'bipado_em' do último item (cobre bipagens em lote de um só evento, como
-    saquinho/componente ou estoque em quantidade) e reverte o desconto de
+    conjunto/componente ou estoque em quantidade) e reverte o desconto de
     estoque vinculado a esse mesmo instante, se houver.
 
     Não mexe em bipagens pendentes (aguardando serial ou patrimônio da
@@ -463,7 +463,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
         itens = [dict(r) for r in itens]
 
     if not itens:
-        return {"resultado": "rejeitado", "mensagem": "Saquinho não encontrado no template."}
+        return {"resultado": "rejeitado", "mensagem": "Conjunto não encontrado no template."}
 
     contagem = get_contagem(sessao_id)
     atualizacoes = []
@@ -512,7 +512,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
     nomes = " + ".join(f"{u['descricao']} ×{u['adicionados']}" for u in adicionados)
     return {
         "resultado": "componente",
-        "mensagem": f"📦 Saquinho '{codigo_barra}': {nomes}",
+        "mensagem": f"📦 Conjunto '{codigo_barra}': {nomes}",
         "codigo_barra": codigo_barra,
         "atualizacoes": atualizacoes,
     }
@@ -973,7 +973,7 @@ def remover_item(sessao_id: int, item_id: int) -> dict:
 
     Se o código bipado tiver o prefixo "ESTOQUE:<codigo>:<seq>" (item veio
     de uma caixa de estoque vinculada, register_scan grava assim) ou
-    "COMP:<saquinho>:<tipo_id>:<seq>" (item veio de um saquinho cujo tipo
+    "COMP:<conjunto>:<tipo_id>:<seq>" (item veio de um conjunto cujo tipo
     tem estoque vinculado, confirmar_componente grava assim), devolve 1
     unidade ao estoque de origem automaticamente. Casar isso por timestamp
     (mesmo instante) seria arriscado — o relógio só tem precisão de
@@ -1010,7 +1010,7 @@ def remover_item(sessao_id: int, item_id: int) -> dict:
         codigo_estoque = ":".join(partes[1:-1])
         est = estoque_mod.buscar_por_referencia(codigo_estoque)
     elif len(partes) >= 4 and partes[0] == "COMP":
-        # Saquinho não guarda um código de estoque no codigo_barra — o
+        # Conjunto não guarda um código de estoque no codigo_barra — o
         # tipo do item já identifica o estoque vinculado sem ambiguidade
         # (estoque.item_tipo_id é único), não precisa parsear mais nada.
         est = estoque_mod.buscar_por_tipo(item["item_tipo_id"])

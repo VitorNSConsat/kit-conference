@@ -105,6 +105,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "cliente" not in colunas_estoque_movimentos
         or "estoque_debitado" not in colunas_scan_session_items
         or "kit_verificacao_itens" not in tabelas
+        or "kit_template_conjuntos" not in tabelas
     )
     if not pendente:
         return None
@@ -166,6 +167,19 @@ def init_db():
                 item_tipo_id INTEGER NOT NULL REFERENCES item_tipo(id),
                 quantidade_exigida INTEGER NOT NULL,
                 obrigatorio BOOLEAN DEFAULT 1
+            );
+
+            -- Configuração por conjunto (grupo de itens com o mesmo
+            -- componente_codigo, dentro de um template). Default (sem linha
+            -- aqui) = verifica em conjunto, igual ao comportamento de
+            -- sempre. Só existe linha pros conjuntos configurados
+            -- explicitamente como exceção (verificação manual item a item).
+            CREATE TABLE IF NOT EXISTS kit_template_conjuntos (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                kit_template_id      INTEGER NOT NULL REFERENCES kit_template(id),
+                componente_codigo    TEXT    NOT NULL,
+                verifica_em_conjunto INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(kit_template_id, componente_codigo)
             );
 
             CREATE TABLE IF NOT EXISTS scan_session (
@@ -468,7 +482,7 @@ def init_db():
             # bipado contabiliza. Nula pra todo o resto dos tipos de
             # movimento (entrada, saida, correcao, etc).
             "ALTER TABLE estoque_movimentos ADD COLUMN cliente TEXT",
-            # Marca se a baixa de estoque de uma linha de saquinho (COMP:)
+            # Marca se a baixa de estoque de uma linha de conjunto (COMP:)
             # já foi aplicada. Linhas antigas nascem com 0 (não sabemos se
             # descontaram — de fato não descontavam, era o bug) e o botão
             # de reconciliação em /admin corrige exatamente essas, marcando

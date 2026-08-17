@@ -9,7 +9,7 @@
     <p style="font-size:13px;color:#666;margin-bottom:12px;">
         Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
         etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
-        saquinho/componente usados na hora de montar um kit.
+        conjunto/componente usados na hora de montar um kit.
     </p>
     <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
         <input type="text" name="texto" required placeholder="Digite o texto ou código"
@@ -37,7 +37,7 @@
 {% elif request.query_params.get('ok') == 'sobressalente' %}
 <div class="alert alert-success">📦 Sobressalente registrado e descontado do estoque.</div>
 {% elif request.query_params.get('ok') == 'reconciliado_vazio' %}
-<div class="alert alert-success">✅ Nenhuma pendência encontrada — todo saquinho já foi debitado do estoque corretamente.</div>
+<div class="alert alert-success">✅ Nenhuma pendência encontrada — todo conjunto já foi debitado do estoque corretamente.</div>
 {% elif request.query_params.get('ok') == 'reconciliado' %}
 <div class="alert alert-success">
     🔧 Estoque corrigido: <strong>{{ request.query_params.get('detalhe') }}</strong>
@@ -111,7 +111,7 @@
                 <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
                 {% if user and user.admin %}
                 <form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
-                      onsubmit="return confirm('Isso vai verificar todos os itens de produção (saquinhos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
+                      onsubmit="return confirm('Isso vai verificar todos os itens de produção (conjuntos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
                     <button type="submit" class="btn btn-sm btn-primary">🔧 Corrigir Estoque de Produção</button>
                 </form>
                 {% endif %}

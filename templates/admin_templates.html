@@ -190,7 +190,7 @@
                 </button>
             </div>
             <p style="font-size:12px;color:#888;margin-bottom:10px;">
-                Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Saquinho</strong> são bipados juntos (ex: parafusos).
+                Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
             </p>
 
             {% if tipos_catalogo %}
@@ -265,6 +265,7 @@
 <div class="tabs-menu">
     <button type="button" class="tab-btn" data-tab="kit" onclick="mudarTabTemplates('kit')">🎁 Kit</button>
     <button type="button" class="tab-btn" data-tab="pedido" onclick="mudarTabTemplates('pedido')">📑 Pedido</button>
+    <button type="button" class="tab-btn" data-tab="conjuntos" onclick="mudarTabTemplates('conjuntos')">🔗 Conjuntos</button>
 </div>
 
 <div id="tab-kit" class="tab-panel">
@@ -272,6 +273,46 @@
 </div>
 <div id="tab-pedido" class="tab-panel" style="display:none;">
     {{ secao_templates('pedido', 'Pedido', templates_pedido, clientes, tipos_catalogo, {}) }}
+</div>
+<div id="tab-conjuntos" class="tab-panel" style="display:none;">
+    <div class="card">
+        <h2 style="margin-top:0;">🔗 Conjuntos</h2>
+        <p style="font-size:13px;color:#666;margin-bottom:14px;">
+            Itens com o mesmo código de conjunto são bipados e conferidos juntos — marcar um deles marca
+            os outros automaticamente. Desligue "Verifica em conjunto" pra um conjunto específico exigir
+            conferência item a item na tela de verificação (exceção, ex: um kit que precisa de checagem manual).
+        </p>
+        {% if conjuntos %}
+        <table>
+            <thead>
+                <tr><th>Kit</th><th>Cliente</th><th>Código do Conjunto</th><th>Itens</th><th>Verifica em conjunto</th></tr>
+            </thead>
+            <tbody>
+                {% for c in conjuntos %}
+                <tr>
+                    <td>{{ c.template_nome }}</td>
+                    <td>{{ c.template_cliente }}</td>
+                    <td style="font-family:monospace;">{{ c.componente_codigo }}</td>
+                    <td style="font-size:13px;color:#555;">{{ c.itens }}</td>
+                    <td>
+                        <form method="post"
+                              action="/admin/templates/{{ c.kit_template_id }}/conjunto/verificar-em-conjunto"
+                              style="margin:0;">
+                            <input type="hidden" name="componente_codigo" value="{{ c.componente_codigo }}">
+                            <input type="hidden" name="verifica" value="{{ '0' if c.verifica_em_conjunto else '1' }}">
+                            <button type="submit" class="btn btn-sm {{ 'btn-success' if c.verifica_em_conjunto else 'btn-warning' }}">
+                                {{ '✅ Em conjunto' if c.verifica_em_conjunto else '🔲 Manual' }}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#aaa;font-size:13px;">Nenhum conjunto configurado ainda — defina um "Código do Conjunto" nos itens de um kit.</p>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -369,7 +410,7 @@ function adicionarTipo(tipo, tipoId, tipoNome, tipoUnidade, requerSerial) {
           `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
           `<input type="number" name="qtd_${i}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
                `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
-          `<label style="font-size:12px;color:#555;">Saquinho</label>` +
+          `<label style="font-size:12px;color:#555;">Conjunto</label>` +
           `<input type="text" name="componente_codigo_${i}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${i}" value="1" checked> Obrigatório` +
@@ -422,7 +463,7 @@ function mudarTabTemplates(nome) {
     const params = new URLSearchParams(window.location.search);
     const tabServidor = "{{ tab_ativo or '' }}";
     const tabInicial = params.get('tab') || tabServidor || 'kit';
-    mudarTabTemplates(['kit', 'pedido'].includes(tabInicial) ? tabInicial : 'kit');
+    mudarTabTemplates(['kit', 'pedido', 'conjuntos'].includes(tabInicial) ? tabInicial : 'kit');
 })();
 </script>
 {% endblock %}

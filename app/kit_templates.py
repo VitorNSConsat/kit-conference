@@ -46,6 +46,50 @@ def get_itens_template(template_id: int) -> list:
     return [dict(r) for r in rows]
 
 
+def listar_todos_conjuntos() -> list[dict]:
+    """Todos os conjuntos (grupos de itens com o mesmo componente_codigo)
+    de todos os templates ativos, pra tela central de configuração — cada
+    linha: template, código do conjunto, itens que contém, e se verifica
+    em conjunto na tela de verificação (default: sim, a menos que exista
+    exceção configurada em kit_template_conjuntos)."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT kti.kit_template_id, kti.componente_codigo, "
+            "GROUP_CONCAT(COALESCE(it.nome, '[Tipo removido]'), ', ') AS itens, "
+            "t.nome AS template_nome, t.cliente AS template_cliente "
+            "FROM kit_template_items kti "
+            "JOIN kit_template t ON t.id = kti.kit_template_id "
+            "LEFT JOIN item_tipo it ON it.id = kti.item_tipo_id "
+            "WHERE kti.componente_codigo IS NOT NULL AND t.ativo = 1 "
+            "GROUP BY kti.kit_template_id, kti.componente_codigo "
+            "ORDER BY t.nome, kti.componente_codigo"
+        ).fetchall()
+        flags = {
+            (r["kit_template_id"], r["componente_codigo"]): bool(r["verifica_em_conjunto"])
+            for r in conn.execute(
+                "SELECT kit_template_id, componente_codigo, verifica_em_conjunto "
+                "FROM kit_template_conjuntos"
+            ).fetchall()
+        }
+    resultado = []
+    for r in rows:
+        d = dict(r)
+        d["verifica_em_conjunto"] = flags.get((d["kit_template_id"], d["componente_codigo"]), True)
+        resultado.append(d)
+    return resultado
+
+
+def definir_verifica_em_conjunto(template_id: int, componente_codigo: str, verifica: bool) -> None:
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO kit_template_conjuntos (kit_template_id, componente_codigo, verifica_em_conjunto) "
+            "VALUES (?, ?, ?) "
+            "ON CONFLICT(kit_template_id, componente_codigo) "
+            "DO UPDATE SET verifica_em_conjunto = excluded.verifica_em_conjunto",
+            (template_id, componente_codigo, 1 if verifica else 0)
+        )
+
+
 def criar_template(nome: str, cliente: str, criado_por: int,
                    itens: list[dict], tipo: str = "kit") -> int:
     tipo = tipo if tipo in ("kit", "pedido") else "kit"

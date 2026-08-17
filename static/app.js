@@ -20,6 +20,7 @@ function initScanner(sessaoId) {
 
     ws.onclose = () => {
         document.getElementById("ws-status").textContent = "🔴 Desconectado — recarregue a página";
+        mostrarPopupReconectar();
     };
 
     ws.onmessage = (event) => {
@@ -127,6 +128,19 @@ function mostrarAvisoQuantidade() {
 
     clearTimeout(_avisoQuantidadeTimer);
     _avisoQuantidadeTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+}
+
+function mostrarPopupReconectar() {
+    let popup = document.getElementById("ws-reconectar-popup");
+    if (!popup) {
+        popup = document.createElement("div");
+        popup.id = "ws-reconectar-popup";
+        popup.innerHTML = "🔴 Conexão perdida — recarregue a página para continuar bipando." +
+            "<button type=\"button\" onclick=\"location.reload()\">🔄 Recarregar agora</button>";
+        document.body.appendChild(popup);
+    }
+    // Não some sozinho — só ao recarregar a página.
+    popup.classList.add("show");
 }
 
 function _fmtQtd(n) {

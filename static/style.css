@@ -1,5 +1,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Alguns navegadores (principalmente Android) detectam números como
+   "31001-12345" como telefone e criam um link azul sozinhos, mesmo com o
+   meta format-detection. Força a cor de volta pra herdar do elemento. */
+a[href^="tel:"], a[href^="sms:"] {
+    color: inherit !important;
+    text-decoration: inherit !important;
+}
+
 :root {
     --bg:          #f5f2ec;
     --surface:     #ffffff;
@@ -306,6 +314,44 @@ tr:hover td { background: var(--surface-alt); }
 #aviso-quantidade-toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* Popup de conexão perdida — não some sozinho, só ao recarregar */
+#ws-reconectar-popup {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    background: var(--danger-text);
+    color: #fff;
+    padding: 16px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    z-index: 700;
+    max-width: 90vw;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+}
+#ws-reconectar-popup.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+#ws-reconectar-popup button {
+    display: block;
+    margin: 10px auto 0;
+    background: #fff;
+    color: var(--danger-text);
+    border: none;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
 }
 
 .scan-buffer {

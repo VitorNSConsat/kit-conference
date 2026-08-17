@@ -703,7 +703,7 @@ async def admin_items(request: Request, cliente: str = "", data_ini: str = "", d
 @require_login
 async def admin_gerar_codigo_etiqueta(request: Request, texto: str = ""):
     """Gera uma etiqueta avulsa (QR + código de barras do mesmo texto livre),
-    sem precisar de um item_tipo ou registro de estoque — para saquinhos e
+    sem precisar de um item_tipo ou registro de estoque — para conjuntos e
     outros códigos de componente definidos na hora de montar um kit."""
     import app.zpl as _zpl
     texto = texto.strip()
@@ -817,6 +817,7 @@ def _admin_templates_context() -> dict:
         "tipos_catalogo": items_mod.listar_tipos(apenas_ativos=True),
         "clientes": clientes_mod.listar(),
         "consumo_resumo": consumo_mod.resumo_todos_kits(),
+        "conjuntos": templates_mod.listar_todos_conjuntos(),
     }
 
 
@@ -827,6 +828,17 @@ async def admin_templates(request: Request):
         **_admin_templates_context(),
         "erro": request.query_params.get("erro"),
     })
+
+
+@app.post("/admin/templates/{template_id}/conjunto/verificar-em-conjunto")
+@require_login
+async def admin_conjunto_verifica(request: Request, template_id: int):
+    form = await request.form()
+    componente_codigo = str(form.get("componente_codigo", "")).strip()
+    verifica = form.get("verifica") == "1"
+    if componente_codigo:
+        templates_mod.definir_verifica_em_conjunto(template_id, componente_codigo, verifica)
+    return RedirectResponse("/admin/templates?tab=conjuntos", status_code=302)
 
 
 @app.post("/admin/templates/import-bom")
@@ -1620,7 +1632,7 @@ async def kit_detail(request: Request, kit_id: str):
     unidades = pedidos_mod.listar_unidades(kit["kit_template_id"]) if kit.get("kit_tipo") == "pedido" else []
     operadores_kit = sessions_mod.operadores_da_sessao(kit["sessao_id"])
     conferidos = validacoes_mod.listar_conferidos(kit_id)
-    grupos = validacoes_mod.grupos_saquinho(kit["kit_template_id"], kit["sessao_id"])
+    grupos = validacoes_mod.grupos_conjunto(kit["kit_template_id"], kit["sessao_id"])
 
     return render(request, "kit_detail.html", {
         "kit": kit,
@@ -1930,7 +1942,7 @@ async def report_excel(request: Request, kit_id: str):
         codigo = item["codigo_barra"]
         if codigo.startswith("COMP:"):
             parts = codigo.split(":", 3)
-            origem = "Saquinho"
+            origem = "Conjunto"
             codigo_display = parts[1] if len(parts) >= 2 else codigo
         else:
             origem = "Bipagem direta"
@@ -2091,7 +2103,7 @@ async def reports_exportar_todos(request: Request,
             codigo = item["codigo_barra"]
             if codigo.startswith("COMP:"):
                 parts = codigo.split(":", 3)
-                origem = "Saquinho"
+                origem = "Conjunto"
                 codigo_display = parts[1] if len(parts) >= 2 else codigo
             else:
                 origem = "Bipagem direta"

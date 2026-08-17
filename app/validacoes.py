@@ -84,12 +84,27 @@ def listar_conferidos(kit_id: str) -> set:
     return {r["item_tipo_id"] for r in rows}
 
 
-def _grupo_saquinho(kit_template_id: int, sessao_id: int, item_tipo_id: int) -> list:
-    """item_tipo_ids do mesmo saquinho que item_tipo_id (mesmo
+def _verifica_em_conjunto(kit_template_id: int, componente_codigo: str) -> bool:
+    """Se esse conjunto (template + código) foi marcado como exceção
+    (verificação manual, item a item) na aba Conjuntos. Sem linha
+    configurada = comportamento padrão, verifica em conjunto."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT verifica_em_conjunto FROM kit_template_conjuntos "
+            "WHERE kit_template_id = ? AND componente_codigo = ?",
+            (kit_template_id, componente_codigo)
+        ).fetchone()
+    return bool(row["verifica_em_conjunto"]) if row else True
+
+
+def _grupo_conjunto(kit_template_id: int, sessao_id: int, item_tipo_id: int) -> list:
+    """item_tipo_ids do mesmo conjunto que item_tipo_id (mesmo
     componente_codigo no template), restrito ao que de fato está presente
-    no kit — inclui o próprio item_tipo_id quando não é saquinho. Um clique
-    num item do saquinho conta como conferir o saquinho inteiro, igual à
-    bipagem (confirmar_componente já trata o saquinho como uma unidade só)."""
+    no kit — inclui o próprio item_tipo_id quando não é conjunto, ou quando
+    o conjunto está marcado pra verificação manual (exceção). Um clique num
+    item do conjunto conta como conferir o conjunto inteiro, igual à
+    bipagem (confirmar_componente já trata o conjunto como uma unidade só)
+    — a menos que a exceção esteja ligada."""
     presentes = tipos_do_kit(sessao_id)
     with db() as conn:
         codigo = conn.execute(
@@ -99,6 +114,8 @@ def _grupo_saquinho(kit_template_id: int, sessao_id: int, item_tipo_id: int) -> 
         ).fetchone()
         if not codigo or not codigo["componente_codigo"]:
             return [item_tipo_id] if item_tipo_id in presentes else []
+        if not _verifica_em_conjunto(kit_template_id, codigo["componente_codigo"]):
+            return [item_tipo_id] if item_tipo_id in presentes else []
         rows = conn.execute(
             "SELECT DISTINCT item_tipo_id FROM kit_template_items "
             "WHERE kit_template_id = ? AND componente_codigo = ?",
@@ -107,10 +124,11 @@ def _grupo_saquinho(kit_template_id: int, sessao_id: int, item_tipo_id: int) -> 
     return [r["item_tipo_id"] for r in rows if r["item_tipo_id"] in presentes]
 
 
-def grupos_saquinho(kit_template_id: int, sessao_id: int) -> dict:
-    """Mapa item_tipo_id -> nomes dos OUTROS tipos do mesmo saquinho (só pra
-    tipos que de fato têm parceiros presentes no kit — usado pra exibir a
-    dica visual 'confere junto com X, Y' no checklist)."""
+def grupos_conjunto(kit_template_id: int, sessao_id: int) -> dict:
+    """Mapa item_tipo_id -> nomes dos OUTROS tipos do mesmo conjunto (só pra
+    tipos que de fato têm parceiros presentes no kit E cujo conjunto não
+    está marcado pra verificação manual — usado pra exibir a dica visual
+    'confere junto com X, Y' no checklist)."""
     presentes = tipos_do_kit(sessao_id)
     with db() as conn:
         rows = conn.execute(
@@ -125,8 +143,8 @@ def grupos_saquinho(kit_template_id: int, sessao_id: int) -> dict:
         if r["item_tipo_id"] in presentes:
             por_codigo.setdefault(r["componente_codigo"], []).append((r["item_tipo_id"], r["nome"]))
     mapa: dict = {}
-    for membros in por_codigo.values():
-        if len(membros) < 2:
+    for codigo, membros in por_codigo.items():
+        if len(membros) < 2 or not _verifica_em_conjunto(kit_template_id, codigo):
             continue
         for tid, _nome in membros:
             mapa[tid] = [nome for outro_id, nome in membros if outro_id != tid]
@@ -135,9 +153,10 @@ def grupos_saquinho(kit_template_id: int, sessao_id: int) -> dict:
 
 def conferir_item(kit_id: str, kit_template_id: int, sessao_id: int,
                   item_tipo_id: int, user_id: int) -> list:
-    """Marca item_tipo_id (e os demais do mesmo saquinho, se houver) como
-    conferidos neste kit. Retorna os item_tipo_ids afetados."""
-    grupo = _grupo_saquinho(kit_template_id, sessao_id, item_tipo_id)
+    """Marca item_tipo_id (e os demais do mesmo conjunto, se houver e se o
+    conjunto não estiver marcado pra verificação manual) como conferidos
+    neste kit. Retorna os item_tipo_ids afetados."""
+    grupo = _grupo_conjunto(kit_template_id, sessao_id, item_tipo_id)
     with db() as conn:
         for tid in grupo:
             conn.execute(
@@ -149,8 +168,9 @@ def conferir_item(kit_id: str, kit_template_id: int, sessao_id: int,
 
 
 def desfazer_item(kit_id: str, kit_template_id: int, sessao_id: int, item_tipo_id: int) -> list:
-    """Desfaz a conferência de item_tipo_id (e do saquinho inteiro junto)."""
-    grupo = _grupo_saquinho(kit_template_id, sessao_id, item_tipo_id)
+    """Desfaz a conferência de item_tipo_id (e do conjunto inteiro junto,
+    quando aplicável)."""
+    grupo = _grupo_conjunto(kit_template_id, sessao_id, item_tipo_id)
     with db() as conn:
         for tid in grupo:
             conn.execute(

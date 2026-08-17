@@ -3,9 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>Kit — {{ kit.kit_nome }}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Alguns navegadores (principalmente Android) detectam números como
+     "31001-12345" como telefone e criam um link azul sozinhos, mesmo com
+     o meta format-detection. Força a cor de volta pra herdar do elemento. */
+  a[href^="tel:"], a[href^="sms:"] {
+    color: inherit !important;
+    text-decoration: inherit !important;
+  }
 
   body {
     font-family: -apple-system, Arial, sans-serif;
@@ -362,7 +371,7 @@
         {% endif %}
         {% if grupos.get(item.item_tipo_id) %}
         <div style="font-size:11px;color:#e67e22;margin-top:3px;font-weight:600;">
-          🔗 saquinho — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
+          🔗 conjunto — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
         </div>
         {% endif %}
       </div>

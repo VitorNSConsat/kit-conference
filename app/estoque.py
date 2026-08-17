@@ -371,9 +371,9 @@ def reconciliar_saidas_producao(criado_por: int) -> list[dict]:
     """Corrige retroativamente o estoque de duas categorias de bug
     histórico, ambas já corrigidas no código a partir de agora:
 
-    1. Saquinho (codigo_barra 'COMP:...') que nunca descontava estoque.
+    1. Conjunto (codigo_barra 'COMP:...') que nunca descontava estoque.
     2. Item de quantidade em lote (metro ou mais de 1 unidade sob um único
-       código, sem saquinho/serial — ex: rolo de cabo) que só descontava 1
+       código, sem conjunto/serial — ex: rolo de cabo) que só descontava 1
        unidade fixa na criação do patrimônio (ou nada, se o patrimônio já
        existia) em vez da quantidade realmente confirmada.
 
@@ -390,7 +390,7 @@ def reconciliar_saidas_producao(criado_por: int) -> list[dict]:
     preciso que o buraco atual (que pode estar faltando dezenas de
     unidades). Retorna um resumo por tipo de item corrigido."""
     with db() as conn:
-        linhas_saquinho = conn.execute(
+        linhas_conjunto = conn.execute(
             "SELECT ssi.id, ssi.item_tipo_id, ssi.quantidade, it.nome AS tipo_nome, e.id AS estoque_id "
             "FROM scan_session_items ssi "
             "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
@@ -413,7 +413,7 @@ def reconciliar_saidas_producao(criado_por: int) -> list[dict]:
             "  AND (COALESCE(it.unidade, 'un') = 'm' OR kti.quantidade_exigida > 1)"
         ).fetchall()
 
-    linhas = [dict(r) for r in linhas_saquinho] + [dict(r) for r in linhas_lote]
+    linhas = [dict(r) for r in linhas_conjunto] + [dict(r) for r in linhas_lote]
     if not linhas:
         return []
 
