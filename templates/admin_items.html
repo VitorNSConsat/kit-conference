@@ -110,9 +110,9 @@
             <div style="display:flex;gap:8px;">
                 <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
                 {% if user and user.admin %}
-                <form method="post" action="/admin/estoque/reconciliar-saquinho" style="margin:0;"
-                      onsubmit="return confirm('Isso vai verificar todos os saquinhos já bipados que ainda não foram descontados do estoque e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
-                    <button type="submit" class="btn btn-sm btn-primary">🔧 Corrigir Estoque de Saquinhos</button>
+                <form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
+                      onsubmit="return confirm('Isso vai verificar todos os itens de produção (saquinhos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
+                    <button type="submit" class="btn btn-sm btn-primary">🔧 Corrigir Estoque de Produção</button>
                 </form>
                 {% endif %}
             </div>

@@ -344,16 +344,29 @@
     </div>
     {% endif %}
 
+    {% if not user %}
+    <div style="font-size:12px;color:#e67e22;font-weight:600;margin-bottom:8px;">
+      🔒 Faça login para conferir os itens.
+    </div>
+    {% endif %}
     {% for item in itens %}
-    <div class="item-row" onclick="toggleItem(this)">
+    {% set is_checked = item.item_tipo_id in conferidos %}
+    <div class="item-row {{ 'checked' if is_checked else '' }}"
+         data-tipo-id="{{ item.item_tipo_id }}"
+         {% if user %}onclick="toggleItem(this)"{% else %}style="cursor:default;opacity:.6;"{% endif %}>
       <div class="item-qtd">{{ item.quantidade }}</div>
       <div class="item-info">
         <div class="item-tipo">{{ item.tipo_nome }}</div>
         {% if item.barcodes %}
         <div class="item-barcodes">{{ item.barcodes }}</div>
         {% endif %}
+        {% if grupos.get(item.item_tipo_id) %}
+        <div style="font-size:11px;color:#e67e22;margin-top:3px;font-weight:600;">
+          🔗 saquinho — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
+        </div>
+        {% endif %}
       </div>
-      <div class="item-check-icon">⬜</div>
+      <div class="item-check-icon">{{ '✅' if is_checked else '⬜' }}</div>
     </div>
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
@@ -406,6 +419,12 @@
 
   {% if ok == 'validado' %}
   <div class="alert-success">✅ Verificação registrada com sucesso.</div>
+  {% endif %}
+
+  {% if erro == 'itens_pendentes' %}
+  <div class="alert-success" style="background:#fdecea;color:#a33;border-color:#f5c6cb;">
+    ⚠️ Marque todos os itens do checklist antes de confirmar a verificação.
+  </div>
   {% endif %}
 
   <!-- Verificação -->
@@ -470,11 +489,34 @@
 
 <script>
 const totalItens = {{ itens | length }};
+const kitId = "{{ kit.kit_id }}";
 
-function toggleItem(row) {
-  row.classList.toggle('checked');
-  const icon = row.querySelector('.item-check-icon');
-  icon.textContent = row.classList.contains('checked') ? '✅' : '⬜';
+function aplicarEstado(tipoId, marcado) {
+  const row = document.querySelector('.item-row[data-tipo-id="' + tipoId + '"]');
+  if (!row) return;
+  row.classList.toggle('checked', marcado);
+  row.querySelector('.item-check-icon').textContent = marcado ? '✅' : '⬜';
+  row.style.opacity = '1';
+}
+
+async function toggleItem(row) {
+  const tipoId = row.dataset.tipoId;
+  const marcar = !row.classList.contains('checked');
+  row.style.opacity = '.6';
+  try {
+    const resp = await fetch(
+      '/kit/' + kitId + '/' + (marcar ? 'conferir-item' : 'desfazer-item'),
+      { method: 'POST', body: new URLSearchParams({ item_tipo_id: tipoId }) }
+    );
+    const data = await resp.json();
+    if (data.ok) {
+      (data.item_tipo_ids || []).forEach((tid) => aplicarEstado(tid, marcar));
+    } else {
+      row.style.opacity = '1';
+    }
+  } catch (e) {
+    row.style.opacity = '1';
+  }
   atualizarProgresso();
 }
 
@@ -496,6 +538,8 @@ function atualizarProgresso() {
     if (wrap)  { wrap.style.opacity = '.45'; wrap.style.pointerEvents = 'none'; }
   }
 }
+
+atualizarProgresso();
 </script>
 
 </body>

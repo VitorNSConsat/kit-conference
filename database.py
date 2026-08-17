@@ -104,6 +104,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "operador_id" not in colunas_scan_session_items
         or "cliente" not in colunas_estoque_movimentos
         or "estoque_debitado" not in colunas_scan_session_items
+        or "kit_verificacao_itens" not in tabelas
     )
     if not pendente:
         return None
@@ -240,6 +241,20 @@ def init_db():
                 validado_por INTEGER NOT NULL REFERENCES users(id),
                 validado_em  TEXT    NOT NULL,
                 observacao   TEXT
+            );
+        """)
+
+        # Checklist por item da verificação de um kit — pré-requisito pra
+        # poder validar. 1 linha = "esse tipo de item, nesse kit, foi
+        # conferido". UNIQUE evita duplicar ao clicar de novo (idempotente).
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS kit_verificacao_itens (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                kit_id        TEXT    NOT NULL REFERENCES kit_record(kit_id),
+                item_tipo_id  INTEGER NOT NULL REFERENCES item_tipo(id),
+                conferido_por INTEGER NOT NULL REFERENCES users(id),
+                conferido_em  TEXT    NOT NULL,
+                UNIQUE(kit_id, item_tipo_id)
             );
         """)
 

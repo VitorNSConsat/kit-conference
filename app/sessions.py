@@ -17,6 +17,18 @@ def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, cr
         estoque_mod.registrar_saida(est["id"], 1, sessao_id, criado_por)
 
 
+def _eh_quantidade_lote(template_item: dict | None) -> bool:
+    """True quando um único código de patrimônio representa uma quantidade
+    em lote (metro ou mais de 1 unidade) em vez de uma peça só — é o
+    critério que dispara o fluxo de 'quantos você está adicionando?'
+    (quantidade_pendente/confirmar_quantidade). Esses itens não descontam
+    estoque na criação do patrimônio (não dá pra saber quanto ainda);
+    o desconto correto acontece só quando a quantidade é confirmada."""
+    if not template_item or template_item.get("componente_codigo") or template_item.get("requer_serial"):
+        return False
+    return template_item.get("unidade") == "m" or (template_item.get("quantidade_exigida") or 0) > 1
+
+
 def _aviso_quantidade(template_item: dict | None) -> str:
     """Lembrete anexado à mensagem de aceite pra item que exige mais de 1
     unidade e não é saquinho (componente_codigo) — saquinho já tem seu
@@ -626,14 +638,19 @@ def register_scan(sessao_id: int, codigo_barra: str,
                 "tipos": tipos,
             }
         itens_template = templates_mod.get_itens_template(session["kit_template_id"])
-        if not any(i["item_tipo_id"] == item_tipo_id for i in itens_template):
+        template_item_novo = next((i for i in itens_template if i["item_tipo_id"] == item_tipo_id), None)
+        if not template_item_novo:
             return {"resultado": "rejeitado",
                     "mensagem": "Tipo selecionado não pertence a este kit."}
         items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
         item = items_mod.buscar_item(codigo_barra)
         item_recem_criado = True
         codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_barra, item_tipo_id)
-        _descontar_estoque_por_patrimonio_novo(item_tipo_id, sessao_id, session["operador_id"])
+        # Item de quantidade em lote (metro/>1 unidade): não desconta aqui —
+        # ainda não se sabe quanto vai ser confirmado. O desconto correto
+        # acontece em confirmar_quantidade, com a quantidade real informada.
+        if not _eh_quantidade_lote(template_item_novo):
+            _descontar_estoque_por_patrimonio_novo(item_tipo_id, sessao_id, session["operador_id"])
         kit_ant = _historico_kit_ativo(codigo_barra)
         if kit_ant:
             return {
@@ -822,13 +839,22 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float, o
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
 
+    est = estoque_mod.buscar_por_tipo(item["item_tipo_id"])
     with db() as conn:
         conn.execute(
             "INSERT INTO scan_session_items "
-            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade, operador_id) "
-            "VALUES (?, ?, ?, 'completo', ?, ?, ?)",
-            (sessao_id, codigo_barra, item["item_tipo_id"], now_brt(), quantidade, operador_id)
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade, operador_id, estoque_debitado) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?)",
+            (sessao_id, codigo_barra, item["item_tipo_id"], now_brt(), quantidade, operador_id,
+             quantidade if est else 0)
         )
+
+    # Desconta do estoque vinculado (quando existir) a quantidade real
+    # confirmada — fora da transação acima de propósito, mesmo motivo
+    # documentado em confirmar_componente (registrar_saida abre sua própria
+    # conexão). Sem checar saldo antes: mesma filosofia do resto do sistema.
+    if est:
+        estoque_mod.registrar_saida(est["id"], quantidade, sessao_id, operador_id or session["operador_id"])
 
     novo_atual = atual + quantidade
 

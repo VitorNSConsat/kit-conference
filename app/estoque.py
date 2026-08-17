@@ -367,47 +367,87 @@ def deletar_estoque(estoque_id: int) -> None:
         conn.execute("DELETE FROM estoque WHERE id = ?", (estoque_id,))
 
 
-def reconciliar_saidas_saquinho(criado_por: int) -> list[dict]:
-    """Corrige retroativamente o estoque de itens que vieram de saquinho
-    (scan_session_items.codigo_barra 'COMP:...') e nunca tiveram a baixa
-    aplicada — bug histórico onde confirmar_componente não descontava
-    estoque. Cada linha nasce com estoque_debitado=0 até ser processada
-    (pelo fluxo normal, a partir do fix, ou por esta função, pras
-    antigas), então rodar de novo não desconta duas vezes. Sem checar
-    saldo antes de descontar: mesma filosofia do resto do sistema — não
-    trava, só sinaliza que a contagem física precisa ser conferida.
-    Retorna um resumo por tipo de item corrigido."""
+def reconciliar_saidas_producao(criado_por: int) -> list[dict]:
+    """Corrige retroativamente o estoque de duas categorias de bug
+    histórico, ambas já corrigidas no código a partir de agora:
+
+    1. Saquinho (codigo_barra 'COMP:...') que nunca descontava estoque.
+    2. Item de quantidade em lote (metro ou mais de 1 unidade sob um único
+       código, sem saquinho/serial — ex: rolo de cabo) que só descontava 1
+       unidade fixa na criação do patrimônio (ou nada, se o patrimônio já
+       existia) em vez da quantidade realmente confirmada.
+
+    scan_session_items.estoque_debitado marca quanto já foi debitado por
+    linha (0 = nada ainda) — cada linha corrigida é atualizada com
+    estoque_debitado = quantidade, então rodar de novo não desconta duas
+    vezes. Sem checar saldo antes: mesma filosofia do resto do sistema —
+    não trava, só sinaliza que a contagem física precisa ser conferida.
+
+    Ressalva conhecida (categoria 2): quando o patrimônio era NOVO na época
+    do bug, 1 unidade cega já tinha sido descontada do total do tipo (não
+    fica registrada por linha) — a correção pode ficar até 1 unidade a mais
+    por linha afetada nesse caso específico. Ainda assim é muito mais
+    preciso que o buraco atual (que pode estar faltando dezenas de
+    unidades). Retorna um resumo por tipo de item corrigido."""
     with db() as conn:
-        pendentes = conn.execute(
-            "SELECT ssi.item_tipo_id, it.nome AS tipo_nome, e.id AS estoque_id, "
-            "COUNT(*) AS qtd "
+        linhas_saquinho = conn.execute(
+            "SELECT ssi.id, ssi.item_tipo_id, ssi.quantidade, it.nome AS tipo_nome, e.id AS estoque_id "
             "FROM scan_session_items ssi "
             "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
             "JOIN estoque e ON e.item_tipo_id = ssi.item_tipo_id "
-            "WHERE ssi.codigo_barra LIKE 'COMP:%' AND ssi.estoque_debitado = 0 "
-            "GROUP BY ssi.item_tipo_id"
+            "WHERE ssi.codigo_barra LIKE 'COMP:%' AND ssi.estoque_debitado = 0"
         ).fetchall()
-        pendentes = [dict(r) for r in pendentes]
+        linhas_lote = conn.execute(
+            "SELECT ssi.id, ssi.item_tipo_id, ssi.quantidade, it.nome AS tipo_nome, e.id AS estoque_id "
+            "FROM scan_session_items ssi "
+            "JOIN scan_session ss ON ss.id = ssi.sessao_id "
+            "JOIN kit_template_items kti ON kti.kit_template_id = ss.kit_template_id "
+            "                            AND kti.item_tipo_id = ssi.item_tipo_id "
+            "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            "JOIN estoque e ON e.item_tipo_id = ssi.item_tipo_id "
+            "WHERE ssi.estoque_debitado = 0 "
+            "  AND ssi.codigo_barra NOT LIKE 'COMP:%' "
+            "  AND ssi.codigo_barra NOT LIKE 'ESTOQUE:%' "
+            "  AND COALESCE(kti.requer_serial, 0) = 0 "
+            "  AND kti.componente_codigo IS NULL "
+            "  AND (COALESCE(it.unidade, 'un') = 'm' OR kti.quantidade_exigida > 1)"
+        ).fetchall()
+
+    linhas = [dict(r) for r in linhas_saquinho] + [dict(r) for r in linhas_lote]
+    if not linhas:
+        return []
+
+    # Consolida por tipo — 1 movimento de saída por tipo, não 1 por linha
+    por_tipo: dict[int, dict] = {}
+    ids_por_tipo: dict[int, list] = {}
+    for r in linhas:
+        c = por_tipo.setdefault(
+            r["item_tipo_id"],
+            {"tipo_nome": r["tipo_nome"], "estoque_id": r["estoque_id"], "qtd": 0}
+        )
+        c["qtd"] += r["quantidade"] or 1
+        ids_por_tipo.setdefault(r["item_tipo_id"], []).append(r["id"])
 
     resumo = []
-    for p in pendentes:
+    for tipo_id, c in por_tipo.items():
+        ids = ids_por_tipo[tipo_id]
+        placeholders = ",".join("?" * len(ids))
         with db() as conn:
             conn.execute(
                 "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
-                (p["qtd"], p["estoque_id"])
+                (c["qtd"], c["estoque_id"])
             )
             conn.execute(
                 "INSERT INTO estoque_movimentos "
                 "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
                 "VALUES (?, 'saida', ?, ?, ?, ?)",
-                (p["estoque_id"], p["qtd"], criado_por,
-                 "Correção retroativa: saquinho não debitava estoque antes da correção do bug",
+                (c["estoque_id"], c["qtd"], criado_por,
+                 "Correção retroativa: produção não debitava estoque corretamente antes da correção do bug",
                  now_brt())
             )
             conn.execute(
-                "UPDATE scan_session_items SET estoque_debitado = 1 "
-                "WHERE codigo_barra LIKE 'COMP:%' AND item_tipo_id = ? AND estoque_debitado = 0",
-                (p["item_tipo_id"],)
+                f"UPDATE scan_session_items SET estoque_debitado = quantidade WHERE id IN ({placeholders})",
+                ids
             )
-        resumo.append({"tipo_nome": p["tipo_nome"], "quantidade": p["qtd"]})
+        resumo.append({"tipo_nome": c["tipo_nome"], "quantidade": c["qtd"]})
     return resumo

@@ -64,6 +64,102 @@ def listar_relatorio(data_ini: str = "", data_fim: str = "", user_id: str = "") 
     return [dict(r) for r in rows]
 
 
+def tipos_do_kit(sessao_id: int) -> set:
+    """item_tipo_ids realmente presentes no kit (bipados de fato) — usado
+    tanto pra montar o checklist quanto pra checar se está completo antes
+    de liberar a validação."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT item_tipo_id FROM scan_session_items WHERE sessao_id = ?",
+            (sessao_id,)
+        ).fetchall()
+    return {r["item_tipo_id"] for r in rows}
+
+
+def listar_conferidos(kit_id: str) -> set:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT item_tipo_id FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,)
+        ).fetchall()
+    return {r["item_tipo_id"] for r in rows}
+
+
+def _grupo_saquinho(kit_template_id: int, sessao_id: int, item_tipo_id: int) -> list:
+    """item_tipo_ids do mesmo saquinho que item_tipo_id (mesmo
+    componente_codigo no template), restrito ao que de fato está presente
+    no kit — inclui o próprio item_tipo_id quando não é saquinho. Um clique
+    num item do saquinho conta como conferir o saquinho inteiro, igual à
+    bipagem (confirmar_componente já trata o saquinho como uma unidade só)."""
+    presentes = tipos_do_kit(sessao_id)
+    with db() as conn:
+        codigo = conn.execute(
+            "SELECT componente_codigo FROM kit_template_items "
+            "WHERE kit_template_id = ? AND item_tipo_id = ? LIMIT 1",
+            (kit_template_id, item_tipo_id)
+        ).fetchone()
+        if not codigo or not codigo["componente_codigo"]:
+            return [item_tipo_id] if item_tipo_id in presentes else []
+        rows = conn.execute(
+            "SELECT DISTINCT item_tipo_id FROM kit_template_items "
+            "WHERE kit_template_id = ? AND componente_codigo = ?",
+            (kit_template_id, codigo["componente_codigo"])
+        ).fetchall()
+    return [r["item_tipo_id"] for r in rows if r["item_tipo_id"] in presentes]
+
+
+def grupos_saquinho(kit_template_id: int, sessao_id: int) -> dict:
+    """Mapa item_tipo_id -> nomes dos OUTROS tipos do mesmo saquinho (só pra
+    tipos que de fato têm parceiros presentes no kit — usado pra exibir a
+    dica visual 'confere junto com X, Y' no checklist)."""
+    presentes = tipos_do_kit(sessao_id)
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT kti.item_tipo_id, kti.componente_codigo, it.nome "
+            "FROM kit_template_items kti "
+            "JOIN item_tipo it ON it.id = kti.item_tipo_id "
+            "WHERE kti.kit_template_id = ? AND kti.componente_codigo IS NOT NULL",
+            (kit_template_id,)
+        ).fetchall()
+    por_codigo: dict = {}
+    for r in rows:
+        if r["item_tipo_id"] in presentes:
+            por_codigo.setdefault(r["componente_codigo"], []).append((r["item_tipo_id"], r["nome"]))
+    mapa: dict = {}
+    for membros in por_codigo.values():
+        if len(membros) < 2:
+            continue
+        for tid, _nome in membros:
+            mapa[tid] = [nome for outro_id, nome in membros if outro_id != tid]
+    return mapa
+
+
+def conferir_item(kit_id: str, kit_template_id: int, sessao_id: int,
+                  item_tipo_id: int, user_id: int) -> list:
+    """Marca item_tipo_id (e os demais do mesmo saquinho, se houver) como
+    conferidos neste kit. Retorna os item_tipo_ids afetados."""
+    grupo = _grupo_saquinho(kit_template_id, sessao_id, item_tipo_id)
+    with db() as conn:
+        for tid in grupo:
+            conn.execute(
+                "INSERT OR IGNORE INTO kit_verificacao_itens "
+                "(kit_id, item_tipo_id, conferido_por, conferido_em) VALUES (?, ?, ?, ?)",
+                (kit_id, tid, user_id, now_brt())
+            )
+    return grupo
+
+
+def desfazer_item(kit_id: str, kit_template_id: int, sessao_id: int, item_tipo_id: int) -> list:
+    """Desfaz a conferência de item_tipo_id (e do saquinho inteiro junto)."""
+    grupo = _grupo_saquinho(kit_template_id, sessao_id, item_tipo_id)
+    with db() as conn:
+        for tid in grupo:
+            conn.execute(
+                "DELETE FROM kit_verificacao_itens WHERE kit_id = ? AND item_tipo_id = ?",
+                (kit_id, tid)
+            )
+    return grupo
+
+
 def listar_relatorio_agrupado(data_ini: str = "", data_fim: str = "", user_id: str = "") -> list:
     """Mesmo relatório de listar_relatorio(), mas agrupado por kit — cada
     kit aparece uma vez só, com a lista de verificações (1ª, 2ª, 3ª...) em

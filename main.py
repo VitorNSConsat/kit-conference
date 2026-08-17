@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 BRT = timezone(timedelta(hours=-3))
 from urllib.parse import quote
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -1605,7 +1605,7 @@ async def kit_detail(request: Request, kit_id: str):
         kit = dict(kit)
 
         itens = conn.execute(
-            "SELECT it.nome AS tipo_nome, COUNT(*) AS quantidade, "
+            "SELECT si.item_tipo_id, it.nome AS tipo_nome, COUNT(*) AS quantidade, "
             "GROUP_CONCAT(si.codigo_barra, ', ') AS barcodes "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
@@ -1616,17 +1616,56 @@ async def kit_detail(request: Request, kit_id: str):
 
     validacoes = validacoes_mod.listar_por_kit(kit_id)
     ok = request.query_params.get("ok", "")
+    erro = request.query_params.get("erro", "")
     unidades = pedidos_mod.listar_unidades(kit["kit_template_id"]) if kit.get("kit_tipo") == "pedido" else []
     operadores_kit = sessions_mod.operadores_da_sessao(kit["sessao_id"])
+    conferidos = validacoes_mod.listar_conferidos(kit_id)
+    grupos = validacoes_mod.grupos_saquinho(kit["kit_template_id"], kit["sessao_id"])
 
     return render(request, "kit_detail.html", {
         "kit": kit,
         "itens": [dict(i) for i in itens],
         "validacoes": validacoes,
         "ok": ok,
+        "erro": erro,
         "unidades": unidades,
         "operadores_kit": operadores_kit,
+        "conferidos": conferidos,
+        "grupos": grupos,
     })
+
+
+@app.post("/kit/{kit_id}/conferir-item")
+@require_login
+async def kit_conferir_item(request: Request, kit_id: str):
+    user = get_current_user(request)
+    form = await request.form()
+    item_tipo_id = int(form.get("item_tipo_id", 0) or 0)
+    with db() as conn:
+        kit = conn.execute(
+            "SELECT kit_template_id, sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+        ).fetchone()
+    if not kit:
+        return JSONResponse({"ok": False}, status_code=404)
+    afetados = validacoes_mod.conferir_item(
+        kit_id, kit["kit_template_id"], kit["sessao_id"], item_tipo_id, user["id"])
+    return JSONResponse({"ok": True, "item_tipo_ids": afetados})
+
+
+@app.post("/kit/{kit_id}/desfazer-item")
+@require_login
+async def kit_desfazer_item(request: Request, kit_id: str):
+    user = get_current_user(request)
+    form = await request.form()
+    item_tipo_id = int(form.get("item_tipo_id", 0) or 0)
+    with db() as conn:
+        kit = conn.execute(
+            "SELECT kit_template_id, sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+        ).fetchone()
+    if not kit:
+        return JSONResponse({"ok": False}, status_code=404)
+    afetados = validacoes_mod.desfazer_item(kit_id, kit["kit_template_id"], kit["sessao_id"], item_tipo_id)
+    return JSONResponse({"ok": True, "item_tipo_ids": afetados})
 
 
 @app.post("/kit/{kit_id}/validar")
@@ -1636,11 +1675,15 @@ async def kit_validar(request: Request, kit_id: str):
     form = await request.form()
     observacao = str(form.get("observacao", "")).strip()
     with db() as conn:
-        exists = conn.execute(
-            "SELECT kit_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+        kit = conn.execute(
+            "SELECT sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)
         ).fetchone()
-    if not exists:
+    if not kit:
         return HTMLResponse("<h2>Kit não encontrado.</h2>", status_code=404)
+    tipos_kit = validacoes_mod.tipos_do_kit(kit["sessao_id"])
+    conferidos = validacoes_mod.listar_conferidos(kit_id)
+    if not tipos_kit.issubset(conferidos):
+        return RedirectResponse(f"/kit/{kit_id}?erro=itens_pendentes", status_code=302)
     validacoes_mod.registrar(kit_id, user["id"], observacao)
     return RedirectResponse(f"/kit/{kit_id}?ok=validado", status_code=302)
 
@@ -2657,11 +2700,11 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     return RedirectResponse("/admin/items?ok=reposto", status_code=302)
 
 
-@app.post("/admin/estoque/reconciliar-saquinho")
+@app.post("/admin/estoque/reconciliar-producao")
 @require_admin
-async def admin_estoque_reconciliar_saquinho(request: Request):
+async def admin_estoque_reconciliar_producao(request: Request):
     user = get_current_user(request)
-    resumo = estoque_mod.reconciliar_saidas_saquinho(user["id"])
+    resumo = estoque_mod.reconciliar_saidas_producao(user["id"])
     if not resumo:
         return RedirectResponse("/admin/items?tab=catalogo&ok=reconciliado_vazio", status_code=302)
     detalhe = "; ".join(f"{r['tipo_nome']} ×{r['quantidade']}" for r in resumo)
