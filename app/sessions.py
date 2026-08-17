@@ -26,7 +26,7 @@ def _aviso_quantidade(template_item: dict | None) -> str:
         return ""
     if (template_item.get("quantidade_exigida") or 0) <= 1:
         return ""
-    return " ⚠️ Confira se a quantidade bipada está correta."
+    return " ⚠️ Verifique a quantidade depositada na caixa."
 
 
 def deletar_kit_record(kit_id: str):
@@ -476,6 +476,21 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
                 "quantidade_exigida": exigido,
                 "adicionados": adicionar,
             })
+
+    # Desconta do estoque vinculado (quando existir) — fora da transação
+    # acima de propósito: registrar_saida() abre sua própria conexão, e
+    # chamá-la dentro de uma transação já aberta trava o banco (mesmo
+    # motivo documentado em veiculos_mod.importar_excel). Sem checar saldo
+    # antes: mesmo padrão de _descontar_estoque_por_patrimonio_novo — não
+    # trava o operador no meio da montagem do kit, um estoque negativo só
+    # sinaliza que a contagem física precisa ser corrigida depois.
+    operador_estoque = operador_id or session["operador_id"]
+    for u in atualizacoes:
+        if u["adicionados"] <= 0:
+            continue
+        est = estoque_mod.buscar_por_tipo(u["item_tipo_id"])
+        if est:
+            estoque_mod.registrar_saida(est["id"], u["adicionados"], sessao_id, operador_estoque)
 
     adicionados = [u for u in atualizacoes if u["adicionados"] > 0]
     if not adicionados:
@@ -931,10 +946,12 @@ def remover_item(sessao_id: int, item_id: int) -> dict:
     ou metro errado sem precisar desfazer tudo que veio depois.
 
     Se o código bipado tiver o prefixo "ESTOQUE:<codigo>:<seq>" (item veio
-    de uma caixa de estoque vinculada, register_scan grava assim), devolve
-    1 unidade ao estoque de origem automaticamente. Casar isso por
-    timestamp (mesmo instante) seria arriscado — o relógio só tem precisão
-    de segundo, então duas bipagens diferentes no mesmo segundo fariam o
+    de uma caixa de estoque vinculada, register_scan grava assim) ou
+    "COMP:<saquinho>:<tipo_id>:<seq>" (item veio de um saquinho cujo tipo
+    tem estoque vinculado, confirmar_componente grava assim), devolve 1
+    unidade ao estoque de origem automaticamente. Casar isso por timestamp
+    (mesmo instante) seria arriscado — o relógio só tem precisão de
+    segundo, então duas bipagens diferentes no mesmo segundo fariam o
     estorno acertar o movimento errado. O prefixo identifica a origem sem
     ambiguidade, então só ele decide se estorna ou não."""
     session = get_session(sessao_id)
@@ -962,15 +979,21 @@ def remover_item(sessao_id: int, item_id: int) -> dict:
     # o estorno pegar o movimento de estoque errado.
     estoque_ajustado = False
     partes = item["codigo_barra"].split(":")
+    est = None
     if len(partes) >= 3 and partes[0] == "ESTOQUE":
         codigo_estoque = ":".join(partes[1:-1])
         est = estoque_mod.buscar_por_referencia(codigo_estoque)
-        if est:
-            estoque_mod.repor_estoque(
-                est["id"], 1, item.get("operador_id") or session["operador_id"],
-                observacao=f"Estorno automático — exclusão de bipagem (sessão {sessao_id})"
-            )
-            estoque_ajustado = True
+    elif len(partes) >= 4 and partes[0] == "COMP":
+        # Saquinho não guarda um código de estoque no codigo_barra — o
+        # tipo do item já identifica o estoque vinculado sem ambiguidade
+        # (estoque.item_tipo_id é único), não precisa parsear mais nada.
+        est = estoque_mod.buscar_por_tipo(item["item_tipo_id"])
+    if est:
+        estoque_mod.repor_estoque(
+            est["id"], 1, item.get("operador_id") or session["operador_id"],
+            observacao=f"Estorno automático — exclusão de bipagem (sessão {sessao_id})"
+        )
+        estoque_ajustado = True
 
     with db() as conn:
         tipo_row = conn.execute(

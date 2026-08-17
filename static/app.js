@@ -117,7 +117,7 @@ function mostrarAvisoQuantidade() {
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "aviso-quantidade-toast";
-        toast.textContent = "⚠️ Confira se a quantidade bipada está correta";
+        toast.textContent = "⚠️ Verifique a quantidade depositada na caixa";
         document.body.appendChild(toast);
     }
     // Reinicia a animação mesmo se já estiver visível (bipagem em sequência)
