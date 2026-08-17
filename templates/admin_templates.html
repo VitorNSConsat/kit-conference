@@ -283,32 +283,38 @@
             conferência item a item na tela de verificação (exceção, ex: um kit que precisa de checagem manual).
         </p>
         {% if conjuntos %}
-        <table>
-            <thead>
-                <tr><th>Kit</th><th>Cliente</th><th>Código do Conjunto</th><th>Itens</th><th>Verifica em conjunto</th></tr>
-            </thead>
-            <tbody>
-                {% for c in conjuntos %}
-                <tr>
-                    <td>{{ c.template_nome }}</td>
-                    <td>{{ c.template_cliente }}</td>
-                    <td style="font-family:monospace;">{{ c.componente_codigo }}</td>
-                    <td style="font-size:13px;color:#555;">{{ c.itens }}</td>
-                    <td>
-                        <form method="post"
-                              action="/admin/templates/{{ c.kit_template_id }}/conjunto/verificar-em-conjunto"
-                              style="margin:0;">
-                            <input type="hidden" name="componente_codigo" value="{{ c.componente_codigo }}">
-                            <input type="hidden" name="verifica" value="{{ '0' if c.verifica_em_conjunto else '1' }}">
-                            <button type="submit" class="btn btn-sm {{ 'btn-success' if c.verifica_em_conjunto else 'btn-warning' }}">
-                                {{ '✅ Em conjunto' if c.verifica_em_conjunto else '🔲 Manual' }}
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% for t in conjuntos %}
+        <details class="conjunto-template-details">
+            <summary>
+                <span><strong>{{ t.template_nome }}</strong> <span style="font-weight:400;color:#888;">— {{ t.template_cliente }}</span></span>
+                <span class="conjunto-count-badge">{{ t.conjuntos | length }} conjunto{{ 's' if t.conjuntos | length != 1 else '' }}</span>
+            </summary>
+            <table style="margin:0;">
+                <thead>
+                    <tr><th>Código do Conjunto</th><th>Itens</th><th>Verifica em conjunto</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in t.conjuntos %}
+                    <tr>
+                        <td style="font-family:monospace;">{{ c.componente_codigo }}</td>
+                        <td style="font-size:13px;color:#555;">{{ c.itens }}</td>
+                        <td>
+                            <form method="post"
+                                  action="/admin/templates/{{ t.kit_template_id }}/conjunto/verificar-em-conjunto"
+                                  style="margin:0;">
+                                <input type="hidden" name="componente_codigo" value="{{ c.componente_codigo }}">
+                                <input type="hidden" name="verifica" value="{{ '0' if c.verifica_em_conjunto else '1' }}">
+                                <button type="submit" class="btn btn-sm {{ 'btn-success' if c.verifica_em_conjunto else 'btn-warning' }}">
+                                    {{ '✅ Em conjunto' if c.verifica_em_conjunto else '🔲 Manual' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+        {% endfor %}
         {% else %}
         <p style="color:#aaa;font-size:13px;">Nenhum conjunto configurado ainda — defina um "Código do Conjunto" nos itens de um kit.</p>
         {% endif %}
@@ -317,6 +323,33 @@
 {% endblock %}
 {% block scripts %}
 <style>
+.conjunto-template-details {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.conjunto-template-details summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    background: #f7f7f7;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+.conjunto-template-details[open] summary { border-bottom: 1px solid #e0e0e0; }
+.conjunto-count-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #555;
+    background: #e8ecf0;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.conjunto-template-details table { width: 100%; }
 .autonomia-lista { font-weight: 800; font-size: 13px; }
 .autonomia-lista.ok      { color: #27ae60; }
 .autonomia-lista.alerta  { color: #e67e22; }

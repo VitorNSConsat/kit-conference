@@ -47,11 +47,13 @@ def get_itens_template(template_id: int) -> list:
 
 
 def listar_todos_conjuntos() -> list[dict]:
-    """Todos os conjuntos (grupos de itens com o mesmo componente_codigo)
-    de todos os templates ativos, pra tela central de configuração — cada
-    linha: template, código do conjunto, itens que contém, e se verifica
-    em conjunto na tela de verificação (default: sim, a menos que exista
-    exceção configurada em kit_template_conjuntos)."""
+    """Conjuntos (grupos de itens com o mesmo componente_codigo) de todos
+    os templates ativos, agrupados por template — cada item: dados do
+    template + lista de conjuntos (código, itens que contém, e se verifica
+    em conjunto na tela de verificação — default: sim, a menos que exista
+    exceção configurada em kit_template_conjuntos). Agrupado assim pra tela
+    central de configuração mostrar cada template recolhido, sem virar uma
+    lista enorme quando tem muito conjunto espalhado."""
     with db() as conn:
         rows = conn.execute(
             "SELECT kti.kit_template_id, kti.componente_codigo, "
@@ -71,12 +73,24 @@ def listar_todos_conjuntos() -> list[dict]:
                 "FROM kit_template_conjuntos"
             ).fetchall()
         }
-    resultado = []
+    templates: dict[int, dict] = {}
+    ordem: list[int] = []
     for r in rows:
-        d = dict(r)
-        d["verifica_em_conjunto"] = flags.get((d["kit_template_id"], d["componente_codigo"]), True)
-        resultado.append(d)
-    return resultado
+        tid = r["kit_template_id"]
+        if tid not in templates:
+            templates[tid] = {
+                "kit_template_id": tid,
+                "template_nome": r["template_nome"],
+                "template_cliente": r["template_cliente"],
+                "conjuntos": [],
+            }
+            ordem.append(tid)
+        templates[tid]["conjuntos"].append({
+            "componente_codigo": r["componente_codigo"],
+            "itens": r["itens"],
+            "verifica_em_conjunto": flags.get((tid, r["componente_codigo"]), True),
+        })
+    return [templates[tid] for tid in ordem]
 
 
 def definir_verifica_em_conjunto(template_id: int, componente_codigo: str, verifica: bool) -> None:
