@@ -2657,6 +2657,19 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     return RedirectResponse("/admin/items?ok=reposto", status_code=302)
 
 
+@app.post("/admin/estoque/reconciliar-saquinho")
+@require_admin
+async def admin_estoque_reconciliar_saquinho(request: Request):
+    user = get_current_user(request)
+    resumo = estoque_mod.reconciliar_saidas_saquinho(user["id"])
+    if not resumo:
+        return RedirectResponse("/admin/items?tab=catalogo&ok=reconciliado_vazio", status_code=302)
+    detalhe = "; ".join(f"{r['tipo_nome']} ×{r['quantidade']}" for r in resumo)
+    return RedirectResponse(
+        "/admin/items?tab=catalogo&ok=reconciliado&detalhe=" + quote(detalhe),
+        status_code=302)
+
+
 @app.post("/admin/sobressalente")
 @require_permission("estoque_editar")
 async def admin_sobressalente_enviar(request: Request):

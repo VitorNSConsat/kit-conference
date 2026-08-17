@@ -103,6 +103,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "producao_sequencia" not in tabelas
         or "operador_id" not in colunas_scan_session_items
         or "cliente" not in colunas_estoque_movimentos
+        or "estoque_debitado" not in colunas_scan_session_items
     )
     if not pendente:
         return None
@@ -452,6 +453,13 @@ def init_db():
             # bipado contabiliza. Nula pra todo o resto dos tipos de
             # movimento (entrada, saida, correcao, etc).
             "ALTER TABLE estoque_movimentos ADD COLUMN cliente TEXT",
+            # Marca se a baixa de estoque de uma linha de saquinho (COMP:)
+            # já foi aplicada. Linhas antigas nascem com 0 (não sabemos se
+            # descontaram — de fato não descontavam, era o bug) e o botão
+            # de reconciliação em /admin corrige exatamente essas, marcando
+            # 1 ao final. Permite rodar a correção várias vezes sem
+            # descontar duas vezes.
+            "ALTER TABLE scan_session_items ADD COLUMN estoque_debitado INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
                 conn.execute(stmt)

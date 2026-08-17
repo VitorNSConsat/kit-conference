@@ -36,6 +36,12 @@
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
 {% elif request.query_params.get('ok') == 'sobressalente' %}
 <div class="alert alert-success">📦 Sobressalente registrado e descontado do estoque.</div>
+{% elif request.query_params.get('ok') == 'reconciliado_vazio' %}
+<div class="alert alert-success">✅ Nenhuma pendência encontrada — todo saquinho já foi debitado do estoque corretamente.</div>
+{% elif request.query_params.get('ok') == 'reconciliado' %}
+<div class="alert alert-success">
+    🔧 Estoque corrigido: <strong>{{ request.query_params.get('detalhe') }}</strong>
+</div>
 {% elif request.query_params.get('importado') %}
 <div class="alert alert-success">
     Importação concluída: <strong>{{ request.query_params.get('importado') }} tipo(s) criado(s)</strong>
@@ -101,7 +107,15 @@
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <h2 style="margin:0;">Tipos de Item</h2>
-            <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
+            <div style="display:flex;gap:8px;">
+                <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
+                {% if user and user.admin %}
+                <form method="post" action="/admin/estoque/reconciliar-saquinho" style="margin:0;"
+                      onsubmit="return confirm('Isso vai verificar todos os saquinhos já bipados que ainda não foram descontados do estoque e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
+                    <button type="submit" class="btn btn-sm btn-primary">🔧 Corrigir Estoque de Saquinhos</button>
+                </form>
+                {% endif %}
+            </div>
         </div>
         <p style="color:#666;font-size:13px;margin-top:4px;">
             Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem

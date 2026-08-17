@@ -463,11 +463,13 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
             atual = contagem.get(tipo_id, 0)
             qtd_informada = int(quantidades.get(str(tipo_id), 0))
             adicionar = min(qtd_informada, max(0, exigido - atual))
+            est = estoque_mod.buscar_por_tipo(tipo_id)
+            debitado = 1 if est else 0
             for seq in range(adicionar):
                 conn.execute(
-                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
-                    "VALUES (?, ?, ?, 'completo', ?, ?)",
-                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id, now_brt(), operador_id)
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, estoque_debitado) "
+                    "VALUES (?, ?, ?, 'completo', ?, ?, ?)",
+                    (sessao_id, f"COMP:{codigo_barra}:{tipo_id}:{atual + seq}", tipo_id, now_brt(), operador_id, debitado)
                 )
             atualizacoes.append({
                 "item_tipo_id": tipo_id,
@@ -475,6 +477,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
                 "contagem_atual": atual + adicionar,
                 "quantidade_exigida": exigido,
                 "adicionados": adicionar,
+                "estoque_id": est["id"] if est else None,
             })
 
     # Desconta do estoque vinculado (quando existir) — fora da transação
@@ -486,11 +489,8 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
     # sinaliza que a contagem física precisa ser corrigida depois.
     operador_estoque = operador_id or session["operador_id"]
     for u in atualizacoes:
-        if u["adicionados"] <= 0:
-            continue
-        est = estoque_mod.buscar_por_tipo(u["item_tipo_id"])
-        if est:
-            estoque_mod.registrar_saida(est["id"], u["adicionados"], sessao_id, operador_estoque)
+        if u["adicionados"] > 0 and u["estoque_id"]:
+            estoque_mod.registrar_saida(u["estoque_id"], u["adicionados"], sessao_id, operador_estoque)
 
     adicionados = [u for u in atualizacoes if u["adicionados"] > 0]
     if not adicionados:

@@ -365,3 +365,49 @@ def deletar_estoque(estoque_id: int) -> None:
     with db() as conn:
         conn.execute("DELETE FROM estoque_movimentos WHERE estoque_id = ?", (estoque_id,))
         conn.execute("DELETE FROM estoque WHERE id = ?", (estoque_id,))
+
+
+def reconciliar_saidas_saquinho(criado_por: int) -> list[dict]:
+    """Corrige retroativamente o estoque de itens que vieram de saquinho
+    (scan_session_items.codigo_barra 'COMP:...') e nunca tiveram a baixa
+    aplicada — bug histórico onde confirmar_componente não descontava
+    estoque. Cada linha nasce com estoque_debitado=0 até ser processada
+    (pelo fluxo normal, a partir do fix, ou por esta função, pras
+    antigas), então rodar de novo não desconta duas vezes. Sem checar
+    saldo antes de descontar: mesma filosofia do resto do sistema — não
+    trava, só sinaliza que a contagem física precisa ser conferida.
+    Retorna um resumo por tipo de item corrigido."""
+    with db() as conn:
+        pendentes = conn.execute(
+            "SELECT ssi.item_tipo_id, it.nome AS tipo_nome, e.id AS estoque_id, "
+            "COUNT(*) AS qtd "
+            "FROM scan_session_items ssi "
+            "JOIN item_tipo it ON it.id = ssi.item_tipo_id "
+            "JOIN estoque e ON e.item_tipo_id = ssi.item_tipo_id "
+            "WHERE ssi.codigo_barra LIKE 'COMP:%' AND ssi.estoque_debitado = 0 "
+            "GROUP BY ssi.item_tipo_id"
+        ).fetchall()
+        pendentes = [dict(r) for r in pendentes]
+
+    resumo = []
+    for p in pendentes:
+        with db() as conn:
+            conn.execute(
+                "UPDATE estoque SET quantidade_atual = quantidade_atual - ? WHERE id = ?",
+                (p["qtd"], p["estoque_id"])
+            )
+            conn.execute(
+                "INSERT INTO estoque_movimentos "
+                "(estoque_id, tipo, quantidade, criado_por, observacao, criado_em) "
+                "VALUES (?, 'saida', ?, ?, ?, ?)",
+                (p["estoque_id"], p["qtd"], criado_por,
+                 "Correção retroativa: saquinho não debitava estoque antes da correção do bug",
+                 now_brt())
+            )
+            conn.execute(
+                "UPDATE scan_session_items SET estoque_debitado = 1 "
+                "WHERE codigo_barra LIKE 'COMP:%' AND item_tipo_id = ? AND estoque_debitado = 0",
+                (p["item_tipo_id"],)
+            )
+        resumo.append({"tipo_nome": p["tipo_nome"], "quantidade": p["qtd"]})
+    return resumo
