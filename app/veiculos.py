@@ -179,6 +179,24 @@ def historico_kits(veiculo_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def kits_sem_veiculo(limite: int = 100) -> list[dict]:
+    """Kits finalizados que ainda não têm veículo vinculado — alimenta o
+    select de atribuição manual na tela do veículo. Limitado aos mais
+    recentes: atribuição manual é correção pontual, não varredura de
+    histórico antigo."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT kr.kit_id, kt.nome AS kit_nome, kt.cliente,
+                   kr.veiculo AS veiculo_texto, kr.finalizado_em
+            FROM kit_record kr
+            JOIN kit_template kt ON kt.id = kr.kit_template_id
+            WHERE kr.veiculo_id IS NULL
+            ORDER BY kr.finalizado_em DESC
+            LIMIT ?
+        """, (limite,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def clientes_disponiveis() -> list[str]:
     with db() as conn:
         rows = conn.execute(

@@ -13,6 +13,7 @@ Só Kits entram nessa esteira — Pedidos continuam com o fluxo próprio de
 """
 
 import re
+from datetime import datetime, timedelta
 
 from database import db, now_brt
 import app.auditoria as auditoria_mod
@@ -20,6 +21,62 @@ import app.sessions as sessions_mod
 import app.kit_templates as templates_mod
 
 ESTAGIOS = ["produzido", "transito", "cliente_instalando", "cliente_concluido"]
+
+# Limites de exibição do painel da TV. São só filtro de tela — nada sai do
+# banco nem dos relatórios, e aumentar o limite depois faz os antigos
+# voltarem a aparecer. 0 = sem limite.
+TV_CONFIG_PADRAO = {
+    "tv_limite_em_producao": 12,
+    "tv_limite_produzido": 12,
+    "tv_limite_transito": 12,
+    "tv_limite_cliente_instalando": 12,
+    "tv_limite_cliente_concluido": 12,
+    # Por quantas horas um kit concluído no cliente continua aparecendo na
+    # TV depois de concluído. 0 = fica pra sempre (só o limite corta).
+    "tv_horas_cliente_concluido": 24,
+}
+
+
+def get_tv_config() -> dict:
+    """Config de exibição da TV, com os padrões preenchidos pra qualquer
+    chave que ainda não tenha sido salva."""
+    cfg = dict(TV_CONFIG_PADRAO)
+    with db() as conn:
+        for r in conn.execute("SELECT chave, valor FROM producao_config").fetchall():
+            if r["chave"] in cfg:
+                try:
+                    cfg[r["chave"]] = int(r["valor"])
+                except (TypeError, ValueError):
+                    pass
+    return cfg
+
+
+def salvar_tv_config(valores: dict) -> None:
+    """Grava só as chaves conhecidas, sempre como inteiro >= 0 — entrada
+    inválida cai pro padrão em vez de quebrar a tela da TV."""
+    with db() as conn:
+        for chave, padrao in TV_CONFIG_PADRAO.items():
+            if chave not in valores:
+                continue
+            try:
+                v = max(0, int(valores[chave]))
+            except (TypeError, ValueError):
+                v = padrao
+            conn.execute(
+                "INSERT INTO producao_config (chave, valor) VALUES (?, ?) "
+                "ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+                (chave, str(v))
+            )
+
+
+def _aplicar_limite(lista: list, limite: int) -> list:
+    """Janela rolante: mantém só os `limite` mais recentes. As listas já
+    vêm ordenadas do mais antigo pro mais novo (ou o contrário, no caso do
+    concluído), então cortar pelo fim/começo certo faz o item novo empurrar
+    o mais antigo pra fora. limite 0 = sem corte."""
+    if limite and len(lista) > limite:
+        return lista[-limite:]
+    return lista
 
 
 def atribuir_sequencia(sessao_id: int) -> int:
@@ -131,6 +188,33 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
             query += f" LIMIT {int(limite)}"
         rows = conn.execute(query).fetchall()
     return [dict(r) for r in rows]
+
+
+def dados_tv() -> dict:
+    """Listas do painel da TV já com os limites de exibição aplicados.
+    Puramente visual: o que fica de fora continua no banco, nos relatórios
+    e na tela de controle /admin/producao — e volta a aparecer se o limite
+    for aumentado."""
+    cfg = get_tv_config()
+    horas = cfg["tv_horas_cliente_concluido"]
+
+    concluido = listar_cliente_concluido()
+    if horas:
+        limite_tempo = (datetime.now() - timedelta(hours=horas)).strftime("%Y-%m-%d %H:%M:%S")
+        concluido = [k for k in concluido
+                     if (k.get("cliente_concluido_em") or "") >= limite_tempo]
+    # listar_cliente_concluido já vem do mais recente pro mais antigo
+    if cfg["tv_limite_cliente_concluido"]:
+        concluido = concluido[:cfg["tv_limite_cliente_concluido"]]
+
+    return {
+        "em_producao": _aplicar_limite(listar_em_producao(), cfg["tv_limite_em_producao"]),
+        "produzido": _aplicar_limite(listar_produzido(), cfg["tv_limite_produzido"]),
+        "transito": _aplicar_limite(listar_transito(), cfg["tv_limite_transito"]),
+        "cliente_instalando": _aplicar_limite(
+            listar_cliente_instalando(), cfg["tv_limite_cliente_instalando"]),
+        "cliente_concluido": concluido,
+    }
 
 
 def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str,

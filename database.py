@@ -106,6 +106,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "estoque_debitado" not in colunas_scan_session_items
         or "kit_verificacao_itens" not in tabelas
         or "kit_template_conjuntos" not in tabelas
+        or "producao_config" not in tabelas
     )
     if not pendente:
         return None
@@ -407,6 +408,14 @@ def init_db():
             CREATE TABLE IF NOT EXISTS producao_sequencia (
                 id    INTEGER PRIMARY KEY CHECK (id = 1),
                 valor INTEGER NOT NULL DEFAULT 0
+            );
+
+            -- Limites de EXIBICAO do painel da TV (chave/valor). Nao apaga
+            -- nada: e so filtro de tela, o kit continua no banco e nos
+            -- relatorios. Chave ausente = usa o padrao do codigo.
+            CREATE TABLE IF NOT EXISTS producao_config (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
             );
 
             -- Fila de impressao das etiquetas "Em Andamento" (kit ainda sendo

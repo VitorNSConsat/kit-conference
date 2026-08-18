@@ -57,6 +57,8 @@
 <div class="alert alert-success">✅ Nota fiscal salva.</div>
 {% elif request.query_params.get('ok') == 'sequencia_zerada' %}
 <div class="alert alert-success">🔁 Contador de sequência zerado. O próximo kit começa do 0001.</div>
+{% elif request.query_params.get('ok') == 'tv_config' %}
+<div class="alert alert-success">🖥️ Configuração de exibição do Painel da TV salva.</div>
 {% elif request.query_params.get('erro') == 'nf_motivo' %}
 <div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}
@@ -66,6 +68,59 @@
   (Em Produção → Produzido)</strong>. As duas primeiras etapas seguem a bipagem
   sozinhas — o resto é marcado manualmente aqui.
 </p>
+
+{% if user and user.admin %}
+<!-- ── Config de exibição do Painel da TV ──────────────────────────────── -->
+<details class="card" style="padding:0;">
+  <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:#1a3a5c;">
+    ⚙️ Exibição do Painel da TV
+    <span style="font-weight:400;color:#888;font-size:13px;">— quantos kits cabem em cada coluna</span>
+  </summary>
+  <div style="padding:0 18px 18px;">
+    <p style="color:#666;font-size:13px;margin-top:0;">
+      Vale <strong>só pro Painel da TV</strong> e é apenas filtro de tela: nada sai do banco nem dos
+      relatórios, e esta página de controle continua mostrando tudo. Ao passar do limite, o kit mais
+      novo entra e o mais antigo sai da tela — a lista gira sozinha. Use <strong>0</strong> pra não limitar.
+    </p>
+    <form method="post" action="/admin/producao/tv-config"
+          style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="form-group" style="margin:0;">
+        <label>Em Produção</label>
+        <input type="number" name="tv_limite_em_producao" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_em_producao }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Produzido</label>
+        <input type="number" name="tv_limite_produzido" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_produzido }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Em Trânsito</label>
+        <input type="number" name="tv_limite_transito" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_transito }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Cliente instalando</label>
+        <input type="number" name="tv_limite_cliente_instalando" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_cliente_instalando }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Cliente concluído</label>
+        <input type="number" name="tv_limite_cliente_concluido" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_cliente_concluido }}">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label title="Depois desse tempo o kit concluído some da TV (continua nos relatórios)">
+          Concluído sai após (horas)
+        </label>
+        <input type="number" name="tv_horas_cliente_concluido" min="0" style="width:150px;margin:0;"
+               value="{{ tv_config.tv_horas_cliente_concluido }}">
+      </div>
+      <button type="submit" class="btn btn-primary">💾 Salvar</button>
+    </form>
+  </div>
+</details>
+{% endif %}
 
 <!-- ── Em Produção (Consat) — só leitura, segue a bipagem sozinha ────────── -->
 <div class="card">
@@ -146,13 +201,15 @@
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap;">
-        <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
-          <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
-        </form>
-        <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
-          <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Produzido">↩️ Voltar</button>
-        </form>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
+            <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
+          </form>
+          <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
+            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Produzido">↩️ Voltar</button>
+          </form>
+        </div>
       </td>
     </tr>
     {% endfor %}
@@ -179,13 +236,15 @@
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.cliente_instalando_em[:16] }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap;">
-        <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
-          <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
-        </form>
-        <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
-          <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Em Trânsito">↩️ Voltar</button>
-        </form>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
+            <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
+          </form>
+          <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
+            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Em Trânsito">↩️ Voltar</button>
+          </form>
+        </div>
       </td>
     </tr>
     {% endfor %}

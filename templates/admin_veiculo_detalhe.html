@@ -12,6 +12,8 @@
 
 {% if request.query_params.get('ok') == 'liberado' %}
 <div class="alert alert-success">🔓 Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
+{% elif request.query_params.get('ok') == 'veiculo_kit' %}
+<div class="alert alert-success">🔗 Vínculo de kit atualizado.</div>
 {% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Dados atualizados.</div>
 {% endif %}
@@ -52,7 +54,11 @@
 
 <!-- Histórico de kits -->
 <div class="card">
-  <h2>Histórico de kits ({{ historico | length }})</h2>
+  <h2>🔗 Kits deste veículo ({{ historico | length }})</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    O vínculo normalmente é definido na bipagem. Use os controles abaixo só pra
+    corrigir manualmente um kit que ficou no veículo errado ou sem veículo.
+  </p>
   {% if historico %}
   <div style="overflow-x:auto;">
   <table>
@@ -72,7 +78,19 @@
       <td>{{ h.kit_nome }}</td>
       <td>{{ h.operador_nome }}</td>
       <td>{{ '✅' if h.tem_verificacao else '—' }}</td>
-      <td><a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a></td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          <a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a>
+          <form method="post" action="/kit-record/{{ h.kit_id }}/veiculo"
+                onsubmit="return confirm('Desvincular este kit do veículo {{ v.numero }}? O kit continua existindo, só fica sem veículo.')">
+            <input type="hidden" name="veiculo_id" value="">
+            <input type="hidden" name="voltar_para" value="{{ v.id }}">
+            <button type="submit" class="btn btn-sm btn-warning" title="Tira o vínculo deste kit com o veículo">
+              ✂️ Desvincular
+            </button>
+          </form>
+        </div>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -81,6 +99,36 @@
   {% else %}
   <p style="color:#888;text-align:center;padding:24px;">Nenhum kit vinculado a este veículo.</p>
   {% endif %}
+
+  <!-- Vincular manualmente um kit que ficou sem veículo -->
+  <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
+    <h3 style="font-size:15px;margin:0 0 8px;">➕ Vincular um kit sem veículo</h3>
+    {% if kits_sem_veiculo %}
+    <form method="post" action="" id="form-vincular-kit"
+          style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;"
+          onsubmit="this.action = '/kit-record/' + document.getElementById('sel-kit').value + '/veiculo';">
+      <input type="hidden" name="veiculo_id" value="{{ v.id }}">
+      <input type="hidden" name="voltar_para" value="{{ v.id }}">
+      <div class="form-group" style="margin:0;min-width:320px;">
+        <label>Kit (sem veículo vinculado)</label>
+        <select id="sel-kit" required style="margin:0;">
+          <option value="">— selecione o kit —</option>
+          {% for k in kits_sem_veiculo %}
+          <option value="{{ k.kit_id }}">
+            {{ k.finalizado_em[:10] if k.finalizado_em else '—' }} · {{ k.kit_nome }} · {{ k.cliente }}
+            {%- if k.veiculo_texto %} (texto: {{ k.veiculo_texto }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success">🔗 Vincular a este veículo</button>
+    </form>
+    {% else %}
+    <p style="color:#888;font-size:13px;margin:0;">
+      Nenhum kit sem veículo no momento — todos os kits recentes já estão vinculados.
+    </p>
+    {% endif %}
+  </div>
 </div>
 
 <!-- Ações -->

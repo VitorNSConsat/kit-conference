@@ -1,22 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Itens & Estoque — Conferência de Kits{% endblock %}
 {% block content %}
-<h1>Itens &amp; Estoque</h1>
-
-<!-- ── Gerar Códigos (etiqueta avulsa, sem item_tipo/estoque) ──────────────── -->
-<div class="card" style="border:1.5px solid #1a3a5c;">
-    <h2>🏷️ Gerar Códigos</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:12px;">
-        Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
-        etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
-        conjunto/componente usados na hora de montar um kit.
-    </p>
-    <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
-        <input type="text" name="texto" required placeholder="Digite o texto ou código"
-               style="flex:1;margin-bottom:0;">
-        <button type="submit" class="btn btn-primary">🖨️ Gerar Etiqueta</button>
-    </form>
-</div>
+<h1>📋 Itens &amp; Estoque</h1>
+<p style="color:#666;font-size:13px;margin:-6px 0 16px;">
+    Escolha abaixo o que você quer gerenciar: o estoque em si, o cadastro de itens,
+    os patrimônios já registrados, as etiquetas avulsas ou as peças sobressalentes.
+</p>
 
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
@@ -26,6 +15,8 @@
 <div class="alert alert-success">Estoque cadastrado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'codigo_atualizado' %}
 <div class="alert alert-success">Código de barras atualizado.</div>
+{% elif request.query_params.get('ok') == 'codigo_renomeado' %}
+<div class="alert alert-success">✏️ Código alterado — o patrimônio que usava o código antigo foi atualizado junto.</div>
 {% elif request.query_params.get('ok') == 'minimo' %}
 <div class="alert alert-success">Quantidade mínima atualizada.</div>
 {% elif request.query_params.get('ok') == 'status_compra' %}
@@ -98,8 +89,8 @@
     <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📦 Estoque</button>
     <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
     <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
-    <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🔁 Códigos Gerados</button>
-    <button type="button" class="tab-btn" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">📦 Sobressalentes</button>
+    <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🖨️ Etiquetas &amp; Códigos</button>
+    <button type="button" class="tab-btn" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">🚚 Sobressalentes</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -613,15 +604,31 @@
     </div>
 </div>
 
-<!-- ── Aba: Códigos Gerados ──────────────────────────────────────────────── -->
+<!-- ── Aba: Etiquetas & Códigos ──────────────────────────────────────────── -->
 <div id="tab-codigos" class="tab-panel" style="display:none;">
+    <!-- Gerador de etiqueta avulsa (sem item_tipo/estoque) -->
+    <div class="card" style="border:1.5px solid #1a3a5c;">
+        <h2 style="margin-bottom:4px;">🏷️ Gerar Nova Etiqueta</h2>
+        <p style="font-size:13px;color:#666;margin-top:0;margin-bottom:12px;">
+            Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
+            etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
+            conjunto/componente usados na hora de montar um kit. Todo código gerado aqui
+            aparece na lista abaixo, onde dá pra editar depois.
+        </p>
+        <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
+            <input type="text" name="texto" required placeholder="Digite o texto ou código"
+                   style="flex:1;margin-bottom:0;">
+            <button type="submit" class="btn btn-primary">🖨️ Gerar Etiqueta</button>
+        </form>
+    </div>
+
     <div class="card">
-        <h2 style="margin-bottom:4px;">🔁 Códigos Gerados em "Gerar Códigos"</h2>
+        <h2 style="margin-bottom:4px;">🔁 Códigos Já Gerados</h2>
         <p style="color:#666;font-size:13px;margin-top:0;">
-            Toda etiqueta impressa pela seção "🏷️ Gerar Códigos" (topo da página) fica listada
-            aqui. Marque como reciclável os códigos que são reaproveitados em mais de um kit —
-            isso libera automaticamente o tipo do item para ser bipado em vários kits ativos
-            ao mesmo tempo (equivale a marcar "Reutilizável" no Estoque).
+            Clique no código pra corrigir o texto — o patrimônio que usa esse código é
+            atualizado junto. Marque como reciclável os códigos reaproveitados em mais de um
+            kit: isso libera o tipo do item pra ser bipado em vários kits ativos ao mesmo
+            tempo (equivale a marcar "Reutilizável" no Estoque).
         </p>
         {% if pag_codigos.itens %}
         <input type="text" class="busca-box" placeholder="🔍 Buscar código..."
@@ -634,12 +641,28 @@
                     <th>Criado em</th>
                     <th>Criado por</th>
                     <th>Reciclável</th>
+                    <th>Etiqueta</th>
                 </tr>
             </thead>
             <tbody>
             {% for c in pag_codigos.itens %}
                 <tr class="filtro-item">
-                    <td><code>{{ c.texto }}</code></td>
+                    <td>
+                        <code id="cod-texto-{{ c.id }}" style="cursor:pointer;" title="Clique para editar"
+                              onclick="editarCodigo({{ c.id }})">{{ c.texto }}</code>
+                        <form id="cod-form-{{ c.id }}" method="post"
+                              action="/admin/codigos-gerados/{{ c.id }}/renomear"
+                              style="display:none;margin:0;">
+                            <div style="display:flex;gap:4px;align-items:center;">
+                                <input type="text" name="texto" value="{{ c.texto }}" required
+                                       style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
+                                       onkeydown="if(event.key==='Escape'){cancelarCodigo({{ c.id }});}">
+                                <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+                                <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
+                                        onclick="cancelarCodigo({{ c.id }})">✕</button>
+                            </div>
+                        </form>
+                    </td>
                     <td style="font-size:12px;color:#888;">{{ c.criado_em[:16] if c.criado_em else '—' }}</td>
                     <td style="font-size:12px;color:#888;">{{ c.criado_por_nome or '—' }}</td>
                     <td>
@@ -650,9 +673,15 @@
                             </button>
                         </form>
                     </td>
+                    <td>
+                        <a href="/admin/gerar-codigo/etiqueta?texto={{ c.texto | urlencode }}"
+                           target="_blank" class="btn btn-sm btn-secondary" title="Reimprimir esta etiqueta">
+                            🖨️
+                        </a>
+                    </td>
                 </tr>
             {% else %}
-                <tr><td colspan="4" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "🏷️ Gerar Códigos" no topo da página.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "🏷️ Gerar Nova Etiqueta" acima.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -868,6 +897,21 @@ function cancelarEdicao(tipoId, nomeOriginal) {
     document.getElementById('nome-form-' + tipoId).style.display = 'none';
     const span = document.getElementById('nome-texto-' + tipoId);
     span.style.display = '';
+}
+
+// Edição inline do texto de um código já gerado (aba Etiquetas & Códigos)
+function editarCodigo(codigoId) {
+    document.getElementById('cod-texto-' + codigoId).style.display = 'none';
+    const form = document.getElementById('cod-form-' + codigoId);
+    form.style.display = 'block';
+    const input = form.querySelector('input[name="texto"]');
+    input.focus();
+    input.select();
+}
+
+function cancelarCodigo(codigoId) {
+    document.getElementById('cod-form-' + codigoId).style.display = 'none';
+    document.getElementById('cod-texto-' + codigoId).style.display = '';
 }
 
 document.addEventListener('DOMContentLoaded', function() {

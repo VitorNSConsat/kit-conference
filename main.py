@@ -738,6 +738,18 @@ async def admin_codigo_gerado_toggle_reciclavel(request: Request, codigo_id: int
     return RedirectResponse("/admin/items?tab=codigos", status_code=302)
 
 
+@app.post("/admin/codigos-gerados/{codigo_id}/renomear")
+@require_login
+async def admin_codigo_gerado_renomear(request: Request, codigo_id: int):
+    form = await request.form()
+    try:
+        codigos_gerados_mod.renomear(codigo_id, str(form.get("texto", "")))
+    except ValueError as e:
+        return RedirectResponse(
+            "/admin/items?tab=codigos&erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/items?tab=codigos&ok=codigo_renomeado", status_code=302)
+
+
 @app.post("/admin/tipos/completo")
 @require_login
 async def admin_tipos_completo(request: Request):
@@ -1795,9 +1807,14 @@ async def reports(request: Request,
 @app.post("/kit-record/{kit_id}/veiculo")
 @require_login
 async def kit_record_vincular_veiculo(request: Request, kit_id: str):
+    """Atribuição manual de veículo a um kit. Fica só na tela do veículo
+    (/admin/veiculos/{id}) — foi tirada do relatório pra não haver dois
+    lugares mexendo na mesma coisa. `voltar_para` traz o id do veículo de
+    onde a ação partiu, pra devolver o usuário na mesma tela."""
     form = await request.form()
     veiculo_id_str = str(form.get("veiculo_id", "")).strip()
     veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
+    voltar_str = str(form.get("voltar_para", "")).strip()
     veiculo_texto = ""
     garagem_texto = ""
     if veiculo_id:
@@ -1810,7 +1827,10 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
             "UPDATE kit_record SET veiculo_id=?, veiculo=?, garagem=? WHERE kit_id=?",
             (veiculo_id, veiculo_texto, garagem_texto, kit_id)
         )
-    return RedirectResponse("/reports?ok=veiculo", status_code=302)
+    destino = voltar_str if voltar_str.isdigit() else veiculo_id_str
+    if destino and destino.isdigit():
+        return RedirectResponse(f"/admin/veiculos/{destino}?ok=veiculo_kit", status_code=302)
+    return RedirectResponse("/admin/veiculos?ok=veiculo_kit", status_code=302)
 
 
 @app.post("/reports/reprint/{kit_id}")
@@ -2477,11 +2497,7 @@ async def prateleira_tv(request: Request, minutos: int = 5):
 async def producao_tv(request: Request, minutos: int = 5):
     minutos = max(1, minutos)
     return render(request, "producao_tv.html", {
-        "em_producao": producao_mod.listar_em_producao(),
-        "produzido": producao_mod.listar_produzido(),
-        "transito": producao_mod.listar_transito(),
-        "cliente_instalando": producao_mod.listar_cliente_instalando(),
-        "cliente_concluido": producao_mod.listar_cliente_concluido(limite=12),
+        **producao_mod.dados_tv(),
         "resumo": producao_mod.resumo(),
         "minutos": minutos,
     })
@@ -2497,7 +2513,17 @@ async def admin_producao(request: Request):
         "cliente_instalando": producao_mod.listar_cliente_instalando(),
         "cliente_concluido": producao_mod.listar_cliente_concluido(limite=30),
         "resumo": producao_mod.resumo(),
+        "tv_config": producao_mod.get_tv_config(),
+        "ok": request.query_params.get("ok", ""),
     })
+
+
+@app.post("/admin/producao/tv-config")
+@require_admin
+async def admin_producao_tv_config(request: Request):
+    form = await request.form()
+    producao_mod.salvar_tv_config(dict(form))
+    return RedirectResponse("/admin/producao?ok=tv_config", status_code=302)
 
 
 @app.post("/admin/producao/zerar-sequencia")
@@ -2962,6 +2988,8 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
         "garagens": garagens_cadastradas,
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
+        "kits_sem_veiculo": veiculos_mod.kits_sem_veiculo(),
+        "ok": request.query_params.get("ok", ""),
     })
 
 

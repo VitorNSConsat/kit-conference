@@ -103,12 +103,6 @@
               {% else %}
                 <span style="color:#aaa;">—</span>
               {% endif %}
-              <br>
-              <button class="btn btn-sm btn-secondary"
-                      style="margin-top:4px;"
-                      onclick="abrirModalVeiculo('{{ k.kit_id }}', {{ k.v_id or 'null' }})">
-                🔗
-              </button>
             </td>
             <td>{{ k.garagem or '—' }}</td>
             <td>{{ k.operador_nome }}</td>
@@ -174,29 +168,6 @@
     {% endif %}
 </div>
 
-<!-- Modal de vínculo de veículo -->
-<div id="modal-veiculo" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-     background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;">
-    <h3 style="margin-top:0;">Vincular Veículo</h3>
-    <form id="form-veiculo" method="post">
-      <div class="form-group">
-        <label>Veículo</label>
-        <select name="veiculo_id" id="modal-select-veiculo">
-          <option value="">— sem veículo —</option>
-          {% for v in veiculos_todos %}
-          <option value="{{ v.id }}">{{ v.numero }} · {{ v.cliente }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div style="display:flex;gap:5px;justify-content:flex-end;margin-top:12px;">
-        <button type="button" onclick="fecharModalVeiculo()" class="btn btn-secondary">Cancelar</button>
-        <button type="submit" class="btn btn-success">💾 Salvar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <!-- Modal de reimpressão (com opção de alterar a garagem) -->
 <div id="modal-reimprimir" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
      background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
@@ -220,16 +191,6 @@
 </div>
 
 <script>
-function abrirModalVeiculo(kitId, veiculoId) {
-    document.getElementById('form-veiculo').action = '/kit-record/' + kitId + '/veiculo';
-    var sel = document.getElementById('modal-select-veiculo');
-    sel.value = veiculoId || '';
-    document.getElementById('modal-veiculo').style.display = 'flex';
-}
-function fecharModalVeiculo() {
-    document.getElementById('modal-veiculo').style.display = 'none';
-}
-
 function abrirModalReimprimir(kitId, garagemAtual) {
     document.getElementById('form-reimprimir').action = '/reports/reprint/' + kitId;
     document.getElementById('modal-input-garagem').value = garagemAtual || '';

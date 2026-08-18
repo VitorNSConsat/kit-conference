@@ -54,6 +54,44 @@ def toggle_reciclavel(codigo_id: int):
             )
 
 
+def renomear(codigo_id: int, novo_texto: str) -> None:
+    """Corrige o texto de um código já gerado — e leva junto o patrimônio
+    que usa esse código, pra não deixar a etiqueta apontando pra um código
+    que não existe mais em item_master. Recusa texto vazio ou já usado por
+    outro código gerado."""
+    novo_texto = (novo_texto or "").strip()
+    if not novo_texto:
+        raise ValueError("O código não pode ficar vazio.")
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT texto FROM codigo_gerado WHERE id = ?", (codigo_id,)
+        ).fetchone()
+        if not atual:
+            raise ValueError("Código não encontrado.")
+        if atual["texto"] == novo_texto:
+            return
+        duplicado = conn.execute(
+            "SELECT 1 FROM codigo_gerado WHERE texto = ? AND id != ?",
+            (novo_texto, codigo_id)
+        ).fetchone()
+        if duplicado:
+            raise ValueError(f"Já existe outro código gerado com o texto '{novo_texto}'.")
+        conflito_item = conn.execute(
+            "SELECT 1 FROM item_master WHERE codigo_barra = ?", (novo_texto,)
+        ).fetchone()
+        if conflito_item:
+            raise ValueError(
+                f"'{novo_texto}' já está em uso por um patrimônio cadastrado."
+            )
+        conn.execute(
+            "UPDATE item_master SET codigo_barra = ? WHERE codigo_barra = ?",
+            (novo_texto, atual["texto"])
+        )
+        conn.execute(
+            "UPDATE codigo_gerado SET texto = ? WHERE id = ?", (novo_texto, codigo_id)
+        )
+
+
 def sincronizar_tipo_se_reciclavel(codigo_barra: str, item_tipo_id: int):
     """Chamado sempre que um patrimônio novo é criado para um código de barras.
     Se esse código já foi marcado reciclável em 'Gerar Códigos' (o operador

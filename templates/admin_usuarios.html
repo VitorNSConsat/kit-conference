@@ -81,25 +81,27 @@
         </span>
       </td>
       <td style="font-size:12px;color:#888;">{{ u.criado_em[:10] if u.criado_em else '—' }}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap;">
-        <form method="post" action="/admin/usuarios/{{ u.id }}/admin"
-              onsubmit="return confirm('{{ 'Rebaixar' if u.admin else 'Promover' }} {{ u.nome }}?')">
-          <button class="btn btn-sm {{ 'btn-warning' if u.admin else 'btn-primary' }}">
-            {{ 'Tornar Comum' if u.admin else 'Tornar Admin' }}
-          </button>
-        </form>
-        <form method="post" action="/admin/usuarios/{{ u.id }}/ativo"
-              onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?')">
-          <button class="btn btn-sm {{ 'btn-danger' if u.ativo else 'btn-success' }}">
-            {{ 'Desativar' if u.ativo else 'Reativar' }}
-          </button>
-        </form>
-        <button type="button" class="btn btn-sm btn-secondary"
-                onclick="mostrarSenha({{ u.id }})">Trocar senha</button>
-        {% if not u.admin %}
-        <button type="button" class="btn btn-sm btn-secondary"
-                onclick="mostrarPermissoes({{ u.id }})">🔐 Permissões</button>
-        {% endif %}
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          <form method="post" action="/admin/usuarios/{{ u.id }}/admin"
+                onsubmit="return confirm('{{ 'Rebaixar' if u.admin else 'Promover' }} {{ u.nome }}?')">
+            <button class="btn btn-sm {{ 'btn-warning' if u.admin else 'btn-primary' }}">
+              {{ 'Tornar Comum' if u.admin else 'Tornar Admin' }}
+            </button>
+          </form>
+          <form method="post" action="/admin/usuarios/{{ u.id }}/ativo"
+                onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?')">
+            <button class="btn btn-sm {{ 'btn-danger' if u.ativo else 'btn-success' }}">
+              {{ 'Desativar' if u.ativo else 'Reativar' }}
+            </button>
+          </form>
+          <button type="button" class="btn btn-sm btn-secondary"
+                  onclick="mostrarSenha({{ u.id }})">Trocar senha</button>
+          {% if not u.admin %}
+          <button type="button" class="btn btn-sm btn-secondary"
+                  onclick="mostrarPermissoes({{ u.id }})">🔐 Permissões</button>
+          {% endif %}
+        </div>
       </td>
     </tr>
     <tr id="senha-{{ u.id }}" style="display:none;">
