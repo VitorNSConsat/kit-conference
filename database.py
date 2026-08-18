@@ -504,6 +504,38 @@ def init_db():
             except Exception:
                 pass
 
+    # ── Índices de consulta ────────────────────────────────────────────────
+    # scan_session_items é a tabela que mais cresce (uma linha por unidade
+    # bipada — um kit de 240 unidades gera 240 linhas), e é consultada por
+    # codigo_barra e por sessao_id em quase toda tela de rastreamento. Sem
+    # índice, cada consulta varre a tabela inteira: na lista de patrimônios
+    # isso vira uma varredura completa POR item, o que fazia a tela levar
+    # segundos. Criados fora do bloco de migração porque, ao contrário de
+    # ALTER TABLE, "IF NOT EXISTS" já torna a operação repetível.
+    with db() as conn:
+        for idx in [
+            "CREATE INDEX IF NOT EXISTS idx_ssi_codigo_barra ON scan_session_items(codigo_barra)",
+            "CREATE INDEX IF NOT EXISTS idx_ssi_sessao ON scan_session_items(sessao_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kr_sessao ON kit_record(sessao_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kr_veiculo ON kit_record(veiculo_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kr_finalizado ON kit_record(finalizado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_kr_status_producao ON kit_record(status_producao)",
+            "CREATE INDEX IF NOT EXISTS idx_im_tipo ON item_master(item_tipo_id)",
+            "CREATE INDEX IF NOT EXISTS idx_em_estoque ON estoque_movimentos(estoque_id)",
+            "CREATE INDEX IF NOT EXISTS idx_em_sessao ON estoque_movimentos(sessao_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kv_kit ON kit_validacoes(kit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kti_template ON kit_template_items(kit_template_id)",
+        ]:
+            try:
+                conn.execute(idx)
+            except Exception:
+                pass
+        # Estatísticas ajudam o SQLite a escolher o índice certo nos JOINs.
+        try:
+            conn.execute("ANALYZE")
+        except Exception:
+            pass
+
     # ── Backfill único de admin ────────────────────────────────────────────
     # A coluna `admin` nasce com default 0. Sem isto, ao atualizar um sistema
     # já em uso TODO MUNDO perderia de uma vez a permissão de excluir —

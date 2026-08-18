@@ -199,6 +199,11 @@ def listar_itens(veiculo_id: int | None = None, situacao: str = "") -> list:
     with db() as conn:
         rows = conn.execute("""
             WITH ult_kit AS (
+                -- O JOIN com item_master não é decorativo: a maior parte
+                -- das linhas de bipagem é de conjunto (COMP:) e estoque
+                -- (ESTOQUE:), que nunca casam com um patrimônio. Filtrar
+                -- antes de ordenar corta o volume que a janela precisa
+                -- percorrer, e o resultado é idêntico.
                 SELECT si.codigo_barra, si.serial_number,
                        kr.kit_id, kr.veiculo_id, kr.veiculo, kr.garagem,
                        kr.finalizado_em, kr.operador_id,
@@ -207,8 +212,8 @@ def listar_itens(veiculo_id: int | None = None, situacao: str = "") -> list:
                            ORDER BY kr.finalizado_em DESC
                        ) AS rn
                 FROM scan_session_items si
-                JOIN scan_session ss ON ss.id = si.sessao_id
-                JOIN kit_record kr ON kr.sessao_id = ss.id
+                JOIN item_master im ON im.codigo_barra = si.codigo_barra
+                JOIN kit_record kr ON kr.sessao_id = si.sessao_id
                 WHERE kr.status = 'ativo'
             )
             SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome,

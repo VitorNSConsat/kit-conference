@@ -650,7 +650,7 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
     except Exception:
         deps = items_mod.buscar_dependencias_tipo(tipo_id)
         return render(request, "admin_items.html", {
-            **_admin_items_context(),
+            **_admin_items_context(tab="catalogo"),
             "tipo_com_erro": deps,
         })
 
@@ -684,45 +684,69 @@ def _admin_items_context(sobressalente_cliente: str = "",
                          codigos_pagina: int = 1,
                          tab: str = "",
                          patrimonio_situacao: str = "") -> dict:
-    # A contagem por situação vem da lista SEM o filtro de situação — senão,
-    # depois de filtrar, o select mostraria zero em todas as outras opções e
-    # não daria mais pra navegar entre elas.
-    itens_do_veiculo = items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id)
-    resumo_situacoes = Counter(i["situacao"] for i in itens_do_veiculo)
-    if patrimonio_situacao in items_mod.SITUACOES:
-        itens_filtrados = [i for i in itens_do_veiculo
-                           if i["situacao"] == patrimonio_situacao]
-    else:
-        itens_filtrados = itens_do_veiculo
-    pag_itens = paginacao_mod.paginar(itens_filtrados, patrimonio_pagina)
+    aba = tab if tab in ABAS_ITENS else "catalogo"
+
+    # Só a aba realmente aberta consulta o banco. A lista de patrimônios é
+    # de longe a consulta mais cara (cruza toda a tabela de bipagens), e
+    # antes ela rodava mesmo quando o usuário estava vendo Estoque ou
+    # Sobressalentes. Cada aba paga só o próprio custo.
+    vazio = paginacao_mod.paginar([], 1)
     ctx = {
         # Resolvido aqui e não só no JS: se a aba certa só fosse aplicada
         # depois que a página carrega, o navegador pintaria a primeira aba
         # antes de trocar — o "pisca" que aparecia ao recarregar filtrado.
-        "tab_ativo": tab if tab in ABAS_ITENS else "catalogo",
-        "pag_itens": pag_itens,
+        "tab_ativo": aba,
+        "pag_itens": vazio,
+        "pag_codigos": vazio,
         "patrimonio_veiculo_id": patrimonio_veiculo_id,
         "patrimonio_situacao": patrimonio_situacao,
         "situacoes_itens": items_mod.SITUACOES,
-        # Mostra de cara quantos estão sem veículo e por quê, sem precisar
-        # paginar a lista atrás disso.
-        "resumo_situacoes": resumo_situacoes,
-        "veiculos_todos": veiculos_mod.listar(),
-        "tipos": items_mod.listar_tipos(),
-        "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
-        "pag_codigos": paginacao_mod.paginar(codigos_gerados_mod.listar(), codigos_pagina),
-        "estoque_itens": estoque_mod.listar_estoque(),
+        "resumo_situacoes": Counter(),
+        "veiculos_todos": [],
+        "tipos": [],
+        "estoque_por_tipo": {},
+        "estoque_itens": [],
+        "clientes": [],
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
-        "clientes": clientes_mod.listar(),
         "sobressalente_cliente": sobressalente_cliente,
         "sobressalente_data_ini": sobressalente_data_ini,
         "sobressalente_data_fim": sobressalente_data_fim,
         "sobressalente_itens_enviados": [],
     }
-    if sobressalente_cliente:
-        ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
-            sobressalente_data_ini, sobressalente_data_fim, sobressalente_cliente
-        )
+
+    if aba == "patrimonios":
+        # A contagem por situação vem da lista SEM o filtro de situação —
+        # senão, depois de filtrar, o select mostraria zero em todas as
+        # outras opções e não daria mais pra navegar entre elas.
+        itens_do_veiculo = items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id)
+        ctx["resumo_situacoes"] = Counter(i["situacao"] for i in itens_do_veiculo)
+        if patrimonio_situacao in items_mod.SITUACOES:
+            itens_do_veiculo = [i for i in itens_do_veiculo
+                                if i["situacao"] == patrimonio_situacao]
+        ctx["pag_itens"] = paginacao_mod.paginar(itens_do_veiculo, patrimonio_pagina)
+        ctx["veiculos_todos"] = veiculos_mod.listar()
+
+    elif aba == "catalogo":
+        ctx["tipos"] = items_mod.listar_tipos()
+        ctx["estoque_por_tipo"] = {e["item_tipo_id"]: e
+                                   for e in estoque_mod.listar_estoque()}
+
+    elif aba == "novo":
+        ctx["tipos"] = items_mod.listar_tipos()
+
+    elif aba == "codigos":
+        ctx["pag_codigos"] = paginacao_mod.paginar(
+            codigos_gerados_mod.listar(), codigos_pagina)
+
+    elif aba == "sobressalentes":
+        ctx["clientes"] = clientes_mod.listar()
+        # A lista de itens e os envios só aparecem depois de escolher o
+        # cliente — antes disso não há o que consultar.
+        if sobressalente_cliente:
+            ctx["estoque_itens"] = estoque_mod.listar_estoque()
+            ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
+                sobressalente_data_ini, sobressalente_data_fim, sobressalente_cliente
+            )
     return ctx
 
 
@@ -853,8 +877,8 @@ async def admin_items_post(request: Request,
         return RedirectResponse("/admin/items?ok=1", status_code=302)
     except Exception as e:
         return render(request, "admin_items.html",
-                      {**_admin_items_context(), "erro": f"Erro ao salvar: {e}",
-                       "tab_ativo": "patrimonios"})
+                      {**_admin_items_context(tab="patrimonios"),
+                       "erro": f"Erro ao salvar: {e}"})
 
 
 @app.post("/admin/items/clear")
@@ -872,9 +896,8 @@ async def admin_items_delete(request: Request, item_id: int):
         return RedirectResponse("/admin/items", status_code=302)
     except Exception:
         return render(request, "admin_items.html", {
-            **_admin_items_context(),
+            **_admin_items_context(tab="patrimonios"),
             "erro": "Não foi possível excluir o patrimônio.",
-            "tab_ativo": "patrimonios",
         })
 
 
