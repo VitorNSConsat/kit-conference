@@ -58,7 +58,9 @@
 </div>
 
 <div class="card table-scroll">
-    <p style="color:#888; font-size:13px; margin-bottom:12px;">{{ kits|length }} kit(s) encontrado(s)</p>
+    <p style="color:#888; font-size:13px; margin-bottom:12px;">
+        {{ total_kits }} kit(s) encontrado(s){% if total_paginas > 1 %} — página {{ pagina }} de {{ total_paginas }}{% endif %}
+    </p>
     <table>
         <thead>
             <tr>
@@ -103,7 +105,7 @@
               {% endif %}
               <br>
               <button class="btn btn-sm btn-secondary"
-                      style="font-size:10px;padding:2px 6px;margin-top:2px;"
+                      style="margin-top:4px;"
                       onclick="abrirModalVeiculo('{{ k.kit_id }}', {{ k.v_id or 'null' }})">
                 🔗
               </button>
@@ -122,7 +124,7 @@
               {% endif %}
             </td>
             <td>
-                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">
                     <a href="/kit/{{ k.kit_id }}" target="_blank"
                        class="btn btn-sm btn-warning">🔍 Detalhes</a>
                     <div class="menu-mais">
@@ -156,6 +158,20 @@
         {% endfor %}
         </tbody>
     </table>
+
+    {% if total_paginas > 1 %}
+    {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&operador_id=' + (operador_id or '') + '&tipo=' + (tipo or '') %}
+    <div class="paginacao">
+        {% for p in paginas_visiveis %}
+            {% if p is none %}
+            <span class="paginacao-ellipsis">…</span>
+            {% else %}
+            <a href="/reports?{{ filtros_qs }}&pagina={{ p }}"
+               class="btn btn-sm {{ 'btn-primary' if p == pagina else 'btn-secondary' }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modal de vínculo de veículo -->

@@ -182,6 +182,9 @@ h2 { font-size: 17px; margin-bottom: 14px; color: var(--text); }
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    font-family: inherit;
+    line-height: 1.2;
+    vertical-align: middle;
     text-decoration: none;
     transition: opacity .15s, transform .1s;
 }
@@ -193,6 +196,27 @@ h2 { font-size: 17px; margin-bottom: 14px; color: var(--text); }
 .btn-warning { background: #e67e22; color: #fff; }
 .btn-secondary { background: #efe9dc; color: #5b5348; }
 .btn-sm { padding: 5px 11px; font-size: 13px; }
+
+/* Paginação — controle numerado reutilizável (itens cadastrados, kits...) */
+.paginacao {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.paginacao-ellipsis {
+    padding: 5px 6px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.paginacao-info {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-right: 8px;
+}
 
 input[type=text], input[type=password], input[type=date], input[type=number],
 input[type=email], select, textarea {
@@ -219,7 +243,7 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { background: var(--surface-alt); padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
-td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
 tr:hover td { background: var(--surface-alt); }
 
 .badge {

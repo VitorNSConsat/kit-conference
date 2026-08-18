@@ -36,6 +36,7 @@ import app.auditoria as auditoria_mod
 import app.usuarios as usuarios_mod
 import app.producao as producao_mod
 import app.permissoes as permissoes_mod
+import app.paginacao as paginacao_mod
 
 load_dotenv()
 
@@ -389,11 +390,11 @@ async def logout(request: Request):
 
 @app.get("/admin/usuarios", response_class=HTMLResponse)
 @require_admin
-async def admin_usuarios(request: Request):
+async def admin_usuarios(request: Request, pagina: int = 1):
     usuarios = usuarios_mod.listar()
     negadas_por_usuario = {u["id"]: permissoes_mod.negadas_do_usuario(u["id"]) for u in usuarios}
     return render(request, "admin_usuarios.html", {
-        "usuarios": usuarios,
+        "pag_usuarios": paginacao_mod.paginar(usuarios, pagina),
         "permissoes": permissoes_mod.PERMISSOES,
         "negadas_por_usuario": negadas_por_usuario,
     })
@@ -470,9 +471,10 @@ async def admin_usuario_senha(request: Request, user_id: int):
 @require_admin
 async def admin_auditoria(request: Request,
                           data_ini: str = "", data_fim: str = "",
-                          user_id: str = "", acao: str = ""):
+                          user_id: str = "", acao: str = "", pagina: int = 1):
+    registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao, limite=2000)
     return render(request, "admin_auditoria.html", {
-        "registros": auditoria_mod.listar(data_ini, data_fim, user_id, acao),
+        "pag_registros": paginacao_mod.paginar(registros, pagina),
         "usuarios": usuarios_mod.listar(),
         "acoes": auditoria_mod.acoes_distintas(),
         "data_ini": data_ini, "data_fim": data_fim,
@@ -672,12 +674,20 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 
 def _admin_items_context(sobressalente_cliente: str = "",
                          sobressalente_data_ini: str = "",
-                         sobressalente_data_fim: str = "") -> dict:
+                         sobressalente_data_fim: str = "",
+                         patrimonio_veiculo_id: int | None = None,
+                         patrimonio_pagina: int = 1,
+                         codigos_pagina: int = 1) -> dict:
+    pag_itens = paginacao_mod.paginar(
+        items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id), patrimonio_pagina
+    )
     ctx = {
-        "itens": items_mod.listar_itens(),
+        "pag_itens": pag_itens,
+        "patrimonio_veiculo_id": patrimonio_veiculo_id,
+        "veiculos_todos": veiculos_mod.listar(),
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
-        "codigos_gerados": codigos_gerados_mod.listar(),
+        "pag_codigos": paginacao_mod.paginar(codigos_gerados_mod.listar(), codigos_pagina),
         "estoque_itens": estoque_mod.listar_estoque(),
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
         "clientes": clientes_mod.listar(),
@@ -695,8 +705,14 @@ def _admin_items_context(sobressalente_cliente: str = "",
 
 @app.get("/admin/items", response_class=HTMLResponse)
 @require_login
-async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = ""):
-    return render(request, "admin_items.html", _admin_items_context(cliente, data_ini, data_fim))
+async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
+                      veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1):
+    return render(request, "admin_items.html", _admin_items_context(
+        cliente, data_ini, data_fim,
+        patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
+        patrimonio_pagina=pagina,
+        codigos_pagina=codigos_pagina,
+    ))
 
 
 @app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)
@@ -809,11 +825,13 @@ async def admin_items_delete(request: Request, item_id: int):
 
 # ── Admin: Templates ──────────────────────────────────────────────────────────
 
-def _admin_templates_context() -> dict:
+def _admin_templates_context(pagina_kit: int = 1, pagina_pedido: int = 1) -> dict:
     todos = templates_mod.listar_todos()
+    templates_kit = [t for t in todos if t.get("tipo", "kit") == "kit"]
+    templates_pedido = [t for t in todos if t.get("tipo") == "pedido"]
     return {
-        "templates_kit": [t for t in todos if t.get("tipo", "kit") == "kit"],
-        "templates_pedido": [t for t in todos if t.get("tipo") == "pedido"],
+        "pag_kit": paginacao_mod.paginar(templates_kit, pagina_kit),
+        "pag_pedido": paginacao_mod.paginar(templates_pedido, pagina_pedido),
         "tipos_catalogo": items_mod.listar_tipos(apenas_ativos=True),
         "clientes": clientes_mod.listar(),
         "consumo_resumo": consumo_mod.resumo_todos_kits(),
@@ -823,9 +841,9 @@ def _admin_templates_context() -> dict:
 
 @app.get("/admin/templates", response_class=HTMLResponse)
 @require_login
-async def admin_templates(request: Request):
+async def admin_templates(request: Request, pagina_kit: int = 1, pagina_pedido: int = 1):
     return render(request, "admin_templates.html", {
-        **_admin_templates_context(),
+        **_admin_templates_context(pagina_kit, pagina_pedido),
         "erro": request.query_params.get("erro"),
     })
 
@@ -1708,41 +1726,53 @@ async def reports(request: Request,
                   data_ini: str = "",
                   data_fim: str = "",
                   operador_id: str = "",
-                  tipo: str = ""):
-    query = """
-        SELECT kr.kit_id, kr.finalizado_em, kr.status,
-               kr.veiculo, kr.garagem,
-               kr.veiculo_id,
-               COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
-               v.id AS v_id,
-               kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
-               u.nome AS operador_nome,
-               pq.id AS pq_id,
-               (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
-        FROM kit_record kr
-        JOIN kit_template kt ON kt.id = kr.kit_template_id
-        JOIN users u ON u.id = kr.operador_id
-        LEFT JOIN print_queue pq ON pq.kit_id = kr.kit_id
-        LEFT JOIN veiculos v ON v.id = kr.veiculo_id
-        WHERE 1=1
-    """
+                  tipo: str = "",
+                  pagina: int = 1):
+    where = "WHERE 1=1"
     params = []
     if data_ini:
-        query += " AND DATE(kr.finalizado_em) >= ?"
+        where += " AND DATE(kr.finalizado_em) >= ?"
         params.append(data_ini)
     if data_fim:
-        query += " AND DATE(kr.finalizado_em) <= ?"
+        where += " AND DATE(kr.finalizado_em) <= ?"
         params.append(data_fim)
     if operador_id:
-        query += " AND kr.operador_id = ?"
+        where += " AND kr.operador_id = ?"
         params.append(int(operador_id))
     if tipo in ("kit", "pedido"):
-        query += " AND kt.tipo = ?"
+        where += " AND kt.tipo = ?"
         params.append(tipo)
-    query += " ORDER BY kr.finalizado_em DESC LIMIT 200"
 
+    por_pagina = paginacao_mod.POR_PAGINA_PADRAO
     with db() as conn:
-        rows = conn.execute(query, params).fetchall()
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM kit_record kr "
+            f"JOIN kit_template kt ON kt.id = kr.kit_template_id {where}",
+            params
+        ).fetchone()[0]
+        total_paginas = max(1, -(-total // por_pagina))
+        pagina = max(1, min(pagina, total_paginas))
+        offset = (pagina - 1) * por_pagina
+
+        query = f"""
+            SELECT kr.kit_id, kr.finalizado_em, kr.status,
+                   kr.veiculo, kr.garagem,
+                   kr.veiculo_id,
+                   COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
+                   v.id AS v_id,
+                   kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
+                   u.nome AS operador_nome,
+                   pq.id AS pq_id,
+                   (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
+            FROM kit_record kr
+            JOIN kit_template kt ON kt.id = kr.kit_template_id
+            JOIN users u ON u.id = kr.operador_id
+            LEFT JOIN print_queue pq ON pq.kit_id = kr.kit_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            {where}
+            ORDER BY kr.finalizado_em DESC LIMIT ? OFFSET ?
+        """
+        rows = conn.execute(query, params + [por_pagina, offset]).fetchall()
         usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
 
     veiculos_todos = veiculos_mod.listar()
@@ -1755,6 +1785,10 @@ async def reports(request: Request,
         "tipo": tipo,
         "ok": request.query_params.get("ok", ""),
         "veiculos_todos": veiculos_todos,
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "total_kits": total,
+        "paginas_visiveis": paginacao_mod.janela_paginas(pagina, total_paginas),
     })
 
 
@@ -2833,22 +2867,23 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
-@app.get("/admin/veiculos", response_class=HTMLResponse)
-@require_login
-async def admin_veiculos(request: Request, cliente: str = ""):
+def _admin_veiculos_context(cliente: str = "", pagina: int = 1) -> dict:
     veiculos = veiculos_mod.listar(cliente=cliente or None, ativo=True)
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
-    clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
-    clientes_cadastrados = clientes_mod.listar()
-    garagens_cadastradas = garagens_mod.listar()
-    return render(request, "admin_veiculos.html", {
-        "veiculos": veiculos,
+    return {
+        "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
         "veiculos_inativos": veiculos_inativos,
-        "clientes": clientes_filtro,
-        "clientes_cadastrados": clientes_cadastrados,
-        "garagens_cadastradas": garagens_cadastradas,
+        "clientes": [c["nome"] for c in clientes_mod.listar()],
+        "clientes_cadastrados": clientes_mod.listar(),
+        "garagens_cadastradas": garagens_mod.listar(),
         "filtro_cliente": cliente,
-    })
+    }
+
+
+@app.get("/admin/veiculos", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1):
+    return render(request, "admin_veiculos.html", _admin_veiculos_context(cliente, pagina))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)
@@ -2859,15 +2894,9 @@ async def admin_veiculos_post(request: Request):
     cliente = str(form.get("cliente", "")).strip()
     garagem = str(form.get("garagem", "")).strip()
     if not numero or not cliente:
-        veiculos = veiculos_mod.listar()
-        clientes_filtro = [c["nome"] for c in clientes_mod.listar()]
-        clientes_cadastrados = clientes_mod.listar()
-        garagens_cadastradas = garagens_mod.listar()
         return render(request, "admin_veiculos.html", {
-            "veiculos": veiculos, "clientes": clientes_filtro,
-            "clientes_cadastrados": clientes_cadastrados,
-            "garagens_cadastradas": garagens_cadastradas,
-            "filtro_cliente": "", "erro": "Número e cliente são obrigatórios.",
+            **_admin_veiculos_context(),
+            "erro": "Número e cliente são obrigatórios.",
         })
     veiculos_mod.criar(numero, cliente, garagem)
     return RedirectResponse("/admin/veiculos?ok=criado", status_code=302)

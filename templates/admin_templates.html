@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Criar Kit — Conferência de Kits{% endblock %}
 
-{% macro secao_templates(tipo, label, templates_lista, clientes, tipos_catalogo, consumo_resumo) %}
+{% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
 <!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
 <div class="card" style="border:1px solid #b0c4de;">
@@ -82,8 +82,8 @@
 {% endif %}
 
 <div class="card">
-    <h2>{{ label }}s Cadastrados</h2>
-    {% if templates_lista %}
+    <h2>{{ label }}s Cadastrados ({{ pag.total }})</h2>
+    {% if pag.itens %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou cliente..."
            oninput="filtrarLista(this)" data-filtro-alvo="#tabela-{{ tipo }} tr.filtro-item">
     {% endif %}
@@ -92,7 +92,7 @@
             <tr><th>Nome</th><th>Cliente</th><th>Versão</th><th>Status</th>{% if tipo == 'pedido' %}<th>Feito</th>{% else %}<th>Autonomia</th>{% endif %}<th></th></tr>
         </thead>
         <tbody>
-        {% for t in templates_lista %}
+        {% for t in pag.itens %}
         <tr class="filtro-item">
             <td>{{ t.nome }}</td>
             <td>{{ t.cliente }}</td>
@@ -120,33 +120,35 @@
                 {% endif %}
             </td>
             {% endif %}
-            <td style="display:flex;gap:4px;flex-wrap:wrap;align-items:flex-start;">
-                {% if tipo == 'pedido' %}
-                <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
-                {% endif %}
-                {% if tipo != 'pedido' or pode('pedidos_criar_editar') %}
-                <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
-                {% endif %}
-                <div class="menu-mais">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
-                    <div class="menu-mais-dropdown">
-                        <form method="post" action="/admin/templates/{{ t.id }}/toggle">
-                            <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
-                        </form>
-                        {% if tipo == 'pedido' %}
-                        <form method="post" action="/admin/templates/{{ t.id }}/toggle-concluido">
-                            <button class="btn btn-sm {{ 'btn-warning' if not t.concluido else 'btn-primary' }}">{{ 'Reabrir Pedido' if t.concluido else 'Marcar Feito' }}</button>
-                        </form>
-                        {% endif %}
-                        <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
-                            <button class="btn btn-sm btn-warning">Nova Versão</button>
-                        </form>
-                        {% if user and user.admin %}
-                        <form method="post" action="/admin/templates/{{ t.id }}/delete"
-                              onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
-                            <button class="btn btn-sm btn-danger">Excluir</button>
-                        </form>
-                        {% endif %}
+            <td>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+                    {% if tipo == 'pedido' %}
+                    <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
+                    {% endif %}
+                    {% if tipo != 'pedido' or pode('pedidos_criar_editar') %}
+                    <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
+                    {% endif %}
+                    <div class="menu-mais">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
+                        <div class="menu-mais-dropdown">
+                            <form method="post" action="/admin/templates/{{ t.id }}/toggle">
+                                <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
+                            </form>
+                            {% if tipo == 'pedido' %}
+                            <form method="post" action="/admin/templates/{{ t.id }}/toggle-concluido">
+                                <button class="btn btn-sm {{ 'btn-warning' if not t.concluido else 'btn-primary' }}">{{ 'Reabrir Pedido' if t.concluido else 'Marcar Feito' }}</button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="/admin/templates/{{ t.id }}/nova-versao">
+                                <button class="btn btn-sm btn-warning">Nova Versão</button>
+                            </form>
+                            {% if user and user.admin %}
+                            <form method="post" action="/admin/templates/{{ t.id }}/delete"
+                                  onsubmit="return confirm('Excluir o template \'{{ t.nome }} v{{ t.versao }}\'?\nEsta ação não pode ser desfeita.')">
+                                <button class="btn btn-sm btn-danger">Excluir</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </td>
@@ -156,6 +158,20 @@
         {% endfor %}
         </tbody>
     </table>
+
+    {% if pag.total_paginas > 1 %}
+    <div class="paginacao">
+        <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+        {% for p in pag.paginas_visiveis %}
+            {% if p is none %}
+            <span class="paginacao-ellipsis">…</span>
+            {% else %}
+            <a href="/admin/templates?tab={{ tipo }}&pagina_{{ tipo }}={{ p }}"
+               class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 
 <div class="card">
@@ -269,10 +285,10 @@
 </div>
 
 <div id="tab-kit" class="tab-panel">
-    {{ secao_templates('kit', 'Kit', templates_kit, clientes, tipos_catalogo, consumo_resumo) }}
+    {{ secao_templates('kit', 'Kit', pag_kit, clientes, tipos_catalogo, consumo_resumo) }}
 </div>
 <div id="tab-pedido" class="tab-panel" style="display:none;">
-    {{ secao_templates('pedido', 'Pedido', templates_pedido, clientes, tipos_catalogo, {}) }}
+    {{ secao_templates('pedido', 'Pedido', pag_pedido, clientes, tipos_catalogo, {}) }}
 </div>
 <div id="tab-conjuntos" class="tab-panel" style="display:none;">
     <div class="card">

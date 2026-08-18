@@ -151,7 +151,7 @@
 <!-- Lista de veículos -->
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-    <h2 style="margin:0;">Veículos ({{ veiculos | length }})</h2>
+    <h2 style="margin:0;">Veículos ({{ pag_veiculos.total }})</h2>
     <form method="get" style="display:flex;gap:8px;align-items:center;">
       <select name="cliente" style="margin:0;">
         <option value="">— todos os clientes —</option>
@@ -165,7 +165,7 @@
       {% endif %}
     </form>
   </div>
-  {% if veiculos %}
+  {% if pag_veiculos.itens %}
   <input type="text" class="busca-box" placeholder="🔍 Buscar por número, cliente ou garagem..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-veiculos tr.filtro-item">
   <div style="overflow-x:auto;">
@@ -181,7 +181,7 @@
       </tr>
     </thead>
     <tbody>
-    {% for v in veiculos %}
+    {% for v in pag_veiculos.itens %}
     <tr class="filtro-item">
       <td><strong>{{ v.numero }}</strong></td>
       <td>{{ v.cliente }}</td>
@@ -202,6 +202,20 @@
     </tbody>
   </table>
   </div>
+
+  {% if pag_veiculos.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag_veiculos.pagina }} de {{ pag_veiculos.total_paginas }}</span>
+    {% for p in pag_veiculos.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/admin/veiculos?cliente={{ filtro_cliente }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag_veiculos.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:24px;">Nenhum veículo cadastrado.</p>
   {% endif %}

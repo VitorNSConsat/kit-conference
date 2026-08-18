@@ -174,16 +174,45 @@ def importar_tipos_xlsx(conteudo: bytes) -> dict:
 
 # ── Patrimônios (item_master) ──────────────────────────────────────────────────
 
-def listar_itens() -> list:
+def listar_itens(veiculo_id: int | None = None) -> list:
+    """Patrimônios cadastrados, com o veículo e o serial number do kit mais
+    recente em que cada um foi bipado (subconsulta correlacionada — pega
+    sempre o kit 'ativo' mais novo, então pra item reutilizável reflete a
+    atribuição atual, não o histórico inteiro). veiculo_id filtra só os
+    itens atualmente atribuídos a esse veículo."""
     with db() as conn:
         rows = conn.execute(
-            "SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome "
+            "SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome, "
+            "(SELECT kr.veiculo_id FROM scan_session_items si "
+            " JOIN scan_session ss ON ss.id = si.sessao_id "
+            " JOIN kit_record kr ON kr.sessao_id = ss.id "
+            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
+            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS veiculo_id_atual, "
+            "(SELECT COALESCE(v.numero, kr.veiculo) FROM scan_session_items si "
+            " JOIN scan_session ss ON ss.id = si.sessao_id "
+            " JOIN kit_record kr ON kr.sessao_id = ss.id "
+            " LEFT JOIN veiculos v ON v.id = kr.veiculo_id "
+            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
+            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS veiculo_atual, "
+            "(SELECT kr.kit_id FROM scan_session_items si "
+            " JOIN scan_session ss ON ss.id = si.sessao_id "
+            " JOIN kit_record kr ON kr.sessao_id = ss.id "
+            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
+            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS kit_id_atual, "
+            "(SELECT si.serial_number FROM scan_session_items si "
+            " JOIN scan_session ss ON ss.id = si.sessao_id "
+            " JOIN kit_record kr ON kr.sessao_id = ss.id "
+            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
+            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS serial_atual "
             "FROM item_master i "
             "JOIN item_tipo t ON t.id = i.item_tipo_id "
             "LEFT JOIN users u ON u.id = i.criado_por "
             "ORDER BY t.nome, i.codigo_barra"
         ).fetchall()
-    return [dict(r) for r in rows]
+    itens = [dict(r) for r in rows]
+    if veiculo_id:
+        itens = [i for i in itens if i["veiculo_id_atual"] == veiculo_id]
+    return itens
 
 
 def buscar_item(codigo_barra: str) -> dict | None:

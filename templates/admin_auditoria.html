@@ -8,7 +8,7 @@
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Toda ação que altera dados fica registrada aqui — de qualquer usuário, admin ou não.
-  Mostrando os {{ registros | length }} registros mais recentes que batem com o filtro.
+  Mostrando os {{ pag_registros.total }} registros mais recentes que batem com o filtro.
 </p>
 
 <div class="card">
@@ -45,7 +45,7 @@
 </div>
 
 <div class="card">
-  {% if registros %}
+  {% if pag_registros.itens %}
   <input type="text" class="busca-box" placeholder="🔍 Buscar no detalhe..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-auditoria tr.filtro-item">
   <div style="overflow-x:auto;">
@@ -57,7 +57,7 @@
       </tr>
     </thead>
     <tbody>
-    {% for r in registros %}
+    {% for r in pag_registros.itens %}
     <tr class="filtro-item">
       <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
       <td>{{ r.user_nome or '—' }}</td>
@@ -79,6 +79,21 @@
     </tbody>
   </table>
   </div>
+
+  {% if pag_registros.total_paginas > 1 %}
+  {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&user_id=' + (filtro_user_id or '') + '&acao=' + (filtro_acao or '') %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag_registros.pagina }} de {{ pag_registros.total_paginas }}</span>
+    {% for p in pag_registros.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/admin/auditoria?{{ filtros_qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag_registros.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:24px;">
     Nenhum registro encontrado para esse filtro.

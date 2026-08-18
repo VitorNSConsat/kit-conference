@@ -56,7 +56,7 @@
 </div>
 
 <div class="card">
-  <h2>Usuários ({{ usuarios | length }})</h2>
+  <h2>Usuários ({{ pag_usuarios.total }})</h2>
   <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou login..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-usuarios tr.filtro-item">
   <div style="overflow-x:auto;">
@@ -65,7 +65,7 @@
       <tr><th>Nome</th><th>Login</th><th>Perfil</th><th>Status</th><th>Desde</th><th></th></tr>
     </thead>
     <tbody>
-    {% for u in usuarios %}
+    {% for u in pag_usuarios.itens %}
     <tr class="filtro-item" style="{{ 'opacity:.55;' if not u.ativo }}">
       <td><strong>{{ u.nome }}</strong>{% if user and u.id == user.id %}
         <span style="font-size:11px;color:#888;">(você)</span>{% endif %}</td>
@@ -141,6 +141,20 @@
     </tbody>
   </table>
   </div>
+
+  {% if pag_usuarios.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag_usuarios.pagina }} de {{ pag_usuarios.total_paginas }}</span>
+    {% for p in pag_usuarios.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/admin/usuarios?pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag_usuarios.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}
