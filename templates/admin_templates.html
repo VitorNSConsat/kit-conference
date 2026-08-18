@@ -404,30 +404,7 @@
 .item-sel-nome { font-weight: 600; font-size: 14px; flex: 1; min-width: 120px; color: #1a3a5c; }
 .item-sel-campos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* ── Menu de abas (mesmo padrão de Itens & Estoque) ── */
-.tabs-menu {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 18px;
-    border-bottom: 2px solid #e0e7ef;
-}
-.tab-btn {
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    margin-bottom: -2px;
-    transition: color .12s, border-color .12s;
-}
-.tab-btn:hover { color: #1a3a5c; }
-.tab-btn.active {
-    color: #1a3a5c;
-    border-bottom-color: #1a3a5c;
-}
+/* O estilo do menu de abas mora em static/style.css (carregado no <head>). */
 </style>
 <script>
 let idx = { kit: 0, pedido: 0 };

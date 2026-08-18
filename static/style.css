@@ -197,6 +197,42 @@ h2 { font-size: 17px; margin-bottom: 14px; color: var(--text); }
 .btn-secondary { background: #efe9dc; color: #5b5348; }
 .btn-sm { padding: 5px 11px; font-size: 13px; }
 
+/* Menu de abas (Itens & Estoque, Criar Kit/Pedido).
+   Fica aqui, e não num <style> no rodapé da página, porque o navegador
+   só aplica o estilo do rodapé depois de ler a página inteira — as abas
+   apareciam por um instante com a cara padrão de link (roxo sublinhado)
+   antes de assumir o visual certo. */
+.tabs-menu {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid #e0e7ef;
+    flex-wrap: wrap;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #888;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: color .12s, border-color .12s;
+    /* As abas de Itens & Estoque são links (<a>), pra cada uma carregar
+       seus próprios dados; as de Criar Kit/Pedido seguem sendo <button>. */
+    display: inline-block;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.tab-btn:hover { color: #1a3a5c; }
+.tab-btn.active {
+    color: #1a3a5c;
+    border-bottom-color: #1a3a5c;
+}
+
 /* Paginação — controle numerado reutilizável (itens cadastrados, kits...) */
 .paginacao {
     display: flex;

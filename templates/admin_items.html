@@ -857,34 +857,9 @@
     to   { opacity: 1; transform: translateY(0)   scale(1);    }
 }
 
-/* ── Menu de abas ── */
-.tabs-menu {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 18px;
-    border-bottom: 2px solid #e0e7ef;
-}
-.tab-btn {
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    margin-bottom: -2px;
-    transition: color .12s, border-color .12s;
-    /* As abas são links (<a>), pra cada uma carregar seus próprios dados */
-    display: inline-block;
-    text-decoration: none;
-    white-space: nowrap;
-}
-.tab-btn:hover { color: #1a3a5c; }
-.tab-btn.active {
-    color: #1a3a5c;
-    border-bottom-color: #1a3a5c;
-}
+/* O estilo do menu de abas mora em static/style.css, carregado no <head> —
+   aqui no rodapé ele só seria aplicado depois da página inteira, fazendo
+   as abas piscarem sem estilo. */
 </style>
 <script>
 let _popupAberto = null;
