@@ -68,6 +68,10 @@ def classificar(caminho: str) -> str:
         return "GESTAO DE USUARIOS"
     if "/scan" in c or "/session" in c:
         return "BIPAGEM"
+    # Antes de /toggle: a rota de vínculo não é toggle, mas convém ficar
+    # explícita no log por ser mudança rastreável de kit ↔ veículo.
+    if c.startswith("/kit-record/") and c.endswith("/veiculo"):
+        return "VINCULO DE VEICULO"
     if "/toggle" in c:
         return "ALTERACAO DE STATUS"
     if "/admin/producao/" in c:

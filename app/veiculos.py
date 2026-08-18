@@ -179,21 +179,25 @@ def historico_kits(veiculo_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def kits_sem_veiculo(limite: int = 100) -> list[dict]:
-    """Kits finalizados que ainda não têm veículo vinculado — alimenta o
-    select de atribuição manual na tela do veículo. Limitado aos mais
-    recentes: atribuição manual é correção pontual, não varredura de
-    histórico antigo."""
+def kits_para_vincular(veiculo_id: int, limite: int = 100) -> list[dict]:
+    """Kits finalizados que podem ser vinculados a este veículo: os que não
+    têm veículo nenhum e os que estão em OUTRO veículo (troca). Cada linha
+    traz `veiculo_atual` preenchido quando já há vínculo — é o que faz a
+    tela exigir motivo antes de trocar. Limitado aos mais recentes:
+    atribuição manual é correção pontual, não varredura de histórico."""
     with db() as conn:
         rows = conn.execute("""
             SELECT kr.kit_id, kt.nome AS kit_nome, kt.cliente,
-                   kr.veiculo AS veiculo_texto, kr.finalizado_em
+                   kr.finalizado_em,
+                   kr.veiculo_id AS veiculo_id_atual,
+                   COALESCE(v.numero, kr.veiculo, '') AS veiculo_atual
             FROM kit_record kr
             JOIN kit_template kt ON kt.id = kr.kit_template_id
-            WHERE kr.veiculo_id IS NULL
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            WHERE kr.veiculo_id IS NULL OR kr.veiculo_id != ?
             ORDER BY kr.finalizado_em DESC
             LIMIT ?
-        """, (limite,)).fetchall()
+        """, (veiculo_id, limite)).fetchall()
     return [dict(r) for r in rows]
 
 

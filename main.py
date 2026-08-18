@@ -1810,11 +1810,35 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
     """Atribuição manual de veículo a um kit. Fica só na tela do veículo
     (/admin/veiculos/{id}) — foi tirada do relatório pra não haver dois
     lugares mexendo na mesma coisa. `voltar_para` traz o id do veículo de
-    onde a ação partiu, pra devolver o usuário na mesma tela."""
+    onde a ação partiu, pra devolver o usuário na mesma tela.
+
+    Se o kit JÁ tinha veículo, trocar ou desvincular exige motivo — mesma
+    regra da nota fiscal: primeira atribuição é livre, mexer no que já
+    estava definido precisa de justificativa. O motivo não vai pra
+    kit_record; fica no log de auditoria, que o middleware grava com todos
+    os campos do formulário (inclusive `veiculo_anterior`, enviado oculto
+    pela tela justamente pra o log guardar a troca de → para)."""
     form = await request.form()
     veiculo_id_str = str(form.get("veiculo_id", "")).strip()
     veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
     voltar_str = str(form.get("voltar_para", "")).strip()
+    motivo = str(form.get("motivo", "")).strip()
+
+    with db() as conn:
+        atual = conn.execute(
+            "SELECT veiculo_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+        ).fetchone()
+    if not atual:
+        return RedirectResponse("/admin/veiculos?erro=kit_nao_encontrado", status_code=302)
+
+    destino = voltar_str if voltar_str.isdigit() else veiculo_id_str
+    base = f"/admin/veiculos/{destino}" if destino.isdigit() else "/admin/veiculos"
+
+    tinha_veiculo = atual["veiculo_id"] is not None
+    mudando = atual["veiculo_id"] != veiculo_id
+    if tinha_veiculo and mudando and not motivo:
+        return RedirectResponse(f"{base}?erro=motivo_veiculo", status_code=302)
+
     veiculo_texto = ""
     garagem_texto = ""
     if veiculo_id:
@@ -1827,10 +1851,7 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
             "UPDATE kit_record SET veiculo_id=?, veiculo=?, garagem=? WHERE kit_id=?",
             (veiculo_id, veiculo_texto, garagem_texto, kit_id)
         )
-    destino = voltar_str if voltar_str.isdigit() else veiculo_id_str
-    if destino and destino.isdigit():
-        return RedirectResponse(f"/admin/veiculos/{destino}?ok=veiculo_kit", status_code=302)
-    return RedirectResponse("/admin/veiculos?ok=veiculo_kit", status_code=302)
+    return RedirectResponse(f"{base}?ok=veiculo_kit", status_code=302)
 
 
 @app.post("/reports/reprint/{kit_id}")
@@ -2988,7 +3009,7 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
         "garagens": garagens_cadastradas,
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
-        "kits_sem_veiculo": veiculos_mod.kits_sem_veiculo(),
+        "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
         "ok": request.query_params.get("ok", ""),
     })
 

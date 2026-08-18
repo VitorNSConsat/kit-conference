@@ -13,9 +13,15 @@
 {% if request.query_params.get('ok') == 'liberado' %}
 <div class="alert alert-success">🔓 Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
 {% elif request.query_params.get('ok') == 'veiculo_kit' %}
-<div class="alert alert-success">🔗 Vínculo de kit atualizado.</div>
+<div class="alert alert-success">🔗 Vínculo de kit atualizado — a alteração ficou registrada no histórico de auditoria.</div>
 {% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Dados atualizados.</div>
+{% endif %}
+
+{% if request.query_params.get('erro') == 'motivo_veiculo' %}
+<div class="alert alert-danger">
+  ⚠️ Esse kit já estava vinculado a um veículo — informe o motivo da troca pra poder salvar.
+</div>
 {% endif %}
 
 {% if erro is defined and erro %}
@@ -81,15 +87,30 @@
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           <a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a>
-          <form method="post" action="/kit-record/{{ h.kit_id }}/veiculo"
-                onsubmit="return confirm('Desvincular este kit do veículo {{ v.numero }}? O kit continua existindo, só fica sem veículo.')">
-            <input type="hidden" name="veiculo_id" value="">
-            <input type="hidden" name="voltar_para" value="{{ v.id }}">
-            <button type="submit" class="btn btn-sm btn-warning" title="Tira o vínculo deste kit com o veículo">
-              ✂️ Desvincular
-            </button>
-          </form>
+          <button type="button" class="btn btn-sm btn-warning"
+                  id="btn-desv-{{ loop.index }}"
+                  onclick="abrirDesvincular({{ loop.index }})"
+                  title="Tira o vínculo deste kit com o veículo (exige motivo)">
+            ✂️ Desvincular
+          </button>
         </div>
+        <!-- Desvincular é mudança de um vínculo já existente: motivo obrigatório -->
+        <form method="post" action="/kit-record/{{ h.kit_id }}/veiculo"
+              id="form-desv-{{ loop.index }}" style="display:none;margin-top:6px;">
+          <input type="hidden" name="veiculo_id" value="">
+          <input type="hidden" name="voltar_para" value="{{ v.id }}">
+          <input type="hidden" name="veiculo_anterior" value="{{ v.numero }}">
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+            <input type="text" name="motivo" required maxlength="200"
+                   placeholder="Motivo da desvinculação"
+                   style="width:190px;margin:0;font-size:12px;padding:4px 6px;"
+                   onkeydown="if(event.key==='Escape'){fecharDesvincular({{ loop.index }});}">
+            <button type="submit" class="btn btn-sm btn-danger" style="padding:4px 8px;"
+                    title="Confirmar desvinculação">✓</button>
+            <button type="button" class="btn btn-sm btn-secondary" style="padding:4px 8px;"
+                    onclick="fecharDesvincular({{ loop.index }})">✕</button>
+          </div>
+        </form>
       </td>
     </tr>
     {% endfor %}
@@ -100,32 +121,43 @@
   <p style="color:#888;text-align:center;padding:24px;">Nenhum kit vinculado a este veículo.</p>
   {% endif %}
 
-  <!-- Vincular manualmente um kit que ficou sem veículo -->
+  <!-- Vincular manualmente um kit a este veículo (inclusive trocando de outro) -->
   <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
-    <h3 style="font-size:15px;margin:0 0 8px;">➕ Vincular um kit sem veículo</h3>
-    {% if kits_sem_veiculo %}
+    <h3 style="font-size:15px;margin:0 0 8px;">➕ Vincular um kit a este veículo</h3>
+    {% if kits_para_vincular %}
+    <p style="color:#666;font-size:13px;margin:0 0 8px;">
+      Kits sem veículo aparecem livres. Kits que já estão em outro veículo também podem
+      ser trazidos pra cá — nesse caso o <strong>motivo é obrigatório</strong> e a troca
+      fica registrada na auditoria.
+    </p>
     <form method="post" action="" id="form-vincular-kit"
           style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;"
-          onsubmit="this.action = '/kit-record/' + document.getElementById('sel-kit').value + '/veiculo';">
+          onsubmit="return prepararVinculo(this);">
       <input type="hidden" name="veiculo_id" value="{{ v.id }}">
       <input type="hidden" name="voltar_para" value="{{ v.id }}">
-      <div class="form-group" style="margin:0;min-width:320px;">
-        <label>Kit (sem veículo vinculado)</label>
-        <select id="sel-kit" required style="margin:0;">
-          <option value="">— selecione o kit —</option>
-          {% for k in kits_sem_veiculo %}
-          <option value="{{ k.kit_id }}">
+      <input type="hidden" name="veiculo_anterior" id="hid-veiculo-anterior" value="">
+      <div class="form-group" style="margin:0;min-width:340px;">
+        <label>Kit</label>
+        <select id="sel-kit" required style="margin:0;" onchange="aoTrocarKit()">
+          <option value="" data-veiculo="">— selecione o kit —</option>
+          {% for k in kits_para_vincular %}
+          <option value="{{ k.kit_id }}" data-veiculo="{{ k.veiculo_atual if k.veiculo_id_atual else '' }}">
             {{ k.finalizado_em[:10] if k.finalizado_em else '—' }} · {{ k.kit_nome }} · {{ k.cliente }}
-            {%- if k.veiculo_texto %} (texto: {{ k.veiculo_texto }}){% endif %}
+            {%- if k.veiculo_id_atual %} — 🔒 hoje em {{ k.veiculo_atual }}{% endif %}
           </option>
           {% endfor %}
         </select>
+      </div>
+      <div class="form-group" id="grupo-motivo" style="margin:0;min-width:240px;display:none;">
+        <label>Motivo da troca <span style="color:#c0392b;">*</span></label>
+        <input type="text" name="motivo" id="inp-motivo" maxlength="200"
+               placeholder="Por que este kit está mudando de veículo?" style="margin:0;">
       </div>
       <button type="submit" class="btn btn-success">🔗 Vincular a este veículo</button>
     </form>
     {% else %}
     <p style="color:#888;font-size:13px;margin:0;">
-      Nenhum kit sem veículo no momento — todos os kits recentes já estão vinculados.
+      Nenhum outro kit disponível pra vincular no momento.
     </p>
     {% endif %}
   </div>
@@ -159,4 +191,47 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Desvincular kit ↔ veículo exige motivo (é mudança de vínculo já existente),
+// então o botão abre um campo em vez de submeter direto.
+function abrirDesvincular(idx) {
+    document.getElementById('btn-desv-' + idx).style.display = 'none';
+    const form = document.getElementById('form-desv-' + idx);
+    form.style.display = 'block';
+    form.querySelector('input[name="motivo"]').focus();
+}
+
+function fecharDesvincular(idx) {
+    document.getElementById('form-desv-' + idx).style.display = 'none';
+    document.getElementById('btn-desv-' + idx).style.display = '';
+}
+
+// O motivo só aparece (e só é exigido) quando o kit escolhido já está em
+// outro veículo — primeira atribuição continua sendo um clique só.
+function aoTrocarKit() {
+    const sel = document.getElementById('sel-kit');
+    const veiculoAtual = sel.options[sel.selectedIndex].dataset.veiculo || '';
+    const grupo = document.getElementById('grupo-motivo');
+    const inp = document.getElementById('inp-motivo');
+    document.getElementById('hid-veiculo-anterior').value = veiculoAtual;
+    if (veiculoAtual) {
+        grupo.style.display = '';
+        inp.required = true;
+    } else {
+        grupo.style.display = 'none';
+        inp.required = false;
+        inp.value = '';
+    }
+}
+
+function prepararVinculo(form) {
+    const kitId = document.getElementById('sel-kit').value;
+    if (!kitId) return false;
+    form.action = '/kit-record/' + kitId + '/veiculo';
+    return true;
+}
+</script>
 {% endblock %}
