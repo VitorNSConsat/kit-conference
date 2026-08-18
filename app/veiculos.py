@@ -109,7 +109,33 @@ def reativar(veiculo_id: int):
 
 
 def deletar(veiculo_id: int):
+    """Exclui o veículo preservando o histórico, que é o que a tela promete
+    ao pedir a confirmação.
+
+    kit_record e scan_session referenciam veiculos(id), então o DELETE
+    direto batia na FOREIGN KEY e derrubava a requisição com erro 500. Em
+    vez de bloquear a exclusão (como fazemos com usuário), aqui dá pra
+    preservar tudo: o número do veículo já vive também num campo de texto
+    nas duas tabelas, então basta garantir que esse texto esteja preenchido
+    antes de soltar o vínculo. Os kits continuam existindo e continuam
+    mostrando pra qual veículo foram."""
     with db() as conn:
+        # Garante o número em texto antes de perder a referência — se o
+        # texto já estiver preenchido, COALESCE/NULLIF mantém o que havia.
+        conn.execute(
+            "UPDATE kit_record SET veiculo = COALESCE(NULLIF(veiculo, ''), "
+            "  (SELECT numero FROM veiculos WHERE id = ?)) "
+            "WHERE veiculo_id = ?",
+            (veiculo_id, veiculo_id)
+        )
+        conn.execute(
+            "UPDATE scan_session SET veiculo = COALESCE(NULLIF(veiculo, ''), "
+            "  (SELECT numero FROM veiculos WHERE id = ?)) "
+            "WHERE veiculo_id = ?",
+            (veiculo_id, veiculo_id)
+        )
+        conn.execute("UPDATE kit_record SET veiculo_id = NULL WHERE veiculo_id = ?", (veiculo_id,))
+        conn.execute("UPDATE scan_session SET veiculo_id = NULL WHERE veiculo_id = ?", (veiculo_id,))
         conn.execute("DELETE FROM veiculos WHERE id=?", (veiculo_id,))
 
 
