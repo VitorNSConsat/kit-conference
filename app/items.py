@@ -174,44 +174,134 @@ def importar_tipos_xlsx(conteudo: bytes) -> dict:
 
 # ── Patrimônios (item_master) ──────────────────────────────────────────────────
 
-def listar_itens(veiculo_id: int | None = None) -> list:
-    """Patrimônios cadastrados, com o veículo e o serial number do kit mais
-    recente em que cada um foi bipado (subconsulta correlacionada — pega
-    sempre o kit 'ativo' mais novo, então pra item reutilizável reflete a
-    atribuição atual, não o histórico inteiro). veiculo_id filtra só os
-    itens atualmente atribuídos a esse veículo."""
+# Por que um patrimônio aparece sem veículo. Não é erro por si só — a
+# maioria dos casos é situação normal (item novo, kit ainda em montagem).
+SITUACOES = {
+    "ok": "",
+    "nunca_bipado": "Cadastrado mas nunca bipado em nenhum kit",
+    "em_bipagem": "Está numa bipagem em andamento — ganha veículo ao finalizar",
+    "kit_sem_veiculo": "Bipado num kit que foi finalizado sem veículo definido",
+    "kit_removido": "O kit onde foi bipado não existe mais (excluído)",
+}
+
+
+def listar_itens(veiculo_id: int | None = None, situacao: str = "") -> list:
+    """Patrimônios cadastrados, com o veículo, serial e operador do kit mais
+    recente em que cada um foi bipado (o kit 'ativo' mais novo, então pra
+    item reutilizável reflete a atribuição atual, não o histórico inteiro).
+
+    Cada item traz também `situacao`, que explica por que está sem veículo
+    quando for o caso — a lista sozinha não distinguia "nunca foi bipado"
+    de "o kit foi finalizado sem veículo", que pedem ações bem diferentes.
+
+    veiculo_id filtra os itens atribuídos a esse veículo; situacao filtra
+    por um dos códigos de SITUACOES."""
     with db() as conn:
-        rows = conn.execute(
-            "SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome, "
-            "(SELECT kr.veiculo_id FROM scan_session_items si "
-            " JOIN scan_session ss ON ss.id = si.sessao_id "
-            " JOIN kit_record kr ON kr.sessao_id = ss.id "
-            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
-            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS veiculo_id_atual, "
-            "(SELECT COALESCE(v.numero, kr.veiculo) FROM scan_session_items si "
-            " JOIN scan_session ss ON ss.id = si.sessao_id "
-            " JOIN kit_record kr ON kr.sessao_id = ss.id "
-            " LEFT JOIN veiculos v ON v.id = kr.veiculo_id "
-            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
-            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS veiculo_atual, "
-            "(SELECT kr.kit_id FROM scan_session_items si "
-            " JOIN scan_session ss ON ss.id = si.sessao_id "
-            " JOIN kit_record kr ON kr.sessao_id = ss.id "
-            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
-            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS kit_id_atual, "
-            "(SELECT si.serial_number FROM scan_session_items si "
-            " JOIN scan_session ss ON ss.id = si.sessao_id "
-            " JOIN kit_record kr ON kr.sessao_id = ss.id "
-            " WHERE si.codigo_barra = i.codigo_barra AND kr.status = 'ativo' "
-            " ORDER BY kr.finalizado_em DESC LIMIT 1) AS serial_atual "
-            "FROM item_master i "
-            "JOIN item_tipo t ON t.id = i.item_tipo_id "
-            "LEFT JOIN users u ON u.id = i.criado_por "
-            "ORDER BY t.nome, i.codigo_barra"
-        ).fetchall()
-    itens = [dict(r) for r in rows]
+        rows = conn.execute("""
+            WITH ult_kit AS (
+                SELECT si.codigo_barra, si.serial_number,
+                       kr.kit_id, kr.veiculo_id, kr.veiculo, kr.garagem,
+                       kr.finalizado_em, kr.operador_id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY si.codigo_barra
+                           ORDER BY kr.finalizado_em DESC
+                       ) AS rn
+                FROM scan_session_items si
+                JOIN scan_session ss ON ss.id = si.sessao_id
+                JOIN kit_record kr ON kr.sessao_id = ss.id
+                WHERE kr.status = 'ativo'
+            )
+            SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome,
+                   k.veiculo_id AS veiculo_id_atual,
+                   COALESCE(v.numero, k.veiculo) AS veiculo_atual,
+                   k.kit_id  AS kit_id_atual,
+                   k.garagem AS garagem_atual,
+                   k.serial_number AS serial_atual,
+                   k.finalizado_em AS bipado_em_atual,
+                   op.nome AS operador_atual,
+                   (SELECT COUNT(*) FROM scan_session_items s2
+                     WHERE s2.codigo_barra = i.codigo_barra) AS total_bipagens,
+                   (SELECT ss2.status FROM scan_session_items s2
+                     JOIN scan_session ss2 ON ss2.id = s2.sessao_id
+                     WHERE s2.codigo_barra = i.codigo_barra
+                     ORDER BY s2.id DESC LIMIT 1) AS status_ultima_sessao
+            FROM item_master i
+            JOIN item_tipo t ON t.id = i.item_tipo_id
+            LEFT JOIN users u ON u.id = i.criado_por
+            LEFT JOIN ult_kit k ON k.codigo_barra = i.codigo_barra AND k.rn = 1
+            LEFT JOIN veiculos v ON v.id = k.veiculo_id
+            LEFT JOIN users op ON op.id = k.operador_id
+            ORDER BY t.nome, i.codigo_barra
+        """).fetchall()
+
+    itens = []
+    for r in rows:
+        d = dict(r)
+        if d["veiculo_atual"]:
+            d["situacao"] = "ok"
+        elif not d["total_bipagens"]:
+            d["situacao"] = "nunca_bipado"
+        elif d["status_ultima_sessao"] == "em_andamento":
+            d["situacao"] = "em_bipagem"
+        elif d["kit_id_atual"]:
+            d["situacao"] = "kit_sem_veiculo"
+        else:
+            d["situacao"] = "kit_removido"
+        d["situacao_texto"] = SITUACOES[d["situacao"]]
+        itens.append(d)
+
     if veiculo_id:
         itens = [i for i in itens if i["veiculo_id_atual"] == veiculo_id]
+    if situacao in SITUACOES:
+        itens = [i for i in itens if i["situacao"] == situacao]
+    return itens
+
+
+def historico_patrimonio(codigo_barra: str) -> list[dict]:
+    """Toda vez que este código foi bipado: quando, em que sessão/kit, por
+    qual operador e pra qual veículo. Responde 'onde foi bipado?' sem
+    depender de o kit ainda ter veículo."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT si.id AS si_id, si.bipado_em, si.serial_number, si.observacao,
+                   si.sessao_id, ss.status AS sessao_status,
+                   kt.nome AS kit_nome, kt.cliente,
+                   kr.kit_id, kr.status AS kit_status,
+                   COALESCE(v.numero, kr.veiculo, ss.veiculo, '') AS veiculo,
+                   COALESCE(kr.garagem, ss.garagem, '') AS garagem,
+                   COALESCE(opi.nome, ops.nome) AS operador_nome
+            FROM scan_session_items si
+            JOIN scan_session ss ON ss.id = si.sessao_id
+            JOIN kit_template kt ON kt.id = ss.kit_template_id
+            LEFT JOIN kit_record kr ON kr.sessao_id = ss.id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            LEFT JOIN users opi ON opi.id = si.operador_id
+            LEFT JOIN users ops ON ops.id = ss.operador_id
+            WHERE si.codigo_barra = ?
+            ORDER BY si.bipado_em DESC, si.id DESC
+        """, (codigo_barra,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def bipados_na_mesma_sessao(sessao_id: int, codigo_barra: str) -> list[dict]:
+    """O que mais foi bipado na mesma sessão, em ordem cronológica — dá pra
+    ver o que veio logo antes e logo depois deste item. Marca a linha do
+    próprio item pra facilitar achar o ponto na sequência."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT si.codigo_barra, si.bipado_em, si.serial_number, si.quantidade,
+                   it.nome AS descricao, u.nome AS operador_nome
+            FROM scan_session_items si
+            JOIN item_tipo it ON it.id = si.item_tipo_id
+            LEFT JOIN users u ON u.id = si.operador_id
+            WHERE si.sessao_id = ?
+            ORDER BY si.bipado_em, si.id
+        """, (sessao_id,)).fetchall()
+    itens = []
+    for r in rows:
+        d = dict(r)
+        d["e_o_item"] = d["codigo_barra"] == codigo_barra
+        itens.append(d)
     return itens
 
 

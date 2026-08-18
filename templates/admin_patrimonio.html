@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Patrimônio {{ codigo_barra }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">🔎 Rastreamento do Patrimônio</h1>
+  <a href="/admin/items?tab=patrimonios" class="btn btn-secondary">← Voltar</a>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Código</div>
+      <div style="font-family:monospace;font-size:18px;font-weight:700;">{{ codigo_barra }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Tipo</div>
+      <div style="font-size:16px;font-weight:600;">{{ item.descricao if item else '— não cadastrado —' }}</div>
+    </div>
+    {% if item %}
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Cadastrado em</div>
+      <div style="font-size:16px;">{{ item.criado_em[:16] if item.criado_em else '—' }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Bipagens</div>
+      <div style="font-size:16px;font-weight:700;">{{ historico | length }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% if not item %}
+  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
+    ⚠️ Este código não está cadastrado como patrimônio — pode ter sido renomeado ou excluído.
+    O histórico de bipagem abaixo continua valendo.
+  </p>
+  {% endif %}
+</div>
+
+<!-- Onde foi bipado -->
+<div class="card">
+  <h2 style="margin-bottom:4px;">📍 Onde foi bipado ({{ historico | length }})</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Cada vez que este código passou pelo leitor, com o operador que bipou e o destino do kit.
+  </p>
+  {% if historico %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Bipado em</th>
+        <th>Operador</th>
+        <th>Kit</th>
+        <th>Veículo</th>
+        <th>Garagem</th>
+        <th>Serial</th>
+        <th>Situação</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in historico %}
+      <tr>
+        <td style="white-space:nowrap;font-size:13px;">{{ h.bipado_em[:16] if h.bipado_em else '—' }}</td>
+        <td>{{ h.operador_nome or '—' }}</td>
+        <td>
+          {% if h.kit_id %}
+          <a href="/kit/{{ h.kit_id }}" target="_blank" style="font-weight:600;color:#1a3a5c;">{{ h.kit_nome }}</a>
+          {% else %}
+          {{ h.kit_nome }}
+          {% endif %}
+          <div style="font-size:11px;color:#999;">{{ h.cliente }}</div>
+        </td>
+        <td style="font-weight:600;">{{ h.veiculo or '—' }}</td>
+        <td>{{ h.garagem or '—' }}</td>
+        <td style="font-family:monospace;font-size:12px;">{{ h.serial_number or '—' }}</td>
+        <td>
+          {% if h.sessao_status == 'em_andamento' %}
+          <span class="badge badge-warning">Em bipagem</span>
+          {% elif not h.kit_id %}
+          <span class="badge badge-danger">Kit excluído</span>
+          {% else %}
+          <span class="badge badge-success">Finalizado</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:24px;">
+    Este patrimônio nunca foi bipado — foi cadastrado manualmente ou por importação e
+    ainda não entrou em nenhum kit.
+  </p>
+  {% endif %}
+</div>
+
+<!-- O que foi bipado junto -->
+{% if vizinhos %}
+<div class="card">
+  <h2 style="margin-bottom:4px;">🔗 Bipado junto (última sessão)</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Sequência completa da sessão mais recente onde este item apareceu — dá pra ver o que
+    veio logo antes e logo depois dele. A linha destacada é o próprio item.
+  </p>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr><th>#</th><th>Bipado em</th><th>Item</th><th>Código</th><th>Qtd</th><th>Operador</th></tr>
+    </thead>
+    <tbody>
+      {% for z in vizinhos %}
+      <tr {% if z.e_o_item %}style="background:#fff8e1;font-weight:700;"{% endif %}>
+        <td style="color:#999;">{{ loop.index }}</td>
+        <td style="white-space:nowrap;font-size:13px;">{{ z.bipado_em[:16] if z.bipado_em else '—' }}</td>
+        <td>{{ z.descricao }}{% if z.e_o_item %} <span style="color:#e67e22;">← este item</span>{% endif %}</td>
+        <td style="font-family:monospace;font-size:12px;">
+          {% if z.e_o_item %}
+          {{ z.codigo_barra }}
+          {% else %}
+          <a href="/admin/items/patrimonio/{{ z.codigo_barra | urlencode }}">{{ z.codigo_barra }}</a>
+          {% endif %}
+        </td>
+        <td>{{ z.quantidade or 1 }}</td>
+        <td>{{ z.operador_nome or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

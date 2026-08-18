@@ -2,6 +2,7 @@ import json
 import os
 import re
 import uuid
+from collections import Counter
 from datetime import datetime, timezone, timedelta
 
 # Brasília Time (UTC-3) — garante horário correto independente do fuso do servidor
@@ -672,18 +673,40 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
 
+ABAS_ITENS = ("catalogo", "novo", "patrimonios", "codigos", "sobressalentes")
+
+
 def _admin_items_context(sobressalente_cliente: str = "",
                          sobressalente_data_ini: str = "",
                          sobressalente_data_fim: str = "",
                          patrimonio_veiculo_id: int | None = None,
                          patrimonio_pagina: int = 1,
-                         codigos_pagina: int = 1) -> dict:
-    pag_itens = paginacao_mod.paginar(
-        items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id), patrimonio_pagina
-    )
+                         codigos_pagina: int = 1,
+                         tab: str = "",
+                         patrimonio_situacao: str = "") -> dict:
+    # A contagem por situação vem da lista SEM o filtro de situação — senão,
+    # depois de filtrar, o select mostraria zero em todas as outras opções e
+    # não daria mais pra navegar entre elas.
+    itens_do_veiculo = items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id)
+    resumo_situacoes = Counter(i["situacao"] for i in itens_do_veiculo)
+    if patrimonio_situacao in items_mod.SITUACOES:
+        itens_filtrados = [i for i in itens_do_veiculo
+                           if i["situacao"] == patrimonio_situacao]
+    else:
+        itens_filtrados = itens_do_veiculo
+    pag_itens = paginacao_mod.paginar(itens_filtrados, patrimonio_pagina)
     ctx = {
+        # Resolvido aqui e não só no JS: se a aba certa só fosse aplicada
+        # depois que a página carrega, o navegador pintaria a primeira aba
+        # antes de trocar — o "pisca" que aparecia ao recarregar filtrado.
+        "tab_ativo": tab if tab in ABAS_ITENS else "catalogo",
         "pag_itens": pag_itens,
         "patrimonio_veiculo_id": patrimonio_veiculo_id,
+        "patrimonio_situacao": patrimonio_situacao,
+        "situacoes_itens": items_mod.SITUACOES,
+        # Mostra de cara quantos estão sem veículo e por quê, sem precisar
+        # paginar a lista atrás disso.
+        "resumo_situacoes": resumo_situacoes,
         "veiculos_todos": veiculos_mod.listar(),
         "tipos": items_mod.listar_tipos(),
         "estoque_por_tipo": {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()},
@@ -706,13 +729,33 @@ def _admin_items_context(sobressalente_cliente: str = "",
 @app.get("/admin/items", response_class=HTMLResponse)
 @require_login
 async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
-                      veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1):
+                      veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1,
+                      tab: str = "", situacao: str = ""):
     return render(request, "admin_items.html", _admin_items_context(
         cliente, data_ini, data_fim,
         patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
         patrimonio_pagina=pagina,
         codigos_pagina=codigos_pagina,
+        tab=tab,
+        patrimonio_situacao=situacao,
     ))
+
+
+@app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
+@require_login
+async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
+    """Rastreamento de um patrimônio: todo lugar onde ele foi bipado, por
+    quem, pra qual veículo — e o que mais foi bipado na mesma sessão."""
+    item = items_mod.buscar_item(codigo_barra)
+    historico = items_mod.historico_patrimonio(codigo_barra)
+    vizinhos = (items_mod.bipados_na_mesma_sessao(historico[0]["sessao_id"], codigo_barra)
+                if historico else [])
+    return render(request, "admin_patrimonio.html", {
+        "codigo_barra": codigo_barra,
+        "item": item,
+        "historico": historico,
+        "vizinhos": vizinhos,
+    })
 
 
 @app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)

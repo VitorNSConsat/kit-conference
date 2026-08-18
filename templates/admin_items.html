@@ -86,15 +86,16 @@
 
 <!-- ── Menu de abas ──────────────────────────────────────────────────────── -->
 <div class="tabs-menu">
-    <button type="button" class="tab-btn" data-tab="catalogo" onclick="mudarTab('catalogo')">📦 Estoque</button>
-    <button type="button" class="tab-btn" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
-    <button type="button" class="tab-btn" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
-    <button type="button" class="tab-btn" data-tab="codigos" onclick="mudarTab('codigos')">🖨️ Etiquetas &amp; Códigos</button>
-    <button type="button" class="tab-btn" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">🚚 Sobressalentes</button>
+    {% set aba = tab_ativo or 'catalogo' %}
+    <button type="button" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo" onclick="mudarTab('catalogo')">📦 Estoque</button>
+    <button type="button" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
+    <button type="button" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
+    <button type="button" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos" onclick="mudarTab('codigos')">🖨️ Etiquetas &amp; Códigos</button>
+    <button type="button" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">🚚 Sobressalentes</button>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
-<div id="tab-catalogo" class="tab-panel">
+<div id="tab-catalogo" class="tab-panel" style="display:{{ 'block' if aba == 'catalogo' else 'none' }};">
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <h2 style="margin:0;">Tipos de Item</h2>
@@ -403,7 +404,7 @@
 </div>
 
 <!-- ── Aba: Novo Item ────────────────────────────────────────────────────── -->
-<div id="tab-novo" class="tab-panel" style="display:none;">
+<div id="tab-novo" class="tab-panel" style="display:{{ 'block' if aba == 'novo' else 'none' }};">
     <div class="card">
         <h2>Cadastrar Novo Item</h2>
         <p style="color:#666;font-size:13px;margin-bottom:16px;">
@@ -482,7 +483,7 @@
 </div>
 
 <!-- ── Aba: Patrimônios ──────────────────────────────────────────────────── -->
-<div id="tab-patrimonios" class="tab-panel" style="display:none;">
+<div id="tab-patrimonios" class="tab-panel" style="display:{{ 'block' if aba == 'patrimonios' else 'none' }};">
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
             <div>
@@ -515,7 +516,7 @@
             <button type="submit" class="btn btn-primary">Cadastrar</button>
         </form>
 
-        <!-- Filtro por veículo -->
+        <!-- Filtros: veículo e situação -->
         <form method="get" action="/admin/items"
               style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
             <input type="hidden" name="tab" value="patrimonios">
@@ -530,10 +531,36 @@
                     {% endfor %}
                 </select>
             </div>
-            {% if patrimonio_veiculo_id %}
-            <a href="/admin/items?tab=patrimonios" class="btn btn-sm btn-warning">Limpar filtro</a>
+            <div style="min-width:260px;">
+                <label style="font-size:12px;color:#555;">Situação</label>
+                <select name="situacao" onchange="this.form.submit()" style="margin:0;">
+                    <option value="">Todas as situações</option>
+                    <option value="ok" {{ 'selected' if patrimonio_situacao == 'ok' }}>
+                        ✅ Com veículo ({{ resumo_situacoes.get('ok', 0) }})
+                    </option>
+                    <option value="nunca_bipado" {{ 'selected' if patrimonio_situacao == 'nunca_bipado' }}>
+                        ⚪ Nunca bipado ({{ resumo_situacoes.get('nunca_bipado', 0) }})
+                    </option>
+                    <option value="em_bipagem" {{ 'selected' if patrimonio_situacao == 'em_bipagem' }}>
+                        🔄 Em bipagem ({{ resumo_situacoes.get('em_bipagem', 0) }})
+                    </option>
+                    <option value="kit_sem_veiculo" {{ 'selected' if patrimonio_situacao == 'kit_sem_veiculo' }}>
+                        ⚠️ Kit sem veículo ({{ resumo_situacoes.get('kit_sem_veiculo', 0) }})
+                    </option>
+                    <option value="kit_removido" {{ 'selected' if patrimonio_situacao == 'kit_removido' }}>
+                        🗑️ Kit excluído ({{ resumo_situacoes.get('kit_removido', 0) }})
+                    </option>
+                </select>
+            </div>
+            {% if patrimonio_veiculo_id or patrimonio_situacao %}
+            <a href="/admin/items?tab=patrimonios" class="btn btn-sm btn-warning">Limpar filtros</a>
             {% endif %}
         </form>
+
+        <p style="font-size:12px;color:#888;margin:-4px 0 10px;">
+            Clique no código de qualquer item pra ver onde ele foi bipado, por qual operador
+            e o que foi bipado junto com ele.
+        </p>
 
         {% if pag_itens.itens %}
         <input type="text" class="busca-box" placeholder="🔍 Buscar por código ou tipo..."
@@ -554,15 +581,30 @@
             <tbody>
             {% for item in pag_itens.itens %}
                 <tr class="filtro-item">
-                    <td><code>{{ item.codigo_barra }}</code></td>
+                    <td>
+                        <a href="/admin/items/patrimonio/{{ item.codigo_barra | urlencode }}"
+                           title="Ver onde foi bipado, por quem e o que veio junto">
+                            <code>{{ item.codigo_barra }}</code>
+                        </a>
+                    </td>
                     <td>{{ item.descricao }}</td>
                     <td>
                         {% if item.veiculo_atual %}
                         <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:#1a3a5c;">
                             {{ item.veiculo_atual }}
                         </a>
+                        {% if item.operador_atual %}
+                        <div style="font-size:11px;color:#999;">por {{ item.operador_atual }}</div>
+                        {% endif %}
                         {% else %}
-                        <span style="color:#bbb;">—</span>
+                        <span style="color:#bbb;" title="{{ item.situacao_texto }}">—</span>
+                        <div style="font-size:11px;color:#e67e22;">
+                            {%- if item.situacao == 'nunca_bipado' %}⚪ nunca bipado
+                            {%- elif item.situacao == 'em_bipagem' %}🔄 em bipagem
+                            {%- elif item.situacao == 'kit_sem_veiculo' %}⚠️ kit sem veículo
+                            {%- elif item.situacao == 'kit_removido' %}🗑️ kit excluído
+                            {%- endif %}
+                        </div>
                         {% endif %}
                     </td>
                     <td style="font-family:monospace;font-size:12px;">{{ item.serial_atual or '—' }}</td>
@@ -595,7 +637,7 @@
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>
                 {% else %}
-                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}&pagina={{ p }}"
+                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}&pagina={{ p }}"
                    class="btn btn-sm {{ 'btn-primary' if p == pag_itens.pagina else 'btn-secondary' }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
@@ -605,7 +647,7 @@
 </div>
 
 <!-- ── Aba: Etiquetas & Códigos ──────────────────────────────────────────── -->
-<div id="tab-codigos" class="tab-panel" style="display:none;">
+<div id="tab-codigos" class="tab-panel" style="display:{{ 'block' if aba == 'codigos' else 'none' }};">
     <!-- Gerador de etiqueta avulsa (sem item_tipo/estoque) -->
     <div class="card" style="border:1.5px solid #1a3a5c;">
         <h2 style="margin-bottom:4px;">🏷️ Gerar Nova Etiqueta</h2>
@@ -703,7 +745,7 @@
 </div>
 
 <!-- ── Aba: Sobressalentes ──────────────────────────────────────────────── -->
-<div id="tab-sobressalentes" class="tab-panel" style="display:none;">
+<div id="tab-sobressalentes" class="tab-panel" style="display:{{ 'block' if aba == 'sobressalentes' else 'none' }};">
     <div class="card">
         <h2 style="margin-bottom:4px;">📦 Peças Sobressalentes</h2>
         <p style="color:#666;font-size:13px;margin-top:0;">
