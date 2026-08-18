@@ -87,11 +87,14 @@
 <!-- ── Menu de abas ──────────────────────────────────────────────────────── -->
 <div class="tabs-menu">
     {% set aba = tab_ativo or 'catalogo' %}
-    <button type="button" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo" onclick="mudarTab('catalogo')">📦 Estoque</button>
-    <button type="button" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo" onclick="mudarTab('novo')">➕ Novo Item</button>
-    <button type="button" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios" onclick="mudarTab('patrimonios')">🏷️ Itens Cadastrados</button>
-    <button type="button" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos" onclick="mudarTab('codigos')">🖨️ Etiquetas &amp; Códigos</button>
-    <button type="button" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes" onclick="mudarTab('sobressalentes')">🚚 Sobressalentes</button>
+    {# Links de verdade, não troca por JS: cada aba busca no servidor só os
+       próprios dados, então mostrar outra aba sem recarregar exibiria um
+       painel vazio. #}
+    <a href="/admin/items?tab=catalogo" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo">📦 Estoque</a>
+    <a href="/admin/items?tab=novo" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo">➕ Novo Item</a>
+    <a href="/admin/items?tab=patrimonios" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios">🏷️ Itens Cadastrados</a>
+    <a href="/admin/items?tab=codigos" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos">🖨️ Etiquetas &amp; Códigos</a>
+    <a href="/admin/items?tab=sobressalentes" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes">🚚 Sobressalentes</a>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
@@ -872,6 +875,10 @@
     cursor: pointer;
     margin-bottom: -2px;
     transition: color .12s, border-color .12s;
+    /* As abas são links (<a>), pra cada uma carregar seus próprios dados */
+    display: inline-block;
+    text-decoration: none;
+    white-space: nowrap;
 }
 .tab-btn:hover { color: #1a3a5c; }
 .tab-btn.active {
@@ -965,25 +972,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// ── Abas ──────────────────────────────────────────────────────────────────
-function mudarTab(nome) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + nome).style.display = 'block';
-    document.querySelector('.tab-btn[data-tab="' + nome + '"]').classList.add('active');
-    const url = new URL(window.location);
-    url.searchParams.set('tab', nome);
-    window.history.replaceState({}, '', url);
-}
-
-(function () {
-    const params = new URLSearchParams(window.location.search);
-    // tab_ativo: usado quando a página é re-renderizada direto (sem redirect)
-    // após um erro — a URL não tem ?tab= nesse caso, então o servidor indica
-    // qual aba estava em uso.
-    const tabServidor = "{{ tab_ativo or '' }}";
-    const tabInicial = params.get('tab') || tabServidor || 'catalogo';
-    mudarTab(['catalogo', 'novo', 'patrimonios', 'codigos', 'sobressalentes'].includes(tabInicial) ? tabInicial : 'catalogo');
-})();
+// As abas não têm JS: são links, e o servidor já manda a aba certa visível
+// com os dados dela. Trocar de aba no cliente mostraria um painel vazio,
+// já que cada aba consulta só o que precisa.
 </script>
 {% endblock %}
