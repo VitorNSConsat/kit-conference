@@ -272,6 +272,14 @@
     </button>
   </div>
 </div>
+
+<!-- Diagnóstico da câmera: aparece quando a câmera ao vivo não pôde ser
+     usada e o app teve que pedir uma foto. Fica FORA do overlay da câmera
+     de propósito — nesse cenário o overlay nem chega a abrir. -->
+<div id="cam-diag" style="display:none; position:fixed; left:12px; right:12px; top:12px;
+     background:#fff; color:#222; padding:16px; border-radius:12px; z-index:1200;
+     font-size:13px; line-height:1.5; box-shadow:0 8px 28px rgba(0,0,0,.4);
+     max-height:85vh; overflow:auto; max-width:560px; margin:0 auto;"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -401,6 +409,7 @@ document.addEventListener("keydown", (e) => {
     let _detector      = null;
     let _loop          = null;
     let _zxingTimer    = null;
+    let _motorLeitura  = null;   // 'nativo' | 'wasm' | 'zxing' — só pra diagnóstico
     let _ativo         = false;
     let _pausado       = false;
     let _scanToken     = 0; // incrementado a cada abertura/fechamento — invalida callbacks de sessões antigas
@@ -493,16 +502,46 @@ document.addEventListener("keydown", (e) => {
         try {
             const suportados = await Detector.getSupportedFormats();
             const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
-            return new Detector({ formats: formatos.length ? formatos : suportados });
+            const det = new Detector({ formats: formatos.length ? formatos : suportados });
+
+            // Prova que o detector REALMENTE funciona antes de adotá-lo.
+            // Sem isto, um WebAssembly que falha ao carregar (arquivo
+            // ausente, MIME errado no servidor, rede cortada) devolvia um
+            // detector quebrado: a câmera abria, a linha animava e nada era
+            // lido nunca — e o ZXing, que teria funcionado, não era usado
+            // porque o detector "existia". Um teste real de 1 quadro custa
+            // milissegundos e evita esse silêncio.
+            const teste = document.createElement('canvas');
+            teste.width = teste.height = 32;
+            const tctx = teste.getContext('2d');
+            tctx.fillStyle = '#fff';
+            tctx.fillRect(0, 0, 32, 32);
+            await det.detect(teste);   // não precisa achar nada, só não estourar
+
+            _motorLeitura = ('BarcodeDetector' in window) ? 'nativo' : 'wasm';
+            return det;
         } catch (e) {
-            return new Detector({ formats: ['code_128','qr_code'] });
+            // Detector existe mas não opera — melhor cair pro ZXing.
+            _motorLeitura = 'zxing';
+            return null;
         }
     }
 
     window.abrirScannerCamera = async function () {
         // Câmera ao vivo requer contexto seguro com certificado confiável.
         // Se indisponível, cai para captura de foto (funciona sem cert instalado).
+        //
+        // Antes isso acontecia em silêncio: o operador clicava em "escanear",
+        // o celular pedia uma FOTO, e não havia como saber por quê — o que
+        // levava a reinstalar certificado no escuro. Agora o motivo aparece
+        // na tela, com o dado que realmente decide (isSecureContext).
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            _avisarQuedaParaFoto(
+                !window.isSecureContext
+                    ? 'A página não está sendo tratada como segura por este navegador, ' +
+                      'então ele bloqueia a câmera ao vivo.'
+                    : 'Este navegador não oferece câmera ao vivo para páginas web.'
+            );
             document.getElementById('cam-foto-input').click();
             return;
         }
@@ -553,11 +592,49 @@ document.addEventListener("keydown", (e) => {
                 status.textContent = '⚠️ Scanner não disponível neste navegador.';
             }
         } catch (e) {
-            // Se getUserMedia falhar mesmo com mediaDevices presente, cai para foto
+            // getUserMedia existe mas recusou. O nome do erro diz exatamente
+            // o que houve — mostrar isso evita ficar caçando no escuro.
             fecharScannerCamera();
+            const motivos = {
+                NotAllowedError:   'Permissão de câmera negada para este site.',
+                NotFoundError:     'Nenhuma câmera encontrada neste aparelho.',
+                NotReadableError:  'A câmera está ocupada por outro aplicativo.',
+                OverconstrainedError: 'Nenhuma câmera atende à configuração pedida.',
+                SecurityError:     'O navegador bloqueou a câmera por segurança (certificado).',
+            };
+            _avisarQuedaParaFoto(motivos[e.name] || (e.name + ': ' + e.message));
             document.getElementById('cam-foto-input').click();
         }
     };
+
+    // Explica na tela por que caiu para foto, em vez de simplesmente abrir a
+    // câmera de fotos sem dizer nada. Mostra também a origem e o
+    // isSecureContext, que são os dados que decidem se a câmera ao vivo é
+    // liberada — dá pra tirar print e diagnosticar sem adivinhação.
+    function _avisarQuedaParaFoto(motivo) {
+        const seguro = window.isSecureContext ? 'sim' : 'NÃO';
+        _mostrarToast('📷 Sem câmera ao vivo — vai pedir uma foto');
+        const cx = document.getElementById('cam-diag');
+        if (cx) {
+            cx.style.display = 'block';
+            cx.innerHTML =
+                '<strong>Por que pediu uma foto:</strong><br>' + motivo +
+                '<br><br><strong>Diagnóstico</strong><br>' +
+                'Endereço: <code>' + location.origin + '</code><br>' +
+                'Página segura: <strong>' + seguro + '</strong><br>' +
+                (window.isSecureContext
+                    ? ''
+                    : 'Para liberar a câmera ao vivo, o endereço precisa começar com ' +
+                      '<strong>https://</strong> e o certificado precisa estar instalado ' +
+                      '<em>e confiável</em> neste aparelho.<br>' +
+                      'No iPhone não basta instalar: vá em <em>Ajustes → Geral → Sobre → ' +
+                      'Configurações de Confiança do Certificado</em> e ative a chave do ' +
+                      'certificado KitConference.') +
+                '<br><button onclick="document.getElementById(\'cam-diag\').style.display=\'none\'" ' +
+                'style="margin-top:8px;padding:6px 12px;border:none;border-radius:6px;' +
+                'background:#1a3a5c;color:#fff;font-weight:600;">Fechar</button>';
+        }
+    }
 
     // ── Captura de foto (fallback sem getUserMedia / cert não instalado) ────────
     window._processarFotoCapturada = async function (input) {
