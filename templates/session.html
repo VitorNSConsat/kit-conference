@@ -427,14 +427,75 @@ document.addEventListener("keydown", (e) => {
     }
 
     // Inicializa BarcodeDetector com os formatos disponíveis
+    // ┌──────────────────────────────────────────────────────────────────────┐
+    // │ CHAVE LIGA/DESLIGA DO LEITOR NOVO (iOS)                              │
+    // │                                                                      │
+    // │ true  = iPhone usa o BarcodeDetector via WebAssembly (leitor novo,   │
+    // │         lê em pé e deitado, igual ao Android).                       │
+    // │ false = iPhone volta a usar o ZXing em JavaScript (leitor antigo,    │
+    // │         que só lia com o telefone deitado).                          │
+    // │                                                                      │
+    // │ Se o leitor novo der problema em campo, troque para false, salve e   │
+    // │ reinicie o servidor — o caminho antigo continua inteiro no código,   │
+    // │ logo abaixo, e volta a valer sozinho. Nada mais precisa mudar.       │
+    // │                                                                      │
+    // │ O Android NÃO é afetado por esta chave: ele tem BarcodeDetector      │
+    // │ nativo e nunca chega a carregar a biblioteca nova.                   │
+    // └──────────────────────────────────────────────────────────────────────┘
+    const USAR_LEITOR_WASM_NO_IOS = true;
+
+    let _wasmCarregado = null;   // promessa, pra não carregar duas vezes
+
+    // Carrega o leitor WebAssembly sob demanda. Só é chamado quando o
+    // navegador não tem BarcodeDetector próprio — ou seja, no iOS. O .wasm
+    // é servido do nosso /static (nada de CDN), pra o app seguir
+    // funcionando na rede local e sem internet.
+    function _carregarLeitorWasm() {
+        if (_wasmCarregado) return _wasmCarregado;
+        _wasmCarregado = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = '/static/barcode-detector.js?v=1';
+            s.onload = () => {
+                try {
+                    const api = window.BarcodeDetectionAPI;
+                    if (!api || !api.BarcodeDetector) { resolve(null); return; }
+                    // Aponta o WebAssembly pro arquivo local em vez do CDN.
+                    if (typeof api.setZXingModuleOverrides === 'function') {
+                        api.setZXingModuleOverrides({
+                            locateFile: (caminho, prefixo) =>
+                                caminho.endsWith('.wasm')
+                                    ? '/static/zxing_reader.wasm?v=1'
+                                    : prefixo + caminho,
+                        });
+                    }
+                    resolve(api.BarcodeDetector);
+                } catch (e) { resolve(null); }
+            };
+            s.onerror = () => resolve(null);   // sem rede/arquivo: cai pro ZXing
+            document.head.appendChild(s);
+        });
+        return _wasmCarregado;
+    }
+
     async function _initDetector() {
-        if (!('BarcodeDetector' in window)) return null;
+        // Caminho 1 — Android: BarcodeDetector nativo do próprio navegador.
+        let Detector = ('BarcodeDetector' in window) ? window.BarcodeDetector : null;
+
+        // Caminho 2 — iOS: mesma API, implementada em WebAssembly.
+        if (!Detector && USAR_LEITOR_WASM_NO_IOS) {
+            Detector = await _carregarLeitorWasm();
+        }
+
+        // Caminho 3 — nenhum dos dois: devolve null e quem chama cai
+        // automaticamente no ZXing (o leitor antigo, logo abaixo).
+        if (!Detector) return null;
+
         try {
-            const suportados = await BarcodeDetector.getSupportedFormats();
+            const suportados = await Detector.getSupportedFormats();
             const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
-            return new BarcodeDetector({ formats: formatos.length ? formatos : suportados });
+            return new Detector({ formats: formatos.length ? formatos : suportados });
         } catch (e) {
-            return new BarcodeDetector({ formats: ['code_128','qr_code'] });
+            return new Detector({ formats: ['code_128','qr_code'] });
         }
     }
 
