@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Kits por Operador{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">👷 Kits por Operador</h1>
+  <a href="/reports" class="btn btn-secondary">← Relatório de Kits</a>
+</div>
+<p style="color:#666;font-size:13px;margin:-4px 0 16px;">
+  Inclui os kits <strong>em montagem agora</strong>, que o relatório de kits não mostra
+  (lá só entram os finalizados). O operador listado é sempre <strong>quem abriu</strong> o kit —
+  quem responde por ele. Quando outra pessoa finalizou, os dois nomes aparecem.
+</p>
+
+<!-- Filtros -->
+<div class="card">
+  <form method="get" action="/reports/operadores" class="filter-form"
+        style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="form-group" style="margin:0;">
+      <label>Operador</label>
+      <select name="operador_id" style="width:200px;margin:0;">
+        <option value="">Todos</option>
+        {% for u in usuarios %}
+        <option value="{{ u.id }}" {{ 'selected' if operador_id == u.id|string }}>{{ u.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>De</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}" style="width:160px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Até</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}" style="width:160px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" style="width:220px;margin:0;"
+             placeholder="kit, veículo, cliente...">
+    </div>
+    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <a href="/reports/operadores" class="btn btn-warning">✕ Limpar</a>
+  </form>
+</div>
+
+<!-- Resumo por operador -->
+{% if resumo %}
+<div class="card">
+  <h2 style="margin-bottom:10px;">Resumo do período</h2>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr><th>Operador</th><th>Em montagem</th><th>Finalizados</th><th>Feitos em dupla</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      {% for r in resumo %}
+      <tr>
+        <td><strong>{{ r.operador_nome }}</strong></td>
+        <td>
+          {% if r.em_andamento %}
+          <span class="badge badge-warning">🔄 {{ r.em_andamento }}</span>
+          {% else %}<span style="color:#ccc;">—</span>{% endif %}
+        </td>
+        <td>{{ r.finalizados }}</td>
+        <td>
+          {% if r.em_dupla %}
+          <span class="badge badge-info" title="Kits que este operador abriu e outra pessoa finalizou">
+            🤝 {{ r.em_dupla }}
+          </span>
+          {% else %}<span style="color:#ccc;">—</span>{% endif %}
+        </td>
+        <td><strong>{{ r.em_andamento + r.finalizados }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Lista -->
+<div class="card table-scroll">
+  <p style="color:#888;font-size:13px;margin-bottom:12px;">
+    {{ pag.total }} kit(s){% if pag.total_paginas > 1 %} — página {{ pag.pagina }} de {{ pag.total_paginas }}{% endif %}
+    {%- if busca %} · busca: <strong>{{ busca }}</strong>{% endif %}
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Estado</th>
+        <th>Kit</th>
+        <th>Veículo</th>
+        <th>Operador (abriu)</th>
+        <th>Itens</th>
+        <th>Início</th>
+        <th>Fim</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for l in pag.itens %}
+    <tr {% if l.estado == 'em_andamento' %}style="background:#fffbea;"{% endif %}>
+      <td style="white-space:nowrap;">
+        {% if l.estado == 'em_andamento' %}
+        <span class="badge badge-warning">🔄 Em montagem</span>
+        {% else %}
+        <span class="badge badge-success">✅ Finalizado</span>
+        {% endif %}
+      </td>
+      <td>
+        {{ l.kit_nome }}
+        <div style="font-size:11px;color:#999;">{{ l.cliente }}</div>
+      </td>
+      <td style="font-weight:600;">{{ l.veiculo or '—' }}
+        {% if l.garagem %}<div style="font-size:11px;color:#999;font-weight:400;">{{ l.garagem }}</div>{% endif %}
+      </td>
+      <td>
+        <strong>{{ l.operador_nome }}</strong>
+        {% if l.finalizado_por_nome %}
+        <div style="font-size:11px;color:#e67e22;font-weight:600;" title="Kit feito em dupla">
+          🤝 finalizado por {{ l.finalizado_por_nome }}
+        </div>
+        {% endif %}
+      </td>
+      <td>{{ l.itens_bipados }}</td>
+      <td style="white-space:nowrap;font-size:12px;color:#888;">{{ l.comecou_em[:16] if l.comecou_em else '—' }}</td>
+      <td style="white-space:nowrap;font-size:12px;color:#888;">{{ l.finalizado_em[:16] if l.finalizado_em else '—' }}</td>
+      <td>
+        {% if l.estado == 'em_andamento' %}
+        <a href="/session/{{ l.sessao_id }}" class="btn btn-sm btn-warning">▶️ Continuar</a>
+        {% else %}
+        <a href="/kit/{{ l.kit_id }}" target="_blank" class="btn btn-sm btn-primary">🔍 Detalhes</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if pag.total_paginas > 1 %}
+  {% set qs = 'operador_id=' + (operador_id or '') + '&data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + ('&busca=' + busca|urlencode if busca else '') %}
+  <div class="paginacao">
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/reports/operadores?{{ qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

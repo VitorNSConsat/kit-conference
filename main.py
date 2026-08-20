@@ -1492,12 +1492,16 @@ async def session_finalize(request: Request, sessao_id: int):
 
     with db() as conn:
         ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+        # operador_id = quem ABRIU a bipagem (segue responsável pelo kit).
+        # finalizado_por = quem clicou em finalizar. Quando são pessoas
+        # diferentes, o kit foi feito em dupla e as telas mostram os dois.
         conn.execute(
             "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, "
-            "kit_template_versao, operador_id, veiculo, garagem, modelo, finalizado_em, veiculo_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "kit_template_versao, operador_id, finalizado_por, veiculo, garagem, modelo, "
+            "finalizado_em, veiculo_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (kit_id, sessao_id, session["kit_template_id"],
-             session["kit_template_versao"], user["id"],
+             session["kit_template_versao"], session["operador_id"], user["id"],
              veiculo, garagem, modelo, ts_str, veiculo_id)
         )
         conn.execute(
@@ -1709,29 +1713,51 @@ async def mobile_hub(request: Request):
 
 # ── Kit Detail (público — escaneado pelo QR code) ─────────────────────────────
 
+_RE_UUID = re.compile(
+    r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I)
+
+
 def _resolver_kit_id(texto: str) -> str | None:
     """Resolve um texto lido (URL do QR da etiqueta, kit_id completo, ou o
     ID curto de 8 caracteres do código de barras) para o kit_id completo
-    correspondente, ou None se não encontrar."""
+    correspondente, ou None se não encontrar.
+
+    Aceita o texto do jeito que vier do leitor. Antes exigia que a URL
+    TERMINASSE no id, e comparava caixa alta/baixa de forma inconsistente —
+    então uma URL com ?parâmetro, #fragmento, ou lida em MAIÚSCULAS não
+    resolvia. Isso importa porque leitores diferentes devolvem o mesmo QR de
+    formas diferentes (o modo alfanumérico do QR, por exemplo, guarda só
+    maiúsculas), o que fazia a MESMA etiqueta funcionar num aparelho e
+    falhar em outro.
+
+    Agora procura o UUID em qualquer posição do texto, sem depender do
+    formato da URL em volta."""
     texto = (texto or "").strip()
     if not texto:
         return None
-    m = re.search(r'/kit/([0-9a-fA-F-]{36})/?$', texto)
+
+    # UUID em qualquer lugar do texto (URL, com query, com fragmento...)
+    m = _RE_UUID.search(texto)
     if m:
-        return m.group(1)
-    with db() as conn:
-        if len(texto) == 36:
+        candidato = m.group(0).lower()
+        with db() as conn:
             row = conn.execute(
-                "SELECT kit_id FROM kit_record WHERE kit_id = ?", (texto,)
+                "SELECT kit_id FROM kit_record WHERE kit_id = ?", (candidato,)
             ).fetchone()
-            if row:
-                return row["kit_id"]
-        rows = conn.execute(
-            "SELECT kit_id FROM kit_record WHERE kit_id LIKE ?",
-            (texto.lower() + '%',)
-        ).fetchall()
-        if len(rows) == 1:
-            return rows[0]["kit_id"]
+        if row:
+            return row["kit_id"]
+
+    # ID curto do código de barras (8 caracteres) — pega o último trecho
+    # "limpo" do texto, pra funcionar mesmo se vier com prefixo.
+    curto = re.sub(r'[^0-9a-fA-F]', '', texto.split('/')[-1])
+    with db() as conn:
+        if curto:
+            rows = conn.execute(
+                "SELECT kit_id FROM kit_record WHERE kit_id LIKE ?",
+                (curto.lower() + '%',)
+            ).fetchall()
+            if len(rows) == 1:
+                return rows[0]["kit_id"]
     return None
 
 
@@ -1845,6 +1871,31 @@ async def kit_validar(request: Request, kit_id: str):
     return RedirectResponse(f"/kit/{kit_id}?ok=validado", status_code=302)
 
 
+@app.get("/reports/operadores", response_class=HTMLResponse)
+@require_permission("ver_relatorios")
+async def reports_operadores(request: Request, operador_id: str = "",
+                             data_ini: str = "", data_fim: str = "",
+                             pagina: int = 1, busca: str = ""):
+    """Kits por operador — inclui os que ainda estão em montagem, que o
+    relatório de kits (só finalizados) não mostra."""
+    op_id = int(operador_id) if operador_id.isdigit() else None
+    linhas = sessions_mod.listar_por_operador(op_id, data_ini, data_fim)
+    linhas = paginacao_mod.filtrar(
+        linhas, busca,
+        ("kit_nome", "cliente", "veiculo", "garagem", "operador_nome", "finalizado_por_nome"))
+    with db() as conn:
+        usuarios = [dict(u) for u in conn.execute(
+            "SELECT id, nome FROM users ORDER BY nome").fetchall()]
+    return render(request, "reports_operadores.html", {
+        "pag": paginacao_mod.paginar(linhas, pagina),
+        "resumo": sessions_mod.resumo_por_operador(data_ini, data_fim),
+        "usuarios": usuarios,
+        "operador_id": operador_id,
+        "data_ini": data_ini, "data_fim": data_fim,
+        "busca": busca,
+    })
+
+
 # ── Relatórios ────────────────────────────────────────────────────────────────
 
 @app.get("/reports", response_class=HTMLResponse)
@@ -1889,11 +1940,15 @@ async def reports(request: Request,
                    v.id AS v_id,
                    kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
                    u.nome AS operador_nome,
+                   CASE WHEN kr.finalizado_por IS NOT NULL
+                         AND kr.finalizado_por != kr.operador_id
+                        THEN uf.nome END AS finalizado_por_nome,
                    pq.id AS pq_id,
                    (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
             FROM kit_record kr
             JOIN kit_template kt ON kt.id = kr.kit_template_id
             JOIN users u ON u.id = kr.operador_id
+            LEFT JOIN users uf ON uf.id = kr.finalizado_por
             LEFT JOIN print_queue pq ON pq.kit_id = kr.kit_id
             LEFT JOIN veiculos v ON v.id = kr.veiculo_id
             {where}

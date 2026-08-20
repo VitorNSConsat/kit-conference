@@ -1112,3 +1112,110 @@ def cancel_session(sessao_id: int):
             "finalizado_em = ? WHERE id = ?",
             (now_brt(), sessao_id)
         )
+
+
+def listar_por_operador(operador_id: int | None = None,
+                        data_ini: str = "", data_fim: str = "",
+                        incluir_finalizados: bool = True) -> list[dict]:
+    """Kits de cada operador — em andamento E finalizados, na mesma lista.
+
+    O relatório de kits só mostra kit finalizado, então não dava pra ver o
+    que está em montagem agora nem quem abriu cada um. Aqui os dois estados
+    aparecem juntos, ordenados do mais recente pro mais antigo.
+
+    `operador` é sempre QUEM ABRIU a bipagem — é quem responde pelo kit.
+    Quando outra pessoa finalizou, `finalizado_por_nome` vem preenchido e a
+    tela mostra os dois nomes (kit feito em dupla)."""
+    em_andamento = """
+        SELECT 'em_andamento' AS estado,
+               NULL            AS kit_id,
+               ss.id           AS sessao_id,
+               ss.iniciado_em  AS comecou_em,
+               NULL            AS finalizado_em,
+               ss.veiculo, ss.garagem,
+               kt.nome AS kit_nome, kt.cliente,
+               ss.operador_id,
+               uo.nome AS operador_nome,
+               NULL    AS finalizado_por_nome,
+               (SELECT COUNT(*) FROM scan_session_items si
+                 WHERE si.sessao_id = ss.id) AS itens_bipados
+        FROM scan_session ss
+        JOIN kit_template kt ON kt.id = ss.kit_template_id
+        JOIN users uo ON uo.id = ss.operador_id
+        WHERE ss.status = 'em_andamento'
+    """
+    finalizados = """
+        SELECT 'finalizado' AS estado,
+               kr.kit_id,
+               kr.sessao_id,
+               ss.iniciado_em    AS comecou_em,
+               kr.finalizado_em,
+               COALESCE(v.numero, kr.veiculo) AS veiculo,
+               kr.garagem,
+               kt.nome AS kit_nome, kt.cliente,
+               kr.operador_id,
+               uo.nome AS operador_nome,
+               CASE WHEN kr.finalizado_por IS NOT NULL
+                     AND kr.finalizado_por != kr.operador_id
+                    THEN uf.nome END AS finalizado_por_nome,
+               (SELECT COUNT(*) FROM scan_session_items si
+                 WHERE si.sessao_id = kr.sessao_id) AS itens_bipados
+        FROM kit_record kr
+        JOIN kit_template kt ON kt.id = kr.kit_template_id
+        JOIN scan_session ss ON ss.id = kr.sessao_id
+        JOIN users uo ON uo.id = kr.operador_id
+        LEFT JOIN users uf ON uf.id = kr.finalizado_por
+        LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+        WHERE 1=1
+    """
+    p_and: list = []
+    p_fim: list = []
+    if operador_id:
+        em_andamento += " AND ss.operador_id = ?"
+        finalizados += " AND kr.operador_id = ?"
+        p_and.append(operador_id)
+        p_fim.append(operador_id)
+    if data_ini:
+        em_andamento += " AND DATE(ss.iniciado_em) >= ?"
+        finalizados += " AND DATE(kr.finalizado_em) >= ?"
+        p_and.append(data_ini)
+        p_fim.append(data_ini)
+    if data_fim:
+        em_andamento += " AND DATE(ss.iniciado_em) <= ?"
+        finalizados += " AND DATE(kr.finalizado_em) <= ?"
+        p_and.append(data_fim)
+        p_fim.append(data_fim)
+
+    with db() as conn:
+        linhas = [dict(r) for r in conn.execute(em_andamento, p_and).fetchall()]
+        if incluir_finalizados:
+            linhas += [dict(r) for r in conn.execute(finalizados, p_fim).fetchall()]
+
+    # Em andamento primeiro (é o que precisa de atenção agora), cada bloco
+    # do mais recente pro mais antigo.
+    em = sorted((l for l in linhas if l["estado"] == "em_andamento"),
+                key=lambda l: l["comecou_em"] or "", reverse=True)
+    fim = sorted((l for l in linhas if l["estado"] != "em_andamento"),
+                 key=lambda l: l["finalizado_em"] or "", reverse=True)
+    return em + fim
+
+
+def resumo_por_operador(data_ini: str = "", data_fim: str = "") -> list[dict]:
+    """Quantos kits cada operador abriu no período, separando o que ainda
+    está em montagem do que já foi finalizado."""
+    linhas = listar_por_operador(data_ini=data_ini, data_fim=data_fim)
+    por_operador: dict = {}
+    for l in linhas:
+        r = por_operador.setdefault(l["operador_id"], {
+            "operador_id": l["operador_id"],
+            "operador_nome": l["operador_nome"],
+            "em_andamento": 0, "finalizados": 0, "em_dupla": 0,
+        })
+        if l["estado"] == "em_andamento":
+            r["em_andamento"] += 1
+        else:
+            r["finalizados"] += 1
+            if l["finalizado_por_nome"]:
+                r["em_dupla"] += 1
+    return sorted(por_operador.values(),
+                  key=lambda r: (-(r["em_andamento"] + r["finalizados"]), r["operador_nome"]))

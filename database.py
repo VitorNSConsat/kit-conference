@@ -107,6 +107,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "kit_verificacao_itens" not in tabelas
         or "kit_template_conjuntos" not in tabelas
         or "producao_config" not in tabelas
+        or "finalizado_por" not in colunas_kit_record
     )
     if not pendente:
         return None
@@ -498,6 +499,10 @@ def init_db():
             # 1 ao final. Permite rodar a correção várias vezes sem
             # descontar duas vezes.
             "ALTER TABLE scan_session_items ADD COLUMN estoque_debitado INTEGER NOT NULL DEFAULT 0",
+            # Quem clicou em finalizar. kit_record.operador_id passa a
+            # significar QUEM ABRIU o kit (o responsável); quando outra
+            # pessoa finaliza, fica registrado aqui — kit feito em dupla.
+            "ALTER TABLE kit_record ADD COLUMN finalizado_por INTEGER REFERENCES users(id)",
         ]:
             try:
                 conn.execute(stmt)
@@ -555,6 +560,29 @@ def init_db():
                 print(f"[KIT] {n} usuario(s) existente(s) marcado(s) como ADMIN para nao "
                       f"perder acesso. Revise em /admin/usuarios e rebaixe quem for comum.")
             conn.execute("PRAGMA user_version = 1")
+
+    # ── Backfill de responsabilidade dos kits ──────────────────────────────
+    # kit_record.operador_id guardava QUEM FINALIZOU. Passou a significar
+    # QUEM ABRIU (o responsável pelo kit), com o finalizador em
+    # finalizado_por. Sem ajustar o histórico, kits antigos ficariam com
+    # significado diferente dos novos na mesma coluna.
+    #
+    # Pros kits já existentes: o valor atual É o finalizador (move pra
+    # finalizado_por), e quem abriu vem da sessão de bipagem. Rodar de novo
+    # não faz nada — o WHERE só pega linha ainda não convertida.
+    with db() as conn:
+        try:
+            conn.execute("""
+                UPDATE kit_record
+                   SET finalizado_por = operador_id,
+                       operador_id = COALESCE(
+                           (SELECT ss.operador_id FROM scan_session ss
+                             WHERE ss.id = kit_record.sessao_id),
+                           operador_id)
+                 WHERE finalizado_por IS NULL
+            """)
+        except Exception:
+            pass
 
     # Backfill clientes from existing free-text data (no-op when already present)
     ts = now_brt()
