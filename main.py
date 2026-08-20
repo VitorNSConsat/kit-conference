@@ -1367,7 +1367,10 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
                     if pendente_fixo:
                         result = sessions_mod.registrar_patrimonio_de_fixo(sessao_id, data, operador_id=user_id)
                     else:
-                        result = sessions_mod.checar_componente(sessao_id, data)
+                        # Conjunto registra direto, sem modal de confirmação —
+                        # a quantidade vem do template e o operador só ouve
+                        # o beep, igual a qualquer outro item.
+                        result = sessions_mod.registrar_conjunto(sessao_id, data, operador_id=user_id)
                         if result is None:
                             result = sessions_mod.register_scan(sessao_id, data, operador_id=user_id)
             await websocket.send_json(result)

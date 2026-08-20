@@ -6,7 +6,7 @@
   <h1 style="margin-bottom:4px;">🚚 Pra onde vai esse kit?</h1>
   <p style="color:#666; font-size:14px; margin-bottom:20px;">
     <strong>{{ session.kit_nome }}</strong> — {{ session.cliente }}<br>
-    Escolha o veículo e a garagem antes de começar a bipagem.
+    Escolha o veículo — a garagem e o modelo vêm preenchidos.
   </p>
 
   {% if erro %}
@@ -40,18 +40,24 @@
         </select>
     </div>
     <div class="form-group">
-        <label>Garagem *</label>
+        <label>Garagem * <span style="font-weight:400;color:#888;font-size:12px;">— vem do cadastro do veículo</span></label>
         <select name="garagem" id="input-garagem" required>
             <option value="">— escolha a garagem —</option>
             {% for g in garagens_lista %}
             <option value="{{ g.nome }}">{{ g.nome }}</option>
             {% endfor %}
         </select>
+        <div id="aviso-garagem" style="display:none;font-size:12px;color:#e67e22;margin-top:4px;">
+            ⚠️ Este veículo ainda não tem garagem no cadastro — escolha uma.
+        </div>
     </div>
     <div class="form-group">
-        <label>Modelo</label>
+        {# O nome do template é o modelo do veículo (ex: "Mercedes Euro 6"),
+           então não faz sentido digitar de novo. Fica editável só pra
+           eventual exceção. #}
+        <label>Modelo <span style="font-weight:400;color:#888;font-size:12px;">— vem do kit escolhido</span></label>
         <input type="text" name="modelo" id="input-modelo"
-               placeholder="ex: Fiat Strada" autocomplete="off">
+               value="{{ session.kit_nome }}" autocomplete="off">
     </div>
     <div style="display:flex; gap:5px; justify-content:flex-end; margin-top:4px;">
         <button type="submit" class="btn btn-success">▶️ Começar Bipagem</button>
@@ -70,12 +76,23 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// Escolher o veículo preenche a garagem a partir do cadastro dele. O modelo
+// já nasce preenchido com o nome do kit (que é o modelo do veículo), então
+// o operador normalmente só escolhe o veículo e segue.
 function onVeiculoChange() {
     var sel = document.getElementById('select-veiculo');
     var opt = sel.options[sel.selectedIndex];
     var garagemSel = document.getElementById('input-garagem');
-    garagemSel.value = opt.dataset.garagem || '';
-    if (garagemSel.selectedIndex === -1) garagemSel.value = '';
+    var aviso = document.getElementById('aviso-garagem');
+    var doVeiculo = (opt && opt.dataset.garagem) || '';
+
+    garagemSel.value = doVeiculo;
+    // value só "pega" se existir uma opção com esse texto; se a garagem do
+    // cadastro não estiver na lista, o select fica sem seleção — nesse caso
+    // avisa em vez de deixar o operador achando que preencheu.
+    var preencheu = doVeiculo && garagemSel.value === doVeiculo;
+    if (!preencheu) garagemSel.value = '';
+    aviso.style.display = (sel.value && !preencheu) ? 'block' : 'none';
 }
 </script>
 {% endblock %}

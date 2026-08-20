@@ -412,9 +412,51 @@ def _historico_kit_ativo(codigo_barra: str) -> dict | None:
     return dict(row) if row else None
 
 
+def registrar_conjunto(sessao_id: int, codigo_barra: str,
+                       operador_id: int | None = None) -> dict | None:
+    """Bipar o código de um conjunto registra de uma vez tudo que o template
+    define pra ele — sem parar pra confirmar quantidade na tela.
+
+    O controle passou a ser todo na montagem do template: se o conjunto diz
+    3 parafusos, são 3 parafusos, e o operador só ouve o beep normal como em
+    qualquer outro item. Antes abria um modal pedindo confirmação item a
+    item, o que na prática só atrasava a bipagem — a conferência de
+    quantidade já acontece depois, na tela de verificação do kit.
+
+    Retorna None se o código não pertence a nenhum conjunto deste template
+    (aí quem chama segue o fluxo normal de bipagem)."""
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return None
+
+    with db() as conn:
+        itens = conn.execute(
+            "SELECT ki.item_tipo_id, ki.quantidade_exigida "
+            "FROM kit_template_items ki "
+            "WHERE ki.kit_template_id = ? AND ki.componente_codigo = ?",
+            (session["kit_template_id"], codigo_barra)
+        ).fetchall()
+    if not itens:
+        return None
+
+    # Manda o que ainda falta de cada item — nunca ultrapassa o exigido, e
+    # bipar o mesmo conjunto de novo não duplica nada.
+    contagem = get_contagem(sessao_id)
+    quantidades = {
+        str(r["item_tipo_id"]): max(
+            0, r["quantidade_exigida"] - contagem.get(r["item_tipo_id"], 0))
+        for r in itens
+    }
+    return confirmar_componente(sessao_id, codigo_barra, quantidades, operador_id)
+
+
 def checar_componente(sessao_id: int, codigo_barra: str) -> dict | None:
     """Verifica se o código é um componente e retorna itens + contagem atual para o modal.
-    NÃO registra nada. Retorna None se o código não é um componente."""
+    NÃO registra nada. Retorna None se o código não é um componente.
+
+    Fora de uso desde que o conjunto passou a ser registrado direto
+    (registrar_conjunto). Mantido porque é uma consulta sem efeito colateral
+    e é o caminho de volta caso o modal precise voltar algum dia."""
     session = get_session(sessao_id)
     if not session or session["status"] != "em_andamento":
         return None
