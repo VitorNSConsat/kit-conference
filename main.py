@@ -3046,13 +3046,13 @@ async def admin_veiculos_modelo(request: Request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Veículos"
-    for col, h in enumerate(["Número do Veículo", "Cliente"], 1):
+    for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem"], 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
         c.fill = PatternFill("solid", fgColor=azul)
         ws.column_dimensions[ws.cell(1, col).column_letter].width = 28
-    ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente")
-    ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente")
+    ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente"); ws.cell(2, 3, "Base Norte")
+    ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente");  ws.cell(3, 3, "Base Sul")
     buf = BytesIO()
     wb.save(buf); buf.seek(0)
     return _Resp(content=buf.read(),

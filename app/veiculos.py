@@ -140,6 +140,17 @@ def deletar(veiculo_id: int):
 
 
 def importar_excel(file_bytes: bytes) -> dict:
+    """Importa veículos da planilha. Reimportar a mesma lista é seguro: o
+    veículo é identificado por número + cliente (a numeração é única DENTRO
+    de cada cliente, então o mesmo número pode existir em clientes
+    diferentes), e um que já exista nunca é duplicado.
+
+    Nesse caso o veículo existente é COMPLEMENTADO, não sobrescrito: só
+    preenche o que está vazio no cadastro. Assim reimportar uma planilha
+    antiga não apaga uma garagem que alguém corrigiu à mão depois.
+
+    A coluna Garagem é opcional — planilhas antigas, sem ela, continuam
+    funcionando."""
     import openpyxl, io, sqlite3
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     ws = wb.active
@@ -148,9 +159,11 @@ def importar_excel(file_bytes: bytes) -> dict:
         col_num = next(i for i, h in enumerate(headers) if "número" in h or "numero" in h or "veículo" in h or "veiculo" in h)
         col_cli = next(i for i, h in enumerate(headers) if "cliente" in h)
     except StopIteration:
-        return {"inseridos": 0, "ignorados": 0, "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
+        return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "inativos": 0,
+                "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
+    col_gar = next((i for i, h in enumerate(headers) if "garagem" in h), None)
 
-    inseridos = ignorados = 0
+    inseridos = atualizados = ignorados = inativos = 0
     erros: list[str] = []
     with db() as conn:
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
@@ -159,12 +172,17 @@ def importar_excel(file_bytes: bytes) -> dict:
                 continue
             numero = str(row[col_num] or "").strip()
             cliente = str(row[col_cli] or "").strip()
+            garagem = ""
+            if col_gar is not None and len(row) > col_gar:
+                garagem = str(row[col_gar] or "").strip()
             if not numero or not cliente:
                 ignorados += 1
                 continue
-            # Cria o cliente na MESMA conexão/transação — chamar clientes.criar()
-            # aqui abriria uma segunda conexão SQLite enquanto esta ainda está
-            # com uma transação aberta, travando o banco ("database is locked").
+
+            # Cliente e garagem são criados na MESMA conexão/transação —
+            # chamar clientes.criar()/garagens.criar() aqui abriria uma
+            # segunda conexão SQLite enquanto esta ainda está com uma
+            # transação aberta, travando o banco ("database is locked").
             try:
                 conn.execute(
                     "INSERT INTO clientes (nome, criado_em) VALUES (?, ?)",
@@ -172,19 +190,41 @@ def importar_excel(file_bytes: bytes) -> dict:
                 )
             except sqlite3.IntegrityError:
                 pass  # cliente já existe
+            if garagem:
+                try:
+                    conn.execute(
+                        "INSERT INTO garagens (nome, criado_em) VALUES (?, ?)",
+                        (garagem, now_brt())
+                    )
+                except sqlite3.IntegrityError:
+                    pass  # garagem já existe
+
+            # Procura SEM filtrar por ativo: um veículo desativado com o
+            # mesmo número/cliente ainda ocuparia esse par, e ignorá-lo aqui
+            # criaria justamente a duplicata que se quer evitar.
             existe = conn.execute(
-                "SELECT id FROM veiculos WHERE numero=? AND cliente=? AND ativo=1",
+                "SELECT id, garagem, ativo FROM veiculos WHERE numero=? AND cliente=?",
                 (numero, cliente)
             ).fetchone()
+
             if existe:
-                ignorados += 1
+                # Complementa o que falta, sem sobrescrever o que já tem.
+                if garagem and not (existe["garagem"] or "").strip():
+                    conn.execute("UPDATE veiculos SET garagem=? WHERE id=?",
+                                 (garagem, existe["id"]))
+                    atualizados += 1
+                elif not existe["ativo"]:
+                    inativos += 1
+                else:
+                    ignorados += 1
             else:
                 conn.execute(
-                    "INSERT INTO veiculos (numero, cliente, garagem, criado_em) VALUES (?, ?, '', ?)",
-                    (numero, cliente, now_brt())
+                    "INSERT INTO veiculos (numero, cliente, garagem, criado_em) VALUES (?, ?, ?, ?)",
+                    (numero, cliente, garagem, now_brt())
                 )
                 inseridos += 1
-    return {"inseridos": inseridos, "ignorados": ignorados, "erros": erros}
+    return {"inseridos": inseridos, "atualizados": atualizados,
+            "ignorados": ignorados, "inativos": inativos, "erros": erros}
 
 
 def historico_kits(veiculo_id: int) -> list[dict]:

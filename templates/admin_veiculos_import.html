@@ -9,8 +9,15 @@
 {% if resultado is defined %}
 <div class="card">
   <h2>Resultado da importação</h2>
-  <p>✅ <strong>{{ resultado.inseridos }}</strong> veículos inseridos</p>
-  <p>⏭️ <strong>{{ resultado.ignorados }}</strong> ignorados (já existentes ou linha vazia)</p>
+  <p>✅ <strong>{{ resultado.inseridos }}</strong> veículos novos inseridos</p>
+  {% if resultado.atualizados %}
+  <p>🔄 <strong>{{ resultado.atualizados }}</strong> já existiam e tiveram a garagem preenchida</p>
+  {% endif %}
+  <p>⏭️ <strong>{{ resultado.ignorados }}</strong> sem alteração (já cadastrados ou linha vazia)</p>
+  {% if resultado.inativos %}
+  <p>🚫 <strong>{{ resultado.inativos }}</strong> já existem mas estão desativados —
+     reative em <a href="/admin/veiculos">Veículos e Clientes</a> se precisar usá-los</p>
+  {% endif %}
   {% if resultado.erros %}
   <div style="color:#e74c3c;margin-top:8px;">
     {% for e in resultado.erros %}<p>⚠️ {{ e }}</p>{% endfor %}
@@ -27,8 +34,15 @@
 <div class="card">
   <h2>Arquivo Excel</h2>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    A planilha deve ter as colunas <strong>Número do Veículo</strong> e <strong>Cliente</strong>.
+    A planilha deve ter as colunas <strong>Número do Veículo</strong>, <strong>Cliente</strong>
+    e <strong>Garagem</strong>. Clientes e garagens que ainda não existirem são cadastrados
+    automaticamente.
     <a href="/admin/veiculos/modelo.xlsx">📄 Baixar modelo</a>
+  </p>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">
+    Pode importar a mesma planilha quantas vezes precisar: o veículo é identificado por
+    <strong>número + cliente</strong>, então nunca duplica. Se já existir, só completa o que
+    estiver em branco no cadastro — o que já está preenchido é mantido.
   </p>
   <form method="post" enctype="multipart/form-data">
     <div class="form-group">
