@@ -27,6 +27,9 @@
     (abra o veículo e use "🔓 Liberar veículo") e volte pra esta tela.
   </div>
   {% else %}
+  {# Só o veículo é escolhido aqui. Garagem e modelo saem do cadastro do
+     veículo e do kit — o servidor decide, então não há campo editável nem
+     como divergir do que está cadastrado. #}
   <form method="post" action="/session/{{ session.id }}/destino">
     <div class="form-group">
         <label>Veículo *</label>
@@ -39,28 +42,27 @@
             {% endfor %}
         </select>
     </div>
-    <div class="form-group">
-        <label>Garagem * <span style="font-weight:400;color:#888;font-size:12px;">— vem do cadastro do veículo</span></label>
-        <select name="garagem" id="input-garagem" required>
-            <option value="">— escolha a garagem —</option>
-            {% for g in garagens_lista %}
-            <option value="{{ g.nome }}">{{ g.nome }}</option>
-            {% endfor %}
-        </select>
-        <div id="aviso-garagem" style="display:none;font-size:12px;color:#e67e22;margin-top:4px;">
-            ⚠️ Este veículo ainda não tem garagem no cadastro — escolha uma.
-        </div>
+
+    <!-- Resumo do que será gravado — leitura, não edição -->
+    <div id="resumo-destino" style="display:none; background:#f0f4f8;
+         border-left:4px solid #1a3a5c; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span style="font-size:12px; color:#1a3a5c; font-weight:700; text-transform:uppercase;">Garagem</span>
+        <span id="resumo-garagem" style="font-weight:700;">—</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span style="font-size:12px; color:#1a3a5c; font-weight:700; text-transform:uppercase;">Modelo</span>
+        <span id="resumo-modelo" style="font-weight:700;">{{ session.kit_nome }}</span>
+      </div>
     </div>
-    <div class="form-group">
-        {# O nome do template é o modelo do veículo (ex: "Mercedes Euro 6"),
-           então não faz sentido digitar de novo. Fica editável só pra
-           eventual exceção. #}
-        <label>Modelo <span style="font-weight:400;color:#888;font-size:12px;">— vem do kit escolhido</span></label>
-        <input type="text" name="modelo" id="input-modelo"
-               value="{{ session.kit_nome }}" autocomplete="off">
+
+    <div id="aviso-garagem" class="alert alert-danger" style="display:none; font-size:13px;">
+      ⚠️ Este veículo não tem garagem no cadastro. Defina a garagem dele em
+      <a href="/admin/veiculos" style="font-weight:700;">🚗 Veículos e Clientes</a> e volte aqui.
     </div>
+
     <div style="display:flex; gap:5px; justify-content:flex-end; margin-top:4px;">
-        <button type="submit" class="btn btn-success">▶️ Começar Bipagem</button>
+        <button type="submit" id="btn-comecar" class="btn btn-success">▶️ Começar Bipagem</button>
     </div>
   </form>
   {% endif %}
@@ -76,23 +78,23 @@
 {% endblock %}
 {% block scripts %}
 <script>
-// Escolher o veículo preenche a garagem a partir do cadastro dele. O modelo
-// já nasce preenchido com o nome do kit (que é o modelo do veículo), então
-// o operador normalmente só escolhe o veículo e segue.
+// Escolher o veículo só MOSTRA o que será gravado — garagem vem do cadastro
+// do veículo e modelo vem do kit. Quem decide de fato é o servidor; isto
+// aqui é confirmação visual antes de começar, não entrada de dados.
 function onVeiculoChange() {
     var sel = document.getElementById('select-veiculo');
     var opt = sel.options[sel.selectedIndex];
-    var garagemSel = document.getElementById('input-garagem');
-    var aviso = document.getElementById('aviso-garagem');
-    var doVeiculo = (opt && opt.dataset.garagem) || '';
+    var garagem = (opt && opt.dataset.garagem) || '';
+    var temVeiculo = !!sel.value;
 
-    garagemSel.value = doVeiculo;
-    // value só "pega" se existir uma opção com esse texto; se a garagem do
-    // cadastro não estiver na lista, o select fica sem seleção — nesse caso
-    // avisa em vez de deixar o operador achando que preencheu.
-    var preencheu = doVeiculo && garagemSel.value === doVeiculo;
-    if (!preencheu) garagemSel.value = '';
-    aviso.style.display = (sel.value && !preencheu) ? 'block' : 'none';
+    document.getElementById('resumo-garagem').textContent = garagem || '—';
+    document.getElementById('resumo-destino').style.display = temVeiculo ? 'block' : 'none';
+
+    // Sem garagem no cadastro não dá pra seguir: o dado tem que ser
+    // corrigido na origem, em Veículos e Clientes.
+    var faltaGaragem = temVeiculo && !garagem;
+    document.getElementById('aviso-garagem').style.display = faltaGaragem ? 'block' : 'none';
+    document.getElementById('btn-comecar').disabled = faltaGaragem;
 }
 </script>
 {% endblock %}

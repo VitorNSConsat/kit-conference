@@ -1245,11 +1245,11 @@ async def session_destino_page(request: Request, sessao_id: int, erro: str = "")
     veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
     for v in veiculos_lista:
         v["ocupado"] = veiculos_mod.esta_ocupado(v["id"])
-    garagens_lista = garagens_mod.listar()
+    # Sem lista de garagens: a garagem não é mais escolhida aqui, vem do
+    # cadastro do veículo.
     return render(request, "session_destino.html", {
         "session": session,
         "veiculos_lista": veiculos_lista,
-        "garagens_lista": garagens_lista,
         "erro": erro,
     })
 
@@ -1261,22 +1261,36 @@ async def session_destino_post(request: Request, sessao_id: int):
     if not session or session["status"] != "em_andamento":
         return RedirectResponse("/", status_code=302)
 
+    # Só o veículo vem do formulário. Garagem e modelo são DERIVADOS aqui —
+    # do cadastro do veículo e do nome do kit — e não aceitos do cliente,
+    # pra não existir caminho (nem por engano, nem por requisição forjada)
+    # que grave um destino diferente do que está cadastrado.
     form = await request.form()
     veiculo_id_str = str(form.get("veiculo_id", "")).strip()
     veiculo_id = int(veiculo_id_str) if veiculo_id_str.isdigit() else None
-    garagem = str(form.get("garagem", "")).strip()
-    modelo = str(form.get("modelo", "")).strip()
 
-    veiculo_texto = ""
-    if veiculo_id:
-        v = veiculos_mod.buscar(veiculo_id)
-        if v:
-            veiculo_texto = v["numero"]
-
-    if not veiculo_id or not garagem:
+    if not veiculo_id:
         return RedirectResponse(
             f"/session/{sessao_id}/destino?erro=" +
-            quote("Selecione o veículo e a garagem antes de continuar."),
+            quote("Selecione o veículo antes de continuar."),
+            status_code=302)
+
+    v = veiculos_mod.buscar(veiculo_id)
+    if not v:
+        return RedirectResponse(
+            f"/session/{sessao_id}/destino?erro=" +
+            quote("Veículo não encontrado."),
+            status_code=302)
+
+    veiculo_texto = v["numero"]
+    garagem = (v["garagem"] or "").strip()
+    modelo = session.get("kit_nome", "") or ""
+
+    if not garagem:
+        return RedirectResponse(
+            f"/session/{sessao_id}/destino?erro=" +
+            quote(f"O veículo {veiculo_texto} não tem garagem no cadastro. "
+                  "Defina a garagem dele em Veículos e Clientes e volte aqui."),
             status_code=302)
 
     if veiculos_mod.esta_ocupado(veiculo_id):
@@ -1285,8 +1299,11 @@ async def session_destino_post(request: Request, sessao_id: int):
             quote("Esse veículo já tem kit associado. Libere em Veículos e Clientes antes de atribuir de novo."),
             status_code=302)
 
+    # Não regrava a garagem no veículo: ela agora VEM de lá. Antes o
+    # operador podia escolher outra na tela e o cadastro era atualizado —
+    # hoje isso só reescreveria o mesmo valor em maiúsculas, mexendo no
+    # cadastro sem motivo. Alterar garagem é em Veículos e Clientes.
     sessions_mod.definir_destino(sessao_id, veiculo_id, veiculo_texto, garagem, modelo)
-    veiculos_mod.atualizar_garagem(veiculo_id, garagem.upper())
     veiculos_mod.consumir_liberacao(veiculo_id)
     return RedirectResponse(f"/session/{sessao_id}", status_code=302)
 
