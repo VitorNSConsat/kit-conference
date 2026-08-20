@@ -83,9 +83,16 @@
 
 <div class="card">
     <h2>{{ label }}s Cadastrados ({{ pag.total }})</h2>
-    {% if pag.itens %}
-    <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou cliente..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-{{ tipo }} tr.filtro-item">
+    <form method="get" action="/admin/templates" class="busca-form">
+        <input type="hidden" name="tab" value="{{ tipo }}">
+        <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou cliente...">
+        <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+        {% if busca %}<a href="/admin/templates?tab={{ tipo }}" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+    </form>
+    {% if busca %}
+    <p class="busca-resultado">
+        {{ pag.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+    </p>
     {% endif %}
     <table id="tabela-{{ tipo }}">
         <thead>
@@ -166,7 +173,7 @@
             {% if p is none %}
             <span class="paginacao-ellipsis">…</span>
             {% else %}
-            <a href="/admin/templates?tab={{ tipo }}&pagina_{{ tipo }}={{ p }}"
+            <a href="/admin/templates?tab={{ tipo }}&pagina_{{ tipo }}={{ p }}{{ '&busca=' + busca|urlencode if busca }}"
                class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
             {% endif %}
         {% endfor %}

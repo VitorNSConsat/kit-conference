@@ -165,9 +165,19 @@
       {% endif %}
     </form>
   </div>
+  <form method="get" action="/admin/veiculos" class="busca-form">
+    {% if filtro_cliente %}<input type="hidden" name="cliente" value="{{ filtro_cliente }}">{% endif %}
+    <input type="text" name="busca" value="{{ busca }}"
+           placeholder="🔍 Buscar por número, cliente ou garagem...">
+    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+    {% if busca %}<a href="/admin/veiculos" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+  </form>
+  {% if busca %}
+  <p class="busca-resultado">
+    {{ pag_veiculos.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+  </p>
+  {% endif %}
   {% if pag_veiculos.itens %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar por número, cliente ou garagem..."
-         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-veiculos tr.filtro-item">
   <div style="overflow-x:auto;">
   <table id="tabela-veiculos">
     <thead>
@@ -210,7 +220,7 @@
       {% if p is none %}
       <span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="/admin/veiculos?cliente={{ filtro_cliente }}&pagina={{ p }}"
+      <a href="/admin/veiculos?cliente={{ filtro_cliente }}&pagina={{ p }}{{ '&busca=' + busca|urlencode if busca }}"
          class="btn btn-sm {{ 'btn-primary' if p == pag_veiculos.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}

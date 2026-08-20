@@ -23,6 +23,39 @@ def janela_paginas(pagina: int, total_paginas: int, ao_redor: int = 2) -> list:
     return resultado
 
 
+def filtrar(lista: list, termo: str, campos) -> list:
+    """Filtra a lista INTEIRA por um texto, antes de paginar.
+
+    Existe porque a busca antes era só no navegador, escondendo linhas da
+    página aberta: com a lista paginada, procurar algo que estivesse na
+    página 7 não achava nada. Filtrando aqui, a busca varre tudo e a
+    paginação passa a ser do resultado da busca.
+
+    Compara sem acento nem maiúscula, e aceita várias palavras: todas
+    precisam aparecer em algum dos campos (ordem não importa)."""
+    termo = _normalizar(termo)
+    if not termo:
+        return lista
+    palavras = termo.split()
+    resultado = []
+    for item in lista:
+        alvo = " ".join(_normalizar(item.get(c)) for c in campos)
+        if all(p in alvo for p in palavras):
+            resultado.append(item)
+    return resultado
+
+
+def _normalizar(valor) -> str:
+    """minúsculas e sem acento — 'Antena 5dBi' acha com 'antena', e
+    'São Paulo' acha com 'sao paulo'."""
+    import unicodedata
+    texto = str(valor if valor is not None else "").strip().lower()
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
 def paginar(lista: list, pagina: int, por_pagina: int = POR_PAGINA_PADRAO) -> dict:
     """Fatia uma lista já carregada em memória pra exibição paginada.
     Use quando a lista completa já foi buscada do banco (sem LIMIT/OFFSET

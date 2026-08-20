@@ -118,9 +118,18 @@
             A exportação em Excel traz a relação atual e o histórico completo de movimentações.
         </p>
 
+        <form method="get" action="/admin/items" class="busca-form">
+            <input type="hidden" name="tab" value="catalogo">
+            <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou código...">
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+            {% if busca %}
+            <a href="/admin/items?tab=catalogo" class="btn btn-sm btn-secondary">✕ Limpar</a>
+            {% endif %}
+        </form>
+        {% if busca %}
+        <p class="busca-resultado">{{ tipos | length }} resultado(s) para <strong>{{ busca }}</strong></p>
+        {% endif %}
         {% if tipos %}
-        <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou código..."
-               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-catalogo tr.filtro-item">
         <table id="tabela-catalogo">
             <thead>
                 <tr><th>Código</th><th>Nome</th><th>Estoque</th><th style="width:42px;"></th><th style="width:80px;"></th></tr>
@@ -565,9 +574,22 @@
             e o que foi bipado junto com ele.
         </p>
 
-        {% if pag_itens.itens %}
-        <input type="text" class="busca-box" placeholder="🔍 Buscar por código ou tipo..."
-               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-patrimonios tr.filtro-item">
+        <form method="get" action="/admin/items" class="busca-form">
+            <input type="hidden" name="tab" value="patrimonios">
+            {% if patrimonio_veiculo_id %}<input type="hidden" name="veiculo_id" value="{{ patrimonio_veiculo_id }}">{% endif %}
+            {% if patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ patrimonio_situacao }}">{% endif %}
+            <input type="text" name="busca" value="{{ busca }}"
+                   placeholder="🔍 Buscar código, tipo, veículo, série ou operador...">
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+            {% if busca %}
+            <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}"
+               class="btn btn-sm btn-secondary">✕ Limpar</a>
+            {% endif %}
+        </form>
+        {% if busca %}
+        <p class="busca-resultado">
+            {{ pag_itens.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+        </p>
         {% endif %}
         <table id="tabela-patrimonios">
             <thead>
@@ -640,7 +662,7 @@
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>
                 {% else %}
-                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}&pagina={{ p }}"
+                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}{{ '&busca=' + busca|urlencode if busca }}&pagina={{ p }}"
                    class="btn btn-sm {{ 'btn-primary' if p == pag_itens.pagina else 'btn-secondary' }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
@@ -675,9 +697,18 @@
             kit: isso libera o tipo do item pra ser bipado em vários kits ativos ao mesmo
             tempo (equivale a marcar "Reutilizável" no Estoque).
         </p>
-        {% if pag_codigos.itens %}
-        <input type="text" class="busca-box" placeholder="🔍 Buscar código..."
-               oninput="filtrarLista(this)" data-filtro-alvo="#tabela-codigos tr.filtro-item">
+        <form method="get" action="/admin/items" class="busca-form">
+            <input type="hidden" name="tab" value="codigos">
+            <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar código...">
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+            {% if busca %}
+            <a href="/admin/items?tab=codigos" class="btn btn-sm btn-secondary">✕ Limpar</a>
+            {% endif %}
+        </form>
+        {% if busca %}
+        <p class="busca-resultado">
+            {{ pag_codigos.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+        </p>
         {% endif %}
         <table id="tabela-codigos">
             <thead>
@@ -738,7 +769,7 @@
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>
                 {% else %}
-                <a href="/admin/items?tab=codigos&codigos_pagina={{ p }}"
+                <a href="/admin/items?tab=codigos{{ '&busca=' + busca|urlencode if busca }}&codigos_pagina={{ p }}"
                    class="btn btn-sm {{ 'btn-primary' if p == pag_codigos.pagina else 'btn-secondary' }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}

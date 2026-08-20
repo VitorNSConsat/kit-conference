@@ -45,9 +45,25 @@
 </div>
 
 <div class="card">
+  <form method="get" action="/admin/auditoria" class="busca-form">
+    {% if data_ini %}<input type="hidden" name="data_ini" value="{{ data_ini }}">{% endif %}
+    {% if data_fim %}<input type="hidden" name="data_fim" value="{{ data_fim }}">{% endif %}
+    {% if filtro_user_id %}<input type="hidden" name="user_id" value="{{ filtro_user_id }}">{% endif %}
+    {% if filtro_acao %}<input type="hidden" name="acao" value="{{ filtro_acao }}">{% endif %}
+    <input type="text" name="busca" value="{{ busca }}"
+           placeholder="🔍 Buscar no detalhe, usuário, ação ou IP...">
+    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+    {% if busca %}
+    <a href="/admin/auditoria?data_ini={{ data_ini }}&data_fim={{ data_fim }}&user_id={{ filtro_user_id }}&acao={{ filtro_acao }}"
+       class="btn btn-sm btn-secondary">✕ Limpar</a>
+    {% endif %}
+  </form>
+  {% if busca %}
+  <p class="busca-resultado">
+    {{ pag_registros.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+  </p>
+  {% endif %}
   {% if pag_registros.itens %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar no detalhe..."
-         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-auditoria tr.filtro-item">
   <div style="overflow-x:auto;">
   <table id="tabela-auditoria">
     <thead>
@@ -81,7 +97,7 @@
   </div>
 
   {% if pag_registros.total_paginas > 1 %}
-  {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&user_id=' + (filtro_user_id or '') + '&acao=' + (filtro_acao or '') %}
+  {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&user_id=' + (filtro_user_id or '') + '&acao=' + (filtro_acao or '') + ('&busca=' + busca|urlencode if busca else '') %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag_registros.pagina }} de {{ pag_registros.total_paginas }}</span>
     {% for p in pag_registros.paginas_visiveis %}

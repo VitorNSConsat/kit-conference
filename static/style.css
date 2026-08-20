@@ -273,6 +273,28 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
 
 .busca-box { max-width: 320px; margin-bottom: 14px; }
 
+/* Busca que roda no servidor: varre a lista inteira, não só a página
+   aberta. Antes o filtro era só no navegador e escondia linhas da página
+   atual, então procurar algo que estivesse na página 7 não achava nada. */
+.busca-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.busca-form input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    max-width: 340px;
+    margin: 0;
+}
+.busca-resultado {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: -6px 0 12px;
+}
+
 .alert { padding: 12px 18px; border-radius: var(--radius-input); margin-bottom: 16px; font-size: 14px; }
 .alert-danger { background: var(--danger-bg); color: var(--danger-text); border: 1px solid #f3c9c2; }
 .alert-success { background: var(--ok-bg); color: var(--ok-text); border: 1px solid #c9e9d6; }

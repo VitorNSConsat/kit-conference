@@ -391,11 +391,13 @@ async def logout(request: Request):
 
 @app.get("/admin/usuarios", response_class=HTMLResponse)
 @require_admin
-async def admin_usuarios(request: Request, pagina: int = 1):
+async def admin_usuarios(request: Request, pagina: int = 1, busca: str = ""):
     usuarios = usuarios_mod.listar()
     negadas_por_usuario = {u["id"]: permissoes_mod.negadas_do_usuario(u["id"]) for u in usuarios}
+    usuarios = paginacao_mod.filtrar(usuarios, busca, ("nome", "username"))
     return render(request, "admin_usuarios.html", {
         "pag_usuarios": paginacao_mod.paginar(usuarios, pagina),
+        "busca": busca,
         "permissoes": permissoes_mod.PERMISSOES,
         "negadas_por_usuario": negadas_por_usuario,
     })
@@ -472,10 +474,14 @@ async def admin_usuario_senha(request: Request, user_id: int):
 @require_admin
 async def admin_auditoria(request: Request,
                           data_ini: str = "", data_fim: str = "",
-                          user_id: str = "", acao: str = "", pagina: int = 1):
+                          user_id: str = "", acao: str = "", pagina: int = 1,
+                          busca: str = ""):
     registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao, limite=2000)
+    registros = paginacao_mod.filtrar(
+        registros, busca, ("detalhe", "user_nome", "acao", "caminho", "ip"))
     return render(request, "admin_auditoria.html", {
         "pag_registros": paginacao_mod.paginar(registros, pagina),
+        "busca": busca,
         "usuarios": usuarios_mod.listar(),
         "acoes": auditoria_mod.acoes_distintas(),
         "data_ini": data_ini, "data_fim": data_fim,
@@ -683,8 +689,10 @@ def _admin_items_context(sobressalente_cliente: str = "",
                          patrimonio_pagina: int = 1,
                          codigos_pagina: int = 1,
                          tab: str = "",
-                         patrimonio_situacao: str = "") -> dict:
+                         patrimonio_situacao: str = "",
+                         busca: str = "") -> dict:
     aba = tab if tab in ABAS_ITENS else "catalogo"
+    busca = (busca or "").strip()
 
     # Só a aba realmente aberta consulta o banco. A lista de patrimônios é
     # de longe a consulta mais cara (cruza toda a tabela de bipagens), e
@@ -696,6 +704,7 @@ def _admin_items_context(sobressalente_cliente: str = "",
         # depois que a página carrega, o navegador pintaria a primeira aba
         # antes de trocar — o "pisca" que aparecia ao recarregar filtrado.
         "tab_ativo": aba,
+        "busca": busca,
         "pag_itens": vazio,
         "pag_codigos": vazio,
         "patrimonio_veiculo_id": patrimonio_veiculo_id,
@@ -723,20 +732,33 @@ def _admin_items_context(sobressalente_cliente: str = "",
         if patrimonio_situacao in items_mod.SITUACOES:
             itens_do_veiculo = [i for i in itens_do_veiculo
                                 if i["situacao"] == patrimonio_situacao]
+        # Busca antes de paginar: varre a lista toda, não só a página aberta.
+        itens_do_veiculo = paginacao_mod.filtrar(
+            itens_do_veiculo, busca,
+            ("codigo_barra", "descricao", "veiculo_atual", "serial_atual", "operador_atual"))
         ctx["pag_itens"] = paginacao_mod.paginar(itens_do_veiculo, patrimonio_pagina)
         ctx["veiculos_todos"] = veiculos_mod.listar()
 
     elif aba == "catalogo":
-        ctx["tipos"] = items_mod.listar_tipos()
-        ctx["estoque_por_tipo"] = {e["item_tipo_id"]: e
-                                   for e in estoque_mod.listar_estoque()}
+        tipos = items_mod.listar_tipos()
+        estoque_por_tipo = {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()}
+        if busca:
+            # O código de barras do tipo mora no estoque, não no tipo — junta
+            # os dois pra busca achar tanto por nome quanto por código.
+            tipos = [t for t in tipos if paginacao_mod.filtrar(
+                [{"nome": t["nome"],
+                  "codigo": (estoque_por_tipo.get(t["id"]) or {}).get("codigo_barra", "")}],
+                busca, ("nome", "codigo"))]
+        ctx["tipos"] = tipos
+        ctx["estoque_por_tipo"] = estoque_por_tipo
 
     elif aba == "novo":
         ctx["tipos"] = items_mod.listar_tipos()
 
     elif aba == "codigos":
-        ctx["pag_codigos"] = paginacao_mod.paginar(
-            codigos_gerados_mod.listar(), codigos_pagina)
+        codigos = paginacao_mod.filtrar(
+            codigos_gerados_mod.listar(), busca, ("texto", "criado_por_nome"))
+        ctx["pag_codigos"] = paginacao_mod.paginar(codigos, codigos_pagina)
 
     elif aba == "sobressalentes":
         ctx["clientes"] = clientes_mod.listar()
@@ -754,7 +776,7 @@ def _admin_items_context(sobressalente_cliente: str = "",
 @require_login
 async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
                       veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1,
-                      tab: str = "", situacao: str = ""):
+                      tab: str = "", situacao: str = "", busca: str = ""):
     return render(request, "admin_items.html", _admin_items_context(
         cliente, data_ini, data_fim,
         patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
@@ -762,6 +784,7 @@ async def admin_items(request: Request, cliente: str = "", data_ini: str = "", d
         codigos_pagina=codigos_pagina,
         tab=tab,
         patrimonio_situacao=situacao,
+        busca=busca,
     ))
 
 
@@ -903,11 +926,16 @@ async def admin_items_delete(request: Request, item_id: int):
 
 # ── Admin: Templates ──────────────────────────────────────────────────────────
 
-def _admin_templates_context(pagina_kit: int = 1, pagina_pedido: int = 1) -> dict:
+def _admin_templates_context(pagina_kit: int = 1, pagina_pedido: int = 1,
+                             busca: str = "") -> dict:
     todos = templates_mod.listar_todos()
-    templates_kit = [t for t in todos if t.get("tipo", "kit") == "kit"]
-    templates_pedido = [t for t in todos if t.get("tipo") == "pedido"]
+    campos = ("nome", "cliente")
+    templates_kit = paginacao_mod.filtrar(
+        [t for t in todos if t.get("tipo", "kit") == "kit"], busca, campos)
+    templates_pedido = paginacao_mod.filtrar(
+        [t for t in todos if t.get("tipo") == "pedido"], busca, campos)
     return {
+        "busca": busca,
         "pag_kit": paginacao_mod.paginar(templates_kit, pagina_kit),
         "pag_pedido": paginacao_mod.paginar(templates_pedido, pagina_pedido),
         "tipos_catalogo": items_mod.listar_tipos(apenas_ativos=True),
@@ -919,9 +947,10 @@ def _admin_templates_context(pagina_kit: int = 1, pagina_pedido: int = 1) -> dic
 
 @app.get("/admin/templates", response_class=HTMLResponse)
 @require_login
-async def admin_templates(request: Request, pagina_kit: int = 1, pagina_pedido: int = 1):
+async def admin_templates(request: Request, pagina_kit: int = 1, pagina_pedido: int = 1,
+                          busca: str = ""):
     return render(request, "admin_templates.html", {
-        **_admin_templates_context(pagina_kit, pagina_pedido),
+        **_admin_templates_context(pagina_kit, pagina_pedido, busca),
         "erro": request.query_params.get("erro"),
     })
 
@@ -3000,10 +3029,13 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
-def _admin_veiculos_context(cliente: str = "", pagina: int = 1) -> dict:
-    veiculos = veiculos_mod.listar(cliente=cliente or None, ativo=True)
+def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "") -> dict:
+    veiculos = paginacao_mod.filtrar(
+        veiculos_mod.listar(cliente=cliente or None, ativo=True),
+        busca, ("numero", "cliente", "garagem"))
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     return {
+        "busca": busca,
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
         "veiculos_inativos": veiculos_inativos,
         "clientes": [c["nome"] for c in clientes_mod.listar()],
@@ -3015,8 +3047,10 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1) -> dict:
 
 @app.get("/admin/veiculos", response_class=HTMLResponse)
 @require_login
-async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1):
-    return render(request, "admin_veiculos.html", _admin_veiculos_context(cliente, pagina))
+async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1,
+                         busca: str = ""):
+    return render(request, "admin_veiculos.html",
+                  _admin_veiculos_context(cliente, pagina, busca))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)

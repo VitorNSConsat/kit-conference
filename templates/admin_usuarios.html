@@ -57,8 +57,16 @@
 
 <div class="card">
   <h2>Usuários ({{ pag_usuarios.total }})</h2>
-  <input type="text" class="busca-box" placeholder="🔍 Buscar por nome ou login..."
-         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-usuarios tr.filtro-item">
+  <form method="get" action="/admin/usuarios" class="busca-form">
+    <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou login...">
+    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+    {% if busca %}<a href="/admin/usuarios" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+  </form>
+  {% if busca %}
+  <p class="busca-resultado">
+    {{ pag_usuarios.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+  </p>
+  {% endif %}
   <div style="overflow-x:auto;">
   <table id="tabela-usuarios">
     <thead>
@@ -151,7 +159,7 @@
       {% if p is none %}
       <span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="/admin/usuarios?pagina={{ p }}"
+      <a href="/admin/usuarios?pagina={{ p }}{{ '&busca=' + busca|urlencode if busca }}"
          class="btn btn-sm {{ 'btn-primary' if p == pag_usuarios.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
