@@ -2973,7 +2973,9 @@ async def admin_producao_transito(request: Request):
 
 
 @app.post("/admin/producao/nota-lote")
-@require_login
+# Mesma permissão da nota individual: o lote não pode ser um caminho mais
+# frouxo pra fazer o que a rota unitária protege.
+@require_permission("producao_nota_fiscal")
 async def admin_producao_nota_lote(request: Request):
     """Mesma nota/data pra vários kits selecionados. Só os selecionados são
     tocados — o form manda os kit_ids marcados, nada de "todos do filtro"."""
