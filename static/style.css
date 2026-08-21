@@ -358,9 +358,9 @@ tr:hover td { background: var(--surface-alt); }
 .scan-layout .painel-eventos {
     order: 2;
     position: sticky;
-    top: 12px;
+    top: var(--altura-navbar, 54px);
     align-self: start;
-    max-height: calc(100vh - 24px);
+    max-height: calc(100vh - var(--altura-navbar, 54px) - 12px);
     overflow-y: auto;
 }
 
@@ -397,13 +397,24 @@ tr:hover td { background: var(--surface-alt); }
 }
 .item-tags .badge { font-size: 11px; }
 
-/* Progresso da bipagem */
+/* Progresso da bipagem.
+   Fica grudado abaixo da navbar (54px): conforme a lista desce e a bipagem
+   chega perto do fim, a rolagem levaria a % pra fora da tela justamente
+   quando ela mais importa. Fundo opaco porque as linhas de item passam por
+   baixo dele. */
 .bip-progresso {
+    position: sticky;
+    /* A navbar tem altura fixa no desktop mas `auto` no celular (e cresce
+       com o menu aberto), então a medida real vem do JS em --altura-navbar.
+       O 54px é só o palpite inicial, até o script rodar. */
+    top: var(--altura-navbar, 54px);
+    z-index: 5;
     background: var(--surface-alt);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px 14px;
     margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
 }
 .bip-progresso-topo {
     display: flex;
@@ -565,15 +576,29 @@ tr:hover td { background: var(--surface-alt); }
     /* Scan screen: single column */
     .scan-layout { grid-template-columns: 1fr; gap: 12px; }
     /* Numa coluna só, os eventos sobem pra cima da lista de itens — é o que
-       o operador precisa ver a cada bipada, sem rolar a lista toda. */
+       o operador precisa ver a cada bipada, sem rolar a lista toda — e
+       ficam grudados abaixo da navbar, pra continuarem à vista conforme a
+       lista rola. Compacto de propósito: numa tela de celular, eventos +
+       barra de progresso já ocupam bastante espaço. */
     .scan-layout .painel-eventos {
         order: 1;
-        position: static;
-        max-height: none;
-        overflow: visible;
+        position: sticky;
+        top: var(--altura-navbar, 54px);
+        z-index: 6;
+        padding: 10px 12px;
+        margin-bottom: 10px;
     }
     .scan-layout .painel-itens { order: 2; }
-    .scan-feed { max-height: 220px; }
+    .scan-feed { max-height: 108px; }
+    .painel-eventos h2 { font-size: 14px; }
+    .scan-event { padding: 7px 10px; margin-bottom: 5px; font-size: 13px; }
+
+    /* A barra de progresso encosta LOGO ABAIXO do painel de eventos (que
+       também está grudado), pra uma não cobrir a outra. A altura vem do JS
+       porque o painel cresce/encolhe conforme os eventos. */
+    .bip-progresso {
+        top: calc(var(--altura-navbar, 54px) + var(--altura-eventos, 0px));
+    }
 
     /* Tables: scroll container */
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }

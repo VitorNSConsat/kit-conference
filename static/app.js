@@ -58,14 +58,17 @@ function initScanner(sessaoId) {
         } else if (data.resultado === "componente_pendente") {
             mostrarModalComponente(data);
             return;
-        } else if (data.resultado === "componente") {
-            data.atualizacoes.forEach(u => {
-                atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
+        } else if (data.resultado === "componente" || data.resultado === "desfeito") {
+            // Conjunto atualiza VÁRIOS itens de uma vez. Rolar a cada um
+            // faria a tela saltar item a item e parar no último; então
+            // atualiza todos sem mexer na tela e rola uma vez só, mirando
+            // o grupo inteiro.
+            const atualizados = data.atualizacoes || [];
+            atualizados.forEach(u => {
+                atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida,
+                                  { semScroll: true });
             });
-        } else if (data.resultado === "desfeito") {
-            (data.atualizacoes || []).forEach(u => {
-                atualizarContagem(u.item_tipo_id, u.contagem_atual, u.quantidade_exigida);
-            });
+            _seguirGrupo(atualizados.map(u => u.item_tipo_id));
         } else if (data.resultado === "quantidade_pendente") {
             mostrarModalQuantidade(data);
         } else if (data.resultado === "substituicao_pendente") {
@@ -107,6 +110,10 @@ function adicionarEvento(data) {
     const hora = new Date().toLocaleTimeString("pt-BR");
     div.innerHTML = `<strong>${hora}</strong> — ${data.mensagem}`;
     feed.prepend(div);
+    // O evento novo entra no topo — se o operador tinha rolado o feed pra
+    // ver algo antigo, volta pro começo, senão a bipagem que acabou de
+    // acontecer ficaria fora de vista.
+    feed.scrollTop = 0;
     while (feed.children.length > 50) feed.removeChild(feed.lastChild);
 }
 
@@ -148,7 +155,8 @@ function _fmtQtd(n) {
     return Number.isInteger(f) ? f.toString() : f.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-function atualizarContagem(itemTipoId, atual, _exigido) {
+function atualizarContagem(itemTipoId, atual, _exigido, opcoes) {
+    const semScroll = !!(opcoes && opcoes.semScroll);
     let scrollAlvo = null;
     document.querySelectorAll(`.item-row[data-tipo-id="${itemTipoId}"]`).forEach(el => {
         const exigido = parseFloat(el.dataset.exigido);
@@ -167,10 +175,98 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
         }
         if (!scrollAlvo) scrollAlvo = el;
     });
-    if (scrollAlvo) scrollAlvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (scrollAlvo && !semScroll) _seguirItem(scrollAlvo);
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
     atualizarProgressoBipagem();
+}
+
+// Publica a altura real da navbar em --altura-navbar, pra barra de
+// progresso grudar exatamente embaixo dela. No celular a navbar é
+// `height:auto` e ainda cresce quando o menu abre, então um valor fixo no
+// CSS deixaria uma fresta (ou sobreporia) dependendo da tela.
+function _medirNavbar() {
+    const raiz = document.documentElement.style;
+    const navbar = document.querySelector(".navbar");
+    if (navbar) {
+        raiz.setProperty("--altura-navbar",
+            Math.round(navbar.getBoundingClientRect().height) + "px");
+        // ResizeObserver em vez de só ouvir `resize`: a navbar também muda
+        // de altura quando o menu hamburguer abre, sem a janela mudar de
+        // tamanho.
+        if (!navbar._observado && window.ResizeObserver) {
+            navbar._observado = true;
+            new ResizeObserver(_medirNavbar).observe(navbar);
+        }
+    }
+
+    // Numa coluna só (celular), o painel de eventos também fica grudado, e
+    // a barra de progresso precisa encostar logo abaixo dele. No desktop
+    // eles ficam lado a lado, então não há o que descontar.
+    const eventos = document.querySelector(".painel-eventos");
+    if (eventos) {
+        const empilhado = getComputedStyle(eventos).position === "sticky"
+            && window.matchMedia("(max-width: 768px)").matches;
+        raiz.setProperty("--altura-eventos",
+            empilhado ? Math.round(eventos.getBoundingClientRect().height) + "px" : "0px");
+        if (!eventos._observado && window.ResizeObserver) {
+            eventos._observado = true;
+            new ResizeObserver(_medirNavbar).observe(eventos);
+        }
+    }
+}
+window.addEventListener("resize", _medirNavbar);
+document.addEventListener("DOMContentLoaded", _medirNavbar);
+_medirNavbar();
+
+// Rola até o item bipado SÓ quando ele está mesmo fora de vista.
+//
+// Antes chamava scrollIntoView a cada bipagem, o que dava dois problemas:
+// a tela pulava mesmo com o item já visível (a cada beep), e perto do fim
+// da lista a rolagem empurrava a barra de progresso pra fora — justamente
+// quando saber a % importa mais. A barra agora é fixa (CSS sticky), e aqui
+// a zona visível desconta a altura dela + a navbar, pra nunca parar o item
+// escondido atrás das duas.
+function _seguirItem(el) {
+    const navbar = document.querySelector(".navbar");
+    const progresso = document.getElementById("bip-progresso");
+    const topoBloqueado =
+        (navbar ? navbar.getBoundingClientRect().height : 0) +
+        (progresso ? progresso.getBoundingClientRect().height : 0) + 8;
+
+    const r = el.getBoundingClientRect();
+    const dentro = r.top >= topoBloqueado && r.bottom <= window.innerHeight - 8;
+    if (dentro) return;   // já dá pra ver: não mexe na tela
+
+    // Posiciona logo abaixo da área fixa, em vez de encostar no topo.
+    const alvo = window.scrollY + r.top - topoBloqueado - 8;
+    window.scrollTo({ top: Math.max(0, alvo), behavior: "smooth" });
+}
+
+// Rola uma vez só pra um GRUPO de itens (os de um conjunto).
+//
+// Se todos já estão à vista, não mexe na tela. Se não, mira o primeiro item
+// do grupo na ordem da lista — assim o operador vê o conjunto começando, e
+// não o último item dele com o resto pra cima, fora da tela.
+function _seguirGrupo(tipoIds) {
+    if (!tipoIds || !tipoIds.length) return;
+    const linhas = [...document.querySelectorAll(".item-row")]
+        .filter(el => tipoIds.map(String).includes(el.dataset.tipoId));
+    if (!linhas.length) return;
+
+    const progresso = document.getElementById("bip-progresso");
+    const navbar = document.querySelector(".navbar");
+    const topoBloqueado =
+        (navbar ? navbar.getBoundingClientRect().height : 0) +
+        (progresso ? progresso.getBoundingClientRect().height : 0) + 8;
+
+    const todosVisiveis = linhas.every(el => {
+        const r = el.getBoundingClientRect();
+        return r.top >= topoBloqueado && r.bottom <= window.innerHeight - 8;
+    });
+    if (todosVisiveis) return;
+
+    _seguirItem(linhas[0]);   // linhas já vêm na ordem do documento
 }
 
 // Recalcula quanto falta pra fechar o kit lendo as linhas já na tela — não
