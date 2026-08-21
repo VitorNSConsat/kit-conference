@@ -3173,6 +3173,11 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "")
         "sem_modelo": veiculos_mod.contar_sem_modelo(cliente or None),
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
         "veiculos_inativos": veiculos_inativos,
+        # Números cadastrados mais de uma vez (dados de antes da regra de
+        # número único) — a tela avisa pra o admin limpar com a exclusão
+        # em massa; o sistema não apaga sozinho porque cada cadastro pode
+        # ter kits no histórico.
+        "duplicados": veiculos_mod.numeros_duplicados(),
         "clientes": [c["nome"] for c in clientes_mod.listar()],
         "clientes_cadastrados": clientes_mod.listar(),
         "garagens_cadastradas": garagens_mod.listar(),
@@ -3201,8 +3206,31 @@ async def admin_veiculos_post(request: Request):
             **_admin_veiculos_context(),
             "erro": "Número e cliente são obrigatórios.",
         })
-    veiculos_mod.criar(numero, cliente, garagem, modelo)
+    try:
+        veiculos_mod.criar(numero, cliente, garagem, modelo)
+    except ValueError as e:
+        # Número já em uso — o número do veículo é único no sistema inteiro.
+        return render(request, "admin_veiculos.html", {
+            **_admin_veiculos_context(),
+            "erro": str(e),
+        })
     return RedirectResponse("/admin/veiculos?ok=criado", status_code=302)
+
+
+@app.post("/admin/veiculos/excluir-em-massa")
+@require_admin
+async def admin_veiculos_excluir_em_massa(request: Request):
+    """Exclui vários veículos de uma vez — a tela deixa marcar alguns ou
+    todos os veículos filtrados (ex: todos de um cliente digitado errado).
+    Cada exclusão preserva o histórico de kits, igual à exclusão unitária:
+    é o mesmo deletar() por baixo. Só admin, como toda exclusão."""
+    form = await request.form()
+    ids = [int(x) for x in form.getlist("veiculo_ids") if str(x).isdigit()]
+    for vid in ids:
+        veiculos_mod.deletar(vid)
+    voltar = str(form.get("voltar", "")).strip()
+    destino = "/admin/veiculos" + (f"?cliente={quote(voltar)}&" if voltar else "?")
+    return RedirectResponse(destino + f"ok=excluidos&qtd={len(ids)}", status_code=302)
 
 
 @app.get("/admin/veiculos/modelo.xlsx")
@@ -3243,9 +3271,10 @@ async def admin_veiculos_modelo(request: Request):
 
     # Lista suspensa na coluna Modelo, alimentada pela aba acima: o operador
     # escolhe o kit em vez de digitar, que é onde nascia o erro (o modelo é
-    # comparado pelo nome, então "Euro5" e "Euro 5" seriam kits diferentes).
-    # showErrorMessage=False de propósito — digitar um nome novo continua
-    # valendo, e a importação cria esse kit vazio pra ser montado depois.
+    # comparado pelo nome). showErrorMessage=False de propósito — digitar à
+    # mão continua valendo, porque a importação casa o texto com o kit MAIS
+    # PRÓXIMO (caixa/abreviação/erro de digitação); só o que não parece com
+    # kit nenhum é recusado e reportado na tela de importação.
     if modelos:
         from openpyxl.worksheet.datavalidation import DataValidation
         dv = DataValidation(
@@ -3254,8 +3283,8 @@ async def admin_veiculos_modelo(request: Request):
             allow_blank=True,
             showErrorMessage=False,
         )
-        dv.prompt = ("Escolha um kit da lista, ou digite um nome novo — "
-                     "kit que ainda não existe é criado vazio na importação.")
+        dv.prompt = ("Escolha um kit da lista. Se digitar, o sistema casa com "
+                     "o kit mais próximo — mas só entre os que já existem.")
         dv.promptTitle = "Modelo (Kit)"
         dv.showInputMessage = True
         ws.add_data_validation(dv)
@@ -3286,8 +3315,7 @@ async def admin_veiculos_import_post(request: Request):
         file_bytes = await _ler_upload(arquivo)
     except ValueError as e:
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
-    user = get_current_user(request)
-    resultado = veiculos_mod.importar_excel(file_bytes, criado_por=user["id"] if user else None)
+    resultado = veiculos_mod.importar_excel(file_bytes)
     return render(request, "admin_veiculos_import.html", {"resultado": resultado})
 
 
@@ -3334,7 +3362,19 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
             "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
             "erro": "Número e cliente são obrigatórios.",
         })
-    veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem, modelo)
+    try:
+        veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem, modelo)
+    except ValueError as e:
+        # Número já em uso por outro veículo — único no sistema inteiro.
+        v = veiculos_mod.buscar(veiculo_id)
+        return render(request, "admin_veiculo_detalhe.html", {
+            "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
+            "clientes": clientes_mod.listar(), "garagens": garagens_mod.listar(),
+            "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
+            "modelos": veiculos_mod.modelos_disponiveis(),
+            "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
+            "erro": str(e),
+        })
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
 
 

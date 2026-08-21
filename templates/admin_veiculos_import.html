@@ -11,21 +11,23 @@
   <h2>Resultado da importação</h2>
   <p>✅ <strong>{{ resultado.inseridos }}</strong> veículos novos inseridos</p>
   {% if resultado.atualizados %}
-  <p>🔄 <strong>{{ resultado.atualizados }}</strong> já existiam e tiveram a garagem preenchida</p>
+  <p>🔄 <strong>{{ resultado.atualizados }}</strong> já existiam e tiveram o cadastro
+     atualizado pela planilha (cliente, garagem e/ou modelo)</p>
   {% endif %}
   <p>⏭️ <strong>{{ resultado.ignorados }}</strong> sem alteração (já cadastrados ou linha vazia)</p>
-  {% if resultado.templates_criados %}
+  {% if resultado.modelos_ajustados %}
   <div style="background:#eaf4fd;border:1px solid #b8daf5;border-radius:6px;
               padding:10px 12px;margin-top:10px;">
     <p style="margin:0 0 6px;">
-      🆕 <strong>{{ resultado.templates_criados | length }}</strong>
-      kit(s) novo(s) criado(s) a partir da coluna Modelo — estão
-      <strong>vazios</strong>, é preciso montar os itens de cada um:
+      🔎 <strong>{{ resultado.modelos_ajustados | length }}</strong> modelo(s) da planilha
+      não batiam letra por letra e foram casados com o kit <strong>mais próximo</strong> —
+      confira se o casamento está certo:
     </p>
-    <ul style="margin:0 0 8px;padding-left:20px;">
-      {% for t in resultado.templates_criados %}<li>{{ t }}</li>{% endfor %}
+    <ul style="margin:0;padding-left:20px;">
+      {% for a in resultado.modelos_ajustados %}
+      <li>"{{ a.de }}" → <strong>{{ a.para }}</strong></li>
+      {% endfor %}
     </ul>
-    <a href="/admin/templates" class="btn btn-sm btn-primary">🎁 Montar os itens</a>
   </div>
   {% endif %}
   {% if resultado.inativos %}
@@ -54,17 +56,21 @@
     <a href="/admin/veiculos/modelo.xlsx">📄 Baixar modelo</a>
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    O <strong>Modelo</strong> é o <strong>nome de um kit</strong>
+    O <strong>Modelo</strong> é o <strong>nome de um kit já existente</strong>
     (ex: "Mercedes Euro 5 Diesel") — é ele que decide em qual bipagem o veículo aparece.
     Na planilha modelo essa coluna já vem com uma <strong>lista suspensa</strong> dos kits
-    existentes: basta escolher, sem digitar. Se você escrever um nome que ainda não existe,
-    a importação <strong>cria esse kit vazio</strong> pra você montar os itens depois.
+    existentes: basta escolher, sem digitar. Texto digitado à mão é casado com o kit
+    <strong>mais próximo</strong> ("mercedes Euro 6" vira "Mercedes Euro 6 Diesel");
+    o que não parecer com kit nenhum é recusado e aparece como erro no resultado.
+    A planilha <strong>não cria kit</strong> — crie o kit primeiro na tela de Kits.
     Veículo sem modelo <strong>não aparece em nenhum kit</strong>.
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    Pode importar a mesma planilha quantas vezes precisar: o veículo é identificado por
-    <strong>número + cliente</strong>, então nunca duplica. Se já existir, só completa o que
-    estiver em branco no cadastro — o que já está preenchido é mantido.
+    Pode importar a mesma planilha quantas vezes precisar: o veículo é identificado pelo
+    <strong>número</strong> (único no sistema, mesmo entre clientes diferentes), então
+    nunca duplica. Nos que já existem, <strong>a planilha manda</strong>: célula preenchida
+    sobrescreve o cadastro (cliente, garagem e modelo), célula vazia preserva o que está lá —
+    é assim que uma correção na planilha chega ao sistema ao reimportar.
   </p>
   <form method="post" enctype="multipart/form-data">
     <div class="form-group">

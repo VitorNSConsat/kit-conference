@@ -9,7 +9,12 @@
   </div>
 </div>
 
-{% if request.query_params.get('ok') == 'cliente' %}
+{% if request.query_params.get('ok') == 'excluidos' %}
+<div class="alert alert-success">
+  🗑 {{ request.query_params.get('qtd', '?') }} veículo(s) excluído(s).
+  O histórico de kits de cada um foi preservado.
+</div>
+{% elif request.query_params.get('ok') == 'cliente' %}
 <div class="alert alert-success">✅ Cliente adicionado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'cliente_excluido' %}
 <div class="alert alert-success">✅ Cliente excluído.</div>
@@ -157,6 +162,20 @@
 
 </div>
 
+{% if duplicados %}
+<!-- Números repetidos: cadastros de antes da regra de número único. O
+     sistema não apaga sozinho (cada um pode ter kits no histórico) —
+     o admin decide qual fica e exclui o outro pela seleção abaixo. -->
+<div class="alert alert-danger" style="margin-bottom:16px;">
+  ⚠️ <strong>{{ duplicados | length }} número(s) de veículo cadastrados mais de uma vez:</strong>
+  {% for d in duplicados %}
+    <strong>{{ d.numero }}</strong> ({{ d.repeticoes }}×: {{ d.clientes }}){{ ", " if not loop.last }}
+  {% endfor %}
+  — o número do veículo agora é único no sistema. Busque o número abaixo, confira qual
+  cadastro é o certo e exclua o(s) outro(s) marcando na lista.
+</div>
+{% endif %}
+
 <!-- Lista de veículos -->
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
@@ -193,10 +212,19 @@
   </p>
   {% endif %}
   {% if pag_veiculos.itens %}
+  <form method="post" action="/admin/veiculos/excluir-em-massa" id="form-excluir-massa"
+        onsubmit="return confirmarExclusaoMassa();">
+  <input type="hidden" name="voltar" value="{{ filtro_cliente }}">
   <div style="overflow-x:auto;">
   <table id="tabela-veiculos">
     <thead>
       <tr>
+        {% if user and user.admin %}
+        <th style="width:30px;text-align:center;">
+          <input type="checkbox" id="marcar-todos" onchange="marcarTodosVeiculos(this)"
+                 title="Marcar todos os veículos desta página">
+        </th>
+        {% endif %}
         <th>Número</th>
         <th>Cliente</th>
         <th>Garagem</th>
@@ -209,6 +237,12 @@
     <tbody>
     {% for v in pag_veiculos.itens %}
     <tr class="filtro-item">
+      {% if user and user.admin %}
+      <td style="text-align:center;">
+        <input type="checkbox" name="veiculo_ids" value="{{ v.id }}"
+               class="chk-veiculo" onchange="atualizarBotaoExcluir()">
+      </td>
+      {% endif %}
       <td><strong>{{ v.numero }}</strong></td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.garagem or '—' }}</td>
@@ -232,6 +266,20 @@
     </tbody>
   </table>
   </div>
+  {% if user and user.admin %}
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    <button type="submit" class="btn btn-sm btn-danger" id="btn-excluir-massa" disabled>
+      🗑 Excluir selecionados (<span id="qtd-selecionados">0</span>)
+    </button>
+    <span style="font-size:12px;color:#888;">
+      Marque os veículos acima — ou o quadradinho do topo pra marcar a página inteira.
+      {% if filtro_cliente %}Filtro ativo: só veículos de <strong>{{ filtro_cliente }}</strong>.{% else %}
+      Pra apagar os veículos de um cliente, filtre por ele primeiro.{% endif %}
+      O histórico de kits é sempre preservado.
+    </span>
+  </div>
+  {% endif %}
+  </form>
 
   {% if pag_veiculos.total_paginas > 1 %}
   <div class="paginacao">
@@ -273,4 +321,36 @@
   {% endif %}
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Seleção em massa: o quadradinho do topo marca/desmarca a página inteira,
+// e o botão de excluir só habilita com algo marcado — mostra a contagem
+// pra pessoa conferir antes do confirm().
+function marcarTodosVeiculos(chefe) {
+    document.querySelectorAll('.chk-veiculo').forEach(c => { c.checked = chefe.checked; });
+    atualizarBotaoExcluir();
+}
+
+function atualizarBotaoExcluir() {
+    const qtd = document.querySelectorAll('.chk-veiculo:checked').length;
+    const btn = document.getElementById('btn-excluir-massa');
+    if (!btn) return;
+    btn.disabled = qtd === 0;
+    document.getElementById('qtd-selecionados').textContent = qtd;
+    const chefe = document.getElementById('marcar-todos');
+    if (chefe) {
+        const total = document.querySelectorAll('.chk-veiculo').length;
+        chefe.checked = qtd > 0 && qtd === total;
+    }
+}
+
+function confirmarExclusaoMassa() {
+    const qtd = document.querySelectorAll('.chk-veiculo:checked').length;
+    if (qtd === 0) return false;
+    return confirm('Excluir permanentemente ' + qtd + ' veículo(s)? ' +
+                   'O histórico de kits de cada um será preservado.');
+}
+</script>
 {% endblock %}

@@ -35,7 +35,46 @@ def buscar(veiculo_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def numero_em_uso(numero: str, excluir_id: int | None = None) -> dict | None:
+    """O número do veículo é único no sistema INTEIRO — não só dentro do
+    cliente. O mesmo 31001-50071 em dois clientes é o mesmo ônibus físico
+    cadastrado duas vezes (o número vem da frota, não do cliente), e a
+    duplicata deixava kits e histórico espalhados entre dois cadastros.
+    Compara sem caixa/espaço e SEM filtrar por ativo: um desativado ainda
+    ocupa o número. Devolve o veículo que já usa o número, ou None."""
+    sql = "SELECT * FROM veiculos WHERE LOWER(TRIM(numero)) = ?"
+    params: list = [(numero or "").strip().lower()]
+    if excluir_id is not None:
+        sql += " AND id != ?"
+        params.append(excluir_id)
+    with db() as conn:
+        row = conn.execute(sql, params).fetchone()
+    return dict(row) if row else None
+
+
+def numeros_duplicados() -> list[dict]:
+    """Números que já estão cadastrados mais de uma vez (dados de antes da
+    regra de número único). A tela lista pra o admin limpar — o sistema não
+    apaga sozinho porque cada cadastro pode ter kits no histórico."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT LOWER(TRIM(numero)) AS chave, MIN(numero) AS numero,
+                   COUNT(*) AS repeticoes,
+                   GROUP_CONCAT(cliente, ' / ') AS clientes
+            FROM veiculos
+            GROUP BY chave HAVING COUNT(*) > 1
+            ORDER BY numero
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
 def criar(numero: str, cliente: str, garagem: str, modelo: str = "") -> int:
+    ocupado = numero_em_uso(numero)
+    if ocupado:
+        raise ValueError(
+            f"O número {numero.strip()} já está cadastrado no cliente "
+            f"{ocupado['cliente']}. O número do veículo é único no sistema — "
+            "edite o cadastro existente em vez de criar outro.")
     with db() as conn:
         cur = conn.execute(
             "INSERT INTO veiculos (numero, cliente, garagem, modelo, criado_em) "
@@ -50,6 +89,11 @@ def atualizar(veiculo_id: int, numero: str, cliente: str, garagem: str,
               modelo: str | None = None):
     """modelo=None mantém o que já está gravado — deixa outras telas
     atualizarem número/cliente/garagem sem apagar o modelo sem querer."""
+    ocupado = numero_em_uso(numero, excluir_id=veiculo_id)
+    if ocupado:
+        raise ValueError(
+            f"O número {numero.strip()} já está cadastrado no cliente "
+            f"{ocupado['cliente']}. O número do veículo é único no sistema.")
     with db() as conn:
         if modelo is None:
             conn.execute(
@@ -71,6 +115,29 @@ def modelos_disponiveis() -> list[str]:
             "SELECT DISTINCT nome FROM kit_template WHERE ativo = 1 ORDER BY nome"
         ).fetchall()
     return [r["nome"] for r in rows]
+
+
+def casar_modelo(texto: str, modelos: list[str] | None = None) -> str | None:
+    """Casa o que foi digitado na planilha com um kit EXISTENTE — a planilha
+    só trabalha em cima dos kits que já existem, nunca inventa um.
+
+    Primeiro tenta bater exato (ignorando caixa e espaços duplicados):
+    "mercedes Euro 6 diesel" é "Mercedes Euro 6 Diesel". Se não bater,
+    procura o MAIS PRÓXIMO por similaridade — cobre abreviação e erro de
+    digitação ("Mercedes Euro 6" → "Mercedes Euro 6 Diesel"). O corte de
+    0.6 evita casar coisa que não tem nada a ver: aí devolve None e a
+    importação reporta o erro em vez de chutar."""
+    import difflib
+    if modelos is None:
+        modelos = modelos_disponiveis()
+    chave = " ".join((texto or "").split()).lower()
+    if not chave:
+        return None
+    por_chave = {" ".join(m.split()).lower(): m for m in modelos}
+    if chave in por_chave:
+        return por_chave[chave]
+    proximos = difflib.get_close_matches(chave, list(por_chave), n=1, cutoff=0.6)
+    return por_chave[proximos[0]] if proximos else None
 
 
 def contar_sem_modelo(cliente: str | None = None) -> int:
@@ -189,20 +256,23 @@ def deletar(veiculo_id: int):
         conn.execute("DELETE FROM veiculos WHERE id=?", (veiculo_id,))
 
 
-def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
-    """Importa veículos da planilha. Reimportar a mesma lista é seguro: o
-    veículo é identificado por número + cliente (a numeração é única DENTRO
-    de cada cliente, então o mesmo número pode existir em clientes
-    diferentes), e um que já exista nunca é duplicado.
+def importar_excel(file_bytes: bytes) -> dict:
+    """Importa veículos da planilha. O veículo é identificado SÓ pelo
+    número — ele é único no sistema inteiro, então reimportar nunca duplica,
+    nem quando a planilha traz o mesmo número em outro cliente.
 
-    Nesse caso o veículo existente é COMPLEMENTADO, não sobrescrito: só
-    preenche o que está vazio no cadastro. Assim reimportar uma planilha
-    antiga não apaga uma garagem que alguém corrigiu à mão depois.
+    A planilha MANDA: célula preenchida sobrescreve o que está no cadastro
+    (cliente, garagem e modelo), célula vazia preserva. É o que deixa
+    corrigir um modelo errado subindo a planilha de novo — antes ela só
+    completava o que estava em branco e a correção nunca chegava ao cadastro.
 
-    Modelo que ainda não existe como kit vira um TEMPLATE VAZIO com esse
-    nome, pra o operador montar os itens depois. Sem isso a planilha
-    gravaria um modelo que não corresponde a kit nenhum, e o veículo ficaria
-    invisível na bipagem sem nada na tela explicando o porquê.
+    O modelo só trabalha em cima dos kits que JÁ EXISTEM — a planilha não
+    cria template. O nome é casado com o kit mais próximo (caixa, espaço,
+    abreviação e erro de digitação são tolerados); o que não casar com
+    nenhum vira erro reportado na tela, e a linha importa sem mexer no
+    modelo. Os casamentos não literais são listados no resultado
+    (modelos_ajustados) pra o operador conferir se o "mais próximo" era o
+    certo mesmo.
 
     A coluna Garagem é opcional — planilhas antigas, sem ela, continuam
     funcionando."""
@@ -215,24 +285,17 @@ def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
         col_cli = next(i for i, h in enumerate(headers) if "cliente" in h)
     except StopIteration:
         return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "inativos": 0,
-                "templates_criados": [],
+                "modelos_ajustados": [],
                 "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
     col_gar = next((i for i, h in enumerate(headers) if "garagem" in h), None)
     col_mod = next((i for i, h in enumerate(headers) if "modelo" in h or "kit" in h), None)
 
+    modelos = modelos_disponiveis()
     inseridos = atualizados = ignorados = inativos = 0
-    templates_criados: list[str] = []
+    modelos_ajustados: list[dict] = []
+    ajustes_vistos: set[str] = set()
     erros: list[str] = []
     with db() as conn:
-        # Nomes de kit que já existem, ATIVOS OU NÃO. Incluir os inativos é
-        # de propósito: "Nova Versão" desativa a versão anterior e um kit
-        # pode estar desativado de propósito. Criar um homônimo vazio nesses
-        # casos deixaria dois kits com o mesmo nome, e o modelo do veículo é
-        # justamente o nome — não haveria como saber qual dos dois vale.
-        nomes_existentes = {
-            (r["nome"] or "").strip().lower()
-            for r in conn.execute("SELECT nome FROM kit_template").fetchall()
-        }
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
             if len(row) <= max(col_num, col_cli):
                 ignorados += 1
@@ -242,12 +305,29 @@ def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
             garagem = ""
             if col_gar is not None and len(row) > col_gar:
                 garagem = str(row[col_gar] or "").strip()
-            modelo = ""
+            modelo_digitado = ""
             if col_mod is not None and len(row) > col_mod:
-                modelo = str(row[col_mod] or "").strip()
+                modelo_digitado = str(row[col_mod] or "").strip()
             if not numero or not cliente:
                 ignorados += 1
                 continue
+
+            # Casa com o kit existente mais próximo. Não casou = erro na
+            # tela e a linha segue SEM tocar no modelo — melhor nenhum
+            # modelo (a tela avisa) do que um modelo que não abre kit.
+            modelo = ""
+            if modelo_digitado:
+                modelo = casar_modelo(modelo_digitado, modelos) or ""
+                if not modelo:
+                    erros.append(
+                        f"Linha {row_idx}: modelo \"{modelo_digitado}\" não é "
+                        f"parecido com nenhum kit existente — o veículo {numero} "
+                        "foi importado sem alterar o modelo.")
+                elif (" ".join(modelo.split()).lower()
+                        != " ".join(modelo_digitado.split()).lower()
+                        and modelo_digitado not in ajustes_vistos):
+                    ajustes_vistos.add(modelo_digitado)
+                    modelos_ajustados.append({"de": modelo_digitado, "para": modelo})
 
             # Cliente e garagem são criados na MESMA conexão/transação —
             # chamar clientes.criar()/garagens.criar() aqui abriria uma
@@ -269,35 +349,28 @@ def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
                 except sqlite3.IntegrityError:
                     pass  # garagem já existe
 
-            # Modelo que não corresponde a nenhum kit vira um kit VAZIO com
-            # esse nome — o operador entra em Kits e monta os itens. Sem
-            # itens ele não atrapalha nada: não aparece pra iniciar bipagem
-            # útil, mas já deixa o veículo apontando pro lugar certo.
-            if modelo and modelo.lower() not in nomes_existentes:
-                conn.execute(
-                    "INSERT INTO kit_template (nome, cliente, versao, ativo, "
-                    "criado_por, criado_em, tipo) VALUES (?, ?, 1, 1, ?, ?, 'kit')",
-                    (modelo, cliente, criado_por, now_brt())
-                )
-                nomes_existentes.add(modelo.lower())
-                templates_criados.append(modelo)
-
-            # Procura SEM filtrar por ativo: um veículo desativado com o
-            # mesmo número/cliente ainda ocuparia esse par, e ignorá-lo aqui
-            # criaria justamente a duplicata que se quer evitar.
+            # SÓ pelo número (sem cliente, sem filtro de ativo): o número é
+            # único no sistema, então o mesmo número em outro cliente é o
+            # mesmo veículo — a planilha atualiza o cadastro em vez de criar
+            # a duplicata.
             existe = conn.execute(
-                "SELECT id, garagem, modelo, ativo FROM veiculos WHERE numero=? AND cliente=?",
-                (numero, cliente)
+                "SELECT id, cliente, garagem, modelo, ativo FROM veiculos "
+                "WHERE LOWER(TRIM(numero)) = ?",
+                (numero.lower(),)
             ).fetchone()
 
             if existe:
-                # Complementa o que falta, sem sobrescrever o que já tem.
+                # Célula preenchida sobrescreve; vazia preserva o cadastro.
                 mudou = False
-                if garagem and not (existe["garagem"] or "").strip():
+                if cliente and cliente != (existe["cliente"] or ""):
+                    conn.execute("UPDATE veiculos SET cliente=? WHERE id=?",
+                                 (cliente, existe["id"]))
+                    mudou = True
+                if garagem and garagem.upper() != (existe["garagem"] or "").strip().upper():
                     conn.execute("UPDATE veiculos SET garagem=? WHERE id=?",
                                  (garagem, existe["id"]))
                     mudou = True
-                if modelo and not (existe["modelo"] or "").strip():
+                if modelo and modelo != (existe["modelo"] or "").strip():
                     conn.execute("UPDATE veiculos SET modelo=? WHERE id=?",
                                  (modelo, existe["id"]))
                     mudou = True
@@ -316,7 +389,7 @@ def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
                 inseridos += 1
     return {"inseridos": inseridos, "atualizados": atualizados,
             "ignorados": ignorados, "inativos": inativos,
-            "templates_criados": templates_criados, "erros": erros}
+            "modelos_ajustados": modelos_ajustados, "erros": erros}
 
 
 def historico_kits(veiculo_id: int) -> list[dict]:
