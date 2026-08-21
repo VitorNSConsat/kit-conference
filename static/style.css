@@ -300,6 +300,13 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
     color: var(--text-muted);
     margin: -6px 0 12px;
 }
+.paginacao-contagem {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+}
+.paginacao-contagem strong { color: var(--text); }
+.paginacao-contagem-filtro { color: #e67e22; }
 
 /* Busca e filtros da tela de veículos: uma linha pra busca, outra pros
    selects, cada uma com rótulo fixo à esquerda — separados de propósito

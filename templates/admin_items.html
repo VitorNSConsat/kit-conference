@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Itens & Estoque — Conferência de Kits{% endblock %}
 {% block content %}
 <h1>📋 Itens &amp; Estoque</h1>
@@ -127,7 +128,7 @@
             {% endif %}
         </form>
         {% if busca %}
-        <p class="busca-resultado">{{ tipos | length }} resultado(s) para <strong>{{ busca }}</strong></p>
+        <p class="busca-resultado"><strong>{{ tipos | length }}</strong> tipo(s) para <strong>{{ busca }}</strong></p>
         {% endif %}
         {% if tipos %}
         <table id="tabela-catalogo">
@@ -588,9 +589,10 @@
         </form>
         {% if busca %}
         <p class="busca-resultado">
-            {{ pag_itens.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+            Busca em todas as páginas por <strong>{{ busca }}</strong>
         </p>
         {% endif %}
+        {{ pg.contagem(pag_itens, "patrimônios") }}
         <table id="tabela-patrimonios">
             <thead>
                 <tr>
@@ -657,7 +659,7 @@
 
         {% if pag_itens.total_paginas > 1 %}
         <div class="paginacao">
-            <span class="paginacao-info">{{ pag_itens.total }} patrimônio(s) — página {{ pag_itens.pagina }} de {{ pag_itens.total_paginas }}</span>
+            <span class="paginacao-info">página {{ pag_itens.pagina }} de {{ pag_itens.total_paginas }}</span>
             {% for p in pag_itens.paginas_visiveis %}
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>
@@ -707,9 +709,10 @@
         </form>
         {% if busca %}
         <p class="busca-resultado">
-            {{ pag_codigos.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+            Busca em todas as páginas por <strong>{{ busca }}</strong>
         </p>
         {% endif %}
+        {{ pg.contagem(pag_codigos, "códigos gerados", singular="código gerado") }}
         <table id="tabela-codigos">
             <thead>
                 <tr>
@@ -764,7 +767,7 @@
 
         {% if pag_codigos.total_paginas > 1 %}
         <div class="paginacao">
-            <span class="paginacao-info">{{ pag_codigos.total }} código(s) — página {{ pag_codigos.pagina }} de {{ pag_codigos.total_paginas }}</span>
+            <span class="paginacao-info">página {{ pag_codigos.pagina }} de {{ pag_codigos.total_paginas }}</span>
             {% for p in pag_codigos.paginas_visiveis %}
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>

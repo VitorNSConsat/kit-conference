@@ -1,0 +1,26 @@
+{# Contagem padrão das listas paginadas: quantos itens estão na tela e
+   quantos existem no total. Fica num macro só pra todas as telas dizerem a
+   mesma coisa do mesmo jeito — antes cada uma mostrava (ou não) um número
+   diferente, e não dava pra saber se "50" era o total ou só a página.
+
+   `pag` é o dicionário devolvido por paginacao.paginar().
+   `total_sem_filtro` (opcional) mostra também o tamanho da lista antes da
+   busca/filtro, pra deixar claro que o número menor é resultado de filtro.
+   `singular` (opcional) só é preciso quando tirar o "s" final não resolve:
+   "códigos gerados" vira "código gerado", não "códigos gerado". #}
+{% macro contagem(pag, rotulo='itens', total_sem_filtro=None, singular=None) -%}
+{% set um = singular or (rotulo[:-1] if rotulo.endswith('s') else rotulo) %}
+<p class="paginacao-contagem">
+  {%- if not pag.total %}
+  Nenhum {{ um }} encontrado
+  {%- elif pag.total_paginas > 1 %}
+  Mostrando <strong>{{ pag.inicio }}–{{ pag.fim }}</strong> de
+  <strong>{{ pag.total }}</strong> {{ rotulo }}
+  {%- else %}
+  <strong>{{ pag.total }}</strong> {{ um if pag.total == 1 else rotulo }}
+  {%- endif %}
+  {%- if total_sem_filtro is not none and total_sem_filtro != pag.total %}
+  <span class="paginacao-contagem-filtro">(de {{ total_sem_filtro }} no total — filtro ativo)</span>
+  {%- endif %}
+</p>
+{%- endmacro %}

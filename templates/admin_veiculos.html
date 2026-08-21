@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Veículos e Clientes{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -247,10 +248,10 @@
   <div id="bloco-veiculos">
   {% if busca %}
   <p class="busca-resultado">
-    {{ pag_veiculos.total }} resultado(s) para <strong>{{ busca }}</strong> —
-    busca em todas as páginas, incluindo patrimônios bipados
+    Busca em todas as páginas por <strong>{{ busca }}</strong>, incluindo patrimônios bipados
   </p>
   {% endif %}
+  {{ pg.contagem(pag_veiculos, "veículos", total_geral) }}
   {% if pag_veiculos.itens %}
   <form method="post" action="/admin/veiculos/excluir-em-massa" id="form-excluir-massa"
         onsubmit="return confirmarExclusaoMassa();">

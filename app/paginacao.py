@@ -64,10 +64,17 @@ def paginar(lista: list, pagina: int, por_pagina: int = POR_PAGINA_PADRAO) -> di
     total_paginas = max(1, -(-total // por_pagina))  # ceil division
     pagina = max(1, min(pagina, total_paginas))
     inicio = (pagina - 1) * por_pagina
+    itens = lista[inicio:inicio + por_pagina]
     return {
-        "itens": lista[inicio:inicio + por_pagina],
+        "itens": itens,
         "pagina": pagina,
         "total_paginas": total_paginas,
         "total": total,
+        # Faixa exibida, contada a partir de 1 pra ler na tela ("51–100 de
+        # 112"). Numa lista vazia vira 0–0, e o macro de contagem troca por
+        # "nenhum" em vez de mostrar faixa zerada.
+        "inicio": inicio + 1 if itens else 0,
+        "fim": inicio + len(itens),
+        "exibindo": len(itens),
         "paginas_visiveis": janela_paginas(pagina, total_paginas),
     }

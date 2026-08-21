@@ -23,6 +23,12 @@
     volta pro estoque, e o que o kit novo pede a mais sai do estoque automaticamente.
     Ninguém precisa corrigir estoque na mão depois.
   </p>
+  <p style="color:#555;margin-bottom:0;">
+    <strong>Os patrimônios continuam os mesmos.</strong> Item que existe nos dois kits
+    mantém a peça que já está na caixa — trocar de Euro 5 para Euro 6 não obriga a
+    rebipar nada em comum. Se alguma peça precisar ser trocada de verdade, o operador
+    exclui aquela bipagem na tela do kit e bipa a nova.
+  </p>
 </div>
 
 <div class="card">
@@ -123,14 +129,15 @@
           {%- elif f.tem_estoque %}
             <span style="color:#c0392b;">(estoque tem só {{ f.estoque_disponivel }} — bloqueia a troca)</span>
           {%- else %}
-            <span style="color:#e67e22;">(patrimônio: fica pendente — o sistema não escolhe qual unidade física entra)</span>
+            <span style="color:#e67e22;">(patrimônio: bipe a peça na tela do kit — o sistema não escolhe qual unidade física entra)</span>
           {%- endif %}
         </li>
         {% endfor %}
       </ul>
       <p style="font-size:12px;color:#8a6d3b;background:#fdf6ea;border-radius:4px;padding:6px 8px;margin:8px 0 0;">
-        Coloque fisicamente esses itens na caixa. Itens de patrimônio marcados como
-        pendentes aparecem depois no painel de divergências da tela do kit.
+        Coloque fisicamente esses itens na caixa. Só o que é <strong>novo</strong> neste kit
+        entra aqui — o que já estava no kit mantém o patrimônio atual. Os itens de
+        patrimônio pendentes ficam listados no painel de divergências da tela do kit.
       </p>
       {% else %}
       <p style="color:#27ae60;font-size:13px;margin:0;">

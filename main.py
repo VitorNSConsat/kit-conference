@@ -2108,6 +2108,12 @@ async def reports(request: Request,
         "pagina": pagina,
         "total_paginas": total_paginas,
         "total_kits": total,
+        # Mesma forma do paginacao.paginar() — aqui a paginação é feita no
+        # SQL (a lista é grande demais pra carregar inteira), mas a tela usa
+        # o mesmo macro de contagem das outras.
+        "pag": {"pagina": pagina, "total_paginas": total_paginas, "total": total,
+                "inicio": offset + 1 if rows else 0, "fim": offset + len(rows),
+                "exibindo": len(rows)},
         "paginas_visiveis": paginacao_mod.janela_paginas(pagina, total_paginas),
     })
 

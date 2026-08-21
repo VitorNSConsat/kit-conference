@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Criar Kit — Conferência de Kits{% endblock %}
 
 {% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
@@ -82,7 +83,8 @@
 {% endif %}
 
 <div class="card">
-    <h2>{{ label }}s Cadastrados ({{ pag.total }})</h2>
+    <h2>{{ label }}s Cadastrados</h2>
+    {{ pg.contagem(pag, label|lower ~ "s") }}
     <form method="get" action="/admin/templates" class="busca-form">
         <input type="hidden" name="tab" value="{{ tipo }}">
         <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou cliente...">
@@ -91,7 +93,7 @@
     </form>
     {% if busca %}
     <p class="busca-resultado">
-        {{ pag.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+        Busca em todas as páginas por <strong>{{ busca }}</strong>
     </p>
     {% endif %}
     <table id="tabela-{{ tipo }}">

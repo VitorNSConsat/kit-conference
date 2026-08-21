@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Auditoria{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
@@ -8,7 +9,7 @@
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Toda ação que altera dados fica registrada aqui — de qualquer usuário, admin ou não.
-  Mostrando os {{ pag_registros.total }} registros mais recentes que batem com o filtro.
+  Registros mais recentes que batem com o filtro.
 </p>
 
 <div class="card">
@@ -60,9 +61,10 @@
   </form>
   {% if busca %}
   <p class="busca-resultado">
-    {{ pag_registros.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+    Busca em todas as páginas por <strong>{{ busca }}</strong>
   </p>
   {% endif %}
+  {{ pg.contagem(pag_registros, "registros") }}
   {% if pag_registros.itens %}
   <div style="overflow-x:auto;">
   <table id="tabela-auditoria">

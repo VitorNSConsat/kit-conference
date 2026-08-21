@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Kits por Operador{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
@@ -80,7 +81,7 @@
 <!-- Lista -->
 <div class="card table-scroll">
   <p style="color:#888;font-size:13px;margin-bottom:12px;">
-    {{ pag.total }} kit(s){% if pag.total_paginas > 1 %} — página {{ pag.pagina }} de {{ pag.total_paginas }}{% endif %}
+    {{ pg.contagem(pag, "kits") }}
     {%- if busca %} · busca: <strong>{{ busca }}</strong>{% endif %}
   </p>
   <table>
