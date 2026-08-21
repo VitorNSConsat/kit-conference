@@ -26,6 +26,7 @@ ESTAGIOS = ["produzido", "transito", "cliente_instalando", "cliente_concluido"]
 # banco nem dos relatórios, e aumentar o limite depois faz os antigos
 # voltarem a aparecer. 0 = sem limite.
 TV_CONFIG_PADRAO = {
+    "tv_limite_a_produzir": 12,
     "tv_limite_em_producao": 12,
     "tv_limite_produzido": 12,
     "tv_limite_transito": 12,
@@ -362,6 +363,11 @@ def dados_tv() -> dict:
         concluido = concluido[:cfg["tv_limite_cliente_concluido"]]
 
     return {
+        # "A produzir" vem ordenado por cliente/número, e não por tempo, então
+        # _aplicar_limite (que corta pelo fim, mantendo os mais recentes) não
+        # cabe aqui: corta pelo começo mesmo, mostrando os primeiros da fila.
+        "a_produzir": (listar_a_produzir()[:cfg["tv_limite_a_produzir"]]
+                       if cfg["tv_limite_a_produzir"] else listar_a_produzir()),
         "em_producao": _aplicar_limite(listar_em_producao(), cfg["tv_limite_em_producao"]),
         "produzido": _aplicar_limite(listar_produzido(), cfg["tv_limite_produzido"]),
         "transito": _aplicar_limite(listar_transito(), cfg["tv_limite_transito"]),

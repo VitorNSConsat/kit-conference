@@ -21,6 +21,7 @@
     --good:     #2c622c;
     --warning:  #e0980c;
     --transito: #1a56c4;
+    --aproduzir: #0e7490;
     --critical: #d9704a;
 
     --font: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -40,6 +41,7 @@
     --good:     #0ca30c;
     --warning:  #fab219;
     --transito: #5b9bff;
+    --aproduzir: #38bdf8;
     --critical: #e66767;
   }
 
@@ -129,6 +131,7 @@
   .chip.warning  .icon { background: var(--warning); }
   .chip.good     .icon { background: var(--good); }
   .chip.transito .icon { background: var(--transito); }
+  .chip.aproduzir .icon { background: var(--aproduzir); }
 
   /* ── Board de 3 colunas ────────────────────────────────────────── */
   .board {
@@ -194,6 +197,7 @@
   .kit-card.warning  { border-left-color: var(--warning); }
   .kit-card.good     { border-left-color: var(--good); }
   .kit-card.transito { border-left-color: var(--transito); }
+  .kit-card.aproduzir { border-left-color: var(--aproduzir); }
   .kit-nome { font-size: 13px; font-weight: 700; line-height: 1.25; }
   .kit-sub  { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
@@ -236,6 +240,7 @@
 </header>
 
 <div class="alert-strip">
+  <div class="chip aproduzir"><span class="icon">▣</span><span class="count">{{ resumo.a_produzir }}</span><span class="label">a produzir</span></div>
   <div class="chip warning"><span class="icon">●</span><span class="count">{{ resumo.em_producao }}</span><span class="label">em produção (Consat)</span></div>
   <div class="chip good"><span class="icon">✓</span><span class="count">{{ resumo.produzido }}</span><span class="label">produzido</span></div>
   <div class="chip transito"><span class="icon">➜</span><span class="count">{{ resumo.transito }}</span><span class="label">em trânsito</span></div>
@@ -248,6 +253,23 @@
   <!-- ── Consat ─────────────────────────────────────────────────── -->
   <div class="coluna">
     <div class="coluna-titulo">Consat</div>
+
+    <div class="secao">
+      <div class="secao-titulo">A Produzir <span class="n">{{ resumo.a_produzir }}</span></div>
+      <div class="lista">
+        {% for v in a_produzir %}
+        <div class="kit-card aproduzir">
+          <div class="kit-nome">{{ v.veiculo }}</div>
+          <div class="kit-sub">{{ v.garagem or '—' }} · {{ v.cliente }} · {{ v.modelo or '—' }}</div>
+        </div>
+        {% else %}
+        <div class="vazio">— nada pronto pra produzir —</div>
+        {% endfor %}
+        {% if resumo.a_produzir > (a_produzir | length) %}
+        <div class="vazio">+ {{ resumo.a_produzir - (a_produzir | length) }} não cabem na tela</div>
+        {% endif %}
+      </div>
+    </div>
 
     <div class="secao">
       <div class="secao-titulo">Em Produção <span class="n">{{ em_producao | length }}</span></div>

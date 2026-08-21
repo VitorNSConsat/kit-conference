@@ -3355,6 +3355,14 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
                             modelo: str = "", situacao: str = "") -> dict:
     todos = veiculos_mod.listar(ativo=True)
     total_geral = len(todos)
+    # Localização de todos numa consulta só — usada tanto pra exibir a coluna
+    # quanto pra filtrar por ela, então o filtro nunca discorda do que a
+    # coluna mostra.
+    localizacao = producao_mod.localizacao_dos_veiculos()
+    for v in todos:
+        loc = localizacao.get(v["id"])
+        v["localizacao"] = loc["texto"] if loc else ""
+        v["localizacao_estado"] = loc["estado"] if loc else ""
 
     veiculos = todos
     if cliente:
@@ -3362,7 +3370,14 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
     if modelo:
         veiculos = [v for v in veiculos
                     if (v["modelo"] or "").strip().lower() == modelo.strip().lower()]
-    if situacao == "sem_modelo":
+    # Situação cobre tanto a etapa do fluxo (localização) quanto os furos de
+    # cadastro — as duas coisas que fazem o operador filtrar essa lista.
+    if situacao in ("a_produzir", "em_producao", "produzido", "transito", "cliente"):
+        alvo = ("cliente_instalando", "cliente_concluido") if situacao == "cliente" else (situacao,)
+        veiculos = [v for v in veiculos if v["localizacao_estado"] in alvo]
+    elif situacao == "sem_localizacao":
+        veiculos = [v for v in veiculos if not v["localizacao_estado"]]
+    elif situacao == "sem_modelo":
         veiculos = [v for v in veiculos if not (v["modelo"] or "").strip()]
     elif situacao == "sem_garagem":
         veiculos = [v for v in veiculos if not (v["garagem"] or "").strip()]
@@ -3373,7 +3388,7 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
 
     if busca:
         por_texto = paginacao_mod.filtrar(
-            veiculos, busca, ("numero", "cliente", "garagem", "modelo"))
+            veiculos, busca, ("numero", "cliente", "garagem", "modelo", "localizacao"))
         # Busca por PATRIMÔNIO: acha o veículo pelo código de um item bipado
         # em qualquer kit dele. Mínimo de 4 caracteres — menos que isso o
         # LIKE varre demais e devolve veículo demais pra servir de busca.
@@ -3395,7 +3410,7 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
     return {
         # Onde cada veículo está agora no fluxo — derivado dos estados que a
         # Produção já usa, numa consulta só pra todos (nada de N+1).
-        "localizacao": producao_mod.localizacao_dos_veiculos(),
+        "localizacao": localizacao,
         "busca": busca,
         "filtro_modelo": modelo,
         "filtro_situacao": situacao,

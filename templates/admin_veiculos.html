@@ -216,7 +216,7 @@
       <span class="filtros-rotulo">🔍 Busca</span>
       <input type="text" name="busca" id="busca-veiculos" value="{{ busca }}"
              autocomplete="off" style="flex:1;min-width:220px;margin:0;"
-             placeholder="Número do veículo, cliente, garagem, kit ou patrimônio bipado...">
+             placeholder="Número, cliente, garagem, kit, localização ou patrimônio bipado...">
     </div>
     <div class="filtros-linha">
       <span class="filtros-rotulo">⚙️ Filtros</span>
@@ -234,10 +234,20 @@
       </select>
       <select name="situacao" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
         <option value="">Situação: todas</option>
-        <option value="sem_modelo" {{ 'selected' if filtro_situacao == 'sem_modelo' }}>⚠️ Sem modelo</option>
-        <option value="sem_garagem" {{ 'selected' if filtro_situacao == 'sem_garagem' }}>Sem garagem</option>
-        <option value="sem_kits" {{ 'selected' if filtro_situacao == 'sem_kits' }}>Nunca recebeu kit</option>
-        <option value="com_kits" {{ 'selected' if filtro_situacao == 'com_kits' }}>Já recebeu kit</option>
+        <optgroup label="Localização atual">
+          <option value="a_produzir" {{ 'selected' if filtro_situacao == 'a_produzir' }}>Galpão — A produzir</option>
+          <option value="em_producao" {{ 'selected' if filtro_situacao == 'em_producao' }}>Galpão — Em produção</option>
+          <option value="produzido" {{ 'selected' if filtro_situacao == 'produzido' }}>Galpão — Produzido</option>
+          <option value="transito" {{ 'selected' if filtro_situacao == 'transito' }}>Em trânsito</option>
+          <option value="cliente" {{ 'selected' if filtro_situacao == 'cliente' }}>Cliente</option>
+          <option value="sem_localizacao" {{ 'selected' if filtro_situacao == 'sem_localizacao' }}>— não configurado</option>
+        </optgroup>
+        <optgroup label="Cadastro">
+          <option value="sem_modelo" {{ 'selected' if filtro_situacao == 'sem_modelo' }}>⚠️ Sem modelo</option>
+          <option value="sem_garagem" {{ 'selected' if filtro_situacao == 'sem_garagem' }}>Sem garagem</option>
+          <option value="sem_kits" {{ 'selected' if filtro_situacao == 'sem_kits' }}>Nunca recebeu kit</option>
+          <option value="com_kits" {{ 'selected' if filtro_situacao == 'com_kits' }}>Já recebeu kit</option>
+        </optgroup>
       </select>
       <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
       <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
@@ -285,8 +295,15 @@
                class="chk-veiculo" onchange="atualizarBotaoExcluir()">
       </td>
       {% endif %}
-      {# Número clicável: leva ao veículo, e de lá aos kits e aos itens. #}
-      <td><a href="/admin/veiculos/{{ v.id }}" style="font-weight:700;color:#1a3a5c;">{{ v.numero }}</a></td>
+      {# Atalho: o NÚMERO abre Itens Cadastrados já filtrado neste veículo —
+         de lá dá pra ver os patrimônios e clicar em cada um pra corrigir.
+         Reaproveita o filtro veiculo_id que a aba já tinha, em vez de uma
+         tela nova. O botão "Ver" no fim da linha segue indo pro cadastro. #}
+      <td>
+        <a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}"
+           style="font-weight:700;color:#1a3a5c;"
+           title="Ver os itens e patrimônios deste veículo">{{ v.numero }}</a>
+      </td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.garagem or '—' }}</td>
       <td>

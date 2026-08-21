@@ -95,6 +95,11 @@
     <form method="post" action="/admin/producao/tv-config"
           style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
       <div class="form-group" style="margin:0;">
+        <label>A Produzir</label>
+        <input type="number" name="tv_limite_a_produzir" min="0" style="width:110px;margin:0;"
+               value="{{ tv_config.tv_limite_a_produzir }}">
+      </div>
+      <div class="form-group" style="margin:0;">
         <label>Em Produção</label>
         <input type="number" name="tv_limite_em_producao" min="0" style="width:110px;margin:0;"
                value="{{ tv_config.tv_limite_em_producao }}">
@@ -142,15 +147,14 @@
   {% if a_produzir %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Template</th><th>Kits possíveis</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Kits possíveis</th></tr></thead>
     <tbody>
     {% for v in a_produzir %}
     <tr>
       <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:#1a3a5c;">{{ v.veiculo }}</a></td>
       <td>{{ v.garagem or '—' }}</td>
       <td>{{ v.cliente }}</td>
-      <td>{{ v.modelo or '—' }}</td>
-      <td>{{ v.kit_nome }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
+      <td>{{ v.modelo or '—' }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
       <td>
         {% if v.kits_possiveis is not none %}
         <span class="autonomia-prod {{ 'critico' if v.kits_possiveis == 0 else ('alerta' if v.kits_possiveis < 5 else 'ok') }}"
@@ -178,15 +182,22 @@
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Template</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
     <tbody>
     {% for s in em_producao %}
     <tr>
       <td>{{ s.veiculo or s.kit_nome }}</td>
       <td>{{ s.garagem or '—' }}</td>
       <td>{{ s.cliente }}</td>
-      <td>{{ s.modelo or '—' }}</td>
-      <td>{{ s.kit_nome }}</td>
+      <td>
+        {{ s.modelo or s.kit_nome }}
+        {% if s.modelo and s.modelo != s.kit_nome %}
+        <div style="font-size:11px;color:#e67e22;font-weight:600;"
+             title="O veículo pede {{ s.modelo }}, mas está sendo bipado como {{ s.kit_nome }}">
+          ⚠️ bipando como {{ s.kit_nome }}
+        </div>
+        {% endif %}
+      </td>
       <td>
         {% if s.kits_possiveis is not none %}
         <span class="autonomia-prod {{ 'critico' if s.kits_possiveis == 0 else ('alerta' if s.kits_possiveis < 5 else 'ok') }}"
