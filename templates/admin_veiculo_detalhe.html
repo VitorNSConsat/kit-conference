@@ -14,6 +14,8 @@
 <div class="alert alert-success">🔓 Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
 {% elif request.query_params.get('ok') == 'veiculo_kit' %}
 <div class="alert alert-success">🔗 Vínculo de kit atualizado — a alteração ficou registrada no histórico de auditoria.</div>
+{% elif request.query_params.get('ok') == 'modelo' %}
+<div class="alert alert-success">✅ Kit deste veículo atualizado.</div>
 {% elif request.query_params.get('ok') %}
 <div class="alert alert-success">✅ Dados atualizados.</div>
 {% endif %}
@@ -54,29 +56,60 @@
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" style="margin:0;">
-      {# O modelo é o NOME do kit: é ele que decide em qual bipagem este
-         veículo aparece. Sem modelo, o veículo não entra em kit nenhum. #}
-      <label>Modelo (kit que este veículo usa)</label>
-      <select name="modelo">
-        <option value="">— sem modelo (não aparece em nenhum kit) —</option>
-        {% for m in modelos %}
-        <option value="{{ m }}" {{ 'selected' if (v.modelo or '') == m }}>{{ m }}</option>
-        {% endfor %}
-        {# Modelo gravado que não bate com nenhum kit ativo (kit renomeado
-           ou desativado) — mantém visível pra não sumir silenciosamente. #}
-        {% if v.modelo and v.modelo not in modelos %}
-        <option value="{{ v.modelo }}" selected>{{ v.modelo }} (kit não encontrado)</option>
-        {% endif %}
-      </select>
-    </div>
     <button type="submit" class="btn btn-success">💾 Salvar</button>
   </form>
 </div>
 
-<!-- Histórico de kits -->
+<!-- Kits: o modelo (qual kit este veículo usa) fica junto do vínculo de kit,
+     porque os dois falam da mesma coisa e antes ficavam em cards separados —
+     o operador definia um sem entender o efeito no outro. -->
 <div class="card">
-  <h2>🔗 Kits deste veículo ({{ historico | length }})</h2>
+  <h2>🎁 Kits</h2>
+
+  <!-- 1. Que kit este veículo usa -->
+  <div style="background:#f7f9fb;border:1px solid var(--border);border-radius:8px;
+              padding:12px 14px;margin-bottom:16px;">
+    <h3 style="font-size:15px;margin:0 0 4px;">Que kit este veículo usa?</h3>
+    <p style="color:#666;font-size:13px;margin:0 0 10px;">
+      Ao iniciar uma bipagem, o operador escolhe o kit e a tela mostra
+      <strong>só os veículos deste kit</strong>. É o que impede montar um kit de um
+      modelo num veículo de outro.
+    </p>
+    <form method="post" action="/admin/veiculos/{{ v.id }}/modelo"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;min-width:300px;">
+        <select name="modelo" style="margin:0;">
+          <option value="">— sem kit definido —</option>
+          {% for m in modelos %}
+          <option value="{{ m }}" {{ 'selected' if (v.modelo or '') == m }}>{{ m }}</option>
+          {% endfor %}
+          {# Modelo gravado que não bate com nenhum kit ativo (kit renomeado
+             ou desativado) — mantém visível pra não sumir silenciosamente. #}
+          {% if v.modelo and v.modelo not in modelos %}
+          <option value="{{ v.modelo }}" selected>{{ v.modelo }} (kit não encontrado)</option>
+          {% endif %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success">💾 Salvar kit</button>
+    </form>
+    {% if not v.modelo %}
+    <p style="color:#e67e22;font-size:13px;margin:10px 0 0;">
+      ⚠️ Sem kit definido, <strong>{{ v.numero }} não aparece em bipagem nenhuma</strong>.
+    </p>
+    {% elif v.modelo not in modelos %}
+    <p style="color:#e67e22;font-size:13px;margin:10px 0 0;">
+      ⚠️ Não existe kit ativo chamado <strong>{{ v.modelo }}</strong> — ele pode ter sido
+      renomeado ou desativado. Enquanto isso, {{ v.numero }} não aparece em bipagem nenhuma.
+    </p>
+    {% else %}
+    <p style="color:#27ae60;font-size:13px;margin:10px 0 0;">
+      ✅ {{ v.numero }} aparece pra quem iniciar o kit <strong>{{ v.modelo }}</strong>.
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- 2. Kits já montados -->
+  <h3 style="font-size:15px;margin:0 0 4px;">Kits já montados neste veículo ({{ historico | length }})</h3>
   <p style="color:#666;font-size:13px;margin-top:0;">
     O vínculo normalmente é definido na bipagem. Use os controles abaixo só pra
     corrigir manualmente um kit que ficou no veículo errado ou sem veículo.
@@ -142,7 +175,11 @@
 
   <!-- Vincular manualmente um kit a este veículo (inclusive trocando de outro) -->
   <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
-    <h3 style="font-size:15px;margin:0 0 8px;">➕ Vincular um kit a este veículo</h3>
+    <h3 style="font-size:15px;margin:0 0 4px;">➕ Trazer um kit já montado pra este veículo</h3>
+    <p style="color:#666;font-size:13px;margin:0 0 8px;">
+      Só pra corrigir kits <strong>já finalizados</strong> — não tem relação com o kit
+      escolhido acima, que vale pras próximas bipagens.
+    </p>
     {% if kits_para_vincular %}
     <p style="color:#666;font-size:13px;margin:0 0 8px;">
       Kits sem veículo aparecem livres. Kits que já estão em outro veículo também podem

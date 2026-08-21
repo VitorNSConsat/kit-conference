@@ -1345,6 +1345,64 @@ async def session_destino_post(request: Request, sessao_id: int):
     return RedirectResponse(f"/session/{sessao_id}", status_code=302)
 
 
+@app.get("/session/{sessao_id}/trocar-modelo", response_class=HTMLResponse)
+@require_admin
+async def session_trocar_modelo_page(request: Request, sessao_id: int,
+                                     novo: str = "", erro: str = ""):
+    """Tela de correção: troca o kit de uma bipagem já em andamento.
+
+    Restrita a admin de propósito — mexer no kit no meio da produção muda o
+    que a etiqueta vai dizer. Ao escolher um kit, a tela mostra a PRÉVIA do
+    impacto antes de confirmar: o que já bipado continua valendo, o que
+    sobra e o que ainda vai faltar."""
+    session = sessions_mod.get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+    novo_id = int(novo) if novo.isdigit() else None
+    previa = (sessions_mod.comparar_troca_template(sessao_id, novo_id)
+              if novo_id else None)
+    veiculo = veiculos_mod.buscar(session["veiculo_id"]) if session.get("veiculo_id") else None
+    return render(request, "session_trocar_modelo.html", {
+        "session": session,
+        "templates": templates_mod.listar_templates_ativos(),
+        "novo_id": novo_id,
+        "previa": previa,
+        "veiculo": veiculo,
+        "erro": erro,
+    })
+
+
+@app.post("/session/{sessao_id}/trocar-modelo")
+@require_admin
+async def session_trocar_modelo_post(request: Request, sessao_id: int):
+    form = await request.form()
+    novo_str = str(form.get("kit_template_id", "")).strip()
+    if not novo_str.isdigit():
+        return RedirectResponse(
+            f"/session/{sessao_id}/trocar-modelo?erro=" + quote("Escolha o kit novo."),
+            status_code=302)
+
+    resultado = sessions_mod.trocar_template(sessao_id, int(novo_str))
+    if resultado["resultado"] != "trocado":
+        return RedirectResponse(
+            f"/session/{sessao_id}/trocar-modelo?erro=" + quote(resultado["mensagem"]),
+            status_code=302)
+
+    # O veículo tinha o modelo antigo — foi por ele que apareceu na lista.
+    # Corrigir o cadastro junto é o que impede o mesmo erro de se repetir na
+    # próxima bipagem desse veículo; sem isso ele voltaria a aparecer no kit
+    # errado. Opcional porque às vezes o errado foi o kit, não o veículo.
+    session = sessions_mod.get_session(sessao_id)
+    if form.get("atualizar_veiculo") and session and session.get("veiculo_id"):
+        veiculos_mod.definir_modelo(session["veiculo_id"], resultado["kit_nome"])
+
+    return RedirectResponse(
+        f"/session/{sessao_id}?ok=" +
+        quote(f"Kit trocado de \"{resultado['kit_anterior']}\" para "
+              f"\"{resultado['kit_nome']}\". As bipagens em comum foram mantidas."),
+        status_code=302)
+
+
 @app.post("/session/{sessao_id}/cancel")
 @require_login
 async def session_cancel(request: Request, sessao_id: int):
@@ -3182,6 +3240,27 @@ async def admin_veiculos_modelo(request: Request):
         ws2.cell(i, 1, m)
     if not modelos:
         ws2.cell(2, 1, "(nenhum kit cadastrado ainda)")
+
+    # Lista suspensa na coluna Modelo, alimentada pela aba acima: o operador
+    # escolhe o kit em vez de digitar, que é onde nascia o erro (o modelo é
+    # comparado pelo nome, então "Euro5" e "Euro 5" seriam kits diferentes).
+    # showErrorMessage=False de propósito — digitar um nome novo continua
+    # valendo, e a importação cria esse kit vazio pra ser montado depois.
+    if modelos:
+        from openpyxl.worksheet.datavalidation import DataValidation
+        dv = DataValidation(
+            type="list",
+            formula1=f"='Modelos disponíveis'!$A$2:$A${len(modelos) + 1}",
+            allow_blank=True,
+            showErrorMessage=False,
+        )
+        dv.prompt = ("Escolha um kit da lista, ou digite um nome novo — "
+                     "kit que ainda não existe é criado vazio na importação.")
+        dv.promptTitle = "Modelo (Kit)"
+        dv.showInputMessage = True
+        ws.add_data_validation(dv)
+        dv.add(f"D2:D{max(len(modelos), 500)}")
+
     buf = BytesIO()
     wb.save(buf); buf.seek(0)
     return _Resp(content=buf.read(),
@@ -3207,7 +3286,8 @@ async def admin_veiculos_import_post(request: Request):
         file_bytes = await _ler_upload(arquivo)
     except ValueError as e:
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
-    resultado = veiculos_mod.importar_excel(file_bytes)
+    user = get_current_user(request)
+    resultado = veiculos_mod.importar_excel(file_bytes, criado_por=user["id"] if user else None)
     return render(request, "admin_veiculos_import.html", {"resultado": resultado})
 
 
@@ -3237,7 +3317,11 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
     numero = str(form.get("numero", "")).strip()
     cliente = str(form.get("cliente", "")).strip()
     garagem = str(form.get("garagem", "")).strip()
-    modelo = str(form.get("modelo", "")).strip()
+    # O modelo tem formulário próprio (fica junto do vínculo de kit). Se o
+    # campo não vier, modelo=None manda atualizar() preservar o que está
+    # gravado — salvar os dados do veículo não pode zerar o modelo.
+    modelo_bruto = form.get("modelo")
+    modelo = str(modelo_bruto).strip() if modelo_bruto is not None else None
     if not numero or not cliente:
         v = veiculos_mod.buscar(veiculo_id)
         clientes = clientes_mod.listar()
@@ -3252,6 +3336,17 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
         })
     veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem, modelo)
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
+
+
+@app.post("/admin/veiculos/{veiculo_id}/modelo")
+@require_login
+async def admin_veiculo_modelo(request: Request, veiculo_id: int):
+    """Só o modelo. Fica separado do formulário de dados porque na tela ele
+    vive junto do vínculo de kit — é ele que decide em qual bipagem este
+    veículo aparece, então o operador precisa ver as duas coisas juntas."""
+    form = await request.form()
+    veiculos_mod.definir_modelo(veiculo_id, str(form.get("modelo", "")).strip())
+    return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=modelo", status_code=302)
 
 
 @app.post("/admin/veiculos/{veiculo_id}/liberar")

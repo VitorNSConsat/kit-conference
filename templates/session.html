@@ -13,6 +13,10 @@
 <div class="alert alert-success" style="margin-bottom:16px;">
     🗑 Bipagem removida. A contagem do item foi atualizada.
 </div>
+{% elif request.query_params.get('ok') %}
+<div class="alert alert-success" style="margin-bottom:16px;">
+    ✅ {{ request.query_params.get('ok') }}
+</div>
 {% endif %}
 
 <div class="session-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -26,6 +30,12 @@
         </span>
     </div>
     <div style="display:flex; gap:5px;">
+        {% if user and user.admin %}
+        {# Corrigir uma bipagem que começou no kit errado, sem rebipar tudo.
+           Só admin: mexer no kit no meio da produção muda a etiqueta. #}
+        <a href="/session/{{ session.id }}/trocar-modelo" class="btn btn-primary"
+           title="Trocar o kit desta bipagem mantendo os itens já bipados">🔄 Trocar Kit</a>
+        {% endif %}
         <form method="post" action="/session/{{ session.id }}/imprimir-pausa">
             <button type="submit" class="btn btn-secondary" title="Imprime uma etiqueta sinalizando veículo e sequência deste kit ainda em andamento">🏷️ Etiqueta de Andamento</button>
         </form>

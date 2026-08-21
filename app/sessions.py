@@ -947,6 +947,116 @@ def validate_kit_complete(sessao_id: int) -> dict:
     }
 
 
+def comparar_troca_template(sessao_id: int, novo_template_id: int) -> dict | None:
+    """Prévia de trocar o kit de uma bipagem em andamento — o que sobrevive
+    à troca e o que não.
+
+    Tudo que foi bipado fica gravado por TIPO de item (scan_session_items.
+    item_tipo_id), não por template, então trocar o template não apaga bip
+    nenhum: o que os dois kits têm em comum continua contado. É justamente
+    isso que evita rebipar o kit inteiro quando alguém começou no modelo
+    errado.
+
+    Devolve três listas:
+      aproveitados — bipagens que continuam valendo no kit novo
+      excedentes   — bipado a mais: item que não existe no kit novo, ou
+                     acima da quantidade que ele pede
+      faltantes    — o que ainda falta bipar depois da troca
+    """
+    session = get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return None
+    novo = templates_mod.buscar_template(novo_template_id)
+    if not novo:
+        return None
+
+    itens_novo = templates_mod.get_itens_template(novo_template_id)
+    exigido = {i["item_tipo_id"]: i for i in itens_novo}
+    contagem = get_contagem(sessao_id)
+
+    nomes = {}
+    with db() as conn:
+        for r in conn.execute("SELECT id, nome FROM item_tipo").fetchall():
+            nomes[r["id"]] = r["nome"]
+
+    aproveitados, excedentes = [], []
+    for tipo_id, bipado in contagem.items():
+        item = exigido.get(tipo_id)
+        cabe = min(bipado, item["quantidade_exigida"]) if item else 0
+        if cabe:
+            aproveitados.append({
+                "item_tipo_id": tipo_id,
+                "descricao": item["descricao"],
+                "quantidade": cabe,
+                "exigido": item["quantidade_exigida"],
+            })
+        sobra = bipado - cabe
+        if sobra > 0:
+            excedentes.append({
+                "item_tipo_id": tipo_id,
+                "descricao": item["descricao"] if item else nomes.get(tipo_id, "?"),
+                "quantidade": sobra,
+                "no_kit_novo": item is not None,
+            })
+
+    faltantes = []
+    for item in itens_novo:
+        atual = min(contagem.get(item["item_tipo_id"], 0), item["quantidade_exigida"])
+        if atual < item["quantidade_exigida"]:
+            faltantes.append({
+                "item_tipo_id": item["item_tipo_id"],
+                "descricao": item["descricao"],
+                "bipado": atual,
+                "exigido": item["quantidade_exigida"],
+                "faltam": item["quantidade_exigida"] - atual,
+            })
+
+    aproveitados.sort(key=lambda x: x["descricao"])
+    excedentes.sort(key=lambda x: x["descricao"])
+    return {
+        "sessao": session,
+        "novo": novo,
+        "aproveitados": aproveitados,
+        "excedentes": excedentes,
+        "faltantes": faltantes,
+        "total_bipado": sum(contagem.values()),
+        "total_aproveitado": sum(a["quantidade"] for a in aproveitados),
+    }
+
+
+def trocar_template(sessao_id: int, novo_template_id: int) -> dict:
+    """Troca o kit de uma bipagem EM ANDAMENTO, preservando as bipagens.
+
+    Toda a tela de bipagem (itens exigidos, progresso, validação do
+    finalizar) é derivada de scan_session.kit_template_id na hora, então
+    trocar essa referência já faz os itens que faltam aparecerem sozinhos.
+
+    O `modelo` gravado na sessão também é atualizado, porque ele é o nome do
+    kit e vai parar na etiqueta e no relatório do kit finalizado."""
+    session = get_session(sessao_id)
+    if not session:
+        return {"resultado": "rejeitado", "mensagem": "Sessão não encontrada."}
+    if session["status"] != "em_andamento":
+        return {"resultado": "rejeitado",
+                "mensagem": "Só dá pra trocar o kit de uma bipagem em andamento."}
+    if session["kit_template_id"] == novo_template_id:
+        return {"resultado": "rejeitado", "mensagem": "Esse já é o kit desta bipagem."}
+    novo = templates_mod.buscar_template(novo_template_id)
+    if not novo:
+        return {"resultado": "rejeitado", "mensagem": "Kit não encontrado."}
+    if not novo.get("ativo"):
+        return {"resultado": "rejeitado", "mensagem": "Esse kit está desativado."}
+
+    with db() as conn:
+        conn.execute(
+            "UPDATE scan_session SET kit_template_id = ?, kit_template_versao = ?, "
+            "modelo = ? WHERE id = ? AND status = 'em_andamento'",
+            (novo_template_id, novo["versao"], novo["nome"], sessao_id)
+        )
+    return {"resultado": "trocado", "kit_nome": novo["nome"],
+            "kit_anterior": session["kit_nome"]}
+
+
 def listar_sessoes_em_andamento(template_id: int | None = None,
                                 operador_id: int | None = None) -> list:
     """Lista sessões em andamento, opcionalmente filtradas por template ou operador."""

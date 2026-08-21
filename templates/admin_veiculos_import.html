@@ -14,6 +14,20 @@
   <p>🔄 <strong>{{ resultado.atualizados }}</strong> já existiam e tiveram a garagem preenchida</p>
   {% endif %}
   <p>⏭️ <strong>{{ resultado.ignorados }}</strong> sem alteração (já cadastrados ou linha vazia)</p>
+  {% if resultado.templates_criados %}
+  <div style="background:#eaf4fd;border:1px solid #b8daf5;border-radius:6px;
+              padding:10px 12px;margin-top:10px;">
+    <p style="margin:0 0 6px;">
+      🆕 <strong>{{ resultado.templates_criados | length }}</strong>
+      kit(s) novo(s) criado(s) a partir da coluna Modelo — estão
+      <strong>vazios</strong>, é preciso montar os itens de cada um:
+    </p>
+    <ul style="margin:0 0 8px;padding-left:20px;">
+      {% for t in resultado.templates_criados %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+    <a href="/admin/templates" class="btn btn-sm btn-primary">🎁 Montar os itens</a>
+  </div>
+  {% endif %}
   {% if resultado.inativos %}
   <p>🚫 <strong>{{ resultado.inativos }}</strong> já existem mas estão desativados —
      reative em <a href="/admin/veiculos">Veículos e Clientes</a> se precisar usá-los</p>
@@ -40,9 +54,11 @@
     <a href="/admin/veiculos/modelo.xlsx">📄 Baixar modelo</a>
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    O <strong>Modelo</strong> tem que ser exatamente o <strong>nome de um kit</strong>
+    O <strong>Modelo</strong> é o <strong>nome de um kit</strong>
     (ex: "Mercedes Euro 5 Diesel") — é ele que decide em qual bipagem o veículo aparece.
-    A planilha modelo traz uma aba <em>"Modelos disponíveis"</em> com a lista exata pra copiar.
+    Na planilha modelo essa coluna já vem com uma <strong>lista suspensa</strong> dos kits
+    existentes: basta escolher, sem digitar. Se você escrever um nome que ainda não existe,
+    a importação <strong>cria esse kit vazio</strong> pra você montar os itens depois.
     Veículo sem modelo <strong>não aparece em nenhum kit</strong>.
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">

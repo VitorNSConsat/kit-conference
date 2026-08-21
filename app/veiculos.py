@@ -86,6 +86,15 @@ def contar_sem_modelo(cliente: str | None = None) -> int:
         return conn.execute(sql, params).fetchone()[0]
 
 
+def definir_modelo(veiculo_id: int, modelo: str) -> None:
+    """Grava só o modelo. Existe separado de atualizar() porque na tela do
+    veículo o modelo vive junto do vínculo de kit (é o que decide em qual
+    bipagem o veículo aparece), longe do formulário de número/cliente."""
+    with db() as conn:
+        conn.execute("UPDATE veiculos SET modelo = ? WHERE id = ?",
+                     ((modelo or "").strip(), veiculo_id))
+
+
 def atualizar_garagem(veiculo_id: int, garagem: str):
     """Atualiza só a garagem — usado ao finalizar um kit vinculado a um
     veículo cadastrado, propagando o que foi digitado na bipagem (que na
@@ -180,7 +189,7 @@ def deletar(veiculo_id: int):
         conn.execute("DELETE FROM veiculos WHERE id=?", (veiculo_id,))
 
 
-def importar_excel(file_bytes: bytes) -> dict:
+def importar_excel(file_bytes: bytes, criado_por: int | None = None) -> dict:
     """Importa veículos da planilha. Reimportar a mesma lista é seguro: o
     veículo é identificado por número + cliente (a numeração é única DENTRO
     de cada cliente, então o mesmo número pode existir em clientes
@@ -189,6 +198,11 @@ def importar_excel(file_bytes: bytes) -> dict:
     Nesse caso o veículo existente é COMPLEMENTADO, não sobrescrito: só
     preenche o que está vazio no cadastro. Assim reimportar uma planilha
     antiga não apaga uma garagem que alguém corrigiu à mão depois.
+
+    Modelo que ainda não existe como kit vira um TEMPLATE VAZIO com esse
+    nome, pra o operador montar os itens depois. Sem isso a planilha
+    gravaria um modelo que não corresponde a kit nenhum, e o veículo ficaria
+    invisível na bipagem sem nada na tela explicando o porquê.
 
     A coluna Garagem é opcional — planilhas antigas, sem ela, continuam
     funcionando."""
@@ -201,13 +215,24 @@ def importar_excel(file_bytes: bytes) -> dict:
         col_cli = next(i for i, h in enumerate(headers) if "cliente" in h)
     except StopIteration:
         return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "inativos": 0,
+                "templates_criados": [],
                 "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
     col_gar = next((i for i, h in enumerate(headers) if "garagem" in h), None)
     col_mod = next((i for i, h in enumerate(headers) if "modelo" in h or "kit" in h), None)
 
     inseridos = atualizados = ignorados = inativos = 0
+    templates_criados: list[str] = []
     erros: list[str] = []
     with db() as conn:
+        # Nomes de kit que já existem, ATIVOS OU NÃO. Incluir os inativos é
+        # de propósito: "Nova Versão" desativa a versão anterior e um kit
+        # pode estar desativado de propósito. Criar um homônimo vazio nesses
+        # casos deixaria dois kits com o mesmo nome, e o modelo do veículo é
+        # justamente o nome — não haveria como saber qual dos dois vale.
+        nomes_existentes = {
+            (r["nome"] or "").strip().lower()
+            for r in conn.execute("SELECT nome FROM kit_template").fetchall()
+        }
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
             if len(row) <= max(col_num, col_cli):
                 ignorados += 1
@@ -244,6 +269,19 @@ def importar_excel(file_bytes: bytes) -> dict:
                 except sqlite3.IntegrityError:
                     pass  # garagem já existe
 
+            # Modelo que não corresponde a nenhum kit vira um kit VAZIO com
+            # esse nome — o operador entra em Kits e monta os itens. Sem
+            # itens ele não atrapalha nada: não aparece pra iniciar bipagem
+            # útil, mas já deixa o veículo apontando pro lugar certo.
+            if modelo and modelo.lower() not in nomes_existentes:
+                conn.execute(
+                    "INSERT INTO kit_template (nome, cliente, versao, ativo, "
+                    "criado_por, criado_em, tipo) VALUES (?, ?, 1, 1, ?, ?, 'kit')",
+                    (modelo, cliente, criado_por, now_brt())
+                )
+                nomes_existentes.add(modelo.lower())
+                templates_criados.append(modelo)
+
             # Procura SEM filtrar por ativo: um veículo desativado com o
             # mesmo número/cliente ainda ocuparia esse par, e ignorá-lo aqui
             # criaria justamente a duplicata que se quer evitar.
@@ -277,7 +315,8 @@ def importar_excel(file_bytes: bytes) -> dict:
                 )
                 inseridos += 1
     return {"inseridos": inseridos, "atualizados": atualizados,
-            "ignorados": ignorados, "inativos": inativos, "erros": erros}
+            "ignorados": ignorados, "inativos": inativos,
+            "templates_criados": templates_criados, "erros": erros}
 
 
 def historico_kits(veiculo_id: int) -> list[dict]:
