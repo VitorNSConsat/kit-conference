@@ -1,7 +1,11 @@
 from database import db, now_brt
 
 
-def listar(cliente: str | None = None, ativo: bool = True) -> list[dict]:
+def listar(cliente: str | None = None, ativo: bool = True,
+           modelo: str | None = None) -> list[dict]:
+    """`modelo` filtra os veículos daquele modelo — que é o NOME do kit.
+    Comparação sem caixa/espaço extra, pra "mercedes euro 5 diesel" e
+    "Mercedes Euro 5 Diesel" serem o mesmo modelo."""
     sql = """
         SELECT v.*,
                COUNT(kr.kit_id) AS total_kits,
@@ -14,6 +18,9 @@ def listar(cliente: str | None = None, ativo: bool = True) -> list[dict]:
     if cliente:
         sql += " AND v.cliente = ?"
         params.append(cliente)
+    if modelo is not None:
+        sql += " AND LOWER(TRIM(COALESCE(v.modelo, ''))) = ?"
+        params.append(modelo.strip().lower())
     sql += " GROUP BY v.id ORDER BY v.cliente, v.numero"
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
@@ -28,21 +35,55 @@ def buscar(veiculo_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def criar(numero: str, cliente: str, garagem: str) -> int:
+def criar(numero: str, cliente: str, garagem: str, modelo: str = "") -> int:
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO veiculos (numero, cliente, garagem, criado_em) VALUES (?, ?, ?, ?)",
-            (numero.strip(), cliente.strip(), garagem.strip().upper(), now_brt())
+            "INSERT INTO veiculos (numero, cliente, garagem, modelo, criado_em) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (numero.strip(), cliente.strip(), garagem.strip().upper(),
+             modelo.strip(), now_brt())
         )
         return cur.lastrowid
 
 
-def atualizar(veiculo_id: int, numero: str, cliente: str, garagem: str):
+def atualizar(veiculo_id: int, numero: str, cliente: str, garagem: str,
+              modelo: str | None = None):
+    """modelo=None mantém o que já está gravado — deixa outras telas
+    atualizarem número/cliente/garagem sem apagar o modelo sem querer."""
     with db() as conn:
-        conn.execute(
-            "UPDATE veiculos SET numero=?, cliente=?, garagem=? WHERE id=?",
-            (numero.strip(), cliente.strip(), garagem.strip().upper(), veiculo_id)
-        )
+        if modelo is None:
+            conn.execute(
+                "UPDATE veiculos SET numero=?, cliente=?, garagem=? WHERE id=?",
+                (numero.strip(), cliente.strip(), garagem.strip().upper(), veiculo_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE veiculos SET numero=?, cliente=?, garagem=?, modelo=? WHERE id=?",
+                (numero.strip(), cliente.strip(), garagem.strip().upper(),
+                 modelo.strip(), veiculo_id)
+            )
+
+
+def modelos_disponiveis() -> list[str]:
+    """Nomes de kit ativos — são eles que valem como modelo de veículo."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT nome FROM kit_template WHERE ativo = 1 ORDER BY nome"
+        ).fetchall()
+    return [r["nome"] for r in rows]
+
+
+def contar_sem_modelo(cliente: str | None = None) -> int:
+    """Quantos veículos ativos ainda estão sem modelo — eles não aparecem
+    em nenhum kit, então a tela precisa avisar."""
+    sql = ("SELECT COUNT(*) FROM veiculos WHERE ativo = 1 "
+           "AND TRIM(COALESCE(modelo, '')) = ''")
+    params: list = []
+    if cliente:
+        sql += " AND cliente = ?"
+        params.append(cliente)
+    with db() as conn:
+        return conn.execute(sql, params).fetchone()[0]
 
 
 def atualizar_garagem(veiculo_id: int, garagem: str):
@@ -162,6 +203,7 @@ def importar_excel(file_bytes: bytes) -> dict:
         return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "inativos": 0,
                 "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
     col_gar = next((i for i, h in enumerate(headers) if "garagem" in h), None)
+    col_mod = next((i for i, h in enumerate(headers) if "modelo" in h or "kit" in h), None)
 
     inseridos = atualizados = ignorados = inativos = 0
     erros: list[str] = []
@@ -175,6 +217,9 @@ def importar_excel(file_bytes: bytes) -> dict:
             garagem = ""
             if col_gar is not None and len(row) > col_gar:
                 garagem = str(row[col_gar] or "").strip()
+            modelo = ""
+            if col_mod is not None and len(row) > col_mod:
+                modelo = str(row[col_mod] or "").strip()
             if not numero or not cliente:
                 ignorados += 1
                 continue
@@ -203,15 +248,22 @@ def importar_excel(file_bytes: bytes) -> dict:
             # mesmo número/cliente ainda ocuparia esse par, e ignorá-lo aqui
             # criaria justamente a duplicata que se quer evitar.
             existe = conn.execute(
-                "SELECT id, garagem, ativo FROM veiculos WHERE numero=? AND cliente=?",
+                "SELECT id, garagem, modelo, ativo FROM veiculos WHERE numero=? AND cliente=?",
                 (numero, cliente)
             ).fetchone()
 
             if existe:
                 # Complementa o que falta, sem sobrescrever o que já tem.
+                mudou = False
                 if garagem and not (existe["garagem"] or "").strip():
                     conn.execute("UPDATE veiculos SET garagem=? WHERE id=?",
                                  (garagem, existe["id"]))
+                    mudou = True
+                if modelo and not (existe["modelo"] or "").strip():
+                    conn.execute("UPDATE veiculos SET modelo=? WHERE id=?",
+                                 (modelo, existe["id"]))
+                    mudou = True
+                if mudou:
                     atualizados += 1
                 elif not existe["ativo"]:
                     inativos += 1
@@ -219,8 +271,9 @@ def importar_excel(file_bytes: bytes) -> dict:
                     ignorados += 1
             else:
                 conn.execute(
-                    "INSERT INTO veiculos (numero, cliente, garagem, criado_em) VALUES (?, ?, ?, ?)",
-                    (numero, cliente, garagem, now_brt())
+                    "INSERT INTO veiculos (numero, cliente, garagem, modelo, criado_em) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (numero, cliente, garagem, modelo, now_brt())
                 )
                 inseridos += 1
     return {"inseridos": inseridos, "atualizados": atualizados,

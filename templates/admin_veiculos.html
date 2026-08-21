@@ -140,6 +140,15 @@
           {% endfor %}
         </select>
       </div>
+      <div class="form-group" style="margin:0;">
+        <label>Modelo (kit)</label>
+        <select name="modelo">
+          <option value="">— sem modelo —</option>
+          {% for m in modelos %}
+          <option value="{{ m }}">{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div>
         <button type="submit" class="btn btn-success">＋ Adicionar Veículo</button>
       </div>
@@ -152,6 +161,12 @@
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
     <h2 style="margin:0;">Veículos ({{ pag_veiculos.total }})</h2>
+    {% if sem_modelo %}
+    <span class="badge badge-warning"
+          title="Veículo sem modelo não aparece em nenhum kit — defina o modelo pra ele voltar a ser bipável">
+      ⚠️ {{ sem_modelo }} sem modelo
+    </span>
+    {% endif %}
     <form method="get" style="display:flex;gap:8px;align-items:center;">
       <select name="cliente" style="margin:0;">
         <option value="">— todos os clientes —</option>
@@ -168,7 +183,7 @@
   <form method="get" action="/admin/veiculos" class="busca-form">
     {% if filtro_cliente %}<input type="hidden" name="cliente" value="{{ filtro_cliente }}">{% endif %}
     <input type="text" name="busca" value="{{ busca }}"
-           placeholder="🔍 Buscar por número, cliente ou garagem...">
+           placeholder="🔍 Buscar por número, cliente, garagem ou modelo...">
     <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
     {% if busca %}<a href="/admin/veiculos" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
   </form>
@@ -185,6 +200,7 @@
         <th>Número</th>
         <th>Cliente</th>
         <th>Garagem</th>
+        <th>Modelo (kit)</th>
         <th>Kits enviados</th>
         <th>Último envio</th>
         <th></th>
@@ -196,6 +212,10 @@
       <td><strong>{{ v.numero }}</strong></td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.garagem or '—' }}</td>
+      <td>
+        {% if v.modelo %}{{ v.modelo }}
+        {% else %}<span style="color:#e67e22;font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">⚠️ sem modelo</span>{% endif %}
+      </td>
       <td>
         {% if v.total_kits > 0 %}
           <span style="color:#27ae60;font-weight:700;">✅ {{ v.total_kits }}</span>

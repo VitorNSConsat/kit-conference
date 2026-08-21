@@ -94,6 +94,12 @@
                    title="{{ k.kit_id }}">
                     {{ k.kit_nome }} <span style="color:#aaa;font-size:11px;">v{{ k.versao }}</span>
                 </a>
+                {% if k.observacao %}
+                <div style="font-size:11px;color:#8a6d3b;background:#fdf6ea;border-radius:4px;
+                            padding:3px 6px;margin-top:4px;" title="Observação de uma correção neste kit">
+                  📝 {{ k.observacao }}
+                </div>
+                {% endif %}
             </td>
             <td>{{ k.cliente }}</td>
             <td>

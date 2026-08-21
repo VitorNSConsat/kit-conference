@@ -108,6 +108,8 @@ def _backup_antes_de_migrar() -> str | None:
         or "kit_template_conjuntos" not in tabelas
         or "producao_config" not in tabelas
         or "finalizado_por" not in colunas_kit_record
+        or "modelo" not in colunas_veiculos
+        or "observacao" not in colunas_kit_record
     )
     if not pendente:
         return None
@@ -503,6 +505,15 @@ def init_db():
             # significar QUEM ABRIU o kit (o responsável); quando outra
             # pessoa finaliza, fica registrado aqui — kit feito em dupla.
             "ALTER TABLE kit_record ADD COLUMN finalizado_por INTEGER REFERENCES users(id)",
+            # Modelo do veículo = NOME do kit que ele usa (ex: "Mercedes
+            # Euro 5 Diesel"). É texto, e não FK pra kit_template, porque
+            # "Nova Versão" cria uma linha nova e desativa a antiga — uma FK
+            # apontaria pro template velho a cada versão. Pelo nome, o
+            # vínculo sobrevive às versões.
+            "ALTER TABLE veiculos ADD COLUMN modelo TEXT DEFAULT ''",
+            # Observação livre de uma correção feita no kit já finalizado
+            # (troca de veículo, por exemplo). Aparece no relatório.
+            "ALTER TABLE kit_record ADD COLUMN observacao TEXT",
         ]:
             try:
                 conn.execute(stmt)

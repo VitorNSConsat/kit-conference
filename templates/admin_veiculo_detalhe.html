@@ -54,6 +54,22 @@
         {% endfor %}
       </select>
     </div>
+    <div class="form-group" style="margin:0;">
+      {# O modelo é o NOME do kit: é ele que decide em qual bipagem este
+         veículo aparece. Sem modelo, o veículo não entra em kit nenhum. #}
+      <label>Modelo (kit que este veículo usa)</label>
+      <select name="modelo">
+        <option value="">— sem modelo (não aparece em nenhum kit) —</option>
+        {% for m in modelos %}
+        <option value="{{ m }}" {{ 'selected' if (v.modelo or '') == m }}>{{ m }}</option>
+        {% endfor %}
+        {# Modelo gravado que não bate com nenhum kit ativo (kit renomeado
+           ou desativado) — mantém visível pra não sumir silenciosamente. #}
+        {% if v.modelo and v.modelo not in modelos %}
+        <option value="{{ v.modelo }}" selected>{{ v.modelo }} (kit não encontrado)</option>
+        {% endif %}
+      </select>
+    </div>
     <button type="submit" class="btn btn-success">💾 Salvar</button>
   </form>
 </div>
@@ -102,9 +118,12 @@
           <input type="hidden" name="veiculo_anterior" value="{{ v.numero }}">
           <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
             <input type="text" name="motivo" required maxlength="200"
-                   placeholder="Motivo da desvinculação"
-                   style="width:190px;margin:0;font-size:12px;padding:4px 6px;"
+                   placeholder="Motivo da desvinculação *"
+                   style="width:180px;margin:0;font-size:12px;padding:4px 6px;"
                    onkeydown="if(event.key==='Escape'){fecharDesvincular({{ loop.index }});}">
+            <input type="text" name="observacao" maxlength="300"
+                   placeholder="Observação (opcional) — fica no relatório"
+                   style="width:220px;margin:0;font-size:12px;padding:4px 6px;">
             <button type="submit" class="btn btn-sm btn-danger" style="padding:4px 8px;"
                     title="Confirmar desvinculação">✓</button>
             <button type="button" class="btn btn-sm btn-secondary" style="padding:4px 8px;"
@@ -152,6 +171,11 @@
         <label>Motivo da troca <span style="color:#c0392b;">*</span></label>
         <input type="text" name="motivo" id="inp-motivo" maxlength="200"
                placeholder="Por que este kit está mudando de veículo?" style="margin:0;">
+      </div>
+      <div class="form-group" style="margin:0;min-width:260px;">
+        <label>Observação <span style="font-weight:400;color:#888;font-size:12px;">— opcional, aparece no relatório</span></label>
+        <input type="text" name="observacao" maxlength="300"
+               placeholder="ex: corrigido após conferência em campo" style="margin:0;">
       </div>
       <button type="submit" class="btn btn-success">🔗 Vincular a este veículo</button>
     </form>

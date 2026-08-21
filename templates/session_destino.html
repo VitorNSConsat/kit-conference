@@ -16,13 +16,25 @@
   {% set disponiveis = veiculos_lista | rejectattr('ocupado') | list %}
   {% if not veiculos_lista %}
   <div class="alert alert-danger">
-    ⚠️ Nenhum veículo cadastrado para <strong>{{ session.cliente }}</strong> ainda.
-    Cadastre um em <a href="/admin/veiculos" style="font-weight:700;">🚗 Veículos e Clientes</a>
-    e volte pra esta tela.
+    ⚠️ Nenhum veículo do modelo <strong>{{ session.kit_nome }}</strong> em
+    <strong>{{ session.cliente }}</strong>.
+    <p style="margin:8px 0 0;font-size:13px;">
+      A lista mostra só os veículos cujo <strong>modelo</strong> é este kit — é o que impede
+      atribuir um kit ao veículo errado.
+      {% if sem_modelo %}
+      Existem <strong>{{ sem_modelo }} veículo(s) sem modelo definido</strong> neste cliente;
+      enquanto estiverem assim, não aparecem em nenhum kit.
+      {% endif %}
+    </p>
+    <p style="margin:8px 0 0;font-size:13px;">
+      Defina o modelo em <a href="/admin/veiculos" style="font-weight:700;">🚗 Veículos e Clientes</a>
+      (ou importe a planilha com a coluna <strong>Modelo (Kit)</strong>) e volte aqui.
+    </p>
   </div>
   {% elif not disponiveis %}
   <div class="alert alert-danger">
-    ⚠️ Todos os veículos de <strong>{{ session.cliente }}</strong> já têm kit associado.
+    ⚠️ Todos os veículos do modelo <strong>{{ session.kit_nome }}</strong> em
+    <strong>{{ session.cliente }}</strong> já têm kit associado.
     Libere um em <a href="/admin/veiculos" style="font-weight:700;">🚗 Veículos e Clientes</a>
     (abra o veículo e use "🔓 Liberar veículo") e volte pra esta tela.
   </div>

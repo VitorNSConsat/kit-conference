@@ -1271,7 +1271,12 @@ async def session_destino_page(request: Request, sessao_id: int, erro: str = "")
     if session.get("garagem"):
         # Destino já escolhido — não pergunta de novo, vai direto pra bipagem.
         return RedirectResponse(f"/session/{sessao_id}", status_code=302)
-    veiculos_lista = veiculos_mod.listar(cliente=session.get("cliente", ""))
+    # Só os veículos DESTE modelo — o modelo do veículo é o nome do kit.
+    # Antes qualquer veículo do cliente aparecia em qualquer kit, o que
+    # deixava atribuir um Euro 5 a um kit de Euro 6.
+    veiculos_lista = veiculos_mod.listar(
+        cliente=session.get("cliente", ""),
+        modelo=session.get("kit_nome", ""))
     for v in veiculos_lista:
         v["ocupado"] = veiculos_mod.esta_ocupado(v["id"])
     # Sem lista de garagens: a garagem não é mais escolhida aqui, vem do
@@ -1279,6 +1284,9 @@ async def session_destino_page(request: Request, sessao_id: int, erro: str = "")
     return render(request, "session_destino.html", {
         "session": session,
         "veiculos_lista": veiculos_lista,
+        # Pra explicar a lista vazia: sem veículo com este modelo, é preciso
+        # definir o modelo no cadastro — não adianta procurar na tela.
+        "sem_modelo": veiculos_mod.contar_sem_modelo(session.get("cliente", "")),
         "erro": erro,
     })
 
@@ -1939,6 +1947,7 @@ async def reports(request: Request,
                    COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
                    v.id AS v_id,
                    kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
+                   kr.observacao,
                    u.nome AS operador_nome,
                    CASE WHEN kr.finalizado_por IS NOT NULL
                          AND kr.finalizado_por != kr.operador_id
@@ -2016,11 +2025,20 @@ async def kit_record_vincular_veiculo(request: Request, kit_id: str):
         if v:
             veiculo_texto = v["numero"]
             garagem_texto = v["garagem"]
+
+    # A observação (opcional) fica no próprio kit, e não só na auditoria,
+    # porque precisa aparecer no relatório junto do kit corrigido.
+    observacao = str(form.get("observacao", "")).strip()
     with db() as conn:
         conn.execute(
             "UPDATE kit_record SET veiculo_id=?, veiculo=?, garagem=? WHERE kit_id=?",
             (veiculo_id, veiculo_texto, garagem_texto, kit_id)
         )
+        if observacao:
+            conn.execute(
+                "UPDATE kit_record SET observacao=? WHERE kit_id=?",
+                (observacao, kit_id)
+            )
     return RedirectResponse(f"{base}?ok=veiculo_kit", status_code=302)
 
 
@@ -2258,6 +2276,7 @@ async def reports_exportar_todos(request: Request,
         SELECT kr.kit_id, kr.kit_template_id, kr.finalizado_em, kr.veiculo, kr.garagem,
                COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
                kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
+               kr.observacao,
                u.nome AS operador_nome,
                (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
         FROM kit_record kr
@@ -2315,7 +2334,7 @@ async def reports_exportar_todos(request: Request,
     ws1.title = "Resumo"
     for col, h in enumerate(
         ["Tipo", "Kit", "Cliente", "Veículo", "Garagem", "Operador",
-         "Finalizado em", "Verificações"], 1):
+         "Finalizado em", "Verificações", "Observação"], 1):
         hdr_cell(ws1, 1, col, h)
     for i, k in enumerate(kits):
         row = i + 2
@@ -2327,10 +2346,11 @@ async def reports_exportar_todos(request: Request,
         ws1.cell(row, 6, k["operador_nome"])
         ws1.cell(row, 7, k.get("finalizado_em") or "")
         ws1.cell(row, 8, k.get("num_validacoes") or 0)
+        ws1.cell(row, 9, k.get("observacao") or "")
         if i % 2 == 0:
-            for col in range(1, 9):
+            for col in range(1, 10):
                 ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGH", (10, 30, 22, 16, 16, 22, 20, 14)):
+    for col, w in zip("ABCDEFGHI", (10, 30, 22, 16, 16, 22, 20, 14, 34)):
         ws1.column_dimensions[col].width = w
     ws1.freeze_panes = "A2"
 
@@ -3087,10 +3107,12 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "") -> dict:
     veiculos = paginacao_mod.filtrar(
         veiculos_mod.listar(cliente=cliente or None, ativo=True),
-        busca, ("numero", "cliente", "garagem"))
+        busca, ("numero", "cliente", "garagem", "modelo"))
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     return {
         "busca": busca,
+        "modelos": veiculos_mod.modelos_disponiveis(),
+        "sem_modelo": veiculos_mod.contar_sem_modelo(cliente or None),
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
         "veiculos_inativos": veiculos_inativos,
         "clientes": [c["nome"] for c in clientes_mod.listar()],
@@ -3115,12 +3137,13 @@ async def admin_veiculos_post(request: Request):
     numero = str(form.get("numero", "")).strip()
     cliente = str(form.get("cliente", "")).strip()
     garagem = str(form.get("garagem", "")).strip()
+    modelo = str(form.get("modelo", "")).strip()
     if not numero or not cliente:
         return render(request, "admin_veiculos.html", {
             **_admin_veiculos_context(),
             "erro": "Número e cliente são obrigatórios.",
         })
-    veiculos_mod.criar(numero, cliente, garagem)
+    veiculos_mod.criar(numero, cliente, garagem, modelo)
     return RedirectResponse("/admin/veiculos?ok=criado", status_code=302)
 
 
@@ -3135,13 +3158,30 @@ async def admin_veiculos_modelo(request: Request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Veículos"
-    for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem"], 1):
+    for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem", "Modelo (Kit)"], 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
         c.fill = PatternFill("solid", fgColor=azul)
-        ws.column_dimensions[ws.cell(1, col).column_letter].width = 28
-    ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente"); ws.cell(2, 3, "Base Norte")
-    ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente");  ws.cell(3, 3, "Base Sul")
+        ws.column_dimensions[ws.cell(1, col).column_letter].width = 30
+    # Exemplos usam nomes de kit REAIS quando existirem — o modelo tem que
+    # bater com o nome do kit, então mostrar o nome certo evita erro de
+    # digitação na planilha.
+    modelos = veiculos_mod.modelos_disponiveis()
+    ex1 = modelos[0] if modelos else "Mercedes Euro 5 Diesel"
+    ex2 = modelos[1] if len(modelos) > 1 else ex1
+    ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente"); ws.cell(2, 3, "Base Norte"); ws.cell(2, 4, ex1)
+    ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente");  ws.cell(3, 3, "Base Sul");   ws.cell(3, 4, ex2)
+
+    # Aba de apoio: a lista exata dos modelos aceitos, pra copiar e colar.
+    ws2 = wb.create_sheet("Modelos disponíveis")
+    c = ws2.cell(1, 1, "Modelos válidos (nomes dos kits ativos)")
+    c.font = Font(bold=True, color=branco)
+    c.fill = PatternFill("solid", fgColor=azul)
+    ws2.column_dimensions["A"].width = 44
+    for i, m in enumerate(modelos, 2):
+        ws2.cell(i, 1, m)
+    if not modelos:
+        ws2.cell(2, 1, "(nenhum kit cadastrado ainda)")
     buf = BytesIO()
     wb.save(buf); buf.seek(0)
     return _Resp(content=buf.read(),
@@ -3185,6 +3225,7 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
         "garagens": garagens_cadastradas,
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
         "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
+        "modelos": veiculos_mod.modelos_disponiveis(),
         "ok": request.query_params.get("ok", ""),
     })
 
@@ -3196,6 +3237,7 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
     numero = str(form.get("numero", "")).strip()
     cliente = str(form.get("cliente", "")).strip()
     garagem = str(form.get("garagem", "")).strip()
+    modelo = str(form.get("modelo", "")).strip()
     if not numero or not cliente:
         v = veiculos_mod.buscar(veiculo_id)
         clientes = clientes_mod.listar()
@@ -3204,9 +3246,11 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
             "clientes": clientes, "garagens": garagens_cadastradas,
             "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
+            "modelos": veiculos_mod.modelos_disponiveis(),
+            "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
             "erro": "Número e cliente são obrigatórios.",
         })
-    veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem)
+    veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem, modelo)
     return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=atualizado", status_code=302)
 
 
