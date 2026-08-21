@@ -64,9 +64,9 @@
 {% endif %}
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
-  Esteira de acompanhamento: <strong>Em Produção → Produzido → Em Trânsito → Cliente
-  (Em Produção → Produzido)</strong>. As duas primeiras etapas seguem a bipagem
-  sozinhas — o resto é marcado manualmente aqui.
+  Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
+  Em Trânsito → Cliente (Em Produção → Produzido)</strong>. As três primeiras etapas
+  seguem a bipagem sozinhas — o resto é marcado manualmente aqui.
 </p>
 
 {% if user and user.admin %}
@@ -122,19 +122,69 @@
 </details>
 {% endif %}
 
+<!-- ── Kits a Produzir — etapa ANTES da bipagem começar ──────────────────── -->
+<div class="card">
+  <h2 style="margin-bottom:4px;">Kits a Produzir <span style="font-weight:400;color:#888;">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
+  <p style="font-size:12px;color:#888;margin-bottom:10px;">
+    Veículos com cliente, garagem e kit definidos, disponíveis pra bipar. Some daqui
+    sozinho na primeira bipagem, quando passa pra Em Produção.
+  </p>
+  {% if a_produzir %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Template</th><th>Kits possíveis</th></tr></thead>
+    <tbody>
+    {% for v in a_produzir %}
+    <tr>
+      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:#1a3a5c;">{{ v.veiculo }}</a></td>
+      <td>{{ v.garagem or '—' }}</td>
+      <td>{{ v.cliente }}</td>
+      <td>{{ v.modelo or '—' }}</td>
+      <td>{{ v.kit_nome }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
+      <td>
+        {% if v.kits_possiveis is not none %}
+        <span class="autonomia-prod {{ 'critico' if v.kits_possiveis == 0 else ('alerta' if v.kits_possiveis < 5 else 'ok') }}"
+              {% if v.gargalo %}title="Limitado por: {{ v.gargalo }}"{% endif %}>
+          {{ v.kits_possiveis }}
+        </span>
+        {% else %}<span style="color:#aaa;">—</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">
+    Nenhum veículo pronto pra produzir. Falta cliente, garagem ou kit no cadastro —
+    ou todos já estão em produção.
+  </p>
+  {% endif %}
+</div>
+
 <!-- ── Em Produção (Consat) — só leitura, segue a bipagem sozinha ────────── -->
 <div class="card">
   <h2 style="margin-bottom:4px;">Em Produção <span style="font-weight:400;color:#888;">(Consat — acompanha a bipagem)</span> <span class="badge badge-warning">{{ resumo.em_producao }} kit{{ 's' if resumo.em_producao != 1 }}</span></h2>
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Template</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
     <tbody>
     {% for s in em_producao %}
     <tr>
       <td>{{ s.veiculo or s.kit_nome }}</td>
       <td>{{ s.garagem or '—' }}</td>
       <td>{{ s.cliente }}</td>
+      <td>{{ s.modelo or '—' }}</td>
+      <td>{{ s.kit_nome }}</td>
+      <td>
+        {% if s.kits_possiveis is not none %}
+        <span class="autonomia-prod {{ 'critico' if s.kits_possiveis == 0 else ('alerta' if s.kits_possiveis < 5 else 'ok') }}"
+              {% if s.gargalo %}title="Limitado por: {{ s.gargalo }}"{% endif %}>
+          {{ s.kits_possiveis }}
+        </span>
+        {% else %}<span style="color:#aaa;">—</span>{% endif %}
+      </td>
       <td>
         <div style="display:flex;align-items:center;gap:6px;">
           <div style="width:80px;height:8px;background:var(--surface-alt);border-radius:999px;overflow:hidden;flex-shrink:0;">

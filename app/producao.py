@@ -117,17 +117,82 @@ def _percentual_concluido(kit_template_id: int, sessao_id: int) -> int:
     return round(bipado / exigido * 100)
 
 
+# ── Kits a produzir ───────────────────────────────────────────────────────────
+# Etapa ANTES de "Em Produção": veículo pronto pra bipar que ainda não teve
+# bipagem nenhuma. A regra não é inventada aqui — é exatamente a mesma que
+# decide se o veículo aparece na tela de destino ao iniciar uma bipagem:
+#
+#   ativo + cliente + garagem preenchida        (definir_destino exige garagem)
+#   + modelo que casa com um kit ATIVO           (veiculos.listar(modelo=...))
+#   + não ocupado                                (veiculos.esta_ocupado)
+#
+# Se um veículo está aqui, ele aparece pra ser bipado; se não está, não
+# aparece. Uma regra só, então a lista nunca promete um kit que a bipagem
+# não deixa começar.
+#
+# O template vem de subconsulta e não de JOIN pelo nome: dois kits ativos
+# com o mesmo nome fariam o JOIN duplicar o veículo, e aí a contagem e a
+# lista discordariam — foi assim que o relatório de kits escondeu registro.
+_A_PRODUZIR_FROM = """
+    FROM veiculos v
+    JOIN kit_template kt ON kt.id = (
+        SELECT k2.id FROM kit_template k2
+         WHERE LOWER(TRIM(k2.nome)) = LOWER(TRIM(v.modelo))
+           AND k2.ativo = 1 AND k2.tipo = 'kit'
+         ORDER BY k2.versao DESC, k2.id DESC LIMIT 1)
+    WHERE v.ativo = 1
+      AND TRIM(COALESCE(v.cliente, '')) != ''
+      AND TRIM(COALESCE(v.garagem, '')) != ''
+      AND TRIM(COALESCE(v.modelo,  '')) != ''
+      -- Bipagem em andamento = já é "Em Produção", nunca "a produzir".
+      AND NOT EXISTS (SELECT 1 FROM scan_session ss
+                       WHERE ss.veiculo_id = v.id AND ss.status = 'em_andamento')
+      -- Já tem kit pronto = saiu desta etapa. A exceção é o veículo
+      -- liberado à mão (liberado_em), que volta a valer pra uma bipagem
+      -- nova — mesma exceção que esta_ocupado() aplica.
+      AND (v.liberado_em IS NOT NULL
+           OR NOT EXISTS (SELECT 1 FROM kit_record kr WHERE kr.veiculo_id = v.id))
+"""
+
+
+def listar_a_produzir() -> list[dict]:
+    """Veículos prontos pra produção que ainda não começaram."""
+    with db() as conn:
+        rows = conn.execute(f"""
+            SELECT v.id AS veiculo_id, v.numero AS veiculo, v.cliente,
+                   v.garagem, v.modelo, v.liberado_em,
+                   kt.id AS kit_template_id, kt.nome AS kit_nome, kt.versao
+            {_A_PRODUZIR_FROM}
+            ORDER BY v.cliente, v.numero
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
+def contar_a_produzir() -> int:
+    """Mesmo FROM/WHERE da listagem — a contagem não tem como divergir do
+    tamanho da lista."""
+    with db() as conn:
+        return conn.execute(f"SELECT COUNT(*) {_A_PRODUZIR_FROM}").fetchone()[0]
+
+
 def listar_em_producao() -> list[dict]:
     """Sessões de bipagem de Kit ainda em andamento — a etapa "Em Produção"
     do lado Consat, que não tem kit_record ainda."""
     with db() as conn:
         rows = conn.execute(
             "SELECT s.id AS sessao_id, s.iniciado_em, s.kit_template_id, "
-            "s.veiculo, s.garagem, s.modelo, t.nome AS kit_nome, t.cliente, "
+            "s.veiculo, s.garagem, "
+            # Modelo do CADASTRO do veículo, com o da sessão como reserva:
+            # s.modelo é uma cópia tirada no momento do destino, então
+            # corrigir o modelo no cadastro não se refletiria aqui. Só cai
+            # pro valor da sessão quando o veículo não está cadastrado.
+            "COALESCE(NULLIF(TRIM(v.modelo), ''), s.modelo) AS modelo, "
+            "t.nome AS kit_nome, t.cliente, "
             "u.nome AS operador_nome "
             "FROM scan_session s "
             "JOIN kit_template t ON t.id = s.kit_template_id "
             "JOIN users u ON u.id = s.operador_id "
+            "LEFT JOIN veiculos v ON v.id = s.veiculo_id "
             "WHERE s.status = 'em_andamento' AND t.tipo = 'kit' "
             "ORDER BY s.iniciado_em"
         ).fetchall()
@@ -427,6 +492,10 @@ def resumo() -> dict:
         ).fetchall()
     contagem = {r["status_producao"]: r["n"] for r in linhas}
     return {
+        # Mesma consulta que alimenta a lista (contar_a_produzir usa o
+        # _A_PRODUZIR_FROM), então o número do cabeçalho é sempre o número
+        # de linhas da tabela.
+        "a_produzir": contar_a_produzir(),
         "em_producao": em_producao,
         "produzido": contagem.get("produzido", 0),
         "transito": contagem.get("transito", 0),

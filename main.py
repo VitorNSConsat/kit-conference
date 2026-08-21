@@ -2885,8 +2885,22 @@ async def producao_tv(request: Request, minutos: int = 5):
 @app.get("/admin/producao", response_class=HTMLResponse)
 @require_login
 async def admin_producao(request: Request):
+    # "Kits possíveis" NÃO é conta nova: é a mesma autonomia que a lista de
+    # Kits Cadastrados (Criar Kit/Pedido) mostra, vinda de consumo_mod. Uma
+    # chamada só devolve o mapa de TODOS os templates — nada de uma consulta
+    # por linha da tabela.
+    autonomia = consumo_mod.resumo_todos_kits()
+
+    def _com_autonomia(linhas):
+        for l in linhas:
+            info = autonomia.get(l.get("kit_template_id")) or {}
+            l["kits_possiveis"] = info.get("autonomia_kit")
+            l["gargalo"] = info.get("gargalo")
+        return linhas
+
     return render(request, "admin_producao.html", {
-        "em_producao": producao_mod.listar_em_producao(),
+        "a_produzir": _com_autonomia(producao_mod.listar_a_produzir()),
+        "em_producao": _com_autonomia(producao_mod.listar_em_producao()),
         "produzido": producao_mod.listar_produzido(),
         "transito": producao_mod.listar_transito(),
         "cliente_instalando": producao_mod.listar_cliente_instalando(),

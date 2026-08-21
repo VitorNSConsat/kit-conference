@@ -308,6 +308,13 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
 .paginacao-contagem strong { color: var(--text); }
 .paginacao-contagem-filtro { color: #e67e22; }
 
+/* "Kits possíveis" no painel de Produção — mesmas cores da autonomia da
+   lista de Kits Cadastrados, porque é exatamente o mesmo número. */
+.autonomia-prod { font-weight: 800; font-size: 13px; }
+.autonomia-prod.ok      { color: #27ae60; }
+.autonomia-prod.alerta  { color: #e67e22; }
+.autonomia-prod.critico { color: #c0392b; }
+
 /* Busca e filtros da tela de veículos: uma linha pra busca, outra pros
    selects, cada uma com rótulo fixo à esquerda — separados de propósito
    pra não parecer um amontoado de campos. Quebram sozinhos no mobile. */
