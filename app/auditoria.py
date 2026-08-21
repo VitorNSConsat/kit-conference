@@ -7,6 +7,7 @@ alguém lembrar de instrumentar.
 """
 
 from database import db, now_brt
+import app.datas as datas_mod
 
 # Nunca guardar o valor destes campos no detalhe do log.
 _CAMPOS_SENSIVEIS = {"password", "senha", "senha_atual", "nova_senha",
@@ -88,27 +89,63 @@ def classificar(caminho: str) -> str:
     return "ALTERACAO"
 
 
-def listar(data_ini: str = "", data_fim: str = "", user_id: str = "",
-           acao: str = "", limite: int = 500, caminho_prefixo: str = "") -> list[dict]:
-    query = "SELECT * FROM auditoria WHERE 1=1"
-    params: list = []
-    if data_ini:
-        query += " AND DATE(criado_em) >= ?"
-        params.append(data_ini)
-    if data_fim:
-        query += " AND DATE(criado_em) <= ?"
-        params.append(data_fim)
+def _filtros(data_ini: str, data_fim: str, user_id: str, acao: str,
+             caminho_prefixo: str, busca: str = "") -> tuple[str, list]:
+    """WHERE compartilhado pela contagem e pela listagem — se os dois
+    divergirem, o total diz um número e a lista entrega outro.
+
+    A busca por texto entra AQUI, no SQL, e não em Python depois: filtrando
+    depois seria preciso carregar tudo antes de paginar, que é exatamente o
+    que obrigava o teto de 2000 e escondia o resto."""
+    where = "WHERE 1=1"
+    sql_data, params = datas_mod.clausula("criado_em", data_ini, data_fim)
+    where += sql_data
     if user_id and str(user_id).isdigit():
-        query += " AND user_id = ?"
+        where += " AND user_id = ?"
         params.append(int(user_id))
     if acao:
-        query += " AND acao = ?"
+        where += " AND acao = ?"
         params.append(acao)
     if caminho_prefixo:
-        query += " AND caminho LIKE ?"
+        where += " AND caminho LIKE ?"
         params.append(caminho_prefixo + "%")
-    query += " ORDER BY id DESC LIMIT ?"
-    params.append(int(limite))
+    # Cada palavra tem que aparecer em algum dos campos (ordem não importa),
+    # mesma regra da busca das outras telas.
+    for palavra in _sem_acento_py(busca).split():
+        where += (" AND sem_acento(COALESCE(detalhe,'') || ' ' || COALESCE(user_nome,'')"
+                  " || ' ' || COALESCE(acao,'') || ' ' || COALESCE(caminho,'')"
+                  " || ' ' || COALESCE(ip,'')) LIKE ?")
+        params.append(f"%{palavra}%")
+    return where, params
+
+
+def _sem_acento_py(texto: str) -> str:
+    import unicodedata
+    t = str(texto or "").strip().lower()
+    return "".join(c for c in unicodedata.normalize("NFD", t)
+                   if unicodedata.category(c) != "Mn")
+
+
+def contar(data_ini: str = "", data_fim: str = "", user_id: str = "",
+           acao: str = "", caminho_prefixo: str = "", busca: str = "") -> int:
+    """Quantos registros batem com o filtro — o total DE VERDADE, sem o
+    teto da listagem. É ele que a tela mostra e que dimensiona a paginação."""
+    where, params = _filtros(data_ini, data_fim, user_id, acao, caminho_prefixo, busca)
+    with db() as conn:
+        return conn.execute(f"SELECT COUNT(*) FROM auditoria {where}", params).fetchone()[0]
+
+
+def listar(data_ini: str = "", data_fim: str = "", user_id: str = "",
+           acao: str = "", limite: int = 500, caminho_prefixo: str = "",
+           offset: int = 0, busca: str = "") -> list[dict]:
+    """`limite`/`offset` servem a paginação, não a um corte escondido: a
+    tela pede uma página por vez e usa contar() pro total. Antes a tela
+    pedia 2000 de uma vez e paginava esse pedaço — passando disso, os
+    registros mais antigos do período simplesmente não existiam pra quem
+    olhava, sem nenhum aviso."""
+    where, params = _filtros(data_ini, data_fim, user_id, acao, caminho_prefixo, busca)
+    query = f"SELECT * FROM auditoria {where} ORDER BY id DESC LIMIT ? OFFSET ?"
+    params = params + [int(limite), int(offset)]
     with db() as conn:
         rows = conn.execute(query, params).fetchall()
     return [dict(r) for r in rows]

@@ -1,5 +1,6 @@
 import re
 from database import db, now_brt
+import app.datas as datas_mod
 
 # Status de compra — independente do status de quantidade (abaixo/proximo/ok).
 # Vazio ('') = sem pendencia, nao aparece nenhum aviso.
@@ -171,12 +172,9 @@ def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str =
         "WHERE em.tipo = 'sobressalente'"
     )
     params: list = []
-    if data_ini:
-        query += " AND DATE(em.criado_em) >= ?"
-        params.append(data_ini)
-    if data_fim:
-        query += " AND DATE(em.criado_em) <= ?"
-        params.append(data_fim)
+    sql_data, p_data = datas_mod.clausula("em.criado_em", data_ini, data_fim)
+    query += sql_data
+    params += p_data
     if cliente:
         query += " AND em.cliente = ?"
         params.append(cliente)

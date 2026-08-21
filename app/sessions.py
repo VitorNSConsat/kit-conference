@@ -3,6 +3,7 @@ import app.items as items_mod
 import app.kit_templates as templates_mod
 import app.estoque as estoque_mod
 import app.codigos_gerados as codigos_gerados_mod
+import app.datas as datas_mod
 
 
 def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
@@ -1528,16 +1529,12 @@ def listar_por_operador(operador_id: int | None = None,
         finalizados += " AND kr.operador_id = ?"
         p_and.append(operador_id)
         p_fim.append(operador_id)
-    if data_ini:
-        em_andamento += " AND DATE(ss.iniciado_em) >= ?"
-        finalizados += " AND DATE(kr.finalizado_em) >= ?"
-        p_and.append(data_ini)
-        p_fim.append(data_ini)
-    if data_fim:
-        em_andamento += " AND DATE(ss.iniciado_em) <= ?"
-        finalizados += " AND DATE(kr.finalizado_em) <= ?"
-        p_and.append(data_fim)
-        p_fim.append(data_fim)
+    sql_and, p_d_and = datas_mod.clausula("ss.iniciado_em", data_ini, data_fim)
+    sql_fim, p_d_fim = datas_mod.clausula("kr.finalizado_em", data_ini, data_fim)
+    em_andamento += sql_and
+    finalizados += sql_fim
+    p_and += p_d_and
+    p_fim += p_d_fim
 
     with db() as conn:
         linhas = [dict(r) for r in conn.execute(em_andamento, p_and).fetchall()]

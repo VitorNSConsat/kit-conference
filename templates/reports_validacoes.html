@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Relatório de Verificações{% endblock %}
 {% block content %}
 <h1>Relatório de Verificações</h1>
@@ -30,7 +31,8 @@
 </div>
 
 <div class="card">
-  <h2>Verificações ({{ rows | length }})</h2>
+  <h2>Verificações</h2>
+  {{ pg.contagem(pag, "verificações", singular="verificação") }}
   {% if rows %}
   <div style="overflow-x:auto;">
   <table>
@@ -67,6 +69,21 @@
     </tbody>
   </table>
   </div>
+
+  {% if pag.total_paginas > 1 %}
+  {% set qs = 'data_ini=' + (data_ini|urlencode) + '&data_fim=' + (data_fim|urlencode) + '&validador_id=' + (validador_id|urlencode) %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/reports/validacoes?{{ qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:24px;">
     Nenhuma validação encontrada para os filtros selecionados.

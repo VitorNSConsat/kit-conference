@@ -38,6 +38,7 @@ import app.usuarios as usuarios_mod
 import app.producao as producao_mod
 import app.permissoes as permissoes_mod
 import app.paginacao as paginacao_mod
+import app.datas as datas_mod
 
 load_dotenv()
 
@@ -476,11 +477,24 @@ async def admin_auditoria(request: Request,
                           data_ini: str = "", data_fim: str = "",
                           user_id: str = "", acao: str = "", pagina: int = 1,
                           busca: str = ""):
-    registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao, limite=2000)
-    registros = paginacao_mod.filtrar(
-        registros, busca, ("detalhe", "user_nome", "acao", "caminho", "ip"))
+    # Paginação no SQL, com o total vindo de contar(): a tela pede só a
+    # página que vai mostrar. Antes pedia 2000 linhas e paginava esse
+    # pedaço — passando disso, os registros mais antigos do período não
+    # apareciam em página nenhuma e nada na tela dizia que faltava algo.
+    por_pagina = paginacao_mod.POR_PAGINA_PADRAO
+    total = auditoria_mod.contar(data_ini, data_fim, user_id, acao, busca=busca)
+    total_paginas = max(1, -(-total // por_pagina))
+    pagina = max(1, min(pagina, total_paginas))
+    offset = (pagina - 1) * por_pagina
+    registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao,
+                                     limite=por_pagina, offset=offset, busca=busca)
     return render(request, "admin_auditoria.html", {
-        "pag_registros": paginacao_mod.paginar(registros, pagina),
+        "pag_registros": {
+            "itens": registros, "pagina": pagina, "total_paginas": total_paginas,
+            "total": total, "inicio": offset + 1 if registros else 0,
+            "fim": offset + len(registros), "exibindo": len(registros),
+            "paginas_visiveis": paginacao_mod.janela_paginas(pagina, total_paginas),
+        },
         "busca": busca,
         "usuarios": usuarios_mod.listar(),
         "acoes": auditoria_mod.acoes_distintas(),
@@ -2035,6 +2049,23 @@ async def reports_operadores(request: Request, operador_id: str = "",
 
 # ── Relatórios ────────────────────────────────────────────────────────────────
 
+def _where_relatorio_kits(data_ini: str, data_fim: str,
+                          operador_id: str, tipo: str) -> tuple[str, list]:
+    """Filtros do relatório de kits, num lugar só — a TELA e a EXPORTAÇÃO
+    chamam esta função, então não há como uma filtrar diferente da outra.
+    Antes cada uma montava o próprio WHERE e elas já divergiam no limite."""
+    where = "WHERE 1=1"
+    sql_data, params = datas_mod.clausula("kr.finalizado_em", data_ini, data_fim)
+    where += sql_data
+    if operador_id and str(operador_id).isdigit():
+        where += " AND kr.operador_id = ?"
+        params.append(int(operador_id))
+    if tipo in ("kit", "pedido"):
+        where += " AND kt.tipo = ?"
+        params.append(tipo)
+    return where, params
+
+
 @app.get("/reports", response_class=HTMLResponse)
 @require_permission("ver_relatorios")
 async def reports(request: Request,
@@ -2043,26 +2074,17 @@ async def reports(request: Request,
                   operador_id: str = "",
                   tipo: str = "",
                   pagina: int = 1):
-    where = "WHERE 1=1"
-    params = []
-    if data_ini:
-        where += " AND DATE(kr.finalizado_em) >= ?"
-        params.append(data_ini)
-    if data_fim:
-        where += " AND DATE(kr.finalizado_em) <= ?"
-        params.append(data_fim)
-    if operador_id:
-        where += " AND kr.operador_id = ?"
-        params.append(int(operador_id))
-    if tipo in ("kit", "pedido"):
-        where += " AND kt.tipo = ?"
-        params.append(tipo)
+    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo)
 
     por_pagina = paginacao_mod.POR_PAGINA_PADRAO
     with db() as conn:
+        # Os MESMOS JOINs da consulta de baixo. Se as duas divergirem, o
+        # total diz um número e a listagem entrega outro — e a diferença
+        # vira registro que não aparece em página nenhuma.
         total = conn.execute(
             f"SELECT COUNT(*) FROM kit_record kr "
-            f"JOIN kit_template kt ON kt.id = kr.kit_template_id {where}",
+            f"JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            f"LEFT JOIN users u ON u.id = kr.operador_id {where}",
             params
         ).fetchone()[0]
         total_paginas = max(1, -(-total // por_pagina))
@@ -2077,20 +2099,33 @@ async def reports(request: Request,
                    v.id AS v_id,
                    kt.nome AS kit_nome, kt.cliente, kt.versao, kt.tipo AS kit_tipo,
                    kr.observacao,
-                   u.nome AS operador_nome,
+                   COALESCE(u.nome, '—') AS operador_nome,
                    CASE WHEN kr.finalizado_por IS NOT NULL
                          AND kr.finalizado_por != kr.operador_id
                         THEN uf.nome END AS finalizado_por_nome,
-                   pq.id AS pq_id,
+                   -- Subconsulta, e não LEFT JOIN print_queue: um kit tem
+                   -- UMA linha na fila por impressão, e reimprimir cria
+                   -- outra. Com o JOIN, cada kit reimpresso 3x virava 4
+                   -- linhas aqui — mas o COUNT abaixo (que não tem esse
+                   -- join) seguia contando 1. A paginação era calculada
+                   -- pelo número certo e aplicada sobre o resultado
+                   -- inflado, então os kits do fim eram empurrados pra
+                   -- depois da última página e ficavam INALCANÇÁVEIS.
+                   -- Pega a etiqueta mais recente, que é a que o botão
+                   -- "Etiqueta" deve abrir.
+                   (SELECT pq.id FROM print_queue pq
+                     WHERE pq.kit_id = kr.kit_id
+                     ORDER BY pq.id DESC LIMIT 1) AS pq_id,
                    (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
             FROM kit_record kr
             JOIN kit_template kt ON kt.id = kr.kit_template_id
-            JOIN users u ON u.id = kr.operador_id
+            -- LEFT, não INNER: kit cujo operador não exista mais sumiria do
+            -- relatório inteiro em vez de aparecer sem o nome.
+            LEFT JOIN users u ON u.id = kr.operador_id
             LEFT JOIN users uf ON uf.id = kr.finalizado_por
-            LEFT JOIN print_queue pq ON pq.kit_id = kr.kit_id
             LEFT JOIN veiculos v ON v.id = kr.veiculo_id
             {where}
-            ORDER BY kr.finalizado_em DESC LIMIT ? OFFSET ?
+            ORDER BY kr.finalizado_em DESC, kr.kit_id LIMIT ? OFFSET ?
         """
         rows = conn.execute(query, params + [por_pagina, offset]).fetchall()
         usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
@@ -2416,24 +2451,15 @@ async def reports_exportar_todos(request: Request,
                (SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes
         FROM kit_record kr
         JOIN kit_template kt ON kt.id = kr.kit_template_id
-        JOIN users u ON u.id = kr.operador_id
+        LEFT JOIN users u ON u.id = kr.operador_id
         LEFT JOIN veiculos v ON v.id = kr.veiculo_id
-        WHERE 1=1
     """
-    params = []
-    if data_ini:
-        query += " AND DATE(kr.finalizado_em) >= ?"
-        params.append(data_ini)
-    if data_fim:
-        query += " AND DATE(kr.finalizado_em) <= ?"
-        params.append(data_fim)
-    if operador_id:
-        query += " AND kr.operador_id = ?"
-        params.append(int(operador_id))
-    if tipo in ("kit", "pedido"):
-        query += " AND kt.tipo = ?"
-        params.append(tipo)
-    query += " ORDER BY kr.finalizado_em DESC LIMIT 200"
+    # Mesmo WHERE da tela, pela mesma função — a exportação tem que trazer
+    # exatamente o que a tela mostra. O LIMIT 200 que existia aqui cortava
+    # em silêncio: 250 kits no filtro viravam 200 na planilha, sem aviso.
+    # Quem limita o volume é o período escolhido, não um teto escondido.
+    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo)
+    query += " " + where + " ORDER BY kr.finalizado_em DESC, kr.kit_id"
 
     with db() as conn:
         kits = [dict(r) for r in conn.execute(query, params).fetchall()]
@@ -2593,12 +2619,19 @@ async def report_delete(request: Request, kit_id: str):
 async def reports_validacoes(request: Request,
                              data_ini: str = "",
                              data_fim: str = "",
-                             validador_id: str = ""):
-    rows = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
+                             validador_id: str = "",
+                             pagina: int = 1):
+    todas = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
+    # Pagina em vez de cortar: o LIMIT 500 que existia na consulta escondia
+    # o excedente sem dizer nada. Agora tudo que bate com o filtro é
+    # alcançável, e a contagem mostra o total de verdade.
+    pag = paginacao_mod.paginar(todas, pagina)
     with db() as conn:
         usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
     return render(request, "reports_validacoes.html", {
-        "rows": rows,
+        "rows": pag["itens"],
+        "pag": pag,
+        "pagina": pag["pagina"],
         "usuarios": [dict(u) for u in usuarios],
         "data_ini": data_ini,
         "data_fim": data_fim,
@@ -2928,8 +2961,12 @@ async def admin_producao_nota_fiscal(request: Request, kit_id: str):
 @require_login
 async def admin_producao_historico(request: Request,
                                     data_ini: str = "", data_fim: str = ""):
+    # Mesmo limite da exportação. Antes a tela usava o default (500) e a
+    # exportação pedia 5000: o mesmo período mostrava um número na tela e
+    # outro na planilha, sem nada explicando a diferença.
     return render(request, "admin_producao_historico.html", {
-        "registros": producao_mod.listar_historico(data_ini, data_fim),
+        "registros": producao_mod.listar_historico(data_ini, data_fim,
+                                                   limite=producao_mod.LIMITE_HISTORICO),
         "data_ini": data_ini, "data_fim": data_fim,
     })
 
@@ -2943,7 +2980,8 @@ async def admin_producao_historico_exportar(request: Request,
     from openpyxl.styles import Font, PatternFill, Alignment
     from io import BytesIO
 
-    registros = producao_mod.listar_historico(data_ini, data_fim, limite=5000)
+    registros = producao_mod.listar_historico(data_ini, data_fim,
+                                          limite=producao_mod.LIMITE_HISTORICO)
 
     wb = openpyxl.Workbook()
     azul, branco = "1A3A5C", "FFFFFF"

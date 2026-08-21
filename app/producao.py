@@ -307,7 +307,16 @@ def _descricao_amigavel(linha: dict) -> str:
     return linha["detalhe"] or "—"
 
 
-def listar_historico(data_ini: str = "", data_fim: str = "", limite: int = 500) -> list[dict]:
+# Teto do histórico da esteira, um só pra tela e pra exportação — com
+# valores diferentes, o mesmo período mostrava quantidades diferentes
+# em cada lugar. É alto de propósito: quem limita o volume é o
+# período escolhido; isto aqui é só uma trava contra carregar anos
+# inteiros de auditoria de uma vez.
+LIMITE_HISTORICO = 5000
+
+
+def listar_historico(data_ini: str = "", data_fim: str = "",
+                     limite: int = LIMITE_HISTORICO) -> list[dict]:
     """Histórico de ações manuais da esteira (mudança de estágio + edição
     de nota fiscal), lido da auditoria geral (que já cobre toda rota de
     /admin/producao automaticamente) e enriquecido com veículo/garagem

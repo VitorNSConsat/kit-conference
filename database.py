@@ -46,7 +46,21 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
+    # sem_acento() deixa a busca por texto acontecer DENTRO do SQL sem
+    # perder a tolerância a acento e maiúscula ("veiculo" acha "veículo").
+    # Sem isso, filtrar em Python obrigaria a carregar tudo antes de
+    # paginar — e era daí que vinha o teto que escondia registro.
+    conn.create_function("sem_acento", 1, _sem_acento, deterministic=True)
     return conn
+
+
+def _sem_acento(valor) -> str:
+    import unicodedata
+    texto = str(valor if valor is not None else "").lower()
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )
 
 
 @contextmanager
@@ -545,6 +559,17 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_kr_sessao ON kit_record(sessao_id)",
             "CREATE INDEX IF NOT EXISTS idx_kr_veiculo ON kit_record(veiculo_id)",
             "CREATE INDEX IF NOT EXISTS idx_kr_finalizado ON kit_record(finalizado_em)",
+            # Colunas de data dos relatórios. Só passaram a valer a pena
+            # depois que o filtro deixou de usar DATE(coluna): função em
+            # cima da coluna impede o SQLite de usar índice, então a
+            # consulta varria a tabela inteira. Com o intervalo semiaberto
+            # (coluna >= ? AND coluna < ?) a comparação é direta e o índice
+            # entra.
+            "CREATE INDEX IF NOT EXISTS idx_kv_validado_em ON kit_validacoes(validado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_aud_criado_em ON auditoria(criado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_em_criado_em ON estoque_movimentos(criado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_ss_iniciado_em ON scan_session(iniciado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_pq_kit ON print_queue(kit_id)",
             "CREATE INDEX IF NOT EXISTS idx_kr_status_producao ON kit_record(status_producao)",
             "CREATE INDEX IF NOT EXISTS idx_im_tipo ON item_master(item_tipo_id)",
             "CREATE INDEX IF NOT EXISTS idx_em_estoque ON estoque_movimentos(estoque_id)",
