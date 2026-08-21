@@ -809,14 +809,49 @@ async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
     quem, pra qual veículo — e o que mais foi bipado na mesma sessão."""
     item = items_mod.buscar_item(codigo_barra)
     historico = items_mod.historico_patrimonio(codigo_barra)
-    vizinhos = (items_mod.bipados_na_mesma_sessao(historico[0]["sessao_id"], codigo_barra)
-                if historico else [])
+    sessao_recente = historico[0]["sessao_id"] if historico else None
+    vizinhos = (items_mod.bipados_na_mesma_sessao(sessao_recente, codigo_barra)
+                if sessao_recente else [])
     return render(request, "admin_patrimonio.html", {
         "codigo_barra": codigo_barra,
         "item": item,
         "historico": historico,
         "vizinhos": vizinhos,
+        # De QUAL kit são os itens de "Bipado junto" — a seção fala do kit
+        # formado naquela sessão, não de itens vizinhos no tempo.
+        "kit_sessao": items_mod.kit_da_sessao(sessao_recente) if sessao_recente else None,
+        "serial_atual": historico[0]["serial_number"] if historico else None,
+        "ok": request.query_params.get("ok", ""),
+        "erro": request.query_params.get("erro", ""),
     })
+
+
+@app.post("/admin/items/patrimonio/{codigo_barra:path}/corrigir")
+@require_login
+async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
+    """Correção cadastral do patrimônio — vale em qualquer estágio, até com
+    o veículo já entregue e finalizado. NÃO mexe em produção: o kit continua
+    no estágio em que estava; só a identificação do item muda."""
+    form = await request.form()
+    novo_codigo = str(form.get("novo_codigo", "")).strip()
+    serial_bruto = form.get("novo_serial")
+    novo_serial = str(serial_bruto) if serial_bruto is not None else None
+    try:
+        r = items_mod.corrigir_patrimonio(codigo_barra, novo_codigo, novo_serial)
+    except ValueError as e:
+        return RedirectResponse(
+            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            status_code=302)
+    partes = []
+    if r["renomeou"]:
+        partes.append(f"Código alterado de {codigo_barra} para {r['codigo']} — "
+                      "as bipagens antigas acompanharam.")
+    if r["seriais_atualizados"]:
+        partes.append("Número de série atualizado na bipagem mais recente.")
+    msg = " ".join(partes) or "Nada foi alterado."
+    return RedirectResponse(
+        f"/admin/items/patrimonio/{quote(r['codigo'])}?ok=" + quote(msg),
+        status_code=302)
 
 
 @app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)
@@ -2903,8 +2938,10 @@ async def admin_producao(request: Request):
         "em_producao": _com_autonomia(producao_mod.listar_em_producao()),
         "produzido": producao_mod.listar_produzido(),
         "transito": producao_mod.listar_transito(),
-        "cliente_instalando": producao_mod.listar_cliente_instalando(),
-        "cliente_concluido": producao_mod.listar_cliente_concluido(limite=30),
+        # Card único de Cliente: instalando + concluído na mesma lista. As
+        # duas funções antigas seguem existindo (o Painel da TV usa cada
+        # coluna separada), então nada foi perdido.
+        "no_cliente": producao_mod.listar_no_cliente(limite=30),
         "resumo": producao_mod.resumo(),
         "tv_config": producao_mod.get_tv_config(),
         "ok": request.query_params.get("ok", ""),
@@ -2933,6 +2970,27 @@ async def admin_producao_transito(request: Request):
     kit_ids = form.getlist("kit_ids")
     n = producao_mod.marcar_transito(kit_ids)
     return RedirectResponse(f"/admin/producao?ok=transito&n={n}", status_code=302)
+
+
+@app.post("/admin/producao/nota-lote")
+@require_login
+async def admin_producao_nota_lote(request: Request):
+    """Mesma nota/data pra vários kits selecionados. Só os selecionados são
+    tocados — o form manda os kit_ids marcados, nada de "todos do filtro"."""
+    form = await request.form()
+    kit_ids = [k for k in form.getlist("kit_ids") if str(k).strip()]
+    if not kit_ids:
+        return RedirectResponse("/admin/producao?erro=nota_lote_vazio", status_code=302)
+    r = producao_mod.atribuir_nota_em_lote(
+        kit_ids,
+        str(form.get("nota_fiscal", "")),
+        str(form.get("nota_fiscal_data", "")),
+        str(form.get("motivo", "")),
+    )
+    q = f"?ok=nota_lote&n={len(r['atualizados'])}"
+    if r["bloqueados"]:
+        q += f"&bloqueados={len(r['bloqueados'])}"
+    return RedirectResponse("/admin/producao" + q, status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/cliente-instalando")
@@ -3333,6 +3391,9 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
 
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     return {
+        # Onde cada veículo está agora no fluxo — derivado dos estados que a
+        # Produção já usa, numa consulta só pra todos (nada de N+1).
+        "localizacao": producao_mod.localizacao_dos_veiculos(),
         "busca": busca,
         "filtro_modelo": modelo,
         "filtro_situacao": situacao,

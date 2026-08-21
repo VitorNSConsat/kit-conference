@@ -33,7 +33,39 @@
     O histórico de bipagem abaixo continua valendo.
   </p>
   {% endif %}
+
+  {% if item and user %}
+  {# Correção CADASTRAL: vale em qualquer estágio, inclusive com o veículo
+     já no cliente e finalizado. Não mexe em produção — só na identificação
+     do item, que é o que se digita errado. #}
+  <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">✏️ Corrigir patrimônio</summary>
+    <p style="color:#666;font-size:13px;margin:8px 0;">
+      Para corrigir um número digitado errado. Funciona mesmo com o kit já produzido,
+      enviado ou no cliente — <strong>a produção não é reaberta</strong> e o veículo
+      continua no estágio em que está. O histórico de bipagens não é apagado: as
+      passagens antigas passam a apontar pro código novo, com data, operador e kit
+      preservados.
+    </p>
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/corrigir"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
+          onsubmit="return confirm('Confirmar a correção deste patrimônio? O histórico é preservado e a produção não muda.')">
+      <div class="form-group" style="margin:0;">
+        <label>Código do patrimônio</label>
+        <input type="text" name="novo_codigo" value="{{ codigo_barra }}" style="margin:0;font-family:monospace;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Nº de série <span style="font-weight:400;color:#888;font-size:12px;">— da bipagem mais recente</span></label>
+        <input type="text" name="novo_serial" value="{{ serial_atual or '' }}" style="margin:0;font-family:monospace;">
+      </div>
+      <button type="submit" class="btn btn-success">💾 Salvar correção</button>
+    </form>
+  </details>
+  {% endif %}
 </div>
+
+{% if ok %}<div class="alert alert-success">✅ {{ ok }}</div>{% endif %}
+{% if erro %}<div class="alert alert-danger">⚠️ {{ erro }}</div>{% endif %}
 
 <!-- Onde foi bipado -->
 <div class="card">
@@ -98,20 +130,21 @@
 <div class="card">
   <h2 style="margin-bottom:4px;">🔗 Bipado junto (última sessão)</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">
-    Sequência completa da sessão mais recente onde este item apareceu — dá pra ver o que
-    veio logo antes e logo depois dele. A linha destacada é o próprio item.
+    Itens que formaram o <strong>mesmo kit</strong> deste patrimônio na última vez que ele
+    foi bipado{% if kit_sessao %} — kit <strong>{{ kit_sessao.kit_nome }}</strong>
+    {%- if kit_sessao.veiculo %}, veículo <strong>{{ kit_sessao.veiculo }}</strong>{% endif %}
+    {%- if kit_sessao.garagem %} · {{ kit_sessao.garagem }}{% endif %}{% endif %}.
+    O corte é a sessão de bipagem, não a proximidade de horário: item bipado logo depois,
+    já em outro kit, não entra aqui. A linha destacada é o próprio item.
   </p>
   <div style="overflow-x:auto;">
   <table>
     <thead>
-      <tr><th>#</th><th>Bipado em</th><th>Item</th><th>Código</th><th>Qtd</th><th>Operador</th></tr>
+      <tr><th>Patrimônio</th><th>Tipo</th><th>Nº Série</th><th>Bipado em</th><th>Qtd</th><th>Operador</th><th>Situação</th></tr>
     </thead>
     <tbody>
       {% for z in vizinhos %}
       <tr {% if z.e_o_item %}style="background:#fff8e1;font-weight:700;"{% endif %}>
-        <td style="color:#999;">{{ loop.index }}</td>
-        <td style="white-space:nowrap;font-size:13px;">{{ z.bipado_em[:16] if z.bipado_em else '—' }}</td>
-        <td>{{ z.descricao }}{% if z.e_o_item %} <span style="color:#e67e22;">← este item</span>{% endif %}</td>
         <td style="font-family:monospace;font-size:12px;">
           {% if z.e_o_item %}
           {{ z.codigo_barra }}
@@ -119,8 +152,18 @@
           <a href="/admin/items/patrimonio/{{ z.codigo_barra | urlencode }}">{{ z.codigo_barra }}</a>
           {% endif %}
         </td>
+        <td>{{ z.descricao }}</td>
+        <td style="font-family:monospace;font-size:12px;">{{ z.serial_number or '—' }}</td>
+        <td style="white-space:nowrap;font-size:13px;">{{ z.bipado_em[:16] if z.bipado_em else '—' }}</td>
         <td>{{ z.quantidade or 1 }}</td>
         <td>{{ z.operador_nome or '—' }}</td>
+        <td>
+          {% if z.e_o_item %}
+          <span style="color:#e67e22;font-weight:700;">← {{ z.situacao }}</span>
+          {% else %}
+          <span style="color:#888;">{{ z.situacao }}</span>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

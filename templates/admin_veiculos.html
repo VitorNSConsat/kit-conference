@@ -270,6 +270,7 @@
         <th>Cliente</th>
         <th>Garagem</th>
         <th>Modelo (kit)</th>
+        <th>Localização atual</th>
         <th>Kits enviados</th>
         <th>Último envio</th>
         <th></th>
@@ -284,12 +285,21 @@
                class="chk-veiculo" onchange="atualizarBotaoExcluir()">
       </td>
       {% endif %}
-      <td><strong>{{ v.numero }}</strong></td>
+      {# Número clicável: leva ao veículo, e de lá aos kits e aos itens. #}
+      <td><a href="/admin/veiculos/{{ v.id }}" style="font-weight:700;color:#1a3a5c;">{{ v.numero }}</a></td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.garagem or '—' }}</td>
       <td>
         {% if v.modelo %}{{ v.modelo }}
         {% else %}<span style="color:#e67e22;font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">⚠️ sem modelo</span>{% endif %}
+      </td>
+      <td style="white-space:nowrap;">
+        {% set loc = localizacao.get(v.id) %}
+        {% if loc %}
+        <span style="color:{{ loc.cor }};font-weight:700;font-size:12.5px;">{{ loc.texto }}</span>
+        {% else %}
+        <span style="color:#aaa;font-size:12px;" title="Falta cliente, garagem ou kit no cadastro">— não configurado</span>
+        {% endif %}
       </td>
       <td>
         {% if v.total_kits > 0 %}

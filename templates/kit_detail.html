@@ -440,7 +440,21 @@
       <div class="item-info">
         <div class="item-tipo">{{ item.tipo_nome }}</div>
         {% if item.barcodes %}
-        <div class="item-barcodes">{{ item.barcodes }}</div>
+        {# Patrimônio clicável fecha a corrente Veículo → Kit → Itens →
+           Patrimônio, reaproveitando a tela de rastreamento que já existe.
+           Só pra quem está logado: esta página é pública (abre pelo QR da
+           etiqueta), e sem sessão o link só levaria pro login. #}
+        <div class="item-barcodes">
+          {% if user %}
+            {% for cb in item.barcodes.split(', ') %}
+            <a href="/admin/items/patrimonio/{{ cb | urlencode }}"
+               style="color:inherit;text-decoration:underline;"
+               onclick="event.stopPropagation();">{{ cb }}</a>{{ ', ' if not loop.last }}
+            {% endfor %}
+          {% else %}
+            {{ item.barcodes }}
+          {% endif %}
+        </div>
         {% endif %}
         {% if grupos.get(item.item_tipo_id) %}
         <div style="font-size:11px;color:#e67e22;margin-top:3px;font-weight:600;">

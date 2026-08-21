@@ -289,9 +289,14 @@ def historico_patrimonio(codigo_barra: str) -> list[dict]:
 
 
 def bipados_na_mesma_sessao(sessao_id: int, codigo_barra: str) -> list[dict]:
-    """O que mais foi bipado na mesma sessão, em ordem cronológica — dá pra
-    ver o que veio logo antes e logo depois deste item. Marca a linha do
-    próprio item pra facilitar achar o ponto na sequência."""
+    """Os itens que formaram O MESMO KIT deste patrimônio na última sessão.
+
+    O corte é a SESSÃO de bipagem (scan_session_items.sessao_id), não a
+    proximidade de horário no leitor: uma sessão é exatamente um kit sendo
+    montado, então dois kits montados em paralelo — ou um item bipado logo
+    depois, já em outra sessão — nunca se misturam aqui. É por isso que
+    esta seção responde "o que está na mesma caixa", enquanto
+    historico_patrimonio() responde "por onde este item já passou"."""
     with db() as conn:
         rows = conn.execute("""
             SELECT si.codigo_barra, si.bipado_em, si.serial_number, si.quantidade,
@@ -306,8 +311,89 @@ def bipados_na_mesma_sessao(sessao_id: int, codigo_barra: str) -> list[dict]:
     for r in rows:
         d = dict(r)
         d["e_o_item"] = d["codigo_barra"] == codigo_barra
+        d["situacao"] = "Item selecionado" if d["e_o_item"] else "Mesmo kit"
         itens.append(d)
     return itens
+
+
+def kit_da_sessao(sessao_id: int) -> dict | None:
+    """Qual kit foi formado nesta sessão — nome, veículo, garagem e estado.
+    Usado pra dizer na tela de qual kit são os itens de "Bipado junto"."""
+    with db() as conn:
+        row = conn.execute("""
+            SELECT ss.id AS sessao_id, ss.status AS sessao_status,
+                   kt.nome AS kit_nome, kt.cliente,
+                   kr.kit_id, kr.status_producao,
+                   COALESCE(v.numero, kr.veiculo, ss.veiculo, '') AS veiculo,
+                   COALESCE(kr.garagem, ss.garagem, '') AS garagem
+            FROM scan_session ss
+            JOIN kit_template kt ON kt.id = ss.kit_template_id
+            LEFT JOIN kit_record kr ON kr.sessao_id = ss.id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            WHERE ss.id = ?
+        """, (sessao_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
+                        novo_serial: str | None = None) -> dict:
+    """Correção CADASTRAL de um patrimônio, válida em qualquer estágio —
+    inclusive com o veículo já no cliente e finalizado.
+
+    Só mexe em identificação (código e número de série). Não toca em
+    status_producao, kit_record, scan_session nem estoque: corrigir um
+    número digitado errado não é motivo pra reabrir produção, e o veículo
+    continua exatamente no estágio em que estava.
+
+    O código novo é propagado pras bipagens que usam o antigo, na MESMA
+    transação — scan_session_items referencia o patrimônio por texto, então
+    renomear só o cadastro deixaria o histórico órfão. O histórico não é
+    apagado nem recriado: as mesmas linhas passam a apontar pro código
+    novo, preservando data, operador, sessão e kit de cada passagem."""
+    codigo_atual = (codigo_atual or "").strip()
+    novo_codigo = (novo_codigo or "").strip()
+    if not codigo_atual:
+        raise ValueError("Patrimônio não informado.")
+
+    with db() as conn:
+        item = conn.execute(
+            "SELECT * FROM item_master WHERE codigo_barra = ?", (codigo_atual,)
+        ).fetchone()
+        if not item:
+            raise ValueError(f"Patrimônio {codigo_atual} não encontrado.")
+
+        renomeou = False
+        if novo_codigo and novo_codigo != codigo_atual:
+            existe = conn.execute(
+                "SELECT 1 FROM item_master WHERE codigo_barra = ?", (novo_codigo,)
+            ).fetchone()
+            if existe:
+                raise ValueError(
+                    f"O código {novo_codigo} já pertence a outro patrimônio.")
+            conn.execute("UPDATE item_master SET codigo_barra = ? WHERE id = ?",
+                         (novo_codigo, item["id"]))
+            conn.execute(
+                "UPDATE scan_session_items SET codigo_barra = ? WHERE codigo_barra = ?",
+                (novo_codigo, codigo_atual))
+            renomeou = True
+
+        codigo_final = novo_codigo if renomeou else codigo_atual
+        seriais = 0
+        if novo_serial is not None:
+            # Corrige o serial da bipagem MAIS RECENTE deste patrimônio: é a
+            # que descreve onde ele está agora. As anteriores continuam com
+            # o que foi registrado na época — histórico não se reescreve.
+            ultima = conn.execute(
+                "SELECT id FROM scan_session_items WHERE codigo_barra = ? "
+                "ORDER BY bipado_em DESC, id DESC LIMIT 1", (codigo_final,)
+            ).fetchone()
+            if ultima:
+                conn.execute(
+                    "UPDATE scan_session_items SET serial_number = ? WHERE id = ?",
+                    ((novo_serial or "").strip() or None, ultima["id"]))
+                seriais = 1
+
+    return {"codigo": codigo_final, "renomeou": renomeou, "seriais_atualizados": seriais}
 
 
 def buscar_item(codigo_barra: str) -> dict | None:

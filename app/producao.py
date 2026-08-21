@@ -175,6 +175,69 @@ def contar_a_produzir() -> int:
         return conn.execute(f"SELECT COUNT(*) {_A_PRODUZIR_FROM}").fetchone()[0]
 
 
+def localizacao_dos_veiculos() -> dict[int, dict]:
+    """{veiculo_id: {texto, cor}} — onde cada veículo está AGORA no fluxo.
+
+    Não é campo novo: é derivado dos mesmos estados que o painel de
+    Produção já usa, na ordem em que o veículo os percorre. Por isso a
+    localização se atualiza sozinha conforme ele avança, sem ninguém
+    marcar nada.
+
+    Uma consulta só pra todos os veículos — a tela lista centenas, e uma
+    consulta por linha (N+1) seria a diferença entre abrir na hora e
+    travar. O estágio mais AVANÇADO vence: um veículo com kit no cliente e
+    outro kit em produção aparece como "em produção", que é o que está
+    acontecendo com ele agora."""
+    ordem = {  # maior = mais avançado
+        "a_produzir": 1, "em_producao": 5, "produzido": 2,
+        "transito": 3, "cliente_instalando": 4, "cliente_concluido": 4,
+    }
+    rotulos = {
+        "a_produzir":         ("Galpão — A produzir", "#2980b9"),
+        "em_producao":        ("Galpão — Em produção", "#e67e22"),
+        "produzido":          ("Galpão — Produzido", "#27ae60"),
+        "transito":           ("Em trânsito", "#8e44ad"),
+        "cliente_instalando": ("Cliente", "#16a085"),
+        "cliente_concluido":  ("Cliente", "#16a085"),
+    }
+    estado: dict[int, str] = {}
+    cliente_de: dict[int, str] = {}
+
+    def _melhor(vid, novo):
+        atual = estado.get(vid)
+        if atual is None or ordem[novo] > ordem[atual]:
+            estado[vid] = novo
+
+    with db() as conn:
+        # Kits já feitos, do estágio de cada um.
+        for r in conn.execute(
+            "SELECT kr.veiculo_id, kr.status_producao, kt.cliente "
+            "FROM kit_record kr JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "WHERE kr.veiculo_id IS NOT NULL"
+        ).fetchall():
+            est = r["status_producao"] if r["status_producao"] in ordem else "produzido"
+            _melhor(r["veiculo_id"], est)
+            if est.startswith("cliente"):
+                cliente_de[r["veiculo_id"]] = r["cliente"] or ""
+        # Bipagem em andamento vence tudo: é onde o veículo está agora.
+        for r in conn.execute(
+            "SELECT veiculo_id FROM scan_session "
+            "WHERE status = 'em_andamento' AND veiculo_id IS NOT NULL"
+        ).fetchall():
+            _melhor(r["veiculo_id"], "em_producao")
+        # Prontos pra produzir (mesma regra da etapa do painel).
+        for r in conn.execute(f"SELECT v.id AS vid {_A_PRODUZIR_FROM}").fetchall():
+            _melhor(r["vid"], "a_produzir")
+
+    saida = {}
+    for vid, est in estado.items():
+        texto, cor = rotulos[est]
+        if est.startswith("cliente") and cliente_de.get(vid):
+            texto = f"Cliente — {cliente_de[vid]}"
+        saida[vid] = {"texto": texto, "cor": cor, "estado": est}
+    return saida
+
+
 def listar_em_producao() -> list[dict]:
     """Sessões de bipagem de Kit ainda em andamento — a etapa "Em Produção"
     do lado Consat, que não tem kit_record ainda."""
@@ -255,6 +318,32 @@ def listar_cliente_concluido(limite: int | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def listar_no_cliente(limite: int | None = None) -> list[dict]:
+    """Tudo que JÁ ESTÁ no cliente, numa lista só — instalando e concluído
+    juntos, do mais recente pro mais antigo.
+
+    A separação some da TELA, não do banco: status_producao continua com os
+    dois valores, cada kit mantém suas datas e o botão de concluir/voltar
+    segue funcionando. Fundir os estágios no banco apagaria o histórico de
+    quando cada kit chegou e quando foi concluído — o que a unificação pede
+    é uma visão única de "está no cliente", e é isso que esta função dá."""
+    query = (
+        f"SELECT {_CAMPOS_KIT}, kr.status_producao, "
+        "COALESCE(kr.cliente_concluido_em, kr.cliente_instalando_em) AS chegou_em "
+        "FROM kit_record kr "
+        "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+        "JOIN users u ON u.id = kr.operador_id "
+        "WHERE kr.status_producao IN ('cliente_instalando', 'cliente_concluido') "
+        "AND kt.tipo = 'kit' "
+        "ORDER BY chegou_em DESC"
+    )
+    if limite:
+        query += f" LIMIT {int(limite)}"
+    with db() as conn:
+        rows = conn.execute(query).fetchall()
+    return [dict(r) for r in rows]
+
+
 def dados_tv() -> dict:
     """Listas do painel da TV já com os limites de exibição aplicados.
     Puramente visual: o que fica de fora continua no banco, nos relatórios
@@ -312,6 +401,30 @@ def atualizar_nota_fiscal(kit_id: str, nota_fiscal: str, nota_fiscal_data: str,
             (nota_fiscal, nota_fiscal_data or None, kit_id)
         )
         return True
+
+
+def atribuir_nota_em_lote(kit_ids: list[str], nota_fiscal: str,
+                          nota_fiscal_data: str, motivo: str = "") -> dict:
+    """Mesma nota e mesma data pra vários kits de uma vez.
+
+    Reaproveita atualizar_nota_fiscal() kit a kit em vez de escrever um
+    UPDATE ... IN (...): assim a regra do motivo obrigatório pra SOBRESCREVER
+    nota já existente vale igual no lote e no individual — um UPDATE em massa
+    passaria por cima dela em silêncio.
+
+    Age SÓ nos kit_ids recebidos. Devolve o que foi gravado e o que ficou
+    bloqueado por falta de motivo, pra tela poder dizer exatamente o que
+    aconteceu em vez de só um número."""
+    atualizados, bloqueados = [], []
+    for kit_id in kit_ids:
+        kit_id = (kit_id or "").strip()
+        if not kit_id:
+            continue
+        if atualizar_nota_fiscal(kit_id, nota_fiscal, nota_fiscal_data, motivo):
+            atualizados.append(kit_id)
+        else:
+            bloqueados.append(kit_id)
+    return {"atualizados": atualizados, "bloqueados": bloqueados}
 
 
 _RE_KIT_ID_PATH = re.compile(
@@ -501,4 +614,7 @@ def resumo() -> dict:
         "transito": contagem.get("transito", 0),
         "cliente_instalando": contagem.get("cliente_instalando", 0),
         "cliente_concluido": contagem.get("cliente_concluido", 0),
+        # Card unificado de Cliente — os dois estágios somados. Os dois
+        # números separados continuam aí porque o Painel da TV os usa.
+        "cliente": contagem.get("cliente_instalando", 0) + contagem.get("cliente_concluido", 0),
     }
