@@ -349,17 +349,90 @@ tr:hover td { background: var(--surface-alt); }
 /* Session scan screen */
 .scan-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
+/* O painel de eventos vem PRIMEIRO durante a bipagem: é o retorno imediato
+   de cada bipada. No desktop ele fica na coluna da direita (order 2) e
+   acompanha a rolagem grudado no topo; no celular sobe pra cima da lista
+   de itens (regra em @media, mais abaixo), pra não precisar rolar a lista
+   inteira pra ver o que acabou de ser bipado. */
+.scan-layout .painel-itens { order: 1; }
+.scan-layout .painel-eventos {
+    order: 2;
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+}
+
 .item-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
+    gap: 10px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border);
     font-size: 14px;
+    border-left: 4px solid transparent;
+    border-radius: 6px;
+    transition: background .18s ease, border-color .18s ease;
 }
-.item-row .count { font-weight: 700; font-size: 16px; }
+/* Item completo pinta a LINHA INTEIRA — de relance dá pra ver o que já
+   foi bipado sem precisar ler item por item. */
+.item-row.done {
+    background: var(--ok-bg);
+    border-left-color: var(--ok-text);
+}
+.item-row.done strong { color: var(--ok-text); }
+.item-row .count { font-weight: 700; font-size: 16px; white-space: nowrap; }
 .item-row.done .count { color: var(--ok-text); }
 .item-row.pending .count { color: var(--text-muted); }
+.item-row .item-info { min-width: 0; }
+
+/* Marcadores (metro, serial, conjunto, opcional) numa linha abaixo do nome */
+.item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+}
+.item-tags .badge { font-size: 11px; }
+
+/* Progresso da bipagem */
+.bip-progresso {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+.bip-progresso-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--brand);
+    margin-bottom: 8px;
+}
+.bip-progresso-topo #bip-progresso-pct { font-size: 20px; }
+.bip-progresso-trilho {
+    height: 10px;
+    background: #e3e8ee;
+    border-radius: 99px;
+    overflow: hidden;
+}
+.bip-progresso-barra {
+    height: 100%;
+    background: linear-gradient(90deg, #27ae60, #2ecc71);
+    border-radius: 99px;
+    transition: width .3s ease;
+}
+.bip-progresso.completo .bip-progresso-topo { color: var(--ok-text); }
+.bip-progresso-falta {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
 
 .scan-feed { max-height: 400px; overflow-y: auto; }
 .scan-event {
@@ -491,6 +564,16 @@ tr:hover td { background: var(--surface-alt); }
 
     /* Scan screen: single column */
     .scan-layout { grid-template-columns: 1fr; gap: 12px; }
+    /* Numa coluna só, os eventos sobem pra cima da lista de itens — é o que
+       o operador precisa ver a cada bipada, sem rolar a lista toda. */
+    .scan-layout .painel-eventos {
+        order: 1;
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+    .scan-layout .painel-itens { order: 2; }
+    .scan-feed { max-height: 220px; }
 
     /* Tables: scroll container */
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }

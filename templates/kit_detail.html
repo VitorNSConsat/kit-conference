@@ -39,6 +39,18 @@
     align-items: flex-start;
   }
   .header h1 { font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .btn-voltar-topo {
+    display: inline-block;
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .btn-voltar-topo:active { background: rgba(255,255,255,.3); }
   .header .subtitulo { font-size: 13px; opacity: .7; margin-top: 4px; }
   .status-badge {
     background: #27ae60;
@@ -285,6 +297,10 @@
 <body>
 
 <div class="header">
+  {# Voltar também aqui em cima: o botão do rodapé obriga a rolar o kit
+     inteiro só pra sair, o que num kit grande é bem chato no celular.
+     O header é sticky, então este fica sempre à mão. #}
+  <a href="/mobile" class="btn-voltar-topo">← Voltar</a>
   <div class="header-top">
     <div>
       <h1>{{ kit.kit_nome }}</h1>

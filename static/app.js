@@ -170,6 +170,38 @@ function atualizarContagem(itemTipoId, atual, _exigido) {
     if (scrollAlvo) scrollAlvo.scrollIntoView({ behavior: "smooth", block: "nearest" });
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
+    atualizarProgressoBipagem();
+}
+
+// Recalcula quanto falta pra fechar o kit lendo as linhas já na tela — não
+// precisa que o servidor mande o total junto em cada bipagem. Conta só os
+// itens obrigatórios, a mesma regra que libera o botão Finalizar, então
+// 100% quer dizer exatamente "pode finalizar".
+function atualizarProgressoBipagem() {
+    const caixa = document.getElementById("bip-progresso");
+    if (!caixa) return;
+
+    let feito = 0, total = 0;
+    document.querySelectorAll(".item-row[data-obrigatorio='true']").forEach(el => {
+        const exigido = parseFloat(el.dataset.exigido) || 0;
+        // "3/10" ou "2.5m/10m" — pega o número antes da barra
+        const texto = (el.querySelector(".count") || {}).textContent || "";
+        const atual = parseFloat((texto.split("/")[0] || "").replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
+        total += exigido;
+        feito += Math.min(atual, exigido);
+    });
+
+    const pct = total ? Math.round(feito / total * 100) : 100;
+    const falta = Math.max(0, Math.round(total - feito));
+    const fmt = (n) => (Math.round(n * 100) / 100).toString().replace(/\.0+$/, "");
+
+    document.getElementById("bip-progresso-texto").textContent =
+        `${fmt(feito)}/${fmt(total)} itens`;
+    document.getElementById("bip-progresso-pct").textContent = pct + "%";
+    document.getElementById("bip-progresso-barra").style.width = pct + "%";
+    document.getElementById("bip-progresso-falta").textContent =
+        falta > 0 ? `faltam ${falta} item(ns)` : "✅ tudo bipado — pode finalizar";
+    caixa.classList.toggle("completo", falta === 0);
 }
 
 // ── Banner de patrimônio fixo ─────────────────────────────────────────────────

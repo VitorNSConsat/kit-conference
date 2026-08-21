@@ -66,8 +66,39 @@
 
 <div class="scan-layout">
     <!-- Painel esquerdo: itens e progresso -->
-    <div class="card">
+    <div class="card painel-itens">
         <h2>Itens do Kit</h2>
+
+        {# Progresso da bipagem: conta as unidades dos itens OBRIGATÓRIOS, a
+           mesma regra que libera o botão Finalizar — assim 100% significa
+           exatamente "pode finalizar". Cada item entra limitado ao que
+           exige, pra bipar demais de um não estourar o total. #}
+        {% set prog = namespace(feito=0, total=0) %}
+        {% for item in itens if item.obrigatorio %}
+            {% set atual = contagem.get(item.item_tipo_id, 0) %}
+            {% set prog.total = prog.total + item.quantidade_exigida %}
+            {% set prog.feito = prog.feito + ([atual, item.quantidade_exigida] | min) %}
+        {% endfor %}
+        <div class="bip-progresso" id="bip-progresso"
+             data-total="{{ prog.total }}">
+            <div class="bip-progresso-topo">
+                <span id="bip-progresso-texto">
+                    {{ prog.feito | round | int }}/{{ prog.total | round | int }} itens
+                </span>
+                <span id="bip-progresso-pct">
+                    {{ ((prog.feito / prog.total * 100) if prog.total else 100) | round | int }}%
+                </span>
+            </div>
+            <div class="bip-progresso-trilho">
+                <div class="bip-progresso-barra" id="bip-progresso-barra"
+                     style="width:{{ ((prog.feito / prog.total * 100) if prog.total else 100) | round | int }}%"></div>
+            </div>
+            <div class="bip-progresso-falta" id="bip-progresso-falta">
+                {% set falta = (prog.total - prog.feito) | round | int %}
+                {{ ('faltam ' ~ falta ~ ' item(ns)') if falta > 0 else '✅ tudo bipado — pode finalizar' }}
+            </div>
+        </div>
+
         {% for item in itens %}
         {% set atual = contagem.get(item.item_tipo_id, 0) %}
         {% set completo = atual >= item.quantidade_exigida %}
@@ -78,13 +109,21 @@
              data-exigido="{{ item.quantidade_exigida }}"
              data-unidade="{{ item.unidade | default('un') }}"
              data-obrigatorio="{{ 'true' if item.obrigatorio else 'false' }}">
-            <div>
+            <div class="item-info">
                 <strong>{{ item.descricao }}</strong>
-                {% if item.unidade == 'm' %}<span class="badge" style="margin-left:6px;background:#0984e3;color:#fff;">📏 m</span>{% endif %}
-                {% if item.reutilizavel %}<span title="Item reutilizável" style="margin-left:4px;">♻️</span>{% endif %}
-                {% if item.requer_serial %}<span class="badge" style="margin-left:6px;background:#6c5ce7;color:#fff;">📟 Serial</span>{% endif %}
-                {% if item.componente_codigo %}<span class="badge badge-warning" style="margin-left:6px;">📦 {{ item.componente_codigo }}</span>{% endif %}
-                {% if not item.obrigatorio %}<span class="badge badge-warning" style="margin-left:6px;">Opcional</span>{% endif %}
+                {# Marcadores numa linha própria, abaixo do nome — antes ficavam
+                   na mesma linha e empurravam o texto, atrapalhando a leitura
+                   rápida durante a bipagem. #}
+                {% if item.unidade == 'm' or item.reutilizavel or item.requer_serial
+                      or item.componente_codigo or not item.obrigatorio %}
+                <div class="item-tags">
+                    {% if item.unidade == 'm' %}<span class="badge" style="background:#0984e3;color:#fff;">📏 m</span>{% endif %}
+                    {% if item.reutilizavel %}<span class="badge" style="background:#e8f0f8;color:#1a3a5c;" title="Item reutilizável">♻️ reutilizável</span>{% endif %}
+                    {% if item.requer_serial %}<span class="badge" style="background:#6c5ce7;color:#fff;">📟 Serial</span>{% endif %}
+                    {% if item.componente_codigo %}<span class="badge badge-warning">📦 {{ item.componente_codigo }}</span>{% endif %}
+                    {% if not item.obrigatorio %}<span class="badge badge-warning">Opcional</span>{% endif %}
+                </div>
+                {% endif %}
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
                 <span class="count">{{ atual }}{{ sufixo }}/{{ item.quantidade_exigida }}{{ sufixo }}</span>
@@ -107,7 +146,7 @@
     </div>
 
     <!-- Painel direito: feed de eventos -->
-    <div class="card">
+    <div class="card painel-eventos">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <h2 style="margin:0;">Eventos de Bipagem</h2>
             <button type="button" class="btn btn-sm btn-warning" onclick="desfazerUltimo()"
@@ -381,7 +420,7 @@
 }
 </style>
 <script src="/static/zxing.min.js"></script>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=5"></script>
 <script>
 initScanner({{ session.id }});
 
