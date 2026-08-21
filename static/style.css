@@ -85,6 +85,12 @@ body::before {
     align-items: center;
     gap: 2px;
     flex: 1;
+    /* Sem o wrap, entre 768px (onde entra o menu hambúrguer) e ~1350px os
+       links não cabiam e empurravam a PÁGINA INTEIRA pra fora da tela —
+       toda tela ganhava scroll horizontal nessa faixa, que é justamente a
+       de notebook. Envolvendo, viram duas linhas e nada estoura. */
+    flex-wrap: wrap;
+    row-gap: 4px;
 }
 
 .nav-links a {
@@ -293,6 +299,28 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
     font-size: 12.5px;
     color: var(--text-muted);
     margin: -6px 0 12px;
+}
+
+/* Busca e filtros da tela de veículos: uma linha pra busca, outra pros
+   selects, cada uma com rótulo fixo à esquerda — separados de propósito
+   pra não parecer um amontoado de campos. Quebram sozinhos no mobile. */
+.filtros-linha {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.filtros-linha select {
+    max-width: 260px;
+}
+.filtros-rotulo {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-muted);
+    min-width: 74px;
 }
 
 .alert { padding: 12px 18px; border-radius: var(--radius-input); margin-bottom: 16px; font-size: 14px; }

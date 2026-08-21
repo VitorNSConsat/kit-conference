@@ -136,6 +136,13 @@
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           <a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a>
+          {% if user and user.admin %}
+          <a href="/kit/{{ h.kit_id }}/trocar-modelo" class="btn btn-sm btn-primary"
+             style="background:#2980b9;"
+             title="Trocar o modelo deste kit já pronto — mesma prévia da troca em bipagem, com acerto automático de estoque">
+            🔄 Trocar kit
+          </a>
+          {% endif %}
           <button type="button" class="btn btn-sm btn-warning"
                   id="btn-desv-{{ loop.index }}"
                   onclick="abrirDesvincular({{ loop.index }})"

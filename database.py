@@ -110,6 +110,8 @@ def _backup_antes_de_migrar() -> str | None:
         or "finalizado_por" not in colunas_kit_record
         or "modelo" not in colunas_veiculos
         or "observacao" not in colunas_kit_record
+        or "modelo_trocado_em" not in colunas_kit_record
+        or "verificacao_corte" not in colunas_kit_record
     )
     if not pendente:
         return None
@@ -514,6 +516,14 @@ def init_db():
             # Observação livre de uma correção feita no kit já finalizado
             # (troca de veículo, por exemplo). Aparece no relatório.
             "ALTER TABLE kit_record ADD COLUMN observacao TEXT",
+            # Quando o modelo do kit pronto foi trocado (só pra exibir).
+            "ALTER TABLE kit_record ADD COLUMN modelo_trocado_em TEXT",
+            # Fronteira das verificações: id da última verificação feita
+            # ANTES da troca — essas descrevem outro conteúdo de kit. É id e
+            # não data porque now_brt() só tem precisão de segundo, e
+            # verificar e trocar dentro do mesmo segundo tornaria a
+            # comparação por data ambígua. Id é sempre crescente e exato.
+            "ALTER TABLE kit_record ADD COLUMN verificacao_corte INTEGER",
         ]:
             try:
                 conn.execute(stmt)
@@ -613,3 +623,53 @@ def init_db():
             "SELECT DISTINCT garagem, ? FROM veiculos WHERE garagem != ''",
             (ts,)
         )
+
+    # ── Backfill de modelo dos registros antigos ("Sem Kit") ───────────────
+    # Registros de antes da coluna `modelo` existir ficaram com ela vazia e
+    # apareciam como "sem kit", mesmo com kit pronto associado. O kit
+    # correspondente NUNCA é inventado — ele já está gravado: todo
+    # kit_record aponta pro kit_template que o gerou. Só copiamos o nome.
+    # Idempotente: o WHERE só pega linha ainda vazia, então rodar de novo
+    # não sobrescreve nada; vínculos, patrimônios e histórico não são
+    # tocados — é UPDATE de uma coluna de texto, nada mais.
+    with db() as conn:
+        try:
+            # 1. kit_record.modelo vazio ← nome do template do próprio kit
+            #    (vai pra etiqueta na reimpressão e pro relatório).
+            conn.execute("""
+                UPDATE kit_record
+                   SET modelo = (SELECT kt.nome FROM kit_template kt
+                                  WHERE kt.id = kit_record.kit_template_id)
+                 WHERE TRIM(COALESCE(modelo, '')) = ''
+            """)
+            # 2. scan_session.modelo vazio, sessões finalizadas — mesma coisa.
+            conn.execute("""
+                UPDATE scan_session
+                   SET modelo = (SELECT kt.nome FROM kit_template kt
+                                  WHERE kt.id = scan_session.kit_template_id)
+                 WHERE TRIM(COALESCE(modelo, '')) = ''
+                   AND status != 'em_andamento'
+            """)
+            # 3. veiculos.modelo vazio ← nome do kit MAIS RECENTE feito pra
+            #    esse veículo, e só se esse nome ainda for de kit ATIVO —
+            #    modelo de kit morto deixaria o veículo apontando pro nada.
+            #    É o que faz o veículo antigo voltar a aparecer na bipagem
+            #    do kit certo sem ninguém preencher planilha.
+            conn.execute("""
+                UPDATE veiculos
+                   SET modelo = (
+                       SELECT kt.nome FROM kit_record kr
+                         JOIN kit_template kt ON kt.id = kr.kit_template_id
+                        WHERE kr.veiculo_id = veiculos.id
+                          AND kt.nome IN (SELECT nome FROM kit_template WHERE ativo = 1)
+                        ORDER BY kr.finalizado_em DESC LIMIT 1)
+                 WHERE TRIM(COALESCE(modelo, '')) = ''
+                   AND EXISTS (SELECT 1 FROM kit_record kr2
+                                WHERE kr2.veiculo_id = veiculos.id)
+            """)
+            # O UPDATE acima grava NULL quando nenhum kit do histórico é
+            # ativo — volta pra '' pra continuar contando como "sem modelo".
+            conn.execute(
+                "UPDATE veiculos SET modelo = '' WHERE modelo IS NULL")
+        except Exception as e:
+            print(f"[KIT] backfill de modelo pulado: {e}")

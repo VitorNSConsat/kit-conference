@@ -947,9 +947,13 @@ def validate_kit_complete(sessao_id: int) -> dict:
     }
 
 
-def comparar_troca_template(sessao_id: int, novo_template_id: int) -> dict | None:
-    """Prévia de trocar o kit de uma bipagem em andamento — o que sobrevive
-    à troca e o que não.
+def comparar_troca_template(sessao_id: int, novo_template_id: int,
+                            incluir_finalizada: bool = False) -> dict | None:
+    """Prévia de trocar o kit de uma bipagem — o que sobrevive à troca e o
+    que não. É o MESMO comparador pra todos os usos: troca no meio da
+    bipagem, troca de um kit já pronto e o painel de divergências do kit
+    (que compara a sessão com o próprio template atual) — uma regra só,
+    pra troca pela bipagem e pela tela do kit nunca discordarem.
 
     Tudo que foi bipado fica gravado por TIPO de item (scan_session_items.
     item_tipo_id), não por template, então trocar o template não apaga bip
@@ -962,9 +966,13 @@ def comparar_troca_template(sessao_id: int, novo_template_id: int) -> dict | Non
       excedentes   — bipado a mais: item que não existe no kit novo, ou
                      acima da quantidade que ele pede
       faltantes    — o que ainda falta bipar depois da troca
-    """
+
+    incluir_finalizada=True libera a prévia pra sessões já finalizadas —
+    é o caso do kit pronto."""
     session = get_session(sessao_id)
-    if not session or session["status"] != "em_andamento":
+    if not session:
+        return None
+    if session["status"] != "em_andamento" and not incluir_finalizada:
         return None
     novo = templates_mod.buscar_template(novo_template_id)
     if not novo:
@@ -1055,6 +1063,241 @@ def trocar_template(sessao_id: int, novo_template_id: int) -> dict:
         )
     return {"resultado": "trocado", "kit_nome": novo["nome"],
             "kit_anterior": session["kit_nome"]}
+
+
+def _linhas_para_remover(conn, sessao_id: int, item_tipo_id: int,
+                         unidades: float) -> list[dict]:
+    """Escolhe QUAIS linhas de bipagem saem quando um tipo precisa perder
+    `unidades` — usado na prévia (pra mostrar o que volta pro estoque) e na
+    execução da troca de kit pronto, então os dois nunca divergem.
+
+    Remove primeiro as linhas vindas do estoque (prefixo ESTOQUE:/COMP: —
+    cada uma vale 1 unidade e É estornável, mesma regra do remover_item da
+    bipagem) e só depois as bipagens de patrimônio, que não movimentam
+    estoque: o patrimônio fica LIVRE ao sair do kit (a checagem de "já está
+    em kit ativo" olha as linhas de sessão). Linha de quantidade em lote
+    (metros de cabo) pode ser reduzida parcialmente."""
+    rows = conn.execute(
+        "SELECT id, codigo_barra, COALESCE(quantidade, 1) AS quantidade "
+        "FROM scan_session_items "
+        "WHERE sessao_id = ? AND item_tipo_id = ? "
+        "AND (status IS NULL OR status = 'completo') "
+        "ORDER BY (CASE WHEN codigo_barra LIKE 'ESTOQUE:%' "
+        "               OR codigo_barra LIKE 'COMP:%' THEN 0 ELSE 1 END), id DESC",
+        (sessao_id, item_tipo_id)
+    ).fetchall()
+    plano, restante = [], unidades
+    for r in rows:
+        if restante <= 0:
+            break
+        estorna = (r["codigo_barra"].startswith("ESTOQUE:")
+                   or r["codigo_barra"].startswith("COMP:"))
+        tira = min(r["quantidade"], restante)
+        plano.append({
+            "id": r["id"], "codigo_barra": r["codigo_barra"],
+            "quantidade_remover": tira,
+            "remove_linha": tira >= r["quantidade"],
+            "estorna": estorna,
+        })
+        restante -= tira
+    return plano
+
+
+def previa_troca_kit_pronto(kit_id: str, novo_template_id: int) -> dict | None:
+    """Prévia da troca de kit de um kit JÁ PRONTO — o mesmo comparador da
+    troca em bipagem, mais o efeito no estoque, porque aqui a troca mexe em
+    coisa física já montada e descontada:
+
+      excedentes ganham `volta_estoque` (unidades estornadas — só as que
+        SAÍRAM do estoque, identificadas pelo prefixo) e
+        `libera_patrimonio` (bipagens de patrimônio que ficam livres);
+      faltantes ganham `tem_estoque`/`estoque_disponivel`/`estoque_suficiente`
+        — tipo com estoque vinculado sai do estoque sozinho na confirmação;
+        tipo sem estoque não tem de onde sair e fica como pendência visível
+        no painel de divergências do kit (patrimônio nunca é escolhido
+        automaticamente: o sistema não sabe QUAL unidade física está na
+        caixa, e chutar roubaria patrimônio de outro kit).
+
+    `bloqueios` lista os faltantes cujo estoque vinculado não tem saldo —
+    com bloqueio a troca não executa (troca de kit pronto é ação deliberada
+    de escritório, então segue a regra de travar; desconto automático de
+    bipagem é que nunca trava)."""
+    with db() as conn:
+        kr = conn.execute("SELECT * FROM kit_record WHERE kit_id = ?", (kit_id,)).fetchone()
+    if not kr:
+        return None
+    kr = dict(kr)
+    previa = comparar_troca_template(kr["sessao_id"], novo_template_id,
+                                     incluir_finalizada=True)
+    if previa is None:
+        return None
+
+    with db() as conn:
+        for exc in previa["excedentes"]:
+            plano = _linhas_para_remover(conn, kr["sessao_id"],
+                                         exc["item_tipo_id"], exc["quantidade"])
+            exc["volta_estoque"] = sum(
+                p["quantidade_remover"] for p in plano if p["estorna"])
+            exc["libera_patrimonio"] = sum(
+                1 for p in plano if not p["estorna"] and p["remove_linha"])
+
+    bloqueios = []
+    for f in previa["faltantes"]:
+        est = estoque_mod.buscar_por_tipo(f["item_tipo_id"])
+        f["tem_estoque"] = est is not None
+        f["estoque_disponivel"] = est["quantidade_atual"] if est else 0
+        f["estoque_suficiente"] = bool(est) and est["quantidade_atual"] >= f["faltam"]
+        if est and not f["estoque_suficiente"]:
+            bloqueios.append(
+                f"{f['descricao']}: precisa de {f['faltam']}, estoque tem "
+                f"{est['quantidade_atual']}")
+    previa["bloqueios"] = bloqueios
+    previa["kit"] = kr
+    return previa
+
+
+def trocar_template_kit_pronto(kit_id: str, novo_template_id: int,
+                               operador_id: int) -> dict:
+    """Executa a troca de kit de um kit JÁ PRONTO, numa transação só:
+    remove as bipagens excedentes (estornando ao estoque o que veio dele),
+    puxa do estoque os faltantes de tipo com estoque vinculado e atualiza
+    sessão e kit_record pro template novo. Ou tudo, ou nada — qualquer
+    validação que falhe sai ANTES do primeiro UPDATE, e uma exceção no meio
+    desfaz o resto (o with db() só commita ao sair sem erro).
+
+    O operador não corrige estoque na mão: cada movimento fica em
+    estoque_movimentos citando o kit, e o saldo é reconferido DENTRO da
+    transação — a prévia pode ter ficado velha entre mostrar e confirmar."""
+    with db() as conn:
+        kr = conn.execute("SELECT * FROM kit_record WHERE kit_id = ?", (kit_id,)).fetchone()
+    if not kr:
+        return {"resultado": "rejeitado", "mensagem": "Kit não encontrado."}
+    kr = dict(kr)
+    if kr["kit_template_id"] == novo_template_id:
+        return {"resultado": "rejeitado", "mensagem": "Esse já é o kit deste registro."}
+    novo = templates_mod.buscar_template(novo_template_id)
+    if not novo:
+        return {"resultado": "rejeitado", "mensagem": "Kit não encontrado."}
+    if not novo.get("ativo"):
+        return {"resultado": "rejeitado", "mensagem": "Esse kit está desativado."}
+    previa = previa_troca_kit_pronto(kit_id, novo_template_id)
+    if previa is None:
+        return {"resultado": "rejeitado", "mensagem": "Não foi possível comparar os kits."}
+    if previa["bloqueios"]:
+        return {"resultado": "rejeitado",
+                "mensagem": "Estoque insuficiente — " + "; ".join(previa["bloqueios"])}
+
+    sessao_id = kr["sessao_id"]
+    estornos: list[str] = []
+    saidas: list[str] = []
+    try:
+        _executar_troca_kit_pronto(kit_id, sessao_id, novo_template_id, novo,
+                                   previa, operador_id, estornos, saidas)
+    except ValueError as e:
+        # O rollback do with db() já desfez tudo — nada ficou pela metade.
+        return {"resultado": "rejeitado", "mensagem": str(e)}
+
+    pendentes = [f for f in previa["faltantes"] if not f["tem_estoque"]]
+    return {"resultado": "trocado",
+            "kit_anterior": previa["sessao"]["kit_nome"],
+            "kit_nome": novo["nome"],
+            "estornos": estornos, "saidas": saidas,
+            "pendentes": [{"descricao": p["descricao"], "faltam": p["faltam"]}
+                          for p in pendentes]}
+
+
+def _executar_troca_kit_pronto(kit_id: str, sessao_id: int, novo_template_id: int,
+                               novo: dict, previa: dict, operador_id: int,
+                               estornos: list, saidas: list) -> None:
+    with db() as conn:
+        # 1. Excedentes: remove/reduz as linhas e estorna o que veio do
+        # estoque. Movimentos inline na MESMA conexão — repor_estoque()
+        # abriria uma segunda conexão dentro da transação e travaria o
+        # SQLite ("database is locked").
+        for exc in previa["excedentes"]:
+            plano = _linhas_para_remover(conn, sessao_id,
+                                         exc["item_tipo_id"], exc["quantidade"])
+            devolver = 0
+            for p in plano:
+                if p["remove_linha"]:
+                    conn.execute("DELETE FROM scan_session_items WHERE id = ?", (p["id"],))
+                else:
+                    conn.execute(
+                        "UPDATE scan_session_items SET quantidade = quantidade - ? "
+                        "WHERE id = ?", (p["quantidade_remover"], p["id"]))
+                if p["estorna"]:
+                    devolver += p["quantidade_remover"]
+            if devolver:
+                est = conn.execute(
+                    "SELECT id FROM estoque WHERE item_tipo_id = ?",
+                    (exc["item_tipo_id"],)).fetchone()
+                if est:
+                    conn.execute(
+                        "UPDATE estoque SET quantidade_atual = quantidade_atual + ? "
+                        "WHERE id = ?", (devolver, est["id"]))
+                    conn.execute(
+                        "INSERT INTO estoque_movimentos (estoque_id, tipo, quantidade, "
+                        "sessao_id, criado_por, observacao, criado_em) "
+                        "VALUES (?, 'entrada', ?, ?, ?, ?, ?)",
+                        (est["id"], devolver, sessao_id, operador_id,
+                         f"Estorno — troca de kit do kit pronto {kit_id[:8]}", now_brt()))
+                    estornos.append(f"{exc['descricao']}: +{devolver}")
+
+        # 2. Faltantes com estoque vinculado: saldo reconferido AGORA, e a
+        # exceção desfaz a transação inteira — nada fica pela metade.
+        for f in previa["faltantes"]:
+            est = conn.execute(
+                "SELECT e.*, it.nome AS tipo_nome FROM estoque e "
+                "JOIN item_tipo it ON it.id = e.item_tipo_id "
+                "WHERE e.item_tipo_id = ?", (f["item_tipo_id"],)).fetchone()
+            if not est:
+                continue  # sem estoque vinculado: fica como pendência visível
+            if est["quantidade_atual"] < f["faltam"]:
+                raise ValueError(
+                    f"Estoque de '{est['tipo_nome']}' mudou durante a troca "
+                    f"({est['quantidade_atual']} < {f['faltam']}). Nada foi alterado.")
+            # Sufixo T{n} no lugar do seq numérico pra nunca colidir com as
+            # linhas que a bipagem original gravou; o estorno do
+            # remover_item lê o código do meio, então continua funcionando.
+            for i in range(int(f["faltam"])):
+                conn.execute(
+                    "INSERT INTO scan_session_items (sessao_id, codigo_barra, "
+                    "item_tipo_id, status, bipado_em, operador_id) "
+                    "VALUES (?, ?, ?, 'completo', ?, ?)",
+                    (sessao_id, f"ESTOQUE:{est['codigo_barra']}:T{i}",
+                     f["item_tipo_id"], now_brt(), operador_id))
+            conn.execute(
+                "UPDATE estoque SET quantidade_atual = quantidade_atual - ? "
+                "WHERE id = ?", (f["faltam"], est["id"]))
+            conn.execute(
+                "INSERT INTO estoque_movimentos (estoque_id, tipo, quantidade, "
+                "sessao_id, criado_por, observacao, criado_em) "
+                "VALUES (?, 'saida', ?, ?, ?, ?, ?)",
+                (est["id"], f["faltam"], sessao_id, operador_id,
+                 f"Troca de kit do kit pronto {kit_id[:8]}", now_brt()))
+            saidas.append(f"{f['descricao']}: -{f['faltam']}")
+
+        # 3. Sessão e kit_record apontam pro template novo — o modelo (nome
+        # do kit) vai junto, é ele que aparece em etiqueta e relatório.
+        conn.execute(
+            "UPDATE scan_session SET kit_template_id = ?, kit_template_versao = ?, "
+            "modelo = ? WHERE id = ?",
+            (novo_template_id, novo["versao"], novo["nome"], sessao_id))
+        # 4. A conferência item a item descrevia o conteúdo ANTIGO — o kit
+        # mudou, então tem que ser refeita. O histórico de verificações
+        # (kit_validacoes) NÃO é apagado: é registro de quem verificou e
+        # quando, e apagar seria reescrever o passado. Em vez disso guardamos
+        # o id da última verificação de antes da troca — daí pra trás, a tela
+        # mostra "anterior à troca" e o selo de verificado só volta quando
+        # alguém verificar de novo.
+        corte = conn.execute(
+            "SELECT COALESCE(MAX(id), 0) FROM kit_validacoes WHERE kit_id = ?",
+            (kit_id,)).fetchone()[0]
+        conn.execute(
+            "UPDATE kit_record SET kit_template_id = ?, kit_template_versao = ?, "
+            "modelo = ?, modelo_trocado_em = ?, verificacao_corte = ? WHERE kit_id = ?",
+            (novo_template_id, novo["versao"], novo["nome"], now_brt(), corte, kit_id))
+        conn.execute("DELETE FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))
 
 
 def listar_sessoes_em_andamento(template_id: int | None = None,

@@ -187,23 +187,41 @@ def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str =
 
 
 def reverter_saidas_sessao(sessao_id: int) -> None:
-    """Restaura estoque das saídas de uma sessão cancelada."""
+    """Restaura estoque das saídas de uma sessão cancelada.
+
+    Devolve o SALDO LÍQUIDO, não a soma das saídas: a troca de kit de um kit
+    pronto já devolve ao estoque o que sai do kit, gravando uma 'entrada'
+    com o sessao_id. Somando só as saídas, essas unidades voltariam duas
+    vezes e o estoque ganharia peça que não existe. As entradas de estorno
+    da bipagem (remover_item) não têm sessao_id, então não entram nesta
+    conta e continuam valendo como sempre."""
     with db() as conn:
-        saidas = conn.execute(
-            "SELECT estoque_id, SUM(quantidade) AS total "
+        saldos = conn.execute(
+            "SELECT estoque_id, "
+            "  SUM(CASE WHEN tipo = 'saida'   THEN quantidade ELSE 0 END) "
+            "- SUM(CASE WHEN tipo = 'entrada' THEN quantidade ELSE 0 END) AS total "
             "FROM estoque_movimentos "
-            "WHERE sessao_id = ? AND tipo = 'saida' "
+            "WHERE sessao_id = ? AND tipo IN ('saida', 'entrada') "
             "GROUP BY estoque_id",
             (sessao_id,)
         ).fetchall()
-        for s in saidas:
-            conn.execute(
-                "UPDATE estoque SET quantidade_atual = quantidade_atual + ? WHERE id = ?",
-                (s["total"], s["estoque_id"])
-            )
+        for s in saldos:
+            if s["total"] > 0:
+                conn.execute(
+                    "UPDATE estoque SET quantidade_atual = quantidade_atual + ? WHERE id = ?",
+                    (s["total"], s["estoque_id"])
+                )
+        # Marca saídas E entradas: sem marcar as entradas, uma segunda
+        # chamada recalcularia o líquido contra saídas já canceladas e
+        # devolveria a diferença de novo.
         conn.execute(
             "UPDATE estoque_movimentos SET tipo = 'saida_cancelada' "
             "WHERE sessao_id = ? AND tipo = 'saida'",
+            (sessao_id,)
+        )
+        conn.execute(
+            "UPDATE estoque_movimentos SET tipo = 'entrada_cancelada' "
+            "WHERE sessao_id = ? AND tipo = 'entrada'",
             (sessao_id,)
         )
 

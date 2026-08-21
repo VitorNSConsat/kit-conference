@@ -306,7 +306,9 @@
       <h1>{{ kit.kit_nome }}</h1>
       <div class="subtitulo">{{ kit.cliente }} &nbsp;·&nbsp; v{{ kit.versao }}</div>
     </div>
-    {% if validacoes %}<span class="status-badge">✓ Verificado</span>{% endif %}
+    {# Só verificação POSTERIOR à troca de modelo vale como "verificado" —
+       a anterior descrevia outro conteúdo de kit. #}
+    {% if validacoes_vigentes %}<span class="status-badge">✓ Verificado</span>{% endif %}
   </div>
 
   <!-- Veículo e Garagem direto no header — visíveis imediatamente -->
@@ -329,6 +331,61 @@
 </div>
 
 <div class="container">
+
+  {% if ok and ok != 'validado' %}
+  <div class="alert-success">✅ {{ ok }}</div>
+  {% endif %}
+
+  {# O aviso é a pendência, não o registro: some assim que alguém verifica o
+     kit no modelo novo. As verificações antigas seguem marcadas como tal no
+     histórico, que é onde esse fato pertence. #}
+  {% if validacoes_antigas and not validacoes_vigentes %}
+  <div class="alert-success" style="background:#fdf6ea;color:#8a6d3b;border-color:#f0d9a8;">
+    ⚠️ Este kit teve o modelo trocado em {{ kit.modelo_trocado_em[:16] }}.
+    {{ validacoes_antigas | length }} verificação(ões) anterior(es) continuam no histórico,
+    mas descrevem o conteúdo antigo — <strong>o kit precisa ser verificado de novo</strong>.
+  </div>
+  {% endif %}
+
+  {# Divergências com o modelo ATUAL do kit — mesmo comparador da troca de
+     kit. Só ter a mesma quantidade total não vale: a comparação é por tipo
+     de item, contra o que o modelo exige. Aparece só quando há diferença. #}
+  {% if divergencias and (divergencias.faltantes or divergencias.excedentes) %}
+  <div class="card" style="border:2px solid #e67e22;">
+    <div class="card-title" style="color:#e67e22;">⚠️ Divergências com o modelo atual</div>
+    <p style="font-size:13px;color:#555;margin:0 0 10px;">
+      O conteúdo bipado deste kit não bate com o que o modelo
+      <strong>{{ kit.kit_nome }}</strong> (v{{ kit.versao }}) exige:
+    </p>
+    {% if divergencias.faltantes %}
+    <div style="font-size:13px;color:#c0392b;margin-bottom:8px;">
+      <strong>Faltando no kit:</strong>
+      <ul style="margin:4px 0 0;padding-left:20px;">
+        {% for f in divergencias.faltantes %}
+        <li>{{ f.descricao }} — faltam {{ f.faltam }} de {{ f.exigido }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if divergencias.excedentes %}
+    <div style="font-size:13px;color:#e67e22;">
+      <strong>Sobrando no kit:</strong>
+      <ul style="margin:4px 0 0;padding-left:20px;">
+        {% for e in divergencias.excedentes %}
+        <li>{{ e.descricao }} — {{ e.quantidade }}
+          {%- if not e.no_kit_novo %} (não existe neste modelo){% else %} a mais{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <p style="font-size:12px;color:#888;margin:10px 0 0;">
+      Confira a caixa física. Se o kit foi montado num modelo diferente,
+      {% if user and user.admin %}use <strong>🔄 Trocar Kit</strong> abaixo para
+      corrigir o modelo{% else %}peça a um administrador para trocar o modelo do
+      kit{% endif %} — o estoque é acertado automaticamente.
+    </p>
+  </div>
+  {% endif %}
 
   <!-- Info resumida -->
   <div class="card">
@@ -492,7 +549,10 @@
       <div class="val-history-row">
         <div>
           <div class="val-who">{{ v.user_nome }}</div>
-          <div class="val-when">{{ v.validado_em[:16] }}</div>
+          <div class="val-when">{{ v.validado_em[:16] }}
+            {%- if v in validacoes_antigas %}
+            <span style="color:#e67e22;font-weight:600;"> · antes da troca de kit</span>
+            {%- endif %}</div>
           {% if v.observacao %}
           <div class="val-obs">{{ v.observacao }}</div>
           {% endif %}
@@ -503,6 +563,13 @@
     </div>
     {% endif %}
   </div>
+
+  {% if user and user.admin %}
+  {# Troca de kit do kit pronto — mesma lógica da troca em bipagem, com
+     acerto automático de estoque. Só admin, e a rota também exige. #}
+  <a href="/kit/{{ kit.kit_id }}/trocar-modelo" class="btn-voltar-inicio"
+     style="background:#2980b9;margin-bottom:10px;">🔄 Trocar Kit (corrigir modelo)</a>
+  {% endif %}
 
   <a href="/mobile" class="btn-voltar-inicio">← Voltar ao Início</a>
 

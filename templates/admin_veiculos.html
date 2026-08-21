@@ -39,8 +39,12 @@
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
-<!-- Linha superior: Clientes + Garagens + Novo Veículo lado a lado -->
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;margin-bottom:0;">
+<!-- Linha superior: Clientes + Garagens + Novo Veículo lado a lado.
+     auto-fit/minmax em vez de 1fr 1fr 1fr: com três colunas fixas os cards
+     não cabiam abaixo de ~1100px e empurravam a página inteira pra fora da
+     tela (a página ganhava scroll horizontal). Assim eles quebram sozinhos
+     em 2 ou 1 coluna conforme a largura. -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;margin-bottom:0;">
 
   <!-- Clientes -->
   <div class="card" style="margin-bottom:0;">
@@ -54,6 +58,10 @@
     {% if clientes_cadastrados %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar cliente..."
            oninput="filtrarLista(this)" data-filtro-alvo="#tabela-clientes tr.filtro-item">
+    {# .table-scroll é obrigatório: no CSS estreito toda tabela tem
+       min-width 540px, então sem o wrapper ela estoura o card e empurra a
+       página inteira pra fora da tela. #}
+    <div class="table-scroll">
     <table id="tabela-clientes">
       <thead>
         <tr><th>Nome</th><th>Desde</th><th></th></tr>
@@ -75,6 +83,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
     {% endif %}
@@ -92,6 +101,7 @@
     {% if garagens_cadastradas %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar garagem..."
            oninput="filtrarLista(this)" data-filtro-alvo="#tabela-garagens tr.filtro-item">
+    <div class="table-scroll">
     <table id="tabela-garagens">
       <thead>
         <tr><th>Nome</th><th>Desde</th><th></th></tr>
@@ -113,6 +123,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
     {% endif %}
@@ -178,37 +189,66 @@
 
 <!-- Lista de veículos -->
 <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-    <h2 style="margin:0;">Veículos ({{ pag_veiculos.total }})</h2>
+  <!-- Contagem sempre visível: total cadastrado e, com filtro/busca ativo,
+       quantos estão sendo exibidos — os dois números lado a lado. -->
+  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+    <h2 style="margin:0;">🚚 Veículos</h2>
+    <span class="badge" style="background:#1a3a5c;color:#fff;font-size:13px;">
+      {{ total_geral }} cadastrados
+    </span>
+    <span class="badge" id="badge-exibindo"
+          style="background:#2980b9;color:#fff;font-size:13px;{{ '' if tem_filtro else 'display:none;' }}">
+      exibindo {{ pag_veiculos.total }}
+    </span>
     {% if sem_modelo %}
     <span class="badge badge-warning"
           title="Veículo sem modelo não aparece em nenhum kit — defina o modelo pra ele voltar a ser bipável">
       ⚠️ {{ sem_modelo }} sem modelo
     </span>
     {% endif %}
-    <form method="get" style="display:flex;gap:8px;align-items:center;">
-      <select name="cliente" style="margin:0;">
-        <option value="">— todos os clientes —</option>
+  </div>
+
+  <!-- Busca e filtros separados: a busca é um campo só (e ao vivo — filtra
+       enquanto digita, em todas as páginas); os filtros são os selects. -->
+  <form method="get" action="/admin/veiculos" id="form-filtros-veiculos">
+    <div class="filtros-linha">
+      <span class="filtros-rotulo">🔍 Busca</span>
+      <input type="text" name="busca" id="busca-veiculos" value="{{ busca }}"
+             autocomplete="off" style="flex:1;min-width:220px;margin:0;"
+             placeholder="Número do veículo, cliente, garagem, kit ou patrimônio bipado...">
+    </div>
+    <div class="filtros-linha">
+      <span class="filtros-rotulo">⚙️ Filtros</span>
+      <select name="cliente" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
+        <option value="">Cliente: todos</option>
         {% for c in clientes %}
         <option value="{{ c }}" {{ 'selected' if filtro_cliente == c }}>{{ c }}</option>
         {% endfor %}
       </select>
-      <button type="submit" class="btn btn-sm btn-primary">🔍 Filtrar</button>
-      {% if filtro_cliente %}
-      <a href="/admin/veiculos" class="btn btn-sm btn-warning">✕ Limpar</a>
-      {% endif %}
-    </form>
-  </div>
-  <form method="get" action="/admin/veiculos" class="busca-form">
-    {% if filtro_cliente %}<input type="hidden" name="cliente" value="{{ filtro_cliente }}">{% endif %}
-    <input type="text" name="busca" value="{{ busca }}"
-           placeholder="🔍 Buscar por número, cliente, garagem ou modelo...">
-    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-    {% if busca %}<a href="/admin/veiculos" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+      <select name="modelo" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
+        <option value="">Modelo (kit): todos</option>
+        {% for m in modelos %}
+        <option value="{{ m }}" {{ 'selected' if filtro_modelo == m }}>{{ m }}</option>
+        {% endfor %}
+      </select>
+      <select name="situacao" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
+        <option value="">Situação: todas</option>
+        <option value="sem_modelo" {{ 'selected' if filtro_situacao == 'sem_modelo' }}>⚠️ Sem modelo</option>
+        <option value="sem_garagem" {{ 'selected' if filtro_situacao == 'sem_garagem' }}>Sem garagem</option>
+        <option value="sem_kits" {{ 'selected' if filtro_situacao == 'sem_kits' }}>Nunca recebeu kit</option>
+        <option value="com_kits" {{ 'selected' if filtro_situacao == 'com_kits' }}>Já recebeu kit</option>
+      </select>
+      <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
+      <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
+         style="{{ '' if tem_filtro else 'display:none;' }}">✕ Limpar</a>
+    </div>
   </form>
+
+  <div id="bloco-veiculos">
   {% if busca %}
   <p class="busca-resultado">
-    {{ pag_veiculos.total }} resultado(s) para <strong>{{ busca }}</strong> — busca em todas as páginas
+    {{ pag_veiculos.total }} resultado(s) para <strong>{{ busca }}</strong> —
+    busca em todas as páginas, incluindo patrimônios bipados
   </p>
   {% endif %}
   {% if pag_veiculos.itens %}
@@ -282,27 +322,32 @@
   </form>
 
   {% if pag_veiculos.total_paginas > 1 %}
+  {% set qs = 'cliente=' + (filtro_cliente|urlencode) + '&modelo=' + (filtro_modelo|urlencode) + '&situacao=' + (filtro_situacao|urlencode) + '&busca=' + (busca|urlencode) %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag_veiculos.pagina }} de {{ pag_veiculos.total_paginas }}</span>
     {% for p in pag_veiculos.paginas_visiveis %}
       {% if p is none %}
       <span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="/admin/veiculos?cliente={{ filtro_cliente }}&pagina={{ p }}{{ '&busca=' + busca|urlencode if busca }}"
+      <a href="/admin/veiculos?{{ qs }}&pagina={{ p }}"
          class="btn btn-sm {{ 'btn-primary' if p == pag_veiculos.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
   </div>
   {% endif %}
   {% else %}
-  <p style="color:#888;text-align:center;padding:24px;">Nenhum veículo cadastrado.</p>
+  <p style="color:#888;text-align:center;padding:24px;">
+    {% if tem_filtro %}Nenhum veículo bate com a busca/filtros.{% else %}Nenhum veículo cadastrado.{% endif %}
+  </p>
   {% endif %}
+  </div> <!-- /bloco-veiculos -->
 
   {% if veiculos_inativos %}
   <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e0e0e0;">
     <p style="font-size:12px;color:#aaa;margin-bottom:8px;">
       Inativos ({{ veiculos_inativos | length }})
     </p>
+    <div class="table-scroll">
     <table>
       <tbody>
       {% for v in veiculos_inativos %}
@@ -317,6 +362,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
   {% endif %}
 </div>
@@ -351,6 +397,58 @@ function confirmarExclusaoMassa() {
     if (qtd === 0) return false;
     return confirm('Excluir permanentemente ' + qtd + ' veículo(s)? ' +
                    'O histórico de kits de cada um será preservado.');
+}
+
+// ── Busca ao vivo ─────────────────────────────────────────────────────────
+// A lista atualiza ENQUANTO se digita (e ao trocar qualquer filtro), sem
+// recarregar a página: busca a mesma URL no servidor — então continua
+// varrendo todas as páginas e os patrimônios, igual ao submit — e troca só
+// o bloco da lista. Debounce de 350ms pra não disparar a cada tecla; um
+// contador de versão descarta resposta velha que chegue depois da nova
+// (digitação rápida embaralharia os resultados sem isso).
+let _timerBusca = null;
+let _versaoBusca = 0;
+
+function aplicarFiltrosVeiculos() {
+    const form = document.getElementById('form-filtros-veiculos');
+    const params = new URLSearchParams(new FormData(form));
+    const url = '/admin/veiculos?' + params.toString();
+    const minhaVersao = ++_versaoBusca;
+    fetch(url, {headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => {
+            if (minhaVersao !== _versaoBusca) return; // resposta velha
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const novo = doc.getElementById('bloco-veiculos');
+            if (novo) document.getElementById('bloco-veiculos').innerHTML = novo.innerHTML;
+            const badge = doc.getElementById('badge-exibindo');
+            const meuBadge = document.getElementById('badge-exibindo');
+            if (badge && meuBadge) {
+                meuBadge.textContent = badge.textContent;
+                meuBadge.style.display = badge.style.display;
+            }
+            const limpar = document.getElementById('btn-limpar-filtros');
+            if (limpar) {
+                const temFiltro = [...params.values()].some(v => v.trim() !== '');
+                limpar.style.display = temFiltro ? '' : 'none';
+            }
+            history.replaceState(null, '', url);
+        })
+        .catch(() => { window.location = url; }); // sem fetch, navega normal
+}
+
+const campoBusca = document.getElementById('busca-veiculos');
+if (campoBusca) {
+    campoBusca.addEventListener('input', () => {
+        clearTimeout(_timerBusca);
+        _timerBusca = setTimeout(aplicarFiltrosVeiculos, 350);
+    });
+    // Enter aplica na hora em vez de recarregar a página inteira.
+    campoBusca.closest('form').addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        clearTimeout(_timerBusca);
+        aplicarFiltrosVeiculos();
+    });
 }
 </script>
 {% endblock %}

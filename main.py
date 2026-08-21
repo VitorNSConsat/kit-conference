@@ -1871,8 +1871,25 @@ async def kit_detail(request: Request, kit_id: str):
     conferidos = validacoes_mod.listar_conferidos(kit_id)
     grupos = validacoes_mod.grupos_conjunto(kit["kit_template_id"], kit["sessao_id"])
 
+    # A verificação compara o kit com o MODELO ATUAL dele, não só a lista
+    # bipada: comparar a sessão com o próprio template (mesmo comparador da
+    # troca de kit) devolve o que falta e o que sobra em relação ao modelo.
+    # Igualdade de quantidade total não basta — a divergência é por tipo.
+    divergencias = sessions_mod.comparar_troca_template(
+        kit["sessao_id"], kit["kit_template_id"], incluir_finalizada=True)
+
+    # Verificação feita ANTES da troca de modelo descreve outro conteúdo —
+    # não vale como verificação do kit atual. O histórico continua todo
+    # visível; o que muda é o selo de "verificado" e o aviso.
+    corte = kit.get("verificacao_corte") or 0
+    validacoes_vigentes = [v for v in validacoes if v["id"] > corte]
+    validacoes_antigas = [v for v in validacoes if v["id"] <= corte]
+
     return render(request, "kit_detail.html", {
         "kit": kit,
+        "divergencias": divergencias,
+        "validacoes_vigentes": validacoes_vigentes,
+        "validacoes_antigas": validacoes_antigas,
         "itens": [dict(i) for i in itens],
         "validacoes": validacoes,
         "ok": ok,
@@ -1882,6 +1899,60 @@ async def kit_detail(request: Request, kit_id: str):
         "conferidos": conferidos,
         "grupos": grupos,
     })
+
+
+@app.get("/kit/{kit_id}/trocar-modelo", response_class=HTMLResponse)
+@require_admin
+async def kit_pronto_trocar_modelo_page(request: Request, kit_id: str,
+                                        novo: str = "", erro: str = ""):
+    """Troca o kit de um kit JÁ PRONTO — mesma lógica e mesma tela de
+    prévia da troca em bipagem, mais o efeito no estoque (o que volta, o
+    que sai, o que fica pendente). Só admin, igual à troca em bipagem."""
+    with db() as conn:
+        kr = conn.execute(
+            "SELECT kr.*, kt.nome AS kit_nome, kt.cliente, kt.versao "
+            "FROM kit_record kr JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "WHERE kr.kit_id = ?", (kit_id,)).fetchone()
+    if not kr:
+        return HTMLResponse("<h2>Kit não encontrado.</h2>", status_code=404)
+    novo_id = int(novo) if novo.isdigit() else None
+    previa = (sessions_mod.previa_troca_kit_pronto(kit_id, novo_id)
+              if novo_id and novo_id != kr["kit_template_id"] else None)
+    return render(request, "kit_trocar_modelo.html", {
+        "kit": dict(kr),
+        "templates": templates_mod.listar_templates_ativos(),
+        "novo_id": novo_id,
+        "previa": previa,
+        "erro": erro,
+    })
+
+
+@app.post("/kit/{kit_id}/trocar-modelo")
+@require_admin
+async def kit_pronto_trocar_modelo_post(request: Request, kit_id: str):
+    user = get_current_user(request)
+    form = await request.form()
+    novo_str = str(form.get("kit_template_id", "")).strip()
+    if not novo_str.isdigit():
+        return RedirectResponse(
+            f"/kit/{kit_id}/trocar-modelo?erro=" + quote("Escolha o kit novo."),
+            status_code=302)
+    resultado = sessions_mod.trocar_template_kit_pronto(
+        kit_id, int(novo_str), operador_id=user["id"])
+    if resultado["resultado"] != "trocado":
+        return RedirectResponse(
+            f"/kit/{kit_id}/trocar-modelo?erro=" + quote(resultado["mensagem"]),
+            status_code=302)
+    partes = [f"Kit trocado de \"{resultado['kit_anterior']}\" para \"{resultado['kit_nome']}\"."]
+    if resultado["estornos"]:
+        partes.append("Voltou ao estoque: " + ", ".join(resultado["estornos"]) + ".")
+    if resultado["saidas"]:
+        partes.append("Saiu do estoque: " + ", ".join(resultado["saidas"]) + ".")
+    if resultado["pendentes"]:
+        partes.append("Pendente (sem estoque vinculado): " + ", ".join(
+            f"{p['descricao']} ({p['faltam']})" for p in resultado["pendentes"]) + ".")
+    return RedirectResponse(f"/kit/{kit_id}?ok=" + quote(" ".join(partes)),
+                            status_code=302)
 
 
 @app.post("/kit/{kit_id}/conferir-item")
@@ -3162,13 +3233,53 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
-def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "") -> dict:
-    veiculos = paginacao_mod.filtrar(
-        veiculos_mod.listar(cliente=cliente or None, ativo=True),
-        busca, ("numero", "cliente", "garagem", "modelo"))
+def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
+                            modelo: str = "", situacao: str = "") -> dict:
+    todos = veiculos_mod.listar(ativo=True)
+    total_geral = len(todos)
+
+    veiculos = todos
+    if cliente:
+        veiculos = [v for v in veiculos if v["cliente"] == cliente]
+    if modelo:
+        veiculos = [v for v in veiculos
+                    if (v["modelo"] or "").strip().lower() == modelo.strip().lower()]
+    if situacao == "sem_modelo":
+        veiculos = [v for v in veiculos if not (v["modelo"] or "").strip()]
+    elif situacao == "sem_garagem":
+        veiculos = [v for v in veiculos if not (v["garagem"] or "").strip()]
+    elif situacao == "sem_kits":
+        veiculos = [v for v in veiculos if not v["total_kits"]]
+    elif situacao == "com_kits":
+        veiculos = [v for v in veiculos if v["total_kits"]]
+
+    if busca:
+        por_texto = paginacao_mod.filtrar(
+            veiculos, busca, ("numero", "cliente", "garagem", "modelo"))
+        # Busca por PATRIMÔNIO: acha o veículo pelo código de um item bipado
+        # em qualquer kit dele. Mínimo de 4 caracteres — menos que isso o
+        # LIKE varre demais e devolve veículo demais pra servir de busca.
+        ids_texto = {v["id"] for v in por_texto}
+        extras = []
+        if len(busca.strip()) >= 4:
+            with db() as conn:
+                ids_patrimonio = {r["veiculo_id"] for r in conn.execute(
+                    "SELECT DISTINCT kr.veiculo_id FROM scan_session_items ssi "
+                    "JOIN kit_record kr ON kr.sessao_id = ssi.sessao_id "
+                    "WHERE ssi.codigo_barra LIKE ? AND kr.veiculo_id IS NOT NULL "
+                    "LIMIT 100",
+                    (f"%{busca.strip()}%",)).fetchall()}
+            extras = [v for v in veiculos
+                      if v["id"] in ids_patrimonio and v["id"] not in ids_texto]
+        veiculos = por_texto + extras
+
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     return {
         "busca": busca,
+        "filtro_modelo": modelo,
+        "filtro_situacao": situacao,
+        "total_geral": total_geral,
+        "tem_filtro": bool(cliente or modelo or situacao or busca),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(cliente or None),
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
@@ -3188,9 +3299,9 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "")
 @app.get("/admin/veiculos", response_class=HTMLResponse)
 @require_login
 async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1,
-                         busca: str = ""):
+                         busca: str = "", modelo: str = "", situacao: str = ""):
     return render(request, "admin_veiculos.html",
-                  _admin_veiculos_context(cliente, pagina, busca))
+                  _admin_veiculos_context(cliente, pagina, busca, modelo, situacao))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)

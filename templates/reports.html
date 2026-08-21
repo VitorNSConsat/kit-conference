@@ -153,6 +153,11 @@
                                 ♻️ Reimprimir
                             </button>
                             {% if user and user.admin %}
+                            <a href="/kit/{{ k.kit_id }}/trocar-modelo"
+                               class="btn btn-sm btn-primary" style="background:#2980b9;"
+                               title="Trocar o modelo deste kit pronto com acerto automático de estoque">
+                                🔄 Trocar kit
+                            </a>
                             <form method="post" action="/reports/{{ k.kit_id }}/delete"
                                   onsubmit="return confirm('Excluir este kit permanentemente? Esta ação não pode ser desfeita.')">
                                 <button class="btn btn-sm btn-danger">🗑️ Excluir</button>
