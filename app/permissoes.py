@@ -16,10 +16,15 @@ PERMISSOES = {
     "ver_relatorios": "Ver Relatórios",
     "estoque_editar": "Repor/corrigir quantidade em Estoque",
     "producao_nota_fiscal": "Editar Nota Fiscal na Produção",
+    "producao_mover_estagio": "Mover kits na esteira (trânsito, cliente, voltar)",
+    "patrimonio_corrigir": "Corrigir patrimônio (código e nº de série)",
     "pedidos_criar_editar": "Criar/editar Pedidos",
     "itens_apagar": "Apagar itens do catálogo",
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
 }
+# Toda chave nova nasce PERMITIDA pra quem já existe: tem_permissao() nega só
+# o que está na lista de negadas do usuário. Então acrescentar uma permissão
+# aqui não tira acesso de ninguém — só passa a ser possível restringir.
 
 
 def negadas_do_usuario(user_id: int) -> set[str]:

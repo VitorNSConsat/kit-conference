@@ -34,7 +34,7 @@
   </p>
   {% endif %}
 
-  {% if item and user %}
+  {% if item and pode('patrimonio_corrigir') %}
   {# Correção CADASTRAL: vale em qualquer estágio, inclusive com o veículo
      já no cliente e finalizado. Não mexe em produção — só na identificação
      do item, que é o que se digita errado. #}

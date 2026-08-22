@@ -980,7 +980,7 @@ async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/corrigir")
-@require_login
+@require_permission("patrimonio_corrigir")
 async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
     """Correção cadastral do patrimônio — vale em qualquer estágio, até com
     o veículo já entregue e finalizado. NÃO mexe em produção: o kit continua
@@ -1077,7 +1077,7 @@ async def admin_tipos_completo(request: Request):
 
 
 @app.post("/admin/estoque/{estoque_id}/codigo")
-@require_login
+@require_permission("estoque_editar")
 async def admin_estoque_codigo(request: Request, estoque_id: int):
     form = await request.form()
     try:
@@ -3120,14 +3120,17 @@ async def admin_producao_tv_config(request: Request):
 
 
 @app.post("/admin/producao/zerar-sequencia")
-@require_admin
+# Liberado pra todos: zera só o contador impresso na etiqueta "Em
+# Andamento". Não altera kit, estoque, produção nem histórico — quem está
+# no chão de fábrica precisa reiniciar a numeração sem depender de admin.
+@require_login
 async def admin_producao_zerar_sequencia(request: Request):
     producao_mod.zerar_sequencia()
     return RedirectResponse("/admin/producao?ok=sequencia_zerada", status_code=302)
 
 
 @app.post("/admin/producao/transito")
-@require_login
+@require_permission("producao_mover_estagio")
 async def admin_producao_transito(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
@@ -3159,21 +3162,21 @@ async def admin_producao_nota_lote(request: Request):
 
 
 @app.post("/admin/producao/{kit_id}/cliente-instalando")
-@require_login
+@require_permission("producao_mover_estagio")
 async def admin_producao_cliente_instalando(request: Request, kit_id: str):
     producao_mod.marcar_cliente_instalando(kit_id)
     return RedirectResponse("/admin/producao?ok=instalando", status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/cliente-concluido")
-@require_login
+@require_permission("producao_mover_estagio")
 async def admin_producao_cliente_concluido(request: Request, kit_id: str):
     producao_mod.marcar_cliente_concluido(kit_id)
     return RedirectResponse("/admin/producao?ok=concluido", status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/voltar")
-@require_login
+@require_permission("producao_mover_estagio")
 async def admin_producao_voltar(request: Request, kit_id: str):
     producao_mod.voltar_estagio(kit_id)
     return RedirectResponse("/admin/producao?ok=voltou", status_code=302)
@@ -4049,7 +4052,9 @@ async def estoque_mobile(request: Request, estoque_id: int):
 
 
 @app.post("/estoque/{estoque_id}/ajustar")
-@require_login
+# Mesma permissão do ajuste pela tela de admin: é a mesma operação de
+# estoque, e o celular não pode ser a porta dos fundos.
+@require_permission("estoque_editar")
 async def estoque_mobile_ajustar(request: Request, estoque_id: int):
     user = get_current_user(request)
     form = await request.form()

@@ -36,12 +36,12 @@
   <div style="display:flex;gap:5px;flex-wrap:wrap;">
     <a href="/admin/producao/historico" class="btn btn-warning">📜 Histórico de Alterações</a>
     <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
-    {% if user and user.admin %}
+    {# Liberado pra todos: zera só a numeração da etiqueta de
+       acompanhamento, sem tocar em kit, estoque ou produção. #}
     <form method="post" action="/admin/producao/zerar-sequencia"
           onsubmit="return confirm('Zerar o contador de sequência das etiquetas \'Em Andamento\'? O próximo kit voltará a começar do 0001.')">
       <button type="submit" class="btn btn-secondary" title="Reinicia o número SEQ das etiquetas de acompanhamento">🔁 Zerar Contador</button>
     </form>
-    {% endif %}
   </div>
 </div>
 
@@ -263,9 +263,11 @@
     </table>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    {% if pode('producao_mover_estagio') %}
     <button type="submit" form="form-transito" class="btn btn-primary" id="btn-transito-lote" disabled>
       🚚 Marcar selecionados como Em Trânsito (<span class="qtd-sel-produzido">0</span>)
     </button>
+    {% endif %}
     {% if pode('producao_nota_fiscal') %}
     <button type="button" class="btn btn-secondary" id="btn-nota-lote" disabled
             onclick="abrirNotaLote()">
@@ -332,12 +334,16 @@
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+          {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
             <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
           </form>
+          {% endif %}
+          {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
             <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Produzido">↩️ Voltar</button>
           </form>
+          {% endif %}
         </div>
       </td>
     </tr>
@@ -390,13 +396,17 @@
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           {% if k.status_producao != 'cliente_concluido' %}
+          {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
             <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
           </form>
           {% endif %}
+          {% endif %}
+          {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
             <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pro estágio anterior">↩️ Voltar</button>
           </form>
+          {% endif %}
         </div>
       </td>
     </tr>
