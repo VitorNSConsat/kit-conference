@@ -119,6 +119,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "cliente" not in colunas_estoque_movimentos
         or "estoque_debitado" not in colunas_scan_session_items
         or "kit_verificacao_itens" not in tabelas
+        or "kit_itens_exigidos" not in tabelas
         or "kit_template_conjuntos" not in tabelas
         or "producao_config" not in tabelas
         or "finalizado_por" not in colunas_kit_record
@@ -288,6 +289,24 @@ def init_db():
                 item_tipo_id  INTEGER NOT NULL REFERENCES item_tipo(id),
                 conferido_por INTEGER NOT NULL REFERENCES users(id),
                 conferido_em  TEXT    NOT NULL,
+                UNIQUE(kit_id, item_tipo_id)
+            );
+
+            -- Foto dos itens que o kit EXIGIA no momento em que foi
+            -- finalizado. Existe porque editar um kit substitui os itens do
+            -- template no lugar (atualizar_template apaga e regrava a mesma
+            -- linha), então comparar um kit antigo com o template de hoje
+            -- acusava divergência em kit que estava perfeito: tirar um
+            -- parafuso do template fazia todos os kits já montados
+            -- aparecerem com "parafuso sobrando".
+            -- Guardar a exigência da época congela o passado; o template
+            -- segue livre pra mudar daqui pra frente.
+            CREATE TABLE IF NOT EXISTS kit_itens_exigidos (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                kit_id             TEXT    NOT NULL REFERENCES kit_record(kit_id),
+                item_tipo_id       INTEGER NOT NULL REFERENCES item_tipo(id),
+                quantidade_exigida INTEGER NOT NULL,
+                obrigatorio        INTEGER NOT NULL DEFAULT 1,
                 UNIQUE(kit_id, item_tipo_id)
             );
         """)

@@ -1629,6 +1629,11 @@ async def session_finalize(request: Request, sessao_id: int):
             "VALUES (?, ?, ?, ?, ?)",
             (kit_id, zpl, html_label, user["id"], now_brt())
         )
+        # Congela o que este kit exigia AGORA. Editar o template depois muda
+        # o kit dali pra frente, não o que já foi montado — sem isso, tirar
+        # um item do template fazia todo kit antigo aparecer com aquele item
+        # "sobrando", como se estivesse errado.
+        sessions_mod.gravar_itens_exigidos(conn, kit_id, session["kit_template_id"])
 
     if session.get("kit_tipo") == "pedido":
         templates_mod.marcar_concluido(session["kit_template_id"])
@@ -1920,12 +1925,15 @@ async def kit_detail(request: Request, kit_id: str):
     conferidos = validacoes_mod.listar_conferidos(kit_id)
     grupos = validacoes_mod.grupos_conjunto(kit["kit_template_id"], kit["sessao_id"])
 
-    # A verificação compara o kit com o MODELO ATUAL dele, não só a lista
-    # bipada: comparar a sessão com o próprio template (mesmo comparador da
-    # troca de kit) devolve o que falta e o que sobra em relação ao modelo.
-    # Igualdade de quantidade total não basta — a divergência é por tipo.
-    divergencias = sessions_mod.comparar_troca_template(
-        kit["sessao_id"], kit["kit_template_id"], incluir_finalizada=True)
+    # O que o template passou a pedir (ou deixou de pedir) depois que este
+    # kit foi montado. A conferência segue o template ATUAL: item que saiu do
+    # modelo continua na caixa e na lista, mas não é mais cobrado no
+    # checklist. A comparação é por tipo — quantidade total igual não basta.
+    mudancas = sessions_mod.mudancas_do_template(kit_id)
+    fora = {s["item_tipo_id"] for s in (mudancas["sairam"] if mudancas else [])}
+    itens = [dict(i) for i in itens]
+    for it in itens:
+        it["fora_do_template"] = it["item_tipo_id"] in fora
 
     # Verificação feita ANTES da troca de modelo descreve outro conteúdo —
     # não vale como verificação do kit atual. O histórico continua todo
@@ -1936,10 +1944,10 @@ async def kit_detail(request: Request, kit_id: str):
 
     return render(request, "kit_detail.html", {
         "kit": kit,
-        "divergencias": divergencias,
+        "mudancas": mudancas,
         "validacoes_vigentes": validacoes_vigentes,
         "validacoes_antigas": validacoes_antigas,
-        "itens": [dict(i) for i in itens],
+        "itens": itens,
         "validacoes": validacoes,
         "ok": ok,
         "erro": erro,
@@ -2045,11 +2053,13 @@ async def kit_validar(request: Request, kit_id: str):
     observacao = str(form.get("observacao", "")).strip()
     with db() as conn:
         kit = conn.execute(
-            "SELECT sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)
+            "SELECT sessao_id, kit_template_id FROM kit_record WHERE kit_id = ?", (kit_id,)
         ).fetchone()
     if not kit:
         return HTMLResponse("<h2>Kit não encontrado.</h2>", status_code=404)
-    tipos_kit = validacoes_mod.tipos_do_kit(kit["sessao_id"])
+    # Cobra só o que o template ainda pede: item removido do modelo depois
+    # que o kit foi fechado não pode travar a verificação.
+    tipos_kit = validacoes_mod.tipos_do_kit(kit["sessao_id"], kit["kit_template_id"])
     conferidos = validacoes_mod.listar_conferidos(kit_id)
     if not tipos_kit.issubset(conferidos):
         return RedirectResponse(f"/kit/{kit_id}?erro=itens_pendentes", status_code=302)

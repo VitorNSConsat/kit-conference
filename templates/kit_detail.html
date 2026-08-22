@@ -181,6 +181,8 @@
     transition: transform .15s;
   }
   .item-row.checked .item-check-icon { transform: scale(1.15); }
+  .item-row.fora-template { background: #fffaf0; }
+  .item-row.fora-template .item-qtd { background: #c8a165; }
 
   /* ── Barra de progresso ───────────────────── */
   .progress-wrap {
@@ -347,42 +349,53 @@
   </div>
   {% endif %}
 
-  {# Divergências com o modelo ATUAL do kit — mesmo comparador da troca de
-     kit. Só ter a mesma quantidade total não vale: a comparação é por tipo
-     de item, contra o que o modelo exige. Aparece só quando há diferença. #}
-  {% if divergencias and (divergencias.faltantes or divergencias.excedentes) %}
-  <div class="card" style="border:2px solid #e67e22;">
-    <div class="card-title" style="color:#e67e22;">⚠️ Divergências com o modelo atual</div>
+  {# O template deste kit mudou depois que ele foi montado. Item que saiu do
+     modelo continua na caixa e na lista, mas NÃO é mais cobrado na
+     conferência — o kit foi fechado corretamente pela regra da época. #}
+  {% if mudancas and mudancas.houve_mudanca %}
+  <div class="card" style="border:2px solid #e6a23c;">
+    <div class="card-title" style="color:#b8860b;">🔄 O template deste kit foi atualizado</div>
     <p style="font-size:13px;color:#555;margin:0 0 10px;">
-      O conteúdo bipado deste kit não bate com o que o modelo
-      <strong>{{ kit.kit_nome }}</strong> (v{{ kit.versao }}) exige:
+      O modelo <strong>{{ kit.kit_nome }}</strong> (v{{ kit.versao }}) mudou depois que este
+      kit foi montado. O que isso significa para ele:
     </p>
-    {% if divergencias.faltantes %}
-    <div style="font-size:13px;color:#c0392b;margin-bottom:8px;">
-      <strong>Faltando no kit:</strong>
+
+    {% if mudancas.sairam %}
+    <div style="font-size:13px;color:#8a6d3b;margin-bottom:10px;">
+      <strong>Não fazem mais parte do kit</strong> — estão na caixa, mas o modelo não pede mais.
+      <strong>Não precisam ser conferidos.</strong>
       <ul style="margin:4px 0 0;padding-left:20px;">
-        {% for f in divergencias.faltantes %}
-        <li>{{ f.descricao }} — faltam {{ f.faltam }} de {{ f.exigido }}</li>
+        {% for s in mudancas.sairam %}
+        <li>{{ s.descricao }} — {{ s.quantidade }}
+          {%- if s.era_exigido %} <span style="color:#999;">(era exigido quando o kit foi montado)</span>{% endif %}
+        </li>
         {% endfor %}
       </ul>
     </div>
     {% endif %}
-    {% if divergencias.excedentes %}
-    <div style="font-size:13px;color:#e67e22;">
-      <strong>Sobrando no kit:</strong>
+
+    {% if mudancas.entraram %}
+    <div style="font-size:13px;color:#c0392b;">
+      <strong>Passaram a fazer parte do kit</strong> — o modelo pede e este kit não tem:
       <ul style="margin:4px 0 0;padding-left:20px;">
-        {% for e in divergencias.excedentes %}
-        <li>{{ e.descricao }} — {{ e.quantidade }}
-          {%- if not e.no_kit_novo %} (não existe neste modelo){% else %} a mais{% endif %}</li>
+        {% for e in mudancas.entraram %}
+        <li>{{ e.descricao }} — faltam {{ e.faltam }} de {{ e.exigido }}
+          {%- if e.novo_no_template %} <span style="color:#999;">(entrou no modelo depois da montagem)</span>{% endif %}
+        </li>
         {% endfor %}
       </ul>
     </div>
     {% endif %}
+
     <p style="font-size:12px;color:#888;margin:10px 0 0;">
-      Confira a caixa física. Se o kit foi montado num modelo diferente,
-      {% if user and user.admin %}use <strong>🔄 Trocar Kit</strong> abaixo para
-      corrigir o modelo{% else %}peça a um administrador para trocar o modelo do
-      kit{% endif %} — o estoque é acertado automaticamente.
+      {% if mudancas.entraram %}
+      Confira a caixa física: o que falta precisa entrar no kit.
+      {% if user and user.admin %}Se o kit foi montado num modelo diferente, use
+      <strong>🔄 Trocar Kit</strong> abaixo.{% endif %}
+      {% else %}
+      <strong>Nada a fazer.</strong> O kit está completo pelo modelo atual — a lista é que
+      mudou. As peças que saíram continuam na caixa e no histórico.
+      {% endif %}
     </p>
   </div>
   {% endif %}
@@ -433,9 +446,10 @@
     {% endif %}
     {% for item in itens %}
     {% set is_checked = item.item_tipo_id in conferidos %}
-    <div class="item-row {{ 'checked' if is_checked else '' }}"
+    <div class="item-row {{ 'checked' if is_checked else '' }} {{ 'fora-template' if item.fora_do_template else '' }}"
          data-tipo-id="{{ item.item_tipo_id }}"
-         {% if user %}onclick="toggleItem(this)"{% else %}style="cursor:default;opacity:.6;"{% endif %}>
+         {% if item.fora_do_template %}data-fora="1"{% endif %}
+         {% if user and not item.fora_do_template %}onclick="toggleItem(this)"{% else %}style="cursor:default;opacity:.6;"{% endif %}>
       <div class="item-qtd">{{ item.quantidade }}</div>
       <div class="item-info">
         <div class="item-tipo">{{ item.tipo_nome }}</div>
@@ -456,13 +470,17 @@
           {% endif %}
         </div>
         {% endif %}
-        {% if grupos.get(item.item_tipo_id) %}
+        {% if item.fora_do_template %}
+        <div style="font-size:11px;color:#b8860b;margin-top:3px;font-weight:600;">
+          🔄 não faz mais parte do modelo — não precisa conferir
+        </div>
+        {% elif grupos.get(item.item_tipo_id) %}
         <div style="font-size:11px;color:#e67e22;margin-top:3px;font-weight:600;">
           🔗 conjunto — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
         </div>
         {% endif %}
       </div>
-      <div class="item-check-icon">{{ '✅' if is_checked else '⬜' }}</div>
+      <div class="item-check-icon">{{ '—' if item.fora_do_template else ('✅' if is_checked else '⬜') }}</div>
     </div>
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
@@ -594,7 +612,10 @@
 </div>
 
 <script>
-const totalItens = {{ itens | length }};
+// Só os itens que o modelo ainda pede entram no progresso e liberam a
+// verificação — item que saiu do template continua na lista, mas não é
+// mais exigido.
+const totalItens = {{ itens | rejectattr('fora_do_template') | list | length }};
 const kitId = "{{ kit.kit_id }}";
 
 function aplicarEstado(tipoId, marcado) {

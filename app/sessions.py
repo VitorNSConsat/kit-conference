@@ -980,9 +980,21 @@ def comparar_troca_template(sessao_id: int, novo_template_id: int,
         return None
 
     itens_novo = templates_mod.get_itens_template(novo_template_id)
-    exigido = {i["item_tipo_id"]: i for i in itens_novo}
     contagem = get_contagem(sessao_id)
+    resultado = _comparar_com_exigido(contagem, itens_novo)
+    resultado["sessao"] = session
+    resultado["novo"] = novo
+    return resultado
 
+
+def _comparar_com_exigido(contagem: dict, itens_exigidos: list[dict]) -> dict:
+    """Compara o que foi bipado com uma lista de itens exigidos.
+
+    O coração da comparação, isolado de ONDE vem a exigência: a troca de kit
+    passa os itens do template novo, e o painel de divergências do kit passa
+    a foto do que ele exigia quando foi montado. Uma regra só pros dois, pra
+    não existirem duas noções de "sobrando" e "faltando" no sistema."""
+    exigido = {i["item_tipo_id"]: i for i in itens_exigidos}
     nomes = {}
     with db() as conn:
         for r in conn.execute("SELECT id, nome FROM item_tipo").fetchall():
@@ -1009,7 +1021,7 @@ def comparar_troca_template(sessao_id: int, novo_template_id: int,
             })
 
     faltantes = []
-    for item in itens_novo:
+    for item in itens_exigidos:
         atual = min(contagem.get(item["item_tipo_id"], 0), item["quantidade_exigida"])
         if atual < item["quantidade_exigida"]:
             faltantes.append({
@@ -1023,14 +1035,123 @@ def comparar_troca_template(sessao_id: int, novo_template_id: int,
     aproveitados.sort(key=lambda x: x["descricao"])
     excedentes.sort(key=lambda x: x["descricao"])
     return {
-        "sessao": session,
-        "novo": novo,
         "aproveitados": aproveitados,
         "excedentes": excedentes,
         "faltantes": faltantes,
         "total_bipado": sum(contagem.values()),
         "total_aproveitado": sum(a["quantidade"] for a in aproveitados),
     }
+
+
+def gravar_itens_exigidos(conn, kit_id: str, kit_template_id: int) -> None:
+    """Congela o que o kit exige, no momento em que ele é finalizado.
+
+    Recebe a conexão de fora porque roda DENTRO da transação de quem chama
+    (finalizar bipagem, trocar kit) — abrir outra conexão aqui travaria o
+    SQLite. Regrava do zero: é sempre a foto completa do estado atual."""
+    conn.execute("DELETE FROM kit_itens_exigidos WHERE kit_id = ?", (kit_id,))
+    conn.execute(
+        "INSERT INTO kit_itens_exigidos (kit_id, item_tipo_id, quantidade_exigida, obrigatorio) "
+        "SELECT ?, item_tipo_id, quantidade_exigida, COALESCE(obrigatorio, 1) "
+        "FROM kit_template_items WHERE kit_template_id = ?",
+        (kit_id, kit_template_id))
+
+
+def mudancas_do_template(kit_id: str) -> dict | None:
+    """O que o template deste kit passou a exigir (ou deixou de exigir)
+    DEPOIS que ele foi montado.
+
+    Serve à verificação: item que saiu do template não deve mais ser
+    cobrado na conferência — o kit foi fechado com ele, mas hoje ele não faz
+    parte do modelo. E item que entrou depois falta de verdade.
+
+    `sairam`   — está no kit, mas o template não pede mais
+    `entraram` — o template passa a pedir, e o kit não tem
+    `era_exigido` marca, em cada item que saiu, se ele constava na foto da
+    montagem: quando consta, o template mudou mesmo. Sem a foto (kits
+    antigos) fica None, e a tela fala em termos do que dá pra afirmar."""
+    with db() as conn:
+        kr = conn.execute(
+            "SELECT kit_id, sessao_id, kit_template_id FROM kit_record WHERE kit_id = ?",
+            (kit_id,)).fetchone()
+        if not kr:
+            return None
+        na_montagem = {r["item_tipo_id"]: r["quantidade_exigida"] for r in conn.execute(
+            "SELECT item_tipo_id, quantidade_exigida FROM kit_itens_exigidos WHERE kit_id = ?",
+            (kit_id,)).fetchall()}
+        nomes = {r["id"]: r["nome"] for r in conn.execute(
+            "SELECT id, nome FROM item_tipo").fetchall()}
+
+    atuais = {i["item_tipo_id"]: i for i in templates_mod.get_itens_template(kr["kit_template_id"])}
+    contagem = get_contagem(kr["sessao_id"])
+
+    sairam = []
+    for tipo_id, bipado in sorted(contagem.items(), key=lambda x: nomes.get(x[0], "")):
+        if tipo_id in atuais:
+            continue
+        sairam.append({
+            "item_tipo_id": tipo_id,
+            "descricao": nomes.get(tipo_id, "?"),
+            "quantidade": bipado,
+            "era_exigido": (tipo_id in na_montagem) if na_montagem else None,
+        })
+
+    entraram = []
+    for tipo_id, item in atuais.items():
+        falta = item["quantidade_exigida"] - min(contagem.get(tipo_id, 0),
+                                                 item["quantidade_exigida"])
+        if falta > 0:
+            entraram.append({
+                "item_tipo_id": tipo_id,
+                "descricao": item["descricao"],
+                "faltam": falta,
+                "exigido": item["quantidade_exigida"],
+                # Sem a foto não dá pra saber se o item entrou agora ou se o
+                # kit foi fechado incompleto — a tela não afirma o que não sabe.
+                "novo_no_template": (tipo_id not in na_montagem) if na_montagem else None,
+            })
+    entraram.sort(key=lambda x: x["descricao"])
+
+    return {
+        "sairam": sairam,
+        "entraram": entraram,
+        "tem_foto": bool(na_montagem),
+        "houve_mudanca": bool(sairam or entraram),
+        # Tipos que a conferência deve cobrar: o que está no kit E o
+        # template ainda pede.
+        "tipos_a_conferir": {t for t in contagem if t in atuais},
+    }
+
+
+def comparar_kit_com_exigido(kit_id: str) -> dict | None:
+    """Divergências de um kit pronto: o que ele tem x o que ele DEVIA ter.
+
+    Usa a foto gravada na finalização (kit_itens_exigidos). Kits anteriores a
+    essa foto caem no template atual — o melhor palpite disponível — e o
+    resultado vem marcado com `origem`, pra tela poder dizer honestamente que
+    ali a comparação é contra a definição de HOJE, que pode ter mudado depois
+    da montagem."""
+    with db() as conn:
+        kr = conn.execute(
+            "SELECT kit_id, sessao_id, kit_template_id FROM kit_record WHERE kit_id = ?",
+            (kit_id,)).fetchone()
+        if not kr:
+            return None
+        exigidos = [dict(r) for r in conn.execute(
+            "SELECT ke.item_tipo_id, ke.quantidade_exigida, ke.obrigatorio, "
+            "       COALESCE(it.nome, '[Tipo removido]') AS descricao "
+            "FROM kit_itens_exigidos ke "
+            "LEFT JOIN item_tipo it ON it.id = ke.item_tipo_id "
+            "WHERE ke.kit_id = ?", (kit_id,)).fetchall()]
+
+    origem = "montagem"
+    if not exigidos:
+        origem = "template_atual"
+        exigidos = templates_mod.get_itens_template(kr["kit_template_id"])
+
+    resultado = _comparar_com_exigido(get_contagem(kr["sessao_id"]), exigidos)
+    resultado["origem"] = origem
+    return resultado
 
 
 def trocar_template(sessao_id: int, novo_template_id: int) -> dict:
@@ -1299,6 +1420,10 @@ def _executar_troca_kit_pronto(kit_id: str, sessao_id: int, novo_template_id: in
             "modelo = ?, modelo_trocado_em = ?, verificacao_corte = ? WHERE kit_id = ?",
             (novo_template_id, novo["versao"], novo["nome"], now_brt(), corte, kit_id))
         conn.execute("DELETE FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))
+
+        # 5. O kit passou a exigir outra coisa: regrava a foto. Sem isso, a
+        # tela seguiria cobrando o kit pela exigência do modelo antigo.
+        gravar_itens_exigidos(conn, kit_id, novo_template_id)
 
 
 def listar_sessoes_em_andamento(template_id: int | None = None,

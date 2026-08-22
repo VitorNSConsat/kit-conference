@@ -67,16 +67,26 @@ def listar_relatorio(data_ini: str = "", data_fim: str = "", user_id: str = "") 
     return [dict(r) for r in rows]
 
 
-def tipos_do_kit(sessao_id: int) -> set:
-    """item_tipo_ids realmente presentes no kit (bipados de fato) — usado
-    tanto pra montar o checklist quanto pra checar se está completo antes
-    de liberar a validação."""
+def tipos_do_kit(sessao_id: int, kit_template_id: int | None = None) -> set:
+    """item_tipo_ids que a conferência deve cobrar.
+
+    Base: o que está de fato no kit (bipado). Passando `kit_template_id`, o
+    que o template NÃO pede mais fica de fora — kit fechado antes de uma
+    edição do modelo não deve travar a verificação por causa de um item que
+    hoje não faz parte dele. A peça continua na caixa e continua listada na
+    tela; só não é mais exigida no checklist."""
     with db() as conn:
         rows = conn.execute(
             "SELECT DISTINCT item_tipo_id FROM scan_session_items WHERE sessao_id = ?",
             (sessao_id,)
         ).fetchall()
-    return {r["item_tipo_id"] for r in rows}
+        tipos = {r["item_tipo_id"] for r in rows}
+        if kit_template_id is None:
+            return tipos
+        do_template = {r["item_tipo_id"] for r in conn.execute(
+            "SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ?",
+            (kit_template_id,)).fetchall()}
+    return tipos & do_template
 
 
 def listar_conferidos(kit_id: str) -> set:
