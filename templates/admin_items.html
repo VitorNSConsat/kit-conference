@@ -27,7 +27,11 @@
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
 {% elif request.query_params.get('ok') == 'sobressalente' %}
-<div class="alert alert-success">📦 Sobressalente registrado e descontado do estoque.</div>
+<div class="alert alert-success">
+    📦 {{ request.query_params.get('itens', '1') }} item(ns)
+    · {{ request.query_params.get('unidades', '') }} unidade(s)
+    registrado(s) e descontado(s) do estoque.
+</div>
 {% elif request.query_params.get('ok') == 'reconciliado_vazio' %}
 <div class="alert alert-success">✅ Nenhuma pendência encontrada — todo conjunto já foi debitado do estoque corretamente.</div>
 {% elif request.query_params.get('ok') == 'reconciliado' %}
@@ -859,27 +863,46 @@
         {% if sobressalente_cliente %}
         <div style="background:#f7f7f7;border-radius:8px;padding:14px;margin-bottom:20px;">
             <h3 style="margin:0 0 10px;font-size:14px;">➕ Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
-            <form method="post" action="/admin/sobressalente" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            {# Várias peças num envio só: antes era um item por vez, e mandar
+               cinco peças pro mesmo cliente exigia repetir o formulário
+               cinco vezes, recarregando a página a cada uma. #}
+            <form method="post" action="/admin/sobressalente" id="form-sobressalente">
                 <input type="hidden" name="cliente" value="{{ sobressalente_cliente }}">
-                <div class="form-group" style="margin:0;min-width:240px;">
-                    <label>Item</label>
-                    <select name="estoque_id" required style="margin:0;">
-                        <option value="">— selecione o item —</option>
-                        {% for e in estoque_itens %}
-                        <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }}) — {{ e.quantidade_atual }} em estoque</option>
-                        {% endfor %}
-                    </select>
+                <div id="linhas-sobressalente"></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">
+                        ＋ Adicionar outro item
+                    </button>
+                    <button type="submit" class="btn btn-warning">📦 Enviar (<span id="qtd-linhas-sobr">1</span>)</button>
+                    <span style="font-size:12px;color:#888;">
+                        Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.
+                    </span>
                 </div>
-                <div class="form-group" style="margin:0;">
-                    <label>Quantidade</label>
-                    <input type="number" name="quantidade" value="1" min="1" style="width:90px;margin:0;text-align:center;" required>
-                </div>
-                <div class="form-group" style="margin:0;flex:1;min-width:180px;">
-                    <label>Observação (opcional)</label>
-                    <input type="text" name="observacao" style="margin:0;">
-                </div>
-                <button type="submit" class="btn btn-warning">📦 Enviar</button>
             </form>
+
+            <template id="modelo-linha-sobressalente">
+                <div class="linha-sobressalente" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">
+                    <div class="form-group" style="margin:0;min-width:240px;flex:1;">
+                        <label>Item</label>
+                        <select name="estoque_id" required style="margin:0;">
+                            <option value="">— selecione o item —</option>
+                            {% for e in estoque_itens %}
+                            <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }}) — {{ e.quantidade_atual }} em estoque</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Quantidade</label>
+                        <input type="number" name="quantidade" value="1" min="1" style="width:90px;margin:0;text-align:center;" required>
+                    </div>
+                    <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                        <label>Observação (opcional)</label>
+                        <input type="text" name="observacao" style="margin:0;">
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger btn-remover-linha"
+                            onclick="removerLinhaSobressalente(this)" title="Remover esta linha">✕</button>
+                </div>
+            </template>
         </div>
 
         <h3 style="font-size:14px;margin-bottom:8px;">Itens Enviados pra {{ sobressalente_cliente }} ({{ sobressalente_itens_enviados | length }})</h3>
@@ -916,6 +939,39 @@
 {% block scripts %}
 <script>
 // Abre/fecha o bloco de importação de ajuste do estoque.
+// ── Sobressalentes: várias peças num envio só ─────────────────────────────
+// Clona a linha modelo do <template>, então as opções de item vêm prontas do
+// servidor — nada de montar <option> em JS e arriscar divergir da lista real.
+function addLinhaSobressalente() {
+    const alvo = document.getElementById('linhas-sobressalente');
+    const modelo = document.getElementById('modelo-linha-sobressalente');
+    if (!alvo || !modelo) return;
+    alvo.appendChild(modelo.content.cloneNode(true));
+    atualizarLinhasSobressalente();
+}
+
+function removerLinhaSobressalente(botao) {
+    const linha = botao.closest('.linha-sobressalente');
+    if (linha) linha.remove();
+    // Nunca deixa o formulário sem nenhuma linha: sem campo nenhum o envio
+    // viraria um POST vazio e o operador não entenderia o erro.
+    if (!document.querySelectorAll('.linha-sobressalente').length) addLinhaSobressalente();
+    atualizarLinhasSobressalente();
+}
+
+function atualizarLinhasSobressalente() {
+    const linhas = document.querySelectorAll('.linha-sobressalente');
+    const cont = document.getElementById('qtd-linhas-sobr');
+    if (cont) cont.textContent = linhas.length;
+    // Com uma linha só, o ✕ não tem o que remover — some pra não confundir.
+    linhas.forEach(l => {
+        const b = l.querySelector('.btn-remover-linha');
+        if (b) b.style.visibility = linhas.length > 1 ? 'visible' : 'hidden';
+    });
+}
+
+if (document.getElementById('linhas-sobressalente')) addLinhaSobressalente();
+
 function abrirImportarAjuste() {
     const b = document.getElementById('bloco-importar-ajuste');
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');

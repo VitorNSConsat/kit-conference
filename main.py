@@ -3535,20 +3535,31 @@ async def admin_estoque_reconciliar_producao(request: Request):
 @app.post("/admin/sobressalente")
 @require_permission("estoque_editar")
 async def admin_sobressalente_enviar(request: Request):
+    """Envia um OU VÁRIOS sobressalentes de uma vez. O formulário manda
+    listas paralelas (estoque_id[], quantidade[], observacao[]), então uma
+    linha só continua funcionando igual — é o mesmo caminho, com uma linha."""
     user = get_current_user(request)
     form = await request.form()
-    estoque_id = int(form.get("estoque_id", 0) or 0)
-    quantidade = max(1, int(form.get("quantidade", 1) or 1))
     cliente = str(form.get("cliente", "")).strip()
-    observacao = str(form.get("observacao", "")).strip()
     destino = f"/admin/items?tab=sobressalentes&cliente={quote(cliente)}"
+
+    ids = form.getlist("estoque_id")
+    qtds = form.getlist("quantidade")
+    obs = form.getlist("observacao")
+    linhas = [{"estoque_id": ids[i],
+               "quantidade": qtds[i] if i < len(qtds) else 1,
+               "observacao": obs[i] if i < len(obs) else ""}
+              for i in range(len(ids))]
     try:
-        estoque_mod.registrar_sobressalente(estoque_id, quantidade, cliente, user["id"], observacao)
+        r = estoque_mod.registrar_sobressalentes_em_lote(linhas, cliente, user["id"])
     except ValueError as e:
         return RedirectResponse(
             destino + "&erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
             status_code=302)
-    return RedirectResponse(destino + "&ok=sobressalente", status_code=302)
+    return RedirectResponse(
+        destino + "&ok=sobressalente&itens=" + str(r["itens"])
+        + "&unidades=" + str(r["unidades"]),
+        status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/corrigir")

@@ -162,6 +162,73 @@ def registrar_sobressalente(estoque_id: int, quantidade: int, cliente: str,
         )
 
 
+def registrar_sobressalentes_em_lote(linhas: list[dict], cliente: str,
+                                     criado_por: int) -> dict:
+    """Vários sobressalentes pro mesmo cliente num envio só.
+
+    TUDO OU NADA: primeiro confere o saldo de todas as linhas, e só então
+    aplica. registrar_sobressalente() já bloqueia por estoque insuficiente —
+    aplicar linha a linha faria as primeiras saírem e as últimas falharem,
+    deixando um envio pela metade que o operador teria que reconstruir de
+    cabeça. Validando antes, ele corrige o estoque e reenvia a lista inteira
+    sem risco de mandar nada duas vezes.
+
+    Linhas repetidas do mesmo item são SOMADAS antes da conferência: pedir
+    3 e depois 4 do mesmo item é um pedido de 7, e checar 3 e 4 em separado
+    passaria mesmo com só 5 em estoque.
+
+    O registro em si continua saindo por registrar_sobressalente(), item a
+    item — o movimento, o cliente e a auditoria ficam idênticos ao envio
+    individual."""
+    cliente = (cliente or "").strip()
+    if not cliente:
+        raise ValueError("Informe o cliente.")
+
+    # Agrupa por item, guardando as observações de cada pedido.
+    pedidos: dict[int, dict] = {}
+    for l in linhas:
+        try:
+            eid = int(l.get("estoque_id") or 0)
+            qtd = int(l.get("quantidade") or 0)
+        except (TypeError, ValueError):
+            continue
+        if eid <= 0 or qtd <= 0:
+            continue
+        p = pedidos.setdefault(eid, {"quantidade": 0, "observacoes": []})
+        p["quantidade"] += qtd
+        obs = (l.get("observacao") or "").strip()
+        if obs and obs not in p["observacoes"]:
+            p["observacoes"].append(obs)
+    if not pedidos:
+        raise ValueError("Nenhum item informado.")
+
+    # 1) Confere TODOS os saldos antes de mexer em qualquer um.
+    faltas = []
+    with db() as conn:
+        for eid, p in pedidos.items():
+            row = conn.execute(
+                "SELECT e.quantidade_atual, it.nome AS tipo_nome FROM estoque e "
+                "JOIN item_tipo it ON it.id = e.item_tipo_id WHERE e.id = ?",
+                (eid,)).fetchone()
+            if row is None:
+                faltas.append(f"item de estoque {eid} não encontrado")
+            elif row["quantidade_atual"] < p["quantidade"]:
+                faltas.append(f"{row['tipo_nome']}: pedido {p['quantidade']}, "
+                              f"disponível {row['quantidade_atual']}")
+    if faltas:
+        raise ValueError("Estoque insuficiente — " + "; ".join(faltas)
+                         + ". Nada foi enviado.")
+
+    # 2) Só agora registra, pela mesma função do envio individual.
+    enviados = []
+    for eid, p in pedidos.items():
+        registrar_sobressalente(eid, p["quantidade"], cliente, criado_por,
+                                " | ".join(p["observacoes"]))
+        enviados.append({"estoque_id": eid, "quantidade": p["quantidade"]})
+    return {"enviados": enviados, "itens": len(enviados),
+            "unidades": sum(e["quantidade"] for e in enviados)}
+
+
 def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str = "") -> list[dict]:
     query = (
         "SELECT em.*, e.codigo_barra, it.nome AS tipo_nome, u.nome AS operador_nome "
