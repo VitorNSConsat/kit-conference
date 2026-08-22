@@ -7,7 +7,13 @@
       {{ '🔒 Ocupado' if ocupado else '✅ Disponível' }}
     </span>
   </h1>
-  <a href="/admin/veiculos" class="btn btn-secondary">← Voltar</a>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}" class="btn btn-primary"
+       title="Todos os patrimônios que estão neste veículo">🏷️ Itens e patrimônios</a>
+    <a href="/admin/producao" class="btn btn-primary"
+       title="Ver este veículo na esteira de produção">🚚 Produção</a>
+    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+  </div>
 </div>
 
 {% if request.query_params.get('ok') == 'liberado' %}

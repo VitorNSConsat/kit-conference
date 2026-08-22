@@ -56,7 +56,9 @@
           <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.kit_id[:8].upper() }}</span>
       </td>
       <td>{{ r.cliente }}</td>
-      <td>{{ r.veiculo or '—' }}</td>
+      <td>
+        {% if r.veiculo %}<a href="/admin/veiculos?busca={{ r.veiculo | urlencode }}" style="color:#1a3a5c;font-weight:600;" title="Ver este veículo">{{ r.veiculo }}</a>{% else %}—{% endif %}
+      </td>
       <td>{{ r.operador_nome }}</td>
       <td><strong>{{ r.validado_por_nome }}</strong></td>
       <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>

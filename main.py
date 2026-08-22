@@ -270,6 +270,30 @@ def _parse_itens_form(form) -> list[dict]:
     return itens
 
 
+def _voltar_para(request: Request, padrao: str) -> str:
+    """Para onde o botão "← Voltar" de uma tela de detalhe deve apontar.
+
+    Usa o Referer quando ele é uma tela DESTE sistema: assim quem chegou de
+    uma busca ou da página 3 volta exatamente pra lá, com filtro e paginação
+    preservados, em vez de cair na lista pelada e ter que refazer tudo.
+    Fora isso (link colado, aba nova, referer ausente) cai no padrão.
+
+    Só aceita caminho relativo do próprio site — nunca uma URL externa —
+    pra o botão não virar um pulo pra fora do sistema."""
+    ref = request.headers.get("referer") or ""
+    if not ref:
+        return padrao
+    from urllib.parse import urlparse
+    p = urlparse(ref)
+    if p.netloc and p.netloc != request.url.netloc:
+        return padrao
+    destino = p.path + (("?" + p.query) if p.query else "")
+    # Voltar pra própria tela seria um botão que não faz nada.
+    if not destino.startswith("/") or destino.startswith(request.url.path):
+        return padrao
+    return destino
+
+
 def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
     alertas_estoque = estoque_mod.alertas_abaixo_minimo() if user else []
@@ -939,6 +963,9 @@ async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
     vizinhos = (items_mod.bipados_na_mesma_sessao(sessao_recente, codigo_barra)
                 if sessao_recente else [])
     return render(request, "admin_patrimonio.html", {
+        # Volta pra tela de onde a pessoa veio (com busca/filtro/página),
+        # não pra lista pelada.
+        "voltar_para": _voltar_para(request, "/admin/items?tab=patrimonios"),
         "codigo_barra": codigo_barra,
         "item": item,
         "historico": historico,
@@ -3838,6 +3865,7 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
     clientes_cadastrados = clientes_mod.listar()
     garagens_cadastradas = garagens_mod.listar()
     return render(request, "admin_veiculo_detalhe.html", {
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
         "garagens": garagens_cadastradas,
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
@@ -3864,6 +3892,7 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
         clientes = clientes_mod.listar()
         garagens_cadastradas = garagens_mod.listar()
         return render(request, "admin_veiculo_detalhe.html", {
+            "voltar_para": "/admin/veiculos",
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
             "clientes": clientes, "garagens": garagens_cadastradas,
             "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
@@ -3877,6 +3906,7 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
         # Número já em uso por outro veículo — único no sistema inteiro.
         v = veiculos_mod.buscar(veiculo_id)
         return render(request, "admin_veiculo_detalhe.html", {
+            "voltar_para": "/admin/veiculos",
             "v": v, "historico": veiculos_mod.historico_kits(veiculo_id),
             "clientes": clientes_mod.listar(), "garagens": garagens_mod.listar(),
             "ocupado": veiculos_mod.esta_ocupado(veiculo_id),

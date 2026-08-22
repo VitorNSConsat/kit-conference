@@ -251,7 +251,8 @@
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
                    class="chk-produzido" onchange="atualizarSelecaoProduzido()"
                    data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
-        <td>{{ k.veiculo or k.kit_nome }}</td>
+        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+               title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a></td>
         <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
         <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] if k.finalizado_em else '—' }}</td>
@@ -323,7 +324,8 @@
     <tbody>
     {% for k in transito %}
     <tr>
-      <td>{{ k.veiculo or k.kit_nome }}</td>
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+             title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a></td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] if k.transito_em else '—' }}</td>
@@ -371,7 +373,8 @@
     <tbody>
     {% for k in no_cliente %}
     <tr class="filtro-item">
-      <td>{{ k.veiculo or k.kit_nome }}</td>
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+             title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a></td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
       <td>{{ k.modelo or '—' }}</td>

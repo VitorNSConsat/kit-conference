@@ -655,9 +655,14 @@
                     <td>{{ item.descricao }}</td>
                     <td>
                         {% if item.veiculo_atual %}
-                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:#1a3a5c;">
+                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:#1a3a5c;"
+                           title="Abrir o kit deste veículo">
                             {{ item.veiculo_atual }}
                         </a>
+                        {% if item.veiculo_id_atual %}
+                        <a href="/admin/veiculos/{{ item.veiculo_id_atual }}"
+                           style="text-decoration:none;" title="Abrir o cadastro do veículo">🚗</a>
+                        {% endif %}
                         {% if item.operador_atual %}
                         <div style="font-size:11px;color:#999;">por {{ item.operador_atual }}</div>
                         {% endif %}

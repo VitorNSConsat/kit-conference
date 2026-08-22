@@ -30,7 +30,10 @@
             </td>
             {% else %}
             <td>
-                <div style="font-weight:600;">{{ item.veiculo or item.kit_nome }}</div>
+                <div style="font-weight:600;">
+                  <a href="/kit/{{ item.kit_id }}" target="_blank" style="color:#1a3a5c;"
+                     title="Conferir o kit antes de imprimir">{{ item.veiculo or item.kit_nome }}</a>
+                </div>
                 <div style="font-size:11px;color:#888;">{{ item.kit_nome }}</div>
                 <div style="font-family:monospace;font-size:10px;color:#aaa;">{{ item.kit_id[:12] }}…</div>
             </td>

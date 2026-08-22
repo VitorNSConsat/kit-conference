@@ -3,7 +3,7 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1 style="margin:0;">🔎 Rastreamento do Patrimônio</h1>
-  <a href="/admin/items?tab=patrimonios" class="btn btn-secondary">← Voltar</a>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
 </div>
 
 <div class="card">
@@ -100,7 +100,14 @@
           {% endif %}
           <div style="font-size:11px;color:#999;">{{ h.cliente }}</div>
         </td>
-        <td style="font-weight:600;">{{ h.veiculo or '—' }}</td>
+        <td style="font-weight:600;">
+          {% if h.veiculo %}
+          {# Fecha a volta patrimônio → veículo: dá pra sair da peça e chegar
+             no cadastro do veículo onde ela está, sem buscar de novo. #}
+          <a href="/admin/veiculos?busca={{ h.veiculo | urlencode }}"
+             style="color:#1a3a5c;" title="Ver este veículo em Veículos e Clientes">{{ h.veiculo }}</a>
+          {% else %}—{% endif %}
+        </td>
         <td>{{ h.garagem or '—' }}</td>
         <td style="font-family:monospace;font-size:12px;">{{ h.serial_number or '—' }}</td>
         <td>
