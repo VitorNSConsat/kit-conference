@@ -184,6 +184,124 @@ def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str =
     return [dict(r) for r in rows]
 
 
+def importar_ajustes_xlsx(conteudo: bytes, criado_por: int) -> dict:
+    """Atualização em massa do estoque pela planilha baixada da própria tela.
+
+    O item é identificado pelo ID (coluna oculta da planilha modelo) e, na
+    falta dele, pelo código de barras — nunca pelo nome do tipo, que pode
+    repetir e não é chave de nada.
+
+    Cada linha alterada passa pelas MESMAS funções da tela
+    (corrigir_quantidade / atualizar_minimo / atualizar_status_compra), então
+    o movimento de correção e o log saem idênticos ao ajuste feito à mão: uma
+    planilha não é um caminho paralelo pra mexer no estoque sem deixar
+    rastro. Linha sem mudança não gera movimento nenhum — reimportar a mesma
+    planilha duas vezes não polui o histórico.
+
+    Devolve o que mudou, item a item, pra tela poder mostrar a lista em vez
+    de só um número."""
+    import openpyxl, io
+    wb = openpyxl.load_workbook(io.BytesIO(conteudo))
+    ws = wb.active
+    cabec = [str(c.value or "").strip().lower()
+             for c in next(ws.iter_rows(min_row=1, max_row=1))]
+
+    def coluna(*pistas):
+        for i, h in enumerate(cabec):
+            if any(p in h for p in pistas):
+                return i
+        return None
+
+    col_id = coluna("id")
+    col_cod = coluna("código de barras", "codigo de barras", "código", "codigo")
+    col_qtd = coluna("quantidade atual", "qtd atual", "quantidade")
+    col_min = coluna("mínima", "minima")
+    col_sts = coluna("status de compra", "status")
+    if col_id is None and col_cod is None:
+        return {"atualizados": [], "ignorados": 0,
+                "erros": ["A planilha precisa da coluna 'ID' ou 'Código de Barras'. "
+                          "Baixe o modelo pela própria tela de estoque."]}
+
+    with db() as conn:
+        por_id = {r["id"]: dict(r) for r in conn.execute(
+            "SELECT e.*, it.nome AS tipo_nome FROM estoque e "
+            "JOIN item_tipo it ON it.id = e.item_tipo_id").fetchall()}
+    por_codigo = {(v["codigo_barra"] or "").strip().lower(): v for v in por_id.values()}
+
+    def celula(linha, idx):
+        if idx is None or idx >= len(linha):
+            return None
+        return linha[idx]
+
+    def inteiro(valor):
+        """Célula vazia = 'não mexer nisso', não zero. Zerar estoque é uma
+        decisão, e apagar a célula por engano não pode virar zero."""
+        if valor is None or str(valor).strip() == "":
+            return None
+        try:
+            return int(float(str(valor).strip().replace(",", ".")))
+        except ValueError:
+            raise ValueError(f"'{valor}' não é um número")
+
+    atualizados, erros = [], []
+    ignorados = 0
+    for n, linha in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
+        if not any(c is not None and str(c).strip() for c in linha):
+            continue
+        item = None
+        bruto_id = celula(linha, col_id)
+        if bruto_id is not None and str(bruto_id).strip().isdigit():
+            item = por_id.get(int(str(bruto_id).strip()))
+        if item is None:
+            codigo = str(celula(linha, col_cod) or "").strip().lower()
+            item = por_codigo.get(codigo) if codigo else None
+        if item is None:
+            ignorados += 1
+            erros.append(f"Linha {n}: item de estoque não encontrado "
+                         "(ID e código de barras não batem com nada cadastrado).")
+            continue
+
+        try:
+            nova_qtd = inteiro(celula(linha, col_qtd))
+            novo_min = inteiro(celula(linha, col_min))
+        except ValueError as e:
+            ignorados += 1
+            erros.append(f"Linha {n} ({item['tipo_nome']}): {e}.")
+            continue
+        novo_sts = celula(linha, col_sts)
+        novo_sts = str(novo_sts).strip() if novo_sts is not None else None
+
+        mudancas = []
+        if nova_qtd is not None and nova_qtd != item["quantidade_atual"]:
+            if nova_qtd < 0:
+                ignorados += 1
+                erros.append(f"Linha {n} ({item['tipo_nome']}): quantidade negativa.")
+                continue
+            corrigir_quantidade(item["id"], nova_qtd, criado_por)
+            mudancas.append(f"quantidade {item['quantidade_atual']} → {nova_qtd}")
+        if novo_min is not None and novo_min != item["quantidade_minima"]:
+            atualizar_minimo(item["id"], novo_min, criado_por)
+            mudancas.append(f"mínima {item['quantidade_minima']} → {novo_min}")
+        if novo_sts is not None and novo_sts != (item["status_compra"] or ""):
+            if novo_sts and novo_sts not in STATUS_COMPRA:
+                ignorados += 1
+                erros.append(f"Linha {n} ({item['tipo_nome']}): status de compra "
+                             f"'{novo_sts}' inválido. Use um de: "
+                             + ", ".join(STATUS_COMPRA) + " (ou deixe vazio).")
+                continue
+            atualizar_status_compra(item["id"], novo_sts, criado_por)
+            mudancas.append(f"status de compra → {novo_sts or '(nenhum)'}")
+
+        if mudancas:
+            atualizados.append({"tipo_nome": item["tipo_nome"],
+                                "codigo_barra": item["codigo_barra"],
+                                "mudancas": mudancas})
+        else:
+            ignorados += 1
+
+    return {"atualizados": atualizados, "ignorados": ignorados, "erros": erros}
+
+
 def reverter_saidas_sessao(sessao_id: int) -> None:
     """Restaura estoque das saídas de uma sessão cancelada.
 

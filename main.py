@@ -503,6 +503,132 @@ async def admin_auditoria(request: Request,
     })
 
 
+_DIAS_SEMANA = ("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")
+
+
+def _dia_da_semana(data_iso: str) -> str:
+    """'2026-08-21' → 'sexta'. Coluna própria na exportação pra dar pra
+    cruzar volume por dia útil sem fórmula no Excel."""
+    try:
+        return _DIAS_SEMANA[datetime.strptime(data_iso[:10], "%Y-%m-%d").weekday()]
+    except (ValueError, IndexError):
+        return ""
+
+
+@app.get("/admin/auditoria/exportar.xlsx")
+@require_admin
+async def admin_auditoria_exportar(request: Request,
+                                   data_ini: str = "", data_fim: str = "",
+                                   user_id: str = "", acao: str = "",
+                                   busca: str = ""):
+    """Log completo em Excel, com abas de análise já prontas.
+
+    Usa os MESMOS filtros da tela (mesma função _filtros por baixo), então o
+    que se exporta é exatamente o que se está vendo — sem teto escondido: o
+    período escolhido é que limita o volume.
+
+    Os resumos vêm agregados do banco, não somados em Python sobre as linhas
+    exportadas: num período grande isso é a diferença entre gerar o arquivo e
+    estourar a memória."""
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from io import BytesIO
+
+    total = auditoria_mod.contar(data_ini, data_fim, user_id, acao, busca=busca)
+    registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao,
+                                     limite=total or 1, busca=busca)
+    resumos = auditoria_mod.resumos_para_analise(data_ini, data_fim, user_id, acao, busca)
+
+    wb = openpyxl.Workbook()
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+
+    def montar(ws, colunas, larguras, linhas, zebra=True):
+        for col, (h, w) in enumerate(zip(colunas, larguras), 1):
+            c = ws.cell(1, col, h)
+            c.font = Font(bold=True, color=branco)
+            c.fill = PatternFill("solid", fgColor=azul)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            ws.column_dimensions[get_column_letter(col)].width = w
+        for i, linha in enumerate(linhas):
+            r = i + 2
+            for col, valor in enumerate(linha, 1):
+                ws.cell(r, col, valor)
+            if zebra and i % 2 == 0:
+                for col in range(1, len(colunas) + 1):
+                    ws.cell(r, col).fill = PatternFill("solid", fgColor=cinza)
+        ws.freeze_panes = "A2"
+        if linhas:
+            ws.auto_filter.ref = f"A1:{get_column_letter(len(colunas))}{len(linhas) + 1}"
+
+    # ── Aba 1: o log linha a linha ──────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Log completo"
+    montar(ws,
+           ["Data", "Hora", "Dia da semana", "Usuário", "Ação", "Método",
+            "Caminho", "Status", "IP", "Detalhe"],
+           [12, 10, 15, 22, 24, 9, 46, 9, 16, 80],
+           [(
+               (r["criado_em"] or "")[:10],
+               (r["criado_em"] or "")[11:19],
+               _dia_da_semana(r["criado_em"] or ""),
+               r["user_nome"] or "(sem usuário)",
+               r["acao"] or "",
+               r["metodo"] or "",
+               r["caminho"] or "",
+               r["status"] if r["status"] is not None else "",
+               r["ip"] or "",
+               (r["detalhe"] or "")[:2000],
+           ) for r in registros])
+
+    montar(wb.create_sheet("Por dia"), ["Dia", "Ações"], [16, 12],
+           [(x["dia"], x["total"]) for x in resumos["por_dia"]])
+    montar(wb.create_sheet("Por usuário"), ["Usuário", "Ações"], [30, 12],
+           [(x["usuario"], x["total"]) for x in resumos["por_usuario"]])
+    montar(wb.create_sheet("Por ação"), ["Ação", "Ocorrências"], [34, 14],
+           [(x["acao"], x["total"]) for x in resumos["por_acao"]])
+    montar(wb.create_sheet("Dia x Usuário"), ["Dia", "Usuário", "Ações"], [16, 30, 12],
+           [(x["dia"], x["usuario"], x["total"]) for x in resumos["por_dia_usuario"]])
+    montar(wb.create_sheet("Por hora"), ["Hora", "Ações"], [12, 12],
+           [(x["hora"] + "h", x["total"]) for x in resumos["por_hora"]])
+    montar(wb.create_sheet("Por status HTTP"), ["Status", "Ocorrências"], [12, 14],
+           [(x["status"], x["total"]) for x in resumos["por_status"]])
+
+    # ── Aba de contexto: o que este arquivo é ───────────────────────────────
+    ws_i = wb.create_sheet("Filtros aplicados", 0)
+    ws_i.column_dimensions["A"].width = 26
+    ws_i.column_dimensions["B"].width = 56
+    linhas_info = [
+        ("Exportação da auditoria", ""),
+        ("Gerado em", now_brt()),
+        ("Período", f"{data_ini or 'início'} até {data_fim or 'hoje'}"),
+        ("Usuário filtrado", next((u["nome"] for u in usuarios_mod.listar()
+                                   if str(u["id"]) == str(user_id)), "todos")),
+        ("Ação filtrada", acao or "todas"),
+        ("Busca por texto", busca or "(nenhuma)"),
+        ("Registros exportados", total),
+        ("", ""),
+        ("Observação", "As abas de resumo são calculadas sobre o MESMO filtro "
+                       "desta exportação."),
+    ]
+    for i, (k, v) in enumerate(linhas_info, 1):
+        a = ws_i.cell(i, 1, k)
+        ws_i.cell(i, 2, v)
+        if i == 1:
+            a.font = Font(bold=True, size=13, color=branco)
+            a.fill = PatternFill("solid", fgColor=azul)
+        else:
+            a.font = Font(bold=True)
+
+    buf = BytesIO()
+    wb.save(buf); buf.seek(0)
+    nome = f"auditoria_{(data_ini or 'tudo')}_{(data_fim or now_brt()[:10])}.xlsx"
+    return _Resp(content=buf.read(),
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
 # ── Rede ──────────────────────────────────────────────────────────────────────
 
 @app.get("/rede", response_class=HTMLResponse)
@@ -3105,6 +3231,132 @@ async def admin_producao_historico_exportar(request: Request,
 
 
 # ── Estoque ───────────────────────────────────────────────────────────────────
+
+@app.get("/admin/estoque/ajuste-modelo.xlsx")
+@require_permission("estoque_editar")
+async def admin_estoque_ajuste_modelo(request: Request):
+    """Planilha do estoque ATUAL, pronta pra editar e devolver. Sai com os
+    valores de hoje preenchidos: o operador muda só as células que quiser e
+    reenvia — o que não mudar não vira movimento.
+
+    A coluna ID é a chave da volta. Fica visível (e travada por um aviso no
+    cabeçalho) em vez de escondida, pra ninguém apagar a coluna sem saber o
+    que está fazendo e depois a importação não achar o item."""
+    from fastapi.responses import Response as _Resp
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from io import BytesIO
+
+    itens = estoque_mod.listar_estoque()
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Ajuste de Estoque"
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+    colunas = ["ID", "Tipo de Item", "Código de Barras",
+               "Quantidade Atual", "Quantidade Mínima", "Status de Compra"]
+    larguras = [8, 34, 22, 18, 18, 22]
+    for col, (h, w) in enumerate(zip(colunas, larguras), 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[c.column_letter].width = w
+    for i, item in enumerate(itens):
+        r = i + 2
+        ws.cell(r, 1, item["id"])
+        ws.cell(r, 2, item["tipo_nome"])
+        ws.cell(r, 3, item["codigo_barra"])
+        ws.cell(r, 4, item["quantidade_atual"])
+        ws.cell(r, 5, item["quantidade_minima"])
+        ws.cell(r, 6, item.get("status_compra") or "")
+        if i % 2 == 0:
+            for col in range(1, len(colunas) + 1):
+                ws.cell(r, col).fill = PatternFill("solid", fgColor=cinza)
+    # ID, tipo e código são só referência — quem edita mexe nas três últimas.
+    for col in (1, 2, 3):
+        for r in range(2, len(itens) + 2):
+            ws.cell(r, col).font = Font(color="808080")
+    ws.freeze_panes = "A2"
+
+    if itens:
+        dv = DataValidation(type="list",
+                            formula1='"' + ",".join(estoque_mod.STATUS_COMPRA) + '"',
+                            allow_blank=True, showErrorMessage=False)
+        dv.promptTitle = "Status de Compra"
+        dv.prompt = "Deixe vazio se não há pendência de compra."
+        dv.showInputMessage = True
+        ws.add_data_validation(dv)
+        dv.add(f"F2:F{len(itens) + 1}")
+
+    ws2 = wb.create_sheet("Como usar")
+    instrucoes = [
+        "Como atualizar o estoque em massa",
+        "",
+        "1. Altere as colunas Quantidade Atual, Quantidade Mínima e/ou Status de Compra.",
+        "2. NÃO apague nem reordene a coluna ID — é por ela que o sistema reencontra cada item.",
+        "3. Salve e envie o arquivo em Itens & Estoque › Importar Ajuste.",
+        "",
+        "Célula deixada em BRANCO significa 'não mexer nesse campo'.",
+        "Para zerar um estoque, escreva 0 — apagar a célula não zera nada.",
+        "",
+        "Linha sem alteração nenhuma não gera movimento: reenviar a mesma",
+        "planilha duas vezes não duplica nada no histórico.",
+        "",
+        "IMPORTANTE: baixe a planilha na hora de usar. Ela leva os números do",
+        "momento do download, então enviar um arquivo baixado dias atrás faz o",
+        "estoque VOLTAR para os valores daquele dia, desfazendo o que aconteceu",
+        "no meio do caminho.",
+        "",
+        "Toda alteração entra no histórico do item com seu usuário, igual ao",
+        "ajuste feito na tela — é possível auditar tudo depois.",
+        "",
+        "Status de Compra aceita: " + ", ".join(estoque_mod.STATUS_COMPRA) + " (ou vazio).",
+    ]
+    ws2.column_dimensions["A"].width = 92
+    for i, linha in enumerate(instrucoes, 1):
+        c = ws2.cell(i, 1, linha)
+        if i == 1:
+            c.font = Font(bold=True, size=13, color=branco)
+            c.fill = PatternFill("solid", fgColor=azul)
+
+    buf = BytesIO()
+    wb.save(buf); buf.seek(0)
+    return _Resp(content=buf.read(),
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition":
+                          'attachment; filename="ajuste_estoque.xlsx"'})
+
+
+@app.post("/admin/estoque/importar-ajuste")
+@require_permission("estoque_editar")
+async def admin_estoque_importar_ajuste(request: Request):
+    """Aplica a planilha de ajuste. Passa pelas mesmas funções da tela, então
+    cada mudança gera o mesmo movimento e o mesmo log do ajuste manual."""
+    user = get_current_user(request)
+    form = await request.form()
+    arquivo = form.get("arquivo")
+    if not arquivo or not getattr(arquivo, "filename", ""):
+        return RedirectResponse(
+            "/admin/items?tab=catalogo&erro=" + quote("Selecione um arquivo .xlsx."),
+            status_code=302)
+    try:
+        conteudo = await _ler_upload(arquivo)
+        r = estoque_mod.importar_ajustes_xlsx(conteudo, user["id"])
+    except Exception as e:
+        return RedirectResponse(
+            "/admin/items?tab=catalogo&erro=" + quote(f"Erro ao ler a planilha: {e}"),
+            status_code=302)
+
+    partes = [f"{len(r['atualizados'])} item(ns) atualizado(s)"]
+    if r["ignorados"]:
+        partes.append(f"{r['ignorados']} sem alteração")
+    if r["erros"]:
+        partes.append(f"{len(r['erros'])} com problema: " + " | ".join(r["erros"][:3]))
+    return RedirectResponse(
+        "/admin/items?tab=catalogo&ok_ajuste=" + quote(" · ".join(partes)),
+        status_code=302)
+
 
 @app.get("/admin/estoque/exportar.xlsx")
 @require_login

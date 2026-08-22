@@ -4,7 +4,17 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1>📜 Auditoria</h1>
-  <a href="/admin/usuarios" class="btn btn-primary">👥 Usuários</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    {% if user and user.admin %}
+    {# Leva os MESMOS filtros da tela: o que se exporta é o que se está vendo. #}
+    <a class="btn btn-success"
+       href="/admin/auditoria/exportar.xlsx?data_ini={{ data_ini|urlencode }}&data_fim={{ data_fim|urlencode }}&user_id={{ filtro_user_id|urlencode }}&acao={{ filtro_acao|urlencode }}&busca={{ busca|urlencode }}"
+       title="Excel com o log completo do filtro atual e abas de análise por dia, usuário, ação e hora">
+      📊 Exportar Excel
+    </a>
+    {% endif %}
+    <a href="/admin/usuarios" class="btn btn-primary">👥 Usuários</a>
+  </div>
 </div>
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">

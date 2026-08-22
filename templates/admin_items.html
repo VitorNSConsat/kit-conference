@@ -52,6 +52,9 @@
 {% elif request.query_params.get('erro_import') %}
 <div class="alert alert-danger">Erro na importação: {{ request.query_params.get('erro_import') }}</div>
 {% endif %}
+{% if request.query_params.get('ok_ajuste') %}
+<div class="alert alert-success">📥 {{ request.query_params.get('ok_ajuste') }}</div>
+{% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
 {% endif %}
@@ -105,6 +108,13 @@
             <h2 style="margin:0;">Tipos de Item</h2>
             <div style="display:flex;gap:8px;">
                 <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
+                {% if pode('estoque_editar') %}
+                <a href="/admin/estoque/ajuste-modelo.xlsx" class="btn btn-sm btn-secondary"
+                   title="Baixa o estoque atual numa planilha pronta pra editar e devolver">📄 Baixar p/ Ajuste</a>
+                <button type="button" class="btn btn-sm btn-primary" onclick="abrirImportarAjuste()">
+                  📥 Importar Ajuste
+                </button>
+                {% endif %}
                 {% if user and user.admin %}
                 <form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
                       onsubmit="return confirm('Isso vai verificar todos os itens de produção (conjuntos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
@@ -113,6 +123,34 @@
                 {% endif %}
             </div>
         </div>
+        {% if pode('estoque_editar') %}
+        <div id="bloco-importar-ajuste" style="display:none;background:var(--surface-alt);
+             border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
+          <h3 style="font-size:15px;margin:0 0 6px;">📥 Atualizar estoque pela planilha</h3>
+          <p style="color:#666;font-size:13px;margin:0 0 10px;">
+            Baixe <strong>📄 Baixar p/ Ajuste</strong>, altere as colunas de quantidade, mínima
+            e status de compra, e devolva o arquivo aqui. Célula em branco significa
+            <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
+            Linha sem alteração não gera movimento, então reenviar a mesma planilha não
+            duplica nada. Toda mudança entra no histórico do item com o seu usuário,
+            igual ao ajuste feito na tela.
+            <br><strong>Baixe a planilha na hora de usar:</strong> ela leva os números do
+            momento do download, então enviar um arquivo antigo faz o estoque voltar
+            para os valores daquele dia.
+          </p>
+          <form method="post" action="/admin/estoque/importar-ajuste"
+                enctype="multipart/form-data"
+                style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
+                onsubmit="return confirm('Aplicar os ajustes desta planilha ao estoque? Cada alteração fica registrada no histórico.')">
+            <div class="form-group" style="margin:0;">
+              <label>Planilha (.xlsx)</label>
+              <input type="file" name="arquivo" accept=".xlsx" required style="margin:0;">
+            </div>
+            <button type="submit" class="btn btn-success">📥 Aplicar ajustes</button>
+            <button type="button" class="btn btn-secondary" onclick="abrirImportarAjuste()">Cancelar</button>
+          </form>
+        </div>
+        {% endif %}
         <p style="color:#666;font-size:13px;margin-top:4px;">
             Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
             para configurar medida, reutilização, código da caixa e estoque.
@@ -871,6 +909,13 @@
 
 {% endblock %}
 {% block scripts %}
+<script>
+// Abre/fecha o bloco de importação de ajuste do estoque.
+function abrirImportarAjuste() {
+    const b = document.getElementById('bloco-importar-ajuste');
+    if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
+}
+</script>
 <style>
 .config-popup {
     display: none;

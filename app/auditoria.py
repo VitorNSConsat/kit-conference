@@ -151,6 +151,42 @@ def listar(data_ini: str = "", data_fim: str = "", user_id: str = "",
     return [dict(r) for r in rows]
 
 
+def resumos_para_analise(data_ini: str = "", data_fim: str = "", user_id: str = "",
+                         acao: str = "", busca: str = "") -> dict:
+    """Cortes agregados do log, calculados NO BANCO — por dia, por usuário,
+    por ação, por dia×usuário e por hora do dia.
+
+    São GROUP BY sobre o mesmo WHERE da listagem, não contagem em Python
+    sobre as linhas carregadas: assim os totais valem pro período inteiro
+    mesmo quando ele tem centenas de milhares de registros, e a exportação
+    não precisa trazer tudo pra memória só pra somar."""
+    where, params = _filtros(data_ini, data_fim, user_id, acao, "", busca)
+
+    def agrupar(expressao, rotulos, ordem):
+        with db() as conn:
+            rows = conn.execute(
+                f"SELECT {expressao}, COUNT(*) AS total "
+                f"FROM auditoria {where} GROUP BY {rotulos} ORDER BY {ordem}",
+                params).fetchall()
+        return [dict(r) for r in rows]
+
+    return {
+        "por_dia": agrupar(
+            "SUBSTR(criado_em, 1, 10) AS dia", "dia", "dia DESC"),
+        "por_usuario": agrupar(
+            "COALESCE(user_nome, '(sem usuário)') AS usuario, user_id",
+            "usuario, user_id", "total DESC"),
+        "por_acao": agrupar("acao", "acao", "total DESC"),
+        "por_dia_usuario": agrupar(
+            "SUBSTR(criado_em, 1, 10) AS dia, COALESCE(user_nome, '(sem usuário)') AS usuario",
+            "dia, usuario", "dia DESC, total DESC"),
+        "por_hora": agrupar(
+            "SUBSTR(criado_em, 12, 2) AS hora", "hora", "hora"),
+        "por_status": agrupar(
+            "COALESCE(status, 0) AS status", "status", "total DESC"),
+    }
+
+
 def acoes_distintas() -> list[str]:
     with db() as conn:
         rows = conn.execute(
