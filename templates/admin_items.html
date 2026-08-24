@@ -26,6 +26,8 @@
 <div class="alert alert-success">Estoque reposto com sucesso.</div>
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
+{% elif request.query_params.get('ok') == 'alertas' %}
+<div class="alert alert-success">🔔 Configuração dos avisos de estoque salva.</div>
 {% elif request.query_params.get('ok') == 'sobressalente' %}
 <div class="alert alert-success">
     📦 {{ request.query_params.get('itens', '1') }} item(ns)
@@ -161,16 +163,97 @@
             A exportação em Excel traz a relação atual e o histórico completo de movimentações.
         </p>
 
-        <form method="get" action="/admin/items" class="busca-form">
+        {# Busca e filtro de quantidade no mesmo formulário: filtrar por
+           "no vermelho" e depois buscar não pode perder o filtro. #}
+        <form method="get" action="/admin/items" class="busca-form" id="form-filtros-estoque">
             <input type="hidden" name="tab" value="catalogo">
             <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou código...">
-            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-            {% if busca %}
+            <select name="q_situacao" style="margin:0;" onchange="this.form.submit()">
+                <option value="">Quantidade: todas</option>
+                <option value="alerta" {{ 'selected' if q_situacao == 'alerta' }}>⚠️ No aviso (zerado, no mínimo ou perto)</option>
+                <option value="zerado" {{ 'selected' if q_situacao == 'zerado' }}>🚫 Zerado</option>
+                <option value="critico" {{ 'selected' if q_situacao == 'critico' }}>🔴 No mínimo ou abaixo</option>
+                <option value="atencao" {{ 'selected' if q_situacao == 'atencao' }}>🟡 Perto do mínimo</option>
+                <option value="ok" {{ 'selected' if q_situacao == 'ok' }}>🟢 Acima do mínimo</option>
+                <option value="sem_estoque" {{ 'selected' if q_situacao == 'sem_estoque' }}>— Sem estoque cadastrado</option>
+            </select>
+            <input type="number" name="q_min" value="{{ q_min }}" min="0" placeholder="qtd. de"
+                   style="width:90px;margin:0;" title="Quantidade mínima">
+            <input type="number" name="q_max" value="{{ q_max }}" min="0" placeholder="até"
+                   style="width:90px;margin:0;" title="Quantidade máxima">
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            {% if busca or q_situacao or q_min or q_max %}
             <a href="/admin/items?tab=catalogo" class="btn btn-sm btn-secondary">✕ Limpar</a>
             {% endif %}
         </form>
-        {% if busca %}
-        <p class="busca-resultado"><strong>{{ tipos | length }}</strong> tipo(s) para <strong>{{ busca }}</strong></p>
+        {% if busca or q_situacao or q_min or q_max %}
+        <p class="busca-resultado">
+            <strong>{{ tipos | length }}</strong> tipo(s)
+            {%- if busca %} para <strong>{{ busca }}</strong>{% endif %}
+            {%- if q_situacao or q_min or q_max %} com o filtro de quantidade{% endif %}
+            <span style="color:#888;">(de {{ total_tipos }} no total)</span>
+        </p>
+        {% endif %}
+
+        {# Configuração do aviso: mora aqui, ao lado do mínimo de cada item,
+           porque é a mesma decisão — o que conta como falta. #}
+        {% if pode('estoque_editar') %}
+        <details style="margin:10px 0 14px;border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
+          <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔔 Avisos de estoque baixo</summary>
+          <p style="color:#666;font-size:13px;margin:8px 0;">
+            Controla a faixa amarela do topo do sistema: quais itens entram, quantos
+            aparecem, em quais telas e por quanto tempo. Não muda estoque nenhum — só
+            o que é mostrado.
+          </p>
+          <form method="post" action="/admin/estoque/alertas"
+                style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;">
+              <input type="checkbox" name="alerta_ativo" style="width:auto;margin:0;"
+                     {{ 'checked' if alerta_config.alerta_ativo }}>
+              Mostrar o aviso
+            </label>
+            <div class="form-group" style="margin:0;">
+              <label>Perto do mínimo (%)
+                <span style="font-weight:400;color:#888;font-size:11px;">0 = só no mínimo ou abaixo</span>
+              </label>
+              <input type="number" name="alerta_margem" min="0" max="200"
+                     value="{{ alerta_config.alerta_margem }}" style="width:110px;margin:0;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Itens na faixa
+                <span style="font-weight:400;color:#888;font-size:11px;">0 = todos</span>
+              </label>
+              <input type="number" name="alerta_limite" min="0" max="99"
+                     value="{{ alerta_config.alerta_limite }}" style="width:100px;margin:0;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Some depois de (s)
+                <span style="font-weight:400;color:#888;font-size:11px;">0 = fica até fechar</span>
+              </label>
+              <input type="number" name="alerta_segundos" min="0" max="600"
+                     value="{{ alerta_config.alerta_segundos }}" style="width:120px;margin:0;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Onde aparece</label>
+              <select name="alerta_telas" style="margin:0;">
+                {% for chave, rotulo in alerta_telas_opcoes.items() %}
+                <option value="{{ chave }}" {{ 'selected' if alerta_config.alerta_telas == chave }}>{{ rotulo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Cor: no mínimo</label>
+              <input type="color" name="alerta_cor_critico" value="{{ alerta_config.alerta_cor_critico }}"
+                     style="width:56px;height:34px;padding:2px;margin:0;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Cor: perto</label>
+              <input type="color" name="alerta_cor_atencao" value="{{ alerta_config.alerta_cor_atencao }}"
+                     style="width:56px;height:34px;padding:2px;margin:0;">
+            </div>
+            <button type="submit" class="btn btn-sm btn-success">💾 Salvar avisos</button>
+          </form>
+        </details>
         {% endif %}
         {% if tipos %}
         <table id="tabela-catalogo">
@@ -180,8 +263,13 @@
             <tbody>
             {% for tipo in tipos %}
             {% set est = estoque_por_tipo.get(tipo.id) %}
-            {% set abaixo = est and est.quantidade_atual <= est.quantidade_minima %}
-            {% set proximo = est and est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
+            {# O nível vem do servidor (mesma conta da faixa de aviso e do
+               filtro): a cor da linha não pode discordar do que o aviso
+               chama de falta. #}
+            {% set nivel = niveis_estoque.get(tipo.id, 'sem_estoque') %}
+            {% set abaixo = nivel in ('zerado', 'critico') %}
+            {% set proximo = nivel == 'atencao' or (est and not abaixo
+                             and est.quantidade_atual <= est.quantidade_minima * 2) %}
             <tr class="filtro-item">
                 <td style="font-family:monospace;font-size:12px;color:{{ '#555' if est else '#ccc' }};white-space:nowrap;">
                     {{ est.codigo_barra if est else '—' }}

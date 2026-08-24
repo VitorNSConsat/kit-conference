@@ -138,8 +138,13 @@
 {% endif %}
 
 <!-- ── Kits a Produzir — etapa ANTES da bipagem começar ──────────────────── -->
-<div class="card">
-  <h2 style="margin-bottom:4px;">Kits a Produzir <span style="font-weight:400;color:#888;">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
+{# Cada etapa é uma lista que abre. Fechada, a tela inteira cabe numa olhada:
+   os cinco números da esteira sem rolar. O que estava aberto fica guardado no
+   navegador, então quem trabalha sempre na mesma etapa não reabre toda vez. #}
+<details class="card etapa" data-etapa="a_produzir">
+  <summary>
+    <h2>Kits a Produzir <span class="etapa-sub">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
+  </summary>
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Veículos com cliente, garagem e kit definidos, disponíveis pra bipar. Some daqui
     sozinho na primeira bipagem, quando passa pra Em Produção.
@@ -174,11 +179,13 @@
     ou todos já estão em produção.
   </p>
   {% endif %}
-</div>
+</details>
 
 <!-- ── Em Produção (Consat) — só leitura, segue a bipagem sozinha ────────── -->
-<div class="card">
-  <h2 style="margin-bottom:4px;">Em Produção <span style="font-weight:400;color:#888;">(Consat — acompanha a bipagem)</span> <span class="badge badge-warning">{{ resumo.em_producao }} kit{{ 's' if resumo.em_producao != 1 }}</span></h2>
+<details class="card etapa" data-etapa="em_producao">
+  <summary>
+    <h2>Em Produção <span class="etapa-sub">(Consat — acompanha a bipagem)</span> <span class="badge badge-warning">{{ resumo.em_producao }} kit{{ 's' if resumo.em_producao != 1 }}</span></h2>
+  </summary>
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
@@ -224,11 +231,13 @@
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nenhuma bipagem em andamento.</p>
   {% endif %}
-</div>
+</details>
 
 <!-- ── Produzido → selecionar pra Em Trânsito ────────────────────────────── -->
-<div class="card">
-  <h2 style="margin-bottom:4px;">Produzido <span class="badge badge-success">{{ resumo.produzido }} kit{{ 's' if resumo.produzido != 1 }}</span></h2>
+<details class="card etapa" data-etapa="produzido">
+  <summary>
+    <h2>Produzido <span class="badge badge-success">{{ resumo.produzido }} kit{{ 's' if resumo.produzido != 1 }}</span></h2>
+  </summary>
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
   </p>
@@ -279,7 +288,7 @@
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nada esperando envio no momento.</p>
   {% endif %}
-</div>
+</details>
 
 <!-- Modal da nota em lote — a mesma nota/data pros veículos marcados.
      Registro manual: não consulta nem importa nota fiscal de lugar nenhum. -->
@@ -317,8 +326,10 @@
 </div>
 
 <!-- ── Em Trânsito → chegada no cliente ──────────────────────────────────── -->
-<div class="card">
-  <h2 style="margin-bottom:4px;">Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
+<details class="card etapa" data-etapa="transito">
+  <summary>
+    <h2>Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
+  </summary>
   {% if transito %}
   <div style="overflow-x:auto;">
   <table>
@@ -354,18 +365,20 @@
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nada em trânsito no momento.</p>
   {% endif %}
-</div>
+</details>
 
 <!-- ── Cliente — os dois estágios numa lista só ──────────────────────────
      A separação "instalando" x "concluído" sai da TELA, não do banco:
      status_producao continua com os dois valores e cada kit mantém suas
      datas, então o histórico de quando chegou e quando concluiu segue
      intacto — e os botões de concluir e voltar continuam os mesmos. -->
-<div class="card">
-  <h2 style="margin-bottom:4px;">Cliente
-    <span style="font-weight:400;color:#888;">(no cliente — últimos 30)</span>
-    <span class="badge badge-success">{{ resumo.cliente }} kit{{ 's' if resumo.cliente != 1 }} no total</span>
-  </h2>
+<details class="card etapa" data-etapa="cliente">
+  <summary>
+    <h2>Cliente
+      <span class="etapa-sub">(no cliente — últimos 30)</span>
+      <span class="badge badge-success">{{ resumo.cliente }} kit{{ 's' if resumo.cliente != 1 }} no total</span>
+    </h2>
+  </summary>
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Tudo que já foi entregue, instalando ou concluído. A situação de cada um fica na
     coluna Situação.
@@ -417,7 +430,7 @@
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nenhum kit no cliente ainda.</p>
   {% endif %}
-</div>
+</details>
 
 {% endblock %}
 
@@ -491,5 +504,24 @@ if (formTransitoLote) {
     });
 }
 atualizarSelecaoProduzido();
+
+// ── Etapas abertas/fechadas ───────────────────────────────────────────────
+// Nascem fechadas (a tela abre mostrando só os números da esteira), mas o
+// que a pessoa abriu fica guardado no navegador: quem trabalha o dia todo
+// numa etapa não reabre a cada F5. É preferência de exibição, não dado do
+// sistema — por isso localStorage e não banco.
+(function () {
+    const CHAVE = 'producao-etapas-abertas';
+    let abertas = [];
+    try { abertas = JSON.parse(localStorage.getItem(CHAVE)) || []; } catch (e) { abertas = []; }
+    document.querySelectorAll('details.etapa').forEach(function (d) {
+        if (abertas.includes(d.dataset.etapa)) d.open = true;
+        d.addEventListener('toggle', function () {
+            const atuais = [...document.querySelectorAll('details.etapa[open]')]
+                .map(x => x.dataset.etapa);
+            try { localStorage.setItem(CHAVE, JSON.stringify(atuais)); } catch (e) {}
+        });
+    });
+})();
 </script>
 {% endblock %}

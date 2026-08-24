@@ -354,12 +354,18 @@ def _voltar_para(request: Request, padrao: str) -> str:
 
 def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
-    alertas_estoque = estoque_mod.alertas_abaixo_minimo() if user else []
+    # A faixa de aviso obedece à configuração (quais itens, em quais telas,
+    # quantos cabem) — por isso quem decide é o estoque, não o template.
+    banner = (estoque_mod.alertas_para_banner(request.url.path) if user
+              else {"itens": [], "total": 0, "cfg": estoque_mod.ALERTA_PADRAO})
+    alertas_estoque = banner["itens"]
     pode = (lambda chave: permissoes_mod.tem_permissao(user, chave)) if user else (lambda chave: False)
     # O menu é montado a partir do mesmo cadastro de telas que o porteiro usa:
     # esconder o link e barrar a rota não podem discordar.
     return jinja.TemplateResponse(template, {"request": request, "user": user,
                                              "alertas_estoque": alertas_estoque,
+                                             "alertas_total": banner["total"],
+                                             "alerta_cfg": banner["cfg"],
                                              "pode": pode, "telas": permissoes_mod.TELAS, **ctx})
 
 
@@ -929,7 +935,10 @@ def _admin_items_context(sobressalente_cliente: str = "",
                          codigos_pagina: int = 1,
                          tab: str = "",
                          patrimonio_situacao: str = "",
-                         busca: str = "") -> dict:
+                         busca: str = "",
+                         q_situacao: str = "",
+                         q_min: str = "",
+                         q_max: str = "") -> dict:
     aba = tab if tab in ABAS_ITENS else "catalogo"
     busca = (busca or "").strip()
 
@@ -944,6 +953,13 @@ def _admin_items_context(sobressalente_cliente: str = "",
         # antes de trocar — o "pisca" que aparecia ao recarregar filtrado.
         "tab_ativo": aba,
         "busca": busca,
+        "q_situacao": q_situacao,
+        "q_min": q_min,
+        "q_max": q_max,
+        "niveis_estoque": {},
+        "total_tipos": 0,
+        "alerta_config": estoque_mod.ALERTA_PADRAO,
+        "alerta_telas_opcoes": estoque_mod.ALERTA_TELAS,
         "pag_itens": vazio,
         "pag_codigos": vazio,
         "patrimonio_veiculo_id": patrimonio_veiculo_id,
@@ -988,8 +1004,49 @@ def _admin_items_context(sobressalente_cliente: str = "",
                 [{"nome": t["nome"],
                   "codigo": (estoque_por_tipo.get(t["id"]) or {}).get("codigo_barra", "")}],
                 busca, ("nome", "codigo"))]
+
+        # Filtro por QUANTIDADE. A situação usa o mesmo nivel_do_item() da
+        # faixa de aviso — filtrar por "no vermelho" e o aviso do topo não
+        # podem discordar sobre o que é vermelho. A margem de "atenção" vem
+        # da mesma configuração.
+        cfg_alerta = estoque_mod.get_alerta_config()
+        margem = cfg_alerta["alerta_margem"]
+
+        def _nivel(t):
+            est = estoque_por_tipo.get(t["id"])
+            return estoque_mod.nivel_do_item(est, margem) if est else "sem_estoque"
+
+        if q_situacao == "sem_estoque":
+            tipos = [t for t in tipos if t["id"] not in estoque_por_tipo]
+        elif q_situacao == "alerta":     # tudo que a faixa de aviso mostraria
+            tipos = [t for t in tipos if _nivel(t) in ("zerado", "critico", "atencao")]
+        elif q_situacao in ("zerado", "critico", "atencao", "ok"):
+            tipos = [t for t in tipos if _nivel(t) == q_situacao]
+
+        def _num(texto):
+            try:
+                return int(str(texto).strip())
+            except (TypeError, ValueError):
+                return None
+
+        n_min, n_max = _num(q_min), _num(q_max)
+        if n_min is not None or n_max is not None:
+            # Tipo sem estoque cadastrado não tem quantidade — fica de fora de
+            # uma faixa numérica em vez de contar como zero.
+            def _na_faixa(t):
+                est = estoque_por_tipo.get(t["id"])
+                if not est:
+                    return False
+                q = est["quantidade_atual"]
+                return (n_min is None or q >= n_min) and (n_max is None or q <= n_max)
+            tipos = [t for t in tipos if _na_faixa(t)]
+
         ctx["tipos"] = tipos
         ctx["estoque_por_tipo"] = estoque_por_tipo
+        ctx["niveis_estoque"] = {t["id"]: _nivel(t) for t in tipos}
+        ctx["total_tipos"] = len(items_mod.listar_tipos())
+        ctx["alerta_config"] = cfg_alerta
+        ctx["alerta_telas_opcoes"] = estoque_mod.ALERTA_TELAS
 
     elif aba == "novo":
         ctx["tipos"] = items_mod.listar_tipos()
@@ -1015,7 +1072,8 @@ def _admin_items_context(sobressalente_cliente: str = "",
 @require_login
 async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
                       veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1,
-                      tab: str = "", situacao: str = "", busca: str = ""):
+                      tab: str = "", situacao: str = "", busca: str = "",
+                      q_situacao: str = "", q_min: str = "", q_max: str = ""):
     return render(request, "admin_items.html", _admin_items_context(
         cliente, data_ini, data_fim,
         patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
@@ -1024,6 +1082,7 @@ async def admin_items(request: Request, cliente: str = "", data_ini: str = "", d
         tab=tab,
         patrimonio_situacao=situacao,
         busca=busca,
+        q_situacao=q_situacao, q_min=q_min, q_max=q_max,
     ))
 
 
@@ -3618,6 +3677,26 @@ async def admin_estoque_exportar(request: Request):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/admin/estoque/alertas")
+@require_permission("estoque_editar")
+async def admin_estoque_alertas(request: Request):
+    """Salva como a faixa de aviso de estoque baixo se comporta. Mesma
+    permissão de mexer no estoque: quem define o mínimo é quem define o
+    que conta como falta."""
+    form = await request.form()
+    estoque_mod.salvar_alerta_config({
+        # Checkbox desmarcado não é enviado — a ausência é o "desligado".
+        "alerta_ativo": "1" if form.get("alerta_ativo") else "0",
+        "alerta_margem": form.get("alerta_margem", ""),
+        "alerta_limite": form.get("alerta_limite", ""),
+        "alerta_segundos": form.get("alerta_segundos", ""),
+        "alerta_telas": str(form.get("alerta_telas", "")),
+        "alerta_cor_critico": str(form.get("alerta_cor_critico", "")),
+        "alerta_cor_atencao": str(form.get("alerta_cor_atencao", "")),
+    })
+    return RedirectResponse("/admin/items?tab=catalogo&ok=alertas", status_code=302)
 
 
 @app.get("/admin/estoque", response_class=HTMLResponse)

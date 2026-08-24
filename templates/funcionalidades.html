@@ -276,6 +276,29 @@
     correção de quantidade, mínimo, status de compra e código de barras. Toda correção
     entra no histórico do item com autor e data.
   </p>
+  <p>
+    <strong>Filtro por quantidade:</strong> além da busca por nome/código, dá pra listar
+    só o que está <em>zerado</em>, <em>no mínimo ou abaixo</em>, <em>perto do mínimo</em>,
+    <em>acima do mínimo</em>, <em>sem estoque cadastrado</em>, ou informar uma faixa
+    (<em>de … até …</em>). É a mesma conta que decide a cor da linha e o que entra no
+    aviso do topo — filtro, cor e aviso nunca discordam.
+  </p>
+  <p>
+    <strong>🔔 Avisos de estoque baixo</strong> (para quem pode editar estoque) controla a
+    faixa amarela do topo do sistema, sem mexer em estoque nenhum:
+  </p>
+  <ul>
+    <li><span class="campo">Mostrar o aviso</span> — liga e desliga a faixa.</li>
+    <li><span class="campo">Perto do mínimo (%)</span> — quanto acima do mínimo já conta
+      como atenção. 0 = só o que está no mínimo ou abaixo.</li>
+    <li><span class="campo">Itens na faixa</span> — quantos aparecem; o resto vira
+      “e mais N”, em vez de sumir sem avisar. 0 = todos.</li>
+    <li><span class="campo">Some depois de (s)</span> — 0 = fica até alguém fechar.</li>
+    <li><span class="campo">Onde aparece</span> — todas as telas, só Itens &amp; Estoque,
+      ou só a tela inicial.</li>
+    <li><span class="campo">Cores</span> — uma para “no mínimo” e outra para “perto”.
+      Item zerado ainda ganha o 🚫.</li>
+  </ul>
   <div class="cuidado">
     <strong>Atualização em massa pela planilha:</strong> baixe a planilha
     <strong>na hora de usar</strong>, preencha e suba de volta. Ela é identificada por um
@@ -405,6 +428,12 @@
 <!-- 9 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="producao">
   <h2>9. 🚚 Produção</h2>
+  <p>
+    Cada estágio é uma lista que <strong>abre e fecha</strong>: fechados, os cinco
+    números da esteira cabem numa tela só; clicando no título, aparecem os veículos
+    daquele estágio. O que ficou aberto é lembrado no próprio navegador, então quem
+    trabalha sempre no mesmo estágio não reabre a cada vez.
+  </p>
   <p>A esteira, na ordem:</p>
   <ul>
     <li><strong>Kits a Produzir</strong> — veículo pronto (cliente + garagem + modelo) que

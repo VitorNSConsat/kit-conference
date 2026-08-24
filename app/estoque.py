@@ -450,6 +450,126 @@ def alertas_abaixo_minimo() -> list:
     return [dict(r) for r in rows]
 
 
+# ── Aviso de estoque baixo — o que aparece, onde e por quanto tempo ──────────
+# O aviso é a faixa amarela do topo. Antes era fixo: todos os itens no mínimo,
+# em todas as telas, pra sempre. Numa lista grande virava paisagem — e o que
+# vira paisagem ninguém lê.
+ALERTA_PADRAO = {
+    "alerta_ativo": "1",
+    # % acima do mínimo que já conta como "atenção". 0 = só no mínimo ou abaixo.
+    "alerta_margem": "0",
+    # Quantos itens cabem na faixa (0 = todos). O resto vira "e mais N".
+    "alerta_limite": "8",
+    # Some sozinho depois de N segundos (0 = fica até fechar).
+    "alerta_segundos": "0",
+    # Em quais telas: todas | estoque (Itens & Estoque) | inicio (só a raiz).
+    "alerta_telas": "todas",
+    "alerta_cor_critico": "#c0392b",
+    "alerta_cor_atencao": "#f0ad4e",
+}
+ALERTA_TELAS = {
+    "todas": "Em todas as telas",
+    "estoque": "Só em Itens & Estoque",
+    "inicio": "Só na tela inicial",
+}
+_COR_HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def get_alerta_config() -> dict:
+    cfg = dict(ALERTA_PADRAO)
+    with db() as conn:
+        for r in conn.execute("SELECT chave, valor FROM estoque_config").fetchall():
+            if r["chave"] in cfg:
+                cfg[r["chave"]] = r["valor"]
+    # Números saem prontos pra usar; o resto continua texto.
+    for chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos"):
+        try:
+            cfg[chave] = max(0, int(cfg[chave]))
+        except (TypeError, ValueError):
+            cfg[chave] = int(ALERTA_PADRAO[chave])
+    if cfg["alerta_telas"] not in ALERTA_TELAS:
+        cfg["alerta_telas"] = ALERTA_PADRAO["alerta_telas"]
+    for chave in ("alerta_cor_critico", "alerta_cor_atencao"):
+        if not _COR_HEX.match(str(cfg[chave] or "")):
+            cfg[chave] = ALERTA_PADRAO[chave]
+    return cfg
+
+
+def salvar_alerta_config(valores: dict) -> None:
+    """Grava só as chaves conhecidas. Valor inválido cai no padrão em vez de
+    quebrar a faixa de aviso em todas as telas do sistema."""
+    limpos = {}
+    for chave, padrao in ALERTA_PADRAO.items():
+        if chave not in valores:
+            continue
+        v = valores[chave]
+        if chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos"):
+            try:
+                v = str(max(0, int(v)))
+            except (TypeError, ValueError):
+                v = padrao
+        elif chave == "alerta_telas":
+            v = v if v in ALERTA_TELAS else padrao
+        else:
+            v = v if _COR_HEX.match(str(v or "")) else padrao
+        limpos[chave] = v
+    with db() as conn:
+        for chave, valor in limpos.items():
+            conn.execute(
+                "INSERT INTO estoque_config (chave, valor) VALUES (?, ?) "
+                "ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+                (chave, valor)
+            )
+
+
+def nivel_do_item(item: dict, margem: int = 0) -> str:
+    """zerado > critico (no mínimo ou abaixo) > atencao (dentro da margem
+    acima do mínimo) > ok. Uma função só pra a faixa de aviso, o filtro da
+    lista e a cor da linha não discordarem entre si."""
+    atual = item.get("quantidade_atual") or 0
+    minimo = item.get("quantidade_minima") or 0
+    if atual <= 0:
+        return "zerado"
+    if atual <= minimo:
+        return "critico"
+    if margem and atual <= minimo * (1 + margem / 100):
+        return "atencao"
+    return "ok"
+
+
+def alertas_para_banner(caminho: str = "") -> dict:
+    """O que a faixa de aviso deve mostrar nesta tela.
+
+    Devolve {itens, total, cfg}: `itens` já cortado pelo limite e `total` com
+    quantos existem de verdade, pra a faixa poder dizer "e mais N" em vez de
+    esconder o resto sem avisar."""
+    cfg = get_alerta_config()
+    vazio = {"itens": [], "total": 0, "cfg": cfg}
+    if not cfg["alerta_ativo"]:
+        return vazio
+    escopo = cfg["alerta_telas"]
+    if escopo == "inicio" and caminho != "/":
+        return vazio
+    if escopo == "estoque" and not (caminho.startswith("/admin/items")
+                                    or caminho.startswith("/admin/estoque")):
+        return vazio
+    margem = cfg["alerta_margem"]
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT e.*, it.nome AS tipo_nome "
+            "FROM estoque e JOIN item_tipo it ON it.id = e.item_tipo_id "
+            "WHERE e.quantidade_atual <= e.quantidade_minima * (1 + ? / 100.0) "
+            "ORDER BY (e.quantidade_atual - e.quantidade_minima), it.nome",
+            (margem,)
+        ).fetchall()
+    itens = [dict(r) for r in rows]
+    for i in itens:
+        i["nivel"] = nivel_do_item(i, margem)
+    total = len(itens)
+    limite = cfg["alerta_limite"]
+    return {"itens": itens[:limite] if limite else itens, "total": total, "cfg": cfg}
+
+
 def atualizar_codigo_barra(estoque_id: int, novo_codigo: str) -> None:
     novo_codigo = (novo_codigo or "").strip()
     if not novo_codigo:

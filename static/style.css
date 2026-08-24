@@ -680,6 +680,25 @@ tr:hover td { background: var(--surface-alt); }
     background: #fdf6ea !important;
 }
 
+/* ── Etapas da Produção como listas que abrem ─────────────────────────────
+   Fechadas, os cinco estágios da esteira cabem numa tela só e o número de
+   cada um fica à vista; a lista de veículos só aparece quando se pede. */
+details.etapa { padding-top: 10px; padding-bottom: 10px; }
+details.etapa > summary {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; list-style: none; padding: 4px 0;
+}
+details.etapa > summary::-webkit-details-marker { display: none; }
+/* Seta desenhada aqui: a nativa muda de forma entre navegadores. */
+details.etapa > summary::before {
+    content: '▸'; color: #8a97a4; font-size: 15px; line-height: 1; flex: 0 0 auto;
+}
+details.etapa[open] > summary::before { content: '▾'; }
+details.etapa > summary h2 { margin: 0; border: 0; padding: 0; }
+details.etapa > summary:hover h2 { color: var(--brand); }
+.etapa-sub { font-weight: 400; color: #888; font-size: 13px; }
+details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+
 /* ── Janela de configuracao do item (Itens & Estoque) ─────────────────────
    Mora aqui, e nao num <style> no rodape da pagina, porque o rodape so e
    aplicado depois que a pagina inteira chega: ate la o navegador desenha

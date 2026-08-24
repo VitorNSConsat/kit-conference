@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=16">
+    <link rel="stylesheet" href="/static/style.css?v=17">
 </head>
 <body>
 {% if user %}
@@ -41,14 +41,29 @@
     </div>
 </nav>
 {% if alertas_estoque and '/session/' not in request.url.path %}
-<div class="stock-alert-banner" id="stock-alert-banner">
+{# O que aparece aqui (quais itens, quantos, a cor e por quanto tempo) vem da
+   configuração em Itens & Estoque — a faixa não decide nada sozinha. #}
+<div class="stock-alert-banner" id="stock-alert-banner" data-segundos="{{ alerta_cfg.alerta_segundos }}">
     <strong>⚠️ Estoque baixo:</strong>
     {% for a in alertas_estoque %}
-    <span class="stock-alert-chip">{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
+    <span class="stock-alert-chip"
+          style="{% if a.nivel in ('zerado', 'critico') %}background:{{ alerta_cfg.alerta_cor_critico }};color:#fff;{% elif a.nivel == 'atencao' %}background:{{ alerta_cfg.alerta_cor_atencao }};color:#fff;{% endif %}"
+          {% if a.nivel == 'zerado' %}title="Sem nenhuma unidade"{% endif %}>{{ '🚫 ' if a.nivel == 'zerado' }}{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
     {% endfor %}
-    <a href="/admin/items" class="stock-alert-chip" style="background:#f0ad4e;color:#fff;text-decoration:none;font-weight:600;">Ver Estoque →</a>
+    {% if alertas_total > alertas_estoque | length %}
+    <span class="stock-alert-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
+    {% endif %}
+    <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="stock-alert-chip" style="background:#f0ad4e;color:#fff;text-decoration:none;font-weight:600;">Ver Estoque →</a>
     <button onclick="document.getElementById('stock-alert-banner').style.display='none'" class="stock-alert-close">✕</button>
 </div>
+<script>
+// Some sozinho depois de N segundos quando configurado (0 = fica até fechar).
+(function () {
+    const faixa = document.getElementById('stock-alert-banner');
+    const seg = parseInt(faixa.dataset.segundos || '0', 10);
+    if (seg > 0) setTimeout(function () { faixa.style.display = 'none'; }, seg * 1000);
+})();
+</script>
 {% endif %}
 <script>
 function toggleNav() {

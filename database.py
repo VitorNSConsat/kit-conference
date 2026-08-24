@@ -122,6 +122,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "kit_itens_exigidos" not in tabelas
         or "kit_template_conjuntos" not in tabelas
         or "producao_config" not in tabelas
+        or "estoque_config" not in tabelas
         or "finalizado_por" not in colunas_kit_record
         or "modelo" not in colunas_veiculos
         or "observacao" not in colunas_kit_record
@@ -452,6 +453,14 @@ def init_db():
             -- nada: e so filtro de tela, o kit continua no banco e nos
             -- relatorios. Chave ausente = usa o padrao do codigo.
             CREATE TABLE IF NOT EXISTS producao_config (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
+            );
+
+            -- Preferencias do aviso de estoque baixo (quais itens entram, em
+            -- quais telas, por quanto tempo, com que cor). Separada da
+            -- producao_config so pra cada tela mexer no que e dela.
+            CREATE TABLE IF NOT EXISTS estoque_config (
                 chave TEXT PRIMARY KEY,
                 valor TEXT NOT NULL
             );
