@@ -2,6 +2,37 @@
 {% import "_paginacao.html" as pg %}
 {% block title %}Veículos e Clientes{% endblock %}
 {% block content %}
+<style>
+/* Clientes e garagens em etiquetas dentro de uma caixa de altura fixa.
+   Antes era uma tabela: cada cadastro novo esticava o card e empurrava a
+   lista de veículos pra baixo, então com muitas garagens a tela começava
+   com meia página de cadastro antes do que interessa. Agora o card tem
+   sempre a mesma altura — passando de 10 linhas, a rolagem acontece DENTRO
+   da caixa. */
+.chips-lista {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    max-height: 156px; overflow-y: auto;
+    padding: 8px; border: 1px solid var(--border); border-radius: 8px;
+    background: #fafbfc;
+}
+.chip-item {
+    display: inline-flex; align-items: center; gap: 2px;
+    background: #eef2f6; border-radius: 999px;
+    padding: 3px 4px 3px 11px; font-size: 13px; max-width: 100%;
+}
+.chip-item.sem-acao { padding: 3px 11px; }
+.chip-item > a {
+    font-weight: 600; text-decoration: none; color: var(--brand);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip-item > a:hover { text-decoration: underline; }
+.chip-item form { margin: 0; display: inline-flex; }
+.chip-item button {
+    border: 0; background: transparent; color: #b0392b; cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 3px 6px; border-radius: 999px;
+}
+.chip-item button:hover { background: #f3c9c2; }
+</style>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
   <h1>Veículos e Clientes</h1>
   <div style="display:flex;gap:8px;">
@@ -49,7 +80,7 @@
 
   <!-- Clientes -->
   <div class="card" style="margin-bottom:0;">
-    <h2>Clientes</h2>
+    <h2>Clientes <span class="badge badge-info">{{ clientes_cadastrados | length }}</span></h2>
     <form method="post" action="/admin/clientes"
           style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
       <input type="text" name="nome" placeholder="Nome do cliente" required
@@ -58,34 +89,22 @@
     </form>
     {% if clientes_cadastrados %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar cliente..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-clientes tr.filtro-item">
-    {# .table-scroll é obrigatório: no CSS estreito toda tabela tem
-       min-width 540px, então sem o wrapper ela estoura o card e empurra a
-       página inteira pra fora da tela. #}
-    <div class="table-scroll">
-    <table id="tabela-clientes">
-      <thead>
-        <tr><th>Nome</th><th>Desde</th><th></th></tr>
-      </thead>
-      <tbody>
+           oninput="filtrarLista(this)" data-filtro-alvo="#lista-clientes .chip-item">
+    <div class="chips-lista" id="lista-clientes">
       {% for c in clientes_cadastrados %}
-      <tr class="filtro-item">
-        {# O nome é atalho pra página do cliente: veículos, garagens usadas,
-           modelos e kits num lugar só. #}
-        <td><a href="/admin/clientes/{{ c.id }}"><strong>{{ c.nome }}</strong></a></td>
-        <td style="font-size:12px;color:#888;">{{ c.criado_em[:10] }}</td>
-        <td>
-          {% if user and user.admin %}
-          <form method="post" action="/admin/clientes/{{ c.id }}/delete"
-                onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'?')">
-            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
+      {# O nome é atalho pra página do cliente: veículos, garagens usadas,
+         modelos e kits num lugar só. A data de cadastro vive no title e na
+         página do cliente — na lista ela só ocupava espaço. #}
+      <span class="chip-item{{ '' if user and user.admin else ' sem-acao' }}">
+        <a href="/admin/clientes/{{ c.id }}" title="Cliente desde {{ c.criado_em[:10] }}">{{ c.nome }}</a>
+        {% if user and user.admin %}
+        <form method="post" action="/admin/clientes/{{ c.id }}/delete"
+              onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'?')">
+          <button type="submit" title="Excluir cliente">✕</button>
+        </form>
+        {% endif %}
+      </span>
       {% endfor %}
-      </tbody>
-    </table>
     </div>
     {% else %}
     <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
@@ -94,7 +113,7 @@
 
   <!-- Garagens -->
   <div class="card" style="margin-bottom:0;">
-    <h2>Garagens</h2>
+    <h2>Garagens <span class="badge badge-info">{{ garagens_cadastradas | length }}</span></h2>
     <form method="post" action="/admin/garagens"
           style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
       <input type="text" name="nome" placeholder="Nome da garagem" required
@@ -103,29 +122,19 @@
     </form>
     {% if garagens_cadastradas %}
     <input type="text" class="busca-box" placeholder="🔍 Buscar garagem..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#tabela-garagens tr.filtro-item">
-    <div class="table-scroll">
-    <table id="tabela-garagens">
-      <thead>
-        <tr><th>Nome</th><th>Desde</th><th></th></tr>
-      </thead>
-      <tbody>
+           oninput="filtrarLista(this)" data-filtro-alvo="#lista-garagens .chip-item">
+    <div class="chips-lista" id="lista-garagens">
       {% for g in garagens_cadastradas %}
-      <tr class="filtro-item">
-        <td><a href="/admin/garagens/{{ g.id }}"><strong>{{ g.nome }}</strong></a></td>
-        <td style="font-size:12px;color:#888;">{{ g.criado_em[:10] }}</td>
-        <td>
-          {% if user and user.admin %}
-          <form method="post" action="/admin/garagens/{{ g.id }}/delete"
-                onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
-            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
+      <span class="chip-item{{ '' if user and user.admin else ' sem-acao' }}">
+        <a href="/admin/garagens/{{ g.id }}" title="Cadastrada em {{ g.criado_em[:10] }}">{{ g.nome }}</a>
+        {% if user and user.admin %}
+        <form method="post" action="/admin/garagens/{{ g.id }}/delete"
+              onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
+          <button type="submit" title="Excluir garagem">✕</button>
+        </form>
+        {% endif %}
+      </span>
       {% endfor %}
-      </tbody>
-    </table>
     </div>
     {% else %}
     <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
