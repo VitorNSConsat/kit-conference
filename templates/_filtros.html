@@ -1,0 +1,38 @@
+{# Filtro de múltipla escolha.
+
+   Um <select> comum obriga a escolher UMA coisa: pra ver duas garagens era
+   preciso olhar uma, depois a outra. Aqui cada opção é um checkbox com o
+   mesmo `name`, então o formulário manda `garagem=A&garagem=B` e o servidor
+   trata como lista. Fechado, o botão diz o que está valendo.
+
+   `opcoes` é uma lista de pares (valor, rótulo) — ou de strings, quando os
+   dois são a mesma coisa. `selecionados` é a lista de valores marcados. #}
+{% macro multi(nome, rotulo, opcoes, selecionados, vazio='todos') -%}
+{% set marcados = selecionados or [] %}
+{% set pares = [] %}
+{% for o in opcoes %}
+  {% if o is string %}{% set _ = pares.append((o, o)) %}
+  {% else %}{% set _ = pares.append((o[0], o[1])) %}{% endif %}
+{% endfor %}
+<div class="multi" data-rotulo="{{ rotulo }}" data-vazio="{{ vazio }}">
+  <button type="button" class="multi-botao" onclick="abrirMulti(this)">
+    <span class="multi-texto">
+      {%- if not marcados %}{{ rotulo }}: {{ vazio }}
+      {%- elif marcados | length == 1 %}{{ rotulo }}: {{ (pares | selectattr('0', 'equalto', marcados[0]) | map(attribute='1') | list | first) or marcados[0] }}
+      {%- else %}{{ rotulo }}: {{ marcados | length }} selecionados{% endif -%}
+    </span>
+    <span class="multi-seta">▾</span>
+  </button>
+  <div class="multi-lista">
+    {% for valor, texto in pares %}
+    <label class="multi-opcao">
+      <input type="checkbox" name="{{ nome }}" value="{{ valor }}"
+             {{ 'checked' if valor in marcados }}>
+      <span>{{ texto }}</span>
+    </label>
+    {% else %}
+    <p class="multi-vazio">Nada pra escolher aqui ainda.</p>
+    {% endfor %}
+  </div>
+</div>
+{%- endmacro %}

@@ -84,13 +84,17 @@
 
 <div class="card">
     <h2>{{ label }}s Cadastrados</h2>
-    {{ pg.contagem(pag, label|lower ~ "s") }}
-    <form method="get" action="/admin/templates" class="busca-form">
+    {# Busca ao vivo: troca só o #bloco-{{ tipo }}, então a aba aberta e o
+       formulário de criação abaixo ficam onde estão. #}
+    <form method="get" action="/admin/templates" class="busca-form"
+          data-busca-viva="#bloco-{{ tipo }}">
         <input type="hidden" name="tab" value="{{ tipo }}">
         <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou cliente...">
         <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
         {% if busca %}<a href="/admin/templates?tab={{ tipo }}" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
     </form>
+    <div id="bloco-{{ tipo }}">
+    {{ pg.contagem(pag, label|lower ~ "s") }}
     {% if busca %}
     <p class="busca-resultado">
         Busca em todas as páginas por <strong>{{ busca }}</strong>
@@ -181,6 +185,7 @@
         {% endfor %}
     </div>
     {% endif %}
+    </div>
 </div>
 
 <div class="card">

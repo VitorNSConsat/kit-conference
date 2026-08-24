@@ -8,7 +8,8 @@ from datetime import datetime, timezone, timedelta
 # Brasília Time (UTC-3) — garante horário correto independente do fuso do servidor
 BRT = timezone(timedelta(hours=-3))
 from urllib.parse import quote
-from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+from fastapi import (FastAPI, Request, Form, Query, WebSocket, WebSocketDisconnect,
+                     UploadFile, File, HTTPException)
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -39,6 +40,7 @@ import app.producao as producao_mod
 import app.permissoes as permissoes_mod
 import app.paginacao as paginacao_mod
 import app.datas as datas_mod
+import app.filtros as filtros_mod
 
 load_dotenv()
 
@@ -513,6 +515,22 @@ async def admin_usuarios_criar(request: Request):
     return RedirectResponse("/admin/usuarios?ok=criado", status_code=302)
 
 
+@app.post("/admin/usuarios/{user_id}/nome")
+@require_admin
+async def admin_usuario_renomear(request: Request, user_id: int):
+    """Corrige o nome de exibição. O login fica como foi cadastrado — é ele
+    que identifica a pessoa no histórico e é o que ela digita pra entrar."""
+    alvo = usuarios_mod.buscar(user_id)
+    if not alvo:
+        raise HTTPException(status_code=404)
+    form = await request.form()
+    try:
+        usuarios_mod.renomear(user_id, str(form.get("nome", "")))
+    except ValueError as e:
+        return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/usuarios?ok=nome", status_code=302)
+
+
 @app.post("/admin/usuarios/{user_id}/admin")
 @require_admin
 async def admin_usuario_toggle_admin(request: Request, user_id: int):
@@ -567,9 +585,10 @@ async def admin_usuario_senha(request: Request, user_id: int):
 @app.get("/admin/auditoria", response_class=HTMLResponse)
 @require_admin
 async def admin_auditoria(request: Request,
-                          data_ini: str = "", data_fim: str = "",
-                          user_id: str = "", acao: str = "", pagina: int = 1,
-                          busca: str = ""):
+                          data_ini: str = "", data_fim: str = "", pagina: int = 1,
+                          busca: str = "",
+                          user_id: list[str] = Query(default=[]),
+                          acao: list[str] = Query(default=[])):
     # Paginação no SQL, com o total vindo de contar(): a tela pede só a
     # página que vai mostrar. Antes pedia 2000 linhas e paginava esse
     # pedaço — passando disso, os registros mais antigos do período não
@@ -590,6 +609,9 @@ async def admin_auditoria(request: Request,
         },
         "busca": busca,
         "usuarios": usuarios_mod.listar(),
+        # Pares (valor, rótulo) pro filtro de múltipla escolha — montados aqui
+        # porque o Jinja não tem zip.
+        "opcoes_usuarios": [(str(u["id"]), u["nome"]) for u in usuarios_mod.listar()],
         "acoes": auditoria_mod.acoes_distintas(),
         "data_ini": data_ini, "data_fim": data_fim,
         "filtro_user_id": user_id, "filtro_acao": acao,
@@ -612,8 +634,9 @@ def _dia_da_semana(data_iso: str) -> str:
 @require_admin
 async def admin_auditoria_exportar(request: Request,
                                    data_ini: str = "", data_fim: str = "",
-                                   user_id: str = "", acao: str = "",
-                                   busca: str = ""):
+                                   busca: str = "",
+                                   user_id: list[str] = Query(default=[]),
+                                   acao: list[str] = Query(default=[])):
     """Log completo em Excel, com abas de análise já prontas.
 
     Usa os MESMOS filtros da tela (mesma função _filtros por baixo), então o
@@ -696,9 +719,12 @@ async def admin_auditoria_exportar(request: Request,
         ("Exportação da auditoria", ""),
         ("Gerado em", now_brt()),
         ("Período", f"{data_ini or 'início'} até {data_fim or 'hoje'}"),
-        ("Usuário filtrado", next((u["nome"] for u in usuarios_mod.listar()
-                                   if str(u["id"]) == str(user_id)), "todos")),
-        ("Ação filtrada", acao or "todas"),
+        # Os filtros são listas (múltipla escolha): a capa mostra todos os
+        # escolhidos, não só o primeiro.
+        ("Usuário filtrado", ", ".join(
+            u["nome"] for u in usuarios_mod.listar()
+            if str(u["id"]) in {str(x) for x in user_id}) or "todos"),
+        ("Ação filtrada", ", ".join(acao) or "todas"),
         ("Busca por texto", busca or "(nenhuma)"),
         ("Registros exportados", total),
         ("", ""),
@@ -936,11 +962,16 @@ def _admin_items_context(sobressalente_cliente: str = "",
                          tab: str = "",
                          patrimonio_situacao: str = "",
                          busca: str = "",
-                         q_situacao: str = "",
+                         q_situacao: list[str] | None = None,
                          q_min: str = "",
                          q_max: str = "") -> dict:
     aba = tab if tab in ABAS_ITENS else "catalogo"
     busca = (busca or "").strip()
+    # Filtros de múltipla escolha chegam como lista.
+    q_situacao = filtros_mod.lista(q_situacao)
+    patrimonio_situacao = filtros_mod.lista(
+        patrimonio_situacao if isinstance(patrimonio_situacao, (list, tuple))
+        else [patrimonio_situacao])
 
     # Só a aba realmente aberta consulta o banco. A lista de patrimônios é
     # de longe a consulta mais cara (cruza toda a tabela de bipagens), e
@@ -984,9 +1015,10 @@ def _admin_items_context(sobressalente_cliente: str = "",
         # outras opções e não daria mais pra navegar entre elas.
         itens_do_veiculo = items_mod.listar_itens(veiculo_id=patrimonio_veiculo_id)
         ctx["resumo_situacoes"] = Counter(i["situacao"] for i in itens_do_veiculo)
-        if patrimonio_situacao in items_mod.SITUACOES:
+        alvo_sit = [s for s in patrimonio_situacao if s in items_mod.SITUACOES]
+        if alvo_sit:
             itens_do_veiculo = [i for i in itens_do_veiculo
-                                if i["situacao"] == patrimonio_situacao]
+                                if i["situacao"] in set(alvo_sit)]
         # Busca antes de paginar: varre a lista toda, não só a página aberta.
         itens_do_veiculo = paginacao_mod.filtrar(
             itens_do_veiculo, busca,
@@ -1016,12 +1048,14 @@ def _admin_items_context(sobressalente_cliente: str = "",
             est = estoque_por_tipo.get(t["id"])
             return estoque_mod.nivel_do_item(est, margem) if est else "sem_estoque"
 
-        if q_situacao == "sem_estoque":
-            tipos = [t for t in tipos if t["id"] not in estoque_por_tipo]
-        elif q_situacao == "alerta":     # tudo que a faixa de aviso mostraria
-            tipos = [t for t in tipos if _nivel(t) in ("zerado", "critico", "atencao")]
-        elif q_situacao in ("zerado", "critico", "atencao", "ok"):
-            tipos = [t for t in tipos if _nivel(t) == q_situacao]
+        if q_situacao:
+            # Várias situações somam: "zerado" + "perto do mínimo" traz as duas.
+            alvo = set(q_situacao)
+            if "alerta" in alvo:      # o mesmo conjunto que a faixa de aviso mostra
+                alvo |= {"zerado", "critico", "atencao"}
+            tipos = [t for t in tipos
+                     if _nivel(t) in alvo
+                     or ("sem_estoque" in alvo and t["id"] not in estoque_por_tipo)]
 
         def _num(texto):
             try:
@@ -1072,8 +1106,10 @@ def _admin_items_context(sobressalente_cliente: str = "",
 @require_login
 async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
                       veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1,
-                      tab: str = "", situacao: str = "", busca: str = "",
-                      q_situacao: str = "", q_min: str = "", q_max: str = ""):
+                      tab: str = "", busca: str = "",
+                      q_min: str = "", q_max: str = "",
+                      situacao: list[str] = Query(default=[]),
+                      q_situacao: list[str] = Query(default=[])):
     return render(request, "admin_items.html", _admin_items_context(
         cliente, data_ini, data_fim,
         patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
@@ -2419,13 +2455,13 @@ async def kit_validar(request: Request, kit_id: str):
 
 @app.get("/reports/operadores", response_class=HTMLResponse)
 @require_permission("ver_relatorios")
-async def reports_operadores(request: Request, operador_id: str = "",
+async def reports_operadores(request: Request,
                              data_ini: str = "", data_fim: str = "",
-                             pagina: int = 1, busca: str = ""):
+                             pagina: int = 1, busca: str = "",
+                             operador_id: list[str] = Query(default=[])):
     """Kits por operador — inclui os que ainda estão em montagem, que o
     relatório de kits (só finalizados) não mostra."""
-    op_id = int(operador_id) if operador_id.isdigit() else None
-    linhas = sessions_mod.listar_por_operador(op_id, data_ini, data_fim)
+    linhas = sessions_mod.listar_por_operador(operador_id, data_ini, data_fim)
     linhas = paginacao_mod.filtrar(
         linhas, busca,
         ("kit_nome", "cliente", "veiculo", "garagem", "operador_nome", "finalizado_por_nome"))
@@ -2437,6 +2473,7 @@ async def reports_operadores(request: Request, operador_id: str = "",
         "pag": paginacao_mod.paginar(linhas, pagina),
         "resumo": sessions_mod.resumo_por_operador(data_ini, data_fim),
         "usuarios": usuarios,
+        "opcoes_usuarios": [(str(u["id"]), u["nome"]) for u in usuarios],
         "operador_id": operador_id,
         "data_ini": data_ini, "data_fim": data_fim,
         "busca": busca,
@@ -2446,19 +2483,27 @@ async def reports_operadores(request: Request, operador_id: str = "",
 # ── Relatórios ────────────────────────────────────────────────────────────────
 
 def _where_relatorio_kits(data_ini: str, data_fim: str,
-                          operador_id: str, tipo: str) -> tuple[str, list]:
+                          operador_id, tipo) -> tuple[str, list]:
     """Filtros do relatório de kits, num lugar só — a TELA e a EXPORTAÇÃO
     chamam esta função, então não há como uma filtrar diferente da outra.
-    Antes cada uma montava o próprio WHERE e elas já divergiam no limite."""
+    Antes cada uma montava o próprio WHERE e elas já divergiam no limite.
+
+    Operador e tipo são listas (filtro de múltipla escolha); um valor solto
+    também é aceito, pra link antigo continuar funcionando."""
     where = "WHERE 1=1"
     sql_data, params = datas_mod.clausula("kr.finalizado_em", data_ini, data_fim)
     where += sql_data
-    if operador_id and str(operador_id).isdigit():
-        where += " AND kr.operador_id = ?"
-        params.append(int(operador_id))
-    if tipo in ("kit", "pedido"):
-        where += " AND kt.tipo = ?"
-        params.append(tipo)
+    ops = [int(o) for o in filtros_mod.lista(
+        operador_id if isinstance(operador_id, (list, tuple)) else [operador_id])
+        if str(o).isdigit()]
+    sql_op, p_op = filtros_mod.em("kr.operador_id", ops)
+    where += sql_op
+    params += p_op
+    tipos = [t for t in filtros_mod.lista(
+        tipo if isinstance(tipo, (list, tuple)) else [tipo]) if t in ("kit", "pedido")]
+    sql_tp, p_tp = filtros_mod.em("kt.tipo", tipos)
+    where += sql_tp
+    params += p_tp
     return where, params
 
 
@@ -2467,9 +2512,9 @@ def _where_relatorio_kits(data_ini: str, data_fim: str,
 async def reports(request: Request,
                   data_ini: str = "",
                   data_fim: str = "",
-                  operador_id: str = "",
-                  tipo: str = "",
-                  pagina: int = 1):
+                  pagina: int = 1,
+                  operador_id: list[str] = Query(default=[]),
+                  tipo: list[str] = Query(default=[])):
     where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo)
 
     por_pagina = paginacao_mod.POR_PAGINA_PADRAO
@@ -2530,6 +2575,7 @@ async def reports(request: Request,
     return render(request, "reports.html", {
         "kits": [dict(r) for r in rows],
         "usuarios": [dict(u) for u in usuarios],
+        "opcoes_usuarios": [(str(u["id"]), u["nome"]) for u in usuarios],
         "data_ini": data_ini,
         "data_fim": data_fim,
         "operador_id": operador_id,
@@ -2828,8 +2874,8 @@ async def report_excel(request: Request, kit_id: str):
 async def reports_exportar_todos(request: Request,
                                   data_ini: str = "",
                                   data_fim: str = "",
-                                  operador_id: str = "",
-                                  tipo: str = ""):
+                                  operador_id: list[str] = Query(default=[]),
+                                  tipo: list[str] = Query(default=[])):
     """Exporta todos os kits/pedidos finalizados que batem com os filtros
     atuais da tela de Relatórios (mesmos filtros — não é o kit único, é
     o lote inteiro), com uma aba de resumo e uma de itens detalhados."""
@@ -3015,8 +3061,8 @@ async def report_delete(request: Request, kit_id: str):
 async def reports_validacoes(request: Request,
                              data_ini: str = "",
                              data_fim: str = "",
-                             validador_id: str = "",
-                             pagina: int = 1):
+                             pagina: int = 1,
+                             validador_id: list[str] = Query(default=[])):
     todas = validacoes_mod.listar_relatorio(data_ini, data_fim, validador_id)
     # Pagina em vez de cortar: o LIMIT 500 que existia na consulta escondia
     # o excedente sem dizer nada. Agora tudo que bate com o filtro é
@@ -3030,6 +3076,7 @@ async def reports_validacoes(request: Request,
         "pag": pag,
         "pagina": pag["pagina"],
         "usuarios": [dict(u) for u in usuarios],
+        "opcoes_usuarios": [(str(u["id"]), u["nome"]) for u in usuarios],
         "data_ini": data_ini,
         "data_fim": data_fim,
         "validador_id": validador_id,
@@ -3041,7 +3088,7 @@ async def reports_validacoes(request: Request,
 async def reports_validacoes_export(request: Request,
                                     data_ini: str = "",
                                     data_fim: str = "",
-                                    validador_id: str = ""):
+                                    validador_id: list[str] = Query(default=[])):
     """Uma linha por kit (não por verificação) — se o mesmo kit foi
     verificado mais de uma vez, cada verificação vira um bloco extra de
     colunas (Verificação 1, Verificação 2...) na mesma linha, em vez de
@@ -3115,7 +3162,7 @@ async def reports_validacoes_export(request: Request,
 async def reports_sobressalentes(request: Request,
                                  data_ini: str = "",
                                  data_fim: str = "",
-                                 cliente: str = ""):
+                                 cliente: list[str] = Query(default=[])):
     rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
     return render(request, "reports_sobressalentes.html", {
         "voltar_para": _voltar_para(request, "/reports"),
@@ -3132,7 +3179,7 @@ async def reports_sobressalentes(request: Request,
 async def reports_sobressalentes_export(request: Request,
                                         data_ini: str = "",
                                         data_fim: str = "",
-                                        cliente: str = ""):
+                                        cliente: list[str] = Query(default=[])):
     from fastapi.responses import Response as _Resp
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -3884,9 +3931,16 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
-def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
-                            modelo: str = "", situacao: str = "",
-                            garagem: str = "") -> dict:
+def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
+                            busca: str = "", modelo: list[str] | None = None,
+                            situacao: list[str] | None = None,
+                            garagem: list[str] | None = None) -> dict:
+    # Os filtros são LISTAS: dá pra ver duas garagens (ou três situações) ao
+    # mesmo tempo. Vazio = sem filtro, como antes.
+    cliente = [c for c in (cliente or []) if c]
+    modelo = [m for m in (modelo or []) if m]
+    situacao = [s for s in (situacao or []) if s]
+    garagem = [g for g in (garagem or []) if g]
     todos = veiculos_mod.listar(ativo=True)
     total_geral = len(todos)
     # Localização de todos numa consulta só — usada tanto pra exibir a coluna
@@ -3899,34 +3953,51 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         v["localizacao_estado"] = loc["estado"] if loc else ""
 
     veiculos = todos
+    # Dentro do mesmo filtro as opções somam (duas garagens = as duas listas
+    # juntas); entre filtros diferentes elas se cruzam (essas garagens E esse
+    # modelo). É o que se espera de "filtrar por duas coisas".
     if cliente:
-        veiculos = [v for v in veiculos if v["cliente"] == cliente]
+        alvo_cli = {c.strip() for c in cliente}
+        veiculos = [v for v in veiculos if v["cliente"] in alvo_cli]
     # Garagem: comparação pelo nome INTEIRO (a busca livre casa por pedaço e
     # "GARAGEM 1" trazia junto a "GARAGEM 10"). __sem__ = os que estão sem
     # garagem — o furo de cadastro que tira o veículo de "Kits a produzir".
-    if garagem == "__sem__":
-        veiculos = [v for v in veiculos if not (v["garagem"] or "").strip()]
-    elif garagem:
+    if garagem:
+        alvo_gar = {g.strip().upper() for g in garagem}
+        sem_garagem = "__SEM__" in alvo_gar
         veiculos = [v for v in veiculos
-                    if (v["garagem"] or "").strip().upper() == garagem.strip().upper()]
+                    if (sem_garagem and not (v["garagem"] or "").strip())
+                    or (v["garagem"] or "").strip().upper() in alvo_gar]
     if modelo:
+        alvo_mod = {m.strip().lower() for m in modelo}
         veiculos = [v for v in veiculos
-                    if (v["modelo"] or "").strip().lower() == modelo.strip().lower()]
+                    if (v["modelo"] or "").strip().lower() in alvo_mod]
     # Situação cobre tanto a etapa do fluxo (localização) quanto os furos de
     # cadastro — as duas coisas que fazem o operador filtrar essa lista.
-    if situacao in ("a_produzir", "em_producao", "produzido", "transito", "cliente"):
-        alvo = ("cliente_instalando", "cliente_concluido") if situacao == "cliente" else (situacao,)
-        veiculos = [v for v in veiculos if v["localizacao_estado"] in alvo]
-    elif situacao == "sem_localizacao":
-        veiculos = [v for v in veiculos if not v["localizacao_estado"]]
-    elif situacao == "sem_modelo":
-        veiculos = [v for v in veiculos if not (v["modelo"] or "").strip()]
-    elif situacao == "sem_garagem":
-        veiculos = [v for v in veiculos if not (v["garagem"] or "").strip()]
-    elif situacao == "sem_kits":
-        veiculos = [v for v in veiculos if not v["total_kits"]]
-    elif situacao == "com_kits":
-        veiculos = [v for v in veiculos if v["total_kits"]]
+    if situacao:
+        estados = set()
+        for s in situacao:
+            if s == "cliente":
+                estados |= {"cliente_instalando", "cliente_concluido"}
+            elif s in ("a_produzir", "em_producao", "produzido", "transito"):
+                estados.add(s)
+
+        def _cabe(v):
+            if v["localizacao_estado"] in estados:
+                return True
+            if "sem_localizacao" in situacao and not v["localizacao_estado"]:
+                return True
+            if "sem_modelo" in situacao and not (v["modelo"] or "").strip():
+                return True
+            if "sem_garagem" in situacao and not (v["garagem"] or "").strip():
+                return True
+            if "sem_kits" in situacao and not v["total_kits"]:
+                return True
+            if "com_kits" in situacao and v["total_kits"]:
+                return True
+            return False
+
+        veiculos = [v for v in veiculos if _cabe(v)]
 
     if busca:
         por_texto = paginacao_mod.filtrar(
@@ -3948,7 +4019,10 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
                       if v["id"] in ids_patrimonio and v["id"] not in ids_texto]
         veiculos = por_texto + extras
 
-    veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
+    # A lista de inativos segue um cliente só (é uma lista de apoio); com
+    # vários filtrados, mostra todos e deixa o filtro pra lista principal.
+    veiculos_inativos = veiculos_mod.listar(
+        cliente=cliente[0] if len(cliente) == 1 else None, ativo=False)
     cadastrados_clientes = clientes_mod.listar()
     cadastradas_garagens = garagens_mod.listar()
 
@@ -3983,7 +4057,8 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         "total_geral": total_geral,
         "tem_filtro": bool(cliente or garagem or modelo or situacao or busca),
         "modelos": veiculos_mod.modelos_disponiveis(),
-        "sem_modelo": veiculos_mod.contar_sem_modelo(cliente or None),
+        "sem_modelo": veiculos_mod.contar_sem_modelo(
+            cliente[0] if len(cliente) == 1 else None),
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
         "veiculos_inativos": veiculos_inativos,
         # Números cadastrados mais de uma vez (dados de antes da regra de
@@ -4006,9 +4081,11 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
 
 @app.get("/admin/veiculos", response_class=HTMLResponse)
 @require_login
-async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1,
-                         busca: str = "", modelo: str = "", situacao: str = "",
-                         garagem: str = ""):
+async def admin_veiculos(request: Request, pagina: int = 1, busca: str = "",
+                         cliente: list[str] = Query(default=[]),
+                         modelo: list[str] = Query(default=[]),
+                         situacao: list[str] = Query(default=[]),
+                         garagem: list[str] = Query(default=[])):
     return render(request, "admin_veiculos.html",
                   _admin_veiculos_context(cliente, pagina, busca, modelo, situacao, garagem))
 

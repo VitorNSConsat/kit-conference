@@ -1,5 +1,6 @@
 from database import db, now_brt
 import app.datas as datas_mod
+import app.filtros as filtros_mod
 
 
 def registrar(kit_id: str, user_id: int, observacao: str) -> int:
@@ -53,9 +54,13 @@ def listar_relatorio(data_ini: str = "", data_fim: str = "", user_id: str = "") 
     sql_data, p_data = datas_mod.clausula("kv.validado_em", data_ini, data_fim)
     query += sql_data
     params += p_data
-    if user_id and str(user_id).isdigit():
-        query += " AND kv.validado_por = ?"
-        params.append(int(user_id))
+    # Aceita lista (filtro de múltipla escolha) ou um valor só.
+    ids = [int(u) for u in filtros_mod.lista(
+        user_id if isinstance(user_id, (list, tuple)) else [user_id])
+        if str(u).isdigit()]
+    sql_u, p_u = filtros_mod.em("kv.validado_por", ids)
+    query += sql_u
+    params += p_u
     # Sem LIMIT. O que existia aqui (LIMIT 500) cortava em silêncio: um
     # período com 600 verificações devolvia 500 e a tela não tinha como
     # avisar nem paginar — as outras 100 simplesmente não existiam pra quem

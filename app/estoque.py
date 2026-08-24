@@ -1,6 +1,7 @@
 import re
 from database import db, now_brt
 import app.datas as datas_mod
+import app.filtros as filtros_mod
 
 # Status de compra — independente do status de quantidade (abaixo/proximo/ok).
 # Vazio ('') = sem pendencia, nao aparece nenhum aviso.
@@ -242,9 +243,12 @@ def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str =
     sql_data, p_data = datas_mod.clausula("em.criado_em", data_ini, data_fim)
     query += sql_data
     params += p_data
-    if cliente:
-        query += " AND em.cliente = ?"
-        params.append(cliente)
+    # Aceita lista (filtro de múltipla escolha) ou um valor só.
+    clientes = filtros_mod.lista(
+        cliente if isinstance(cliente, (list, tuple)) else [cliente])
+    sql_c, p_c = filtros_mod.em("em.cliente", clientes)
+    query += sql_c
+    params += p_c
     query += " ORDER BY em.criado_em DESC"
     with db() as conn:
         rows = conn.execute(query, params).fetchall()

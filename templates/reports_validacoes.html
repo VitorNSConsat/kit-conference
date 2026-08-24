@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% block title %}Relatório de Verificações{% endblock %}
 {% block content %}
@@ -20,15 +21,10 @@
     </div>
     <div class="form-group" style="margin:0;">
       <label>Verificador</label>
-      <select name="validador_id">
-        <option value="">— todos —</option>
-        {% for u in usuarios %}
-        <option value="{{ u.id }}" {{ 'selected' if validador_id == u.id|string }}>{{ u.nome }}</option>
-        {% endfor %}
-      </select>
+      {{ f.multi('validador_id', 'Quem verificou', opcoes_usuarios, validador_id, 'todos') }}
     </div>
     <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
-    <a href="/reports/validacoes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}&validador_id={{ validador_id }}"
+    <a href="/reports/validacoes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for v in validador_id %}&validador_id={{ v|urlencode }}{% endfor %}"
        class="btn btn-success">📥 Exportar Excel</a>
   </form>
 </div>
@@ -76,7 +72,9 @@
   </div>
 
   {% if pag.total_paginas > 1 %}
-  {% set qs = 'data_ini=' + (data_ini|urlencode) + '&data_fim=' + (data_fim|urlencode) + '&validador_id=' + (validador_id|urlencode) %}
+  {% set ns_qs = namespace(v='data_ini=' + (data_ini|urlencode) + '&data_fim=' + (data_fim|urlencode)) %}
+  {% for v in validador_id %}{% set ns_qs.v = ns_qs.v + '&validador_id=' + (v|urlencode) %}{% endfor %}
+  {% set qs = ns_qs.v %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
     {% for p in pag.paginas_visiveis %}

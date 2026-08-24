@@ -62,6 +62,22 @@ def criar(nome: str, username: str, senha: str, admin: bool) -> int:
         raise ValueError(f"Já existe um usuário com o login '{username}'.")
 
 
+def renomear(user_id: int, nome: str) -> None:
+    """Muda só o nome de exibição — o que aparece na auditoria, na etiqueta e
+    no "Sair (Fulano)".
+
+    O LOGIN não muda por aqui de propósito: ele identifica a pessoa em tudo
+    que já foi gravado e é o que ela digita pra entrar. Trocar o login
+    quebraria as duas coisas de uma vez."""
+    nome = (nome or "").strip()
+    if not nome:
+        raise ValueError("O nome não pode ficar vazio.")
+    if len(nome) > 80:
+        raise ValueError("O nome ficou longo demais (máximo de 80 caracteres).")
+    with db() as conn:
+        conn.execute("UPDATE users SET nome = ? WHERE id = ?", (nome, user_id))
+
+
 def _contar_admins_ativos(conn, excluindo: int | None = None) -> int:
     sql = "SELECT COUNT(*) FROM users WHERE admin = 1 AND ativo = 1"
     params: list = []

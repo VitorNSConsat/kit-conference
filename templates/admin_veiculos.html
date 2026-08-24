@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pg %}
+{% import "_filtros.html" as f %}
 {% block title %}Veículos e Clientes{% endblock %}
 {% block content %}
 <style>
@@ -55,7 +56,19 @@
 </style>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
   <h1>Veículos e Clientes</h1>
-  <div style="display:flex;gap:8px;">
+  {# Clientes e garagens saíram do topo da página e viraram botão: são
+     cadastro de apoio, consultado de vez em quando, e ocupavam a primeira
+     tela inteira antes da lista de veículos — que é o que se vem ver. #}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-primary" onclick="abrirListaCadastro('clientes')">
+      🏢 Clientes <span class="badge badge-info">{{ clientes_cadastrados | length }}</span>
+    </button>
+    <button type="button" class="btn btn-primary" onclick="abrirListaCadastro('garagens')">
+      🏭 Garagens <span class="badge badge-info">{{ garagens_cadastradas | length }}</span>
+    </button>
+    <button type="button" class="btn btn-success" onclick="abrirListaCadastro('veiculo')">
+      ＋ Novo Veículo
+    </button>
     <a href="/admin/veiculos/import" class="btn btn-primary">📥 Importar Excel</a>
     <a href="/admin/veiculos/modelo.xlsx" class="btn btn-secondary">📄 Baixar Modelo</a>
   </div>
@@ -91,167 +104,190 @@
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
-<!-- Linha superior: Clientes + Garagens + Novo Veículo lado a lado.
-     auto-fit/minmax em vez de 1fr 1fr 1fr: com três colunas fixas os cards
-     não cabiam abaixo de ~1100px e empurravam a página inteira pra fora da
-     tela (a página ganhava scroll horizontal). Assim eles quebram sozinhos
-     em 2 ou 1 coluna conforme a largura. -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;margin-bottom:0;">
-
-  <!-- Clientes -->
-  <div class="card" style="margin-bottom:0;">
-    <h2>Clientes <span class="badge badge-info">{{ clientes_cadastrados | length }}</span></h2>
-    <form method="post" action="/admin/clientes"
-          style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
-      <input type="text" name="nome" placeholder="Nome do cliente" required
-             style="flex:1;margin-bottom:0;">
-      <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
-    </form>
-    {% if clientes_cadastrados %}
-    <input type="text" class="busca-box" placeholder="🔍 Buscar cliente ou garagem..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#lista-clientes > details">
-    {# Lista suspensa: abrir um cliente mostra em quais garagens os veículos
-       dele estão, e cada garagem é atalho pra página dela. O vínculo não
-       existe em cadastro nenhum — quem liga os dois é o veículo. #}
-    <div class="lista-suspensa" id="lista-clientes">
-      {% for c in clientes_cadastrados %}
-      {% set gars = garagens_por_cliente.get(c.nome) or [] %}
-      <details>
-        <summary>
-          <span class="ls-nome">{{ c.nome }}</span>
-          <span class="ls-contagem">{{ gars | sum(attribute='veiculos') }} veíc.
-            · {{ gars | length }} gar.</span>
-        </summary>
-        <div class="ls-conteudo">
-          {% if gars %}
-          <div class="ls-links">
-            {% for g in gars %}
-            {% if g.id %}
-            <a href="/admin/garagens/{{ g.id }}">🏭 {{ g.nome }} <em>{{ g.veiculos }}</em></a>
-            {% else %}
-            <span class="ls-sem-link">{{ g.nome }} <em>{{ g.veiculos }}</em></span>
-            {% endif %}
-            {% endfor %}
-          </div>
-          {% else %}
-          <p class="ls-vazio">Nenhum veículo cadastrado neste cliente.</p>
-          {% endif %}
-          <div class="ls-acoes">
-            <a href="/admin/clientes/{{ c.id }}" class="btn btn-sm btn-primary">Abrir cliente →</a>
-            <span class="ls-desde">desde {{ c.criado_em[:10] }}</span>
-            {% if user and user.admin %}
-            <form method="post" action="/admin/clientes/{{ c.id }}/delete"
-                  onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'?')">
-              <button type="submit" class="ls-excluir" title="Excluir cliente">✕ Excluir</button>
-            </form>
-            {% endif %}
-          </div>
-        </div>
-      </details>
-      {% endfor %}
+<!-- Cadastros de apoio em janelas: clientes, garagens e o cadastro de um
+     veículo novo. Antes eram três cards ocupando a primeira tela inteira,
+     antes da lista de veículos — que é o que se vem ver aqui. -->
+<div class="modal-lista" id="modal-clientes" role="dialog" aria-modal="true"
+     aria-labelledby="titulo-modal-clientes">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="titulo-modal-clientes">🏢 Clientes</strong>
+      <span class="modal-sub">abra um cliente pra ver em quais garagens os veículos dele estão</span>
     </div>
-    {% else %}
-    <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
-    {% endif %}
+    <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
+            title="Fechar (Esc)">&times;</button>
   </div>
-
-  <!-- Garagens -->
-  <div class="card" style="margin-bottom:0;">
-    <h2>Garagens <span class="badge badge-info">{{ garagens_cadastradas | length }}</span></h2>
-    <form method="post" action="/admin/garagens"
-          style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
-      <input type="text" name="nome" placeholder="Nome da garagem" required
-             style="flex:1;margin-bottom:0;">
-      <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
-    </form>
-    {% if garagens_cadastradas %}
-    <input type="text" class="busca-box" placeholder="🔍 Buscar garagem ou cliente..."
-           oninput="filtrarLista(this)" data-filtro-alvo="#lista-garagens > details">
-    <div class="lista-suspensa" id="lista-garagens">
-      {% for g in garagens_cadastradas %}
-      {% set clis = clientes_por_garagem.get(g.nome | upper) or [] %}
-      <details>
-        <summary>
-          <span class="ls-nome">{{ g.nome }}</span>
-          <span class="ls-contagem">{{ clis | sum(attribute='veiculos') }} veíc.
-            · {{ clis | length }} cli.</span>
-        </summary>
-        <div class="ls-conteudo">
-          {% if clis %}
-          <div class="ls-links">
-            {% for c in clis %}
-            {% if c.id %}
-            <a href="/admin/clientes/{{ c.id }}">🏢 {{ c.nome }} <em>{{ c.veiculos }}</em></a>
-            {% else %}
-            <span class="ls-sem-link">{{ c.nome }} <em>{{ c.veiculos }}</em></span>
-            {% endif %}
-            {% endfor %}
-          </div>
+  <div class="modal-corpo">
+  <form method="post" action="/admin/clientes"
+        style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
+    <input type="text" name="nome" placeholder="Nome do cliente" required
+           style="flex:1;margin-bottom:0;">
+    <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
+  </form>
+  {% if clientes_cadastrados %}
+  <input type="text" class="busca-box" placeholder="🔍 Buscar cliente ou garagem..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#lista-clientes > details">
+  {# Lista suspensa: abrir um cliente mostra em quais garagens os veículos
+     dele estão, e cada garagem é atalho pra página dela. O vínculo não
+     existe em cadastro nenhum — quem liga os dois é o veículo. #}
+  <div class="lista-suspensa" id="lista-clientes">
+    {% for c in clientes_cadastrados %}
+    {% set gars = garagens_por_cliente.get(c.nome) or [] %}
+    <details>
+      <summary>
+        <span class="ls-nome">{{ c.nome }}</span>
+        <span class="ls-contagem">{{ gars | sum(attribute='veiculos') }} veíc.
+          · {{ gars | length }} gar.</span>
+      </summary>
+      <div class="ls-conteudo">
+        {% if gars %}
+        <div class="ls-links">
+          {% for g in gars %}
+          {% if g.id %}
+          <a href="/admin/garagens/{{ g.id }}">🏭 {{ g.nome }} <em>{{ g.veiculos }}</em></a>
           {% else %}
-          <p class="ls-vazio">Nenhum veículo nesta garagem.</p>
+          <span class="ls-sem-link">{{ g.nome }} <em>{{ g.veiculos }}</em></span>
           {% endif %}
-          <div class="ls-acoes">
-            <a href="/admin/garagens/{{ g.id }}" class="btn btn-sm btn-primary">Abrir garagem →</a>
-            <span class="ls-desde">desde {{ g.criado_em[:10] }}</span>
-            {% if user and user.admin %}
-            <form method="post" action="/admin/garagens/{{ g.id }}/delete"
-                  onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
-              <button type="submit" class="ls-excluir" title="Excluir garagem">✕ Excluir</button>
-            </form>
-            {% endif %}
-          </div>
+          {% endfor %}
         </div>
-      </details>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
-    {% endif %}
+        {% else %}
+        <p class="ls-vazio">Nenhum veículo cadastrado neste cliente.</p>
+        {% endif %}
+        <div class="ls-acoes">
+          <a href="/admin/clientes/{{ c.id }}" class="btn btn-sm btn-primary">Abrir cliente →</a>
+          <span class="ls-desde">desde {{ c.criado_em[:10] }}</span>
+          {% if user and user.admin %}
+          <form method="post" action="/admin/clientes/{{ c.id }}/delete"
+                onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'?')">
+            <button type="submit" class="ls-excluir" title="Excluir cliente">✕ Excluir</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </details>
+    {% endfor %}
   </div>
-
-  <!-- Novo Veículo -->
-  <div class="card" style="margin-bottom:0;">
-    <h2>Novo Veículo</h2>
-    <form method="post" action="/admin/veiculos"
-          style="display:flex;flex-direction:column;gap:10px;">
-      <div class="form-group" style="margin:0;">
-        <label>Número / ID *</label>
-        <input type="text" name="numero" placeholder="ex: VH-042" required>
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label>Cliente *</label>
-        <select name="cliente" required>
-          <option value="">— selecione —</option>
-          {% for c in clientes_cadastrados %}
-          <option value="{{ c.nome }}">{{ c.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label>Garagem</label>
-        <select name="garagem">
-          <option value="">— selecione —</option>
-          {% for g in garagens_cadastradas %}
-          <option value="{{ g.nome }}">{{ g.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label>Modelo (kit)</label>
-        <select name="modelo">
-          <option value="">— sem modelo —</option>
-          {% for m in modelos %}
-          <option value="{{ m }}">{{ m }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <button type="submit" class="btn btn-success">＋ Adicionar Veículo</button>
-      </div>
-    </form>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
+  {% endif %}
   </div>
-
 </div>
+
+<div class="modal-lista" id="modal-garagens" role="dialog" aria-modal="true"
+     aria-labelledby="titulo-modal-garagens">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="titulo-modal-garagens">🏭 Garagens</strong>
+      <span class="modal-sub">abra uma garagem pra ver quais clientes ela atende</span>
+    </div>
+    <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
+            title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="modal-corpo">
+  <form method="post" action="/admin/garagens"
+        style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
+    <input type="text" name="nome" placeholder="Nome da garagem" required
+           style="flex:1;margin-bottom:0;">
+    <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
+  </form>
+  {% if garagens_cadastradas %}
+  <input type="text" class="busca-box" placeholder="🔍 Buscar garagem ou cliente..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#lista-garagens > details">
+  <div class="lista-suspensa" id="lista-garagens">
+    {% for g in garagens_cadastradas %}
+    {% set clis = clientes_por_garagem.get(g.nome | upper) or [] %}
+    <details>
+      <summary>
+        <span class="ls-nome">{{ g.nome }}</span>
+        <span class="ls-contagem">{{ clis | sum(attribute='veiculos') }} veíc.
+          · {{ clis | length }} cli.</span>
+      </summary>
+      <div class="ls-conteudo">
+        {% if clis %}
+        <div class="ls-links">
+          {% for c in clis %}
+          {% if c.id %}
+          <a href="/admin/clientes/{{ c.id }}">🏢 {{ c.nome }} <em>{{ c.veiculos }}</em></a>
+          {% else %}
+          <span class="ls-sem-link">{{ c.nome }} <em>{{ c.veiculos }}</em></span>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="ls-vazio">Nenhum veículo nesta garagem.</p>
+        {% endif %}
+        <div class="ls-acoes">
+          <a href="/admin/garagens/{{ g.id }}" class="btn btn-sm btn-primary">Abrir garagem →</a>
+          <span class="ls-desde">desde {{ g.criado_em[:10] }}</span>
+          {% if user and user.admin %}
+          <form method="post" action="/admin/garagens/{{ g.id }}/delete"
+                onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
+            <button type="submit" class="ls-excluir" title="Excluir garagem">✕ Excluir</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
+  {% endif %}
+  </div>
+</div>
+
+<div class="modal-lista" id="modal-veiculo" role="dialog" aria-modal="true"
+     aria-labelledby="titulo-modal-veiculo">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="titulo-modal-veiculo">➕ Novo Veículo</strong>
+      <span class="modal-sub">cliente, garagem e modelo saem dos cadastros — nada é digitado à mão</span>
+    </div>
+    <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
+            title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="modal-corpo">
+  <form method="post" action="/admin/veiculos"
+        style="display:flex;flex-direction:column;gap:10px;">
+    <div class="form-group" style="margin:0;">
+      <label>Número / ID *</label>
+      <input type="text" name="numero" placeholder="ex: VH-042" required>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Cliente *</label>
+      <select name="cliente" required>
+        <option value="">— selecione —</option>
+        {% for c in clientes_cadastrados %}
+        <option value="{{ c.nome }}">{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Garagem</label>
+      <select name="garagem">
+        <option value="">— selecione —</option>
+        {% for g in garagens_cadastradas %}
+        <option value="{{ g.nome }}">{{ g.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Modelo (kit)</label>
+      <select name="modelo">
+        <option value="">— sem modelo —</option>
+        {% for m in modelos %}
+        <option value="{{ m }}">{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn btn-success">＋ Adicionar Veículo</button>
+    </div>
+  </form>
+  </div>
+</div>
+
+<div id="modal-fundo" class="modal-fundo" onclick="fecharListaCadastro()"></div>
 
 {% if duplicados %}
 <!-- Números repetidos: cadastros de antes da regra de número único. O
@@ -290,7 +326,8 @@
 
   <!-- Busca e filtros separados: a busca é um campo só (e ao vivo — filtra
        enquanto digita, em todas as páginas); os filtros são os selects. -->
-  <form method="get" action="/admin/veiculos" id="form-filtros-veiculos">
+  <form method="get" action="/admin/veiculos" id="form-filtros-veiculos"
+        data-busca-viva="#bloco-veiculos,#badge-exibindo,#btn-limpar-filtros">
     <div class="filtros-linha">
       <span class="filtros-rotulo">🔍 Busca</span>
       <input type="text" name="busca" id="busca-veiculos" value="{{ busca }}"
@@ -299,45 +336,27 @@
     </div>
     <div class="filtros-linha">
       <span class="filtros-rotulo">⚙️ Filtros</span>
-      <select name="cliente" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
-        <option value="">Cliente: todos</option>
-        {% for c in clientes %}
-        <option value="{{ c }}" {{ 'selected' if filtro_cliente == c }}>{{ c }}</option>
-        {% endfor %}
-      </select>
-      {# Garagem como filtro próprio: antes só dava pra chegar nela pela busca
-         livre, que casa por pedaço de texto — "GARAGEM 1" trazia junto a
-         "GARAGEM 10". Aqui a comparação é pelo nome inteiro. #}
-      <select name="garagem" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
-        <option value="">Garagem: todas</option>
-        {% for g in garagens_cadastradas %}
-        <option value="{{ g.nome }}" {{ 'selected' if filtro_garagem|upper == g.nome|upper }}>{{ g.nome }}</option>
-        {% endfor %}
-        <option value="__sem__" {{ 'selected' if filtro_garagem == '__sem__' }}>— sem garagem —</option>
-      </select>
-      <select name="modelo" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
-        <option value="">Modelo (kit): todos</option>
-        {% for m in modelos %}
-        <option value="{{ m }}" {{ 'selected' if filtro_modelo == m }}>{{ m }}</option>
-        {% endfor %}
-      </select>
-      <select name="situacao" style="margin:0;" onchange="aplicarFiltrosVeiculos()">
-        <option value="">Situação: todas</option>
-        <optgroup label="Localização atual">
-          <option value="a_produzir" {{ 'selected' if filtro_situacao == 'a_produzir' }}>Galpão — A produzir</option>
-          <option value="em_producao" {{ 'selected' if filtro_situacao == 'em_producao' }}>Galpão — Em produção</option>
-          <option value="produzido" {{ 'selected' if filtro_situacao == 'produzido' }}>Galpão — Produzido</option>
-          <option value="transito" {{ 'selected' if filtro_situacao == 'transito' }}>Em trânsito</option>
-          <option value="cliente" {{ 'selected' if filtro_situacao == 'cliente' }}>Cliente</option>
-          <option value="sem_localizacao" {{ 'selected' if filtro_situacao == 'sem_localizacao' }}>— não configurado</option>
-        </optgroup>
-        <optgroup label="Cadastro">
-          <option value="sem_modelo" {{ 'selected' if filtro_situacao == 'sem_modelo' }}>⚠️ Sem modelo</option>
-          <option value="sem_garagem" {{ 'selected' if filtro_situacao == 'sem_garagem' }}>Sem garagem</option>
-          <option value="sem_kits" {{ 'selected' if filtro_situacao == 'sem_kits' }}>Nunca recebeu kit</option>
-          <option value="com_kits" {{ 'selected' if filtro_situacao == 'com_kits' }}>Já recebeu kit</option>
-        </optgroup>
-      </select>
+      {# Filtros de múltipla escolha: duas garagens, três situações — as
+         opções do MESMO filtro somam, e filtros diferentes se cruzam. #}
+      {{ f.multi('cliente', 'Cliente', clientes, filtro_cliente, 'todos') }}
+      {# Garagem como filtro próprio: pela busca livre "GARAGEM 1" trazia
+         junto a "GARAGEM 10"; aqui a comparação é pelo nome inteiro. #}
+      {{ f.multi('garagem', 'Garagem',
+                 (garagens_cadastradas | map(attribute='nome') | list) + [('__sem__', '— sem garagem —')],
+                 filtro_garagem, 'todas') }}
+      {{ f.multi('modelo', 'Modelo (kit)', modelos, filtro_modelo, 'todos') }}
+      {{ f.multi('situacao', 'Situação', [
+           ('a_produzir', 'Galpão — A produzir'),
+           ('em_producao', 'Galpão — Em produção'),
+           ('produzido', 'Galpão — Produzido'),
+           ('transito', 'Em trânsito'),
+           ('cliente', 'Cliente'),
+           ('sem_localizacao', '— não configurado'),
+           ('sem_modelo', '⚠️ Sem modelo'),
+           ('sem_garagem', 'Sem garagem'),
+           ('sem_kits', 'Nunca recebeu kit'),
+           ('com_kits', 'Já recebeu kit'),
+         ], filtro_situacao, 'todas') }}
       <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
       <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
          style="{{ '' if tem_filtro else 'display:none;' }}">✕ Limpar</a>
@@ -354,7 +373,9 @@
   {% if pag_veiculos.itens %}
   <form method="post" action="/admin/veiculos/excluir-em-massa" id="form-excluir-massa"
         onsubmit="return confirmarExclusaoMassa();">
-  <input type="hidden" name="voltar" value="{{ filtro_cliente }}">
+  {# Volta pro mesmo filtro depois de excluir — com um cliente só,
+     que é o caso em que a tela sugere filtrar antes de apagar. #}
+  <input type="hidden" name="voltar" value="{{ filtro_cliente[0] if filtro_cliente | length == 1 else '' }}">
   <div style="overflow-x:auto;">
   <table id="tabela-veiculos">
     <thead>
@@ -440,7 +461,7 @@
     </button>
     <span style="font-size:12px;color:#888;">
       Marque os veículos acima — ou o quadradinho do topo pra marcar a página inteira.
-      {% if filtro_cliente %}Filtro ativo: só veículos de <strong>{{ filtro_cliente }}</strong>.{% else %}
+      {% if filtro_cliente %}Filtro ativo: só veículos de <strong>{{ filtro_cliente | join(', ') }}</strong>.{% else %}
       Pra apagar os veículos de um cliente, filtre por ele primeiro.{% endif %}
       O histórico de kits é sempre preservado.
     </span>
@@ -449,7 +470,14 @@
   </form>
 
   {% if pag_veiculos.total_paginas > 1 %}
-  {% set qs = 'cliente=' + (filtro_cliente|urlencode) + '&garagem=' + (filtro_garagem|urlencode) + '&modelo=' + (filtro_modelo|urlencode) + '&situacao=' + (filtro_situacao|urlencode) + '&busca=' + (busca|urlencode) %}
+  {# Cada filtro pode ter vários valores: a paginação repete o parâmetro,
+     igual o formulário faz. #}
+  {% set ns_qs = namespace(v='busca=' + (busca|urlencode)) %}
+  {% for nome, valores in [('cliente', filtro_cliente), ('garagem', filtro_garagem),
+                           ('modelo', filtro_modelo), ('situacao', filtro_situacao)] %}
+    {% for valor in valores %}{% set ns_qs.v = ns_qs.v + '&' + nome + '=' + (valor|urlencode) %}{% endfor %}
+  {% endfor %}
+  {% set qs = ns_qs.v %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag_veiculos.pagina }} de {{ pag_veiculos.total_paginas }}</span>
     {% for p in pag_veiculos.paginas_visiveis %}
@@ -498,6 +526,46 @@
 
 {% block scripts %}
 <script>
+// ── Janelas dos cadastros de apoio ────────────────────────────────────────
+// Clientes, garagens e o cadastro de veículo abrem centralizados, como a
+// configuração do item no Estoque. Trava a rolagem do fundo compensando a
+// largura da barra, senão a página inteira dá um pulo lateral ao abrir.
+let _janelaAberta = null;
+
+function abrirListaCadastro(qual) {
+    fecharListaCadastro();
+    const janela = document.getElementById('modal-' + qual);
+    if (!janela) return;
+    janela.classList.add('aberto');
+    document.getElementById('modal-fundo').classList.add('aberto');
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (barra > 0) document.body.style.paddingRight = barra + 'px';
+    _janelaAberta = qual;
+    const primeiro = janela.querySelector('input:not([type=hidden]), select');
+    if (primeiro) primeiro.focus();
+}
+
+function fecharListaCadastro() {
+    document.querySelectorAll('.modal-lista.aberto').forEach(j => j.classList.remove('aberto'));
+    const fundo = document.getElementById('modal-fundo');
+    if (fundo) fundo.classList.remove('aberto');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    _janelaAberta = null;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharListaCadastro(); });
+
+// Cadastro recusado (número repetido, nome vazio): reabre a janela de onde
+// veio, pra a pessoa corrigir onde estava — e não procurar o botão de novo.
+(function () {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('erro_cliente')) abrirListaCadastro('clientes');
+    else if (p.get('erro_garagem')) abrirListaCadastro('garagens');
+    {% if erro is defined and erro %}else abrirListaCadastro('veiculo');{% endif %}
+})();
+
 // Seleção em massa: o quadradinho do topo marca/desmarca a página inteira,
 // e o botão de excluir só habilita com algo marcado — mostra a contagem
 // pra pessoa conferir antes do confirm().
@@ -526,56 +594,7 @@ function confirmarExclusaoMassa() {
                    'O histórico de kits de cada um será preservado.');
 }
 
-// ── Busca ao vivo ─────────────────────────────────────────────────────────
-// A lista atualiza ENQUANTO se digita (e ao trocar qualquer filtro), sem
-// recarregar a página: busca a mesma URL no servidor — então continua
-// varrendo todas as páginas e os patrimônios, igual ao submit — e troca só
-// o bloco da lista. Debounce de 350ms pra não disparar a cada tecla; um
-// contador de versão descarta resposta velha que chegue depois da nova
-// (digitação rápida embaralharia os resultados sem isso).
-let _timerBusca = null;
-let _versaoBusca = 0;
-
-function aplicarFiltrosVeiculos() {
-    const form = document.getElementById('form-filtros-veiculos');
-    const params = new URLSearchParams(new FormData(form));
-    const url = '/admin/veiculos?' + params.toString();
-    const minhaVersao = ++_versaoBusca;
-    fetch(url, {headers: {'X-Requested-With': 'fetch'}})
-        .then(r => r.text())
-        .then(html => {
-            if (minhaVersao !== _versaoBusca) return; // resposta velha
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const novo = doc.getElementById('bloco-veiculos');
-            if (novo) document.getElementById('bloco-veiculos').innerHTML = novo.innerHTML;
-            const badge = doc.getElementById('badge-exibindo');
-            const meuBadge = document.getElementById('badge-exibindo');
-            if (badge && meuBadge) {
-                meuBadge.textContent = badge.textContent;
-                meuBadge.style.display = badge.style.display;
-            }
-            const limpar = document.getElementById('btn-limpar-filtros');
-            if (limpar) {
-                const temFiltro = [...params.values()].some(v => v.trim() !== '');
-                limpar.style.display = temFiltro ? '' : 'none';
-            }
-            history.replaceState(null, '', url);
-        })
-        .catch(() => { window.location = url; }); // sem fetch, navega normal
-}
-
-const campoBusca = document.getElementById('busca-veiculos');
-if (campoBusca) {
-    campoBusca.addEventListener('input', () => {
-        clearTimeout(_timerBusca);
-        _timerBusca = setTimeout(aplicarFiltrosVeiculos, 350);
-    });
-    // Enter aplica na hora em vez de recarregar a página inteira.
-    campoBusca.closest('form').addEventListener('submit', (ev) => {
-        ev.preventDefault();
-        clearTimeout(_timerBusca);
-        aplicarFiltrosVeiculos();
-    });
-}
+// A busca ao vivo desta tela virou a genérica do base.html (mesma coisa,
+// um lugar só): o formulário abaixo está marcado com data-busca-viva.
 </script>
 {% endblock %}

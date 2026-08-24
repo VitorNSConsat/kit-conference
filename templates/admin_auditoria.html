@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% block title %}Auditoria{% endblock %}
 {% block content %}
@@ -8,7 +9,7 @@
     {% if user and user.admin %}
     {# Leva os MESMOS filtros da tela: o que se exporta é o que se está vendo. #}
     <a class="btn btn-success"
-       href="/admin/auditoria/exportar.xlsx?data_ini={{ data_ini|urlencode }}&data_fim={{ data_fim|urlencode }}&user_id={{ filtro_user_id|urlencode }}&acao={{ filtro_acao|urlencode }}&busca={{ busca|urlencode }}"
+       href="/admin/auditoria/exportar.xlsx?data_ini={{ data_ini|urlencode }}&data_fim={{ data_fim|urlencode }}&busca={{ busca|urlencode }}{% for u in filtro_user_id %}&user_id={{ u|urlencode }}{% endfor %}{% for a in filtro_acao %}&acao={{ a|urlencode }}{% endfor %}"
        title="Excel com o log completo do filtro atual e abas de análise por dia, usuário, ação e hora">
       📊 Exportar Excel
     </a>
@@ -32,43 +33,32 @@
       <label>Até</label>
       <input type="date" name="data_fim" value="{{ data_fim }}">
     </div>
-    <div class="form-group" style="margin:0;">
-      <label>Usuário</label>
-      <select name="user_id">
-        <option value="">— todos —</option>
-        {% for u in usuarios %}
-        <option value="{{ u.id }}" {{ 'selected' if filtro_user_id == u.id|string }}>{{ u.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-group" style="margin:0;">
-      <label>Ação</label>
-      <select name="acao">
-        <option value="">— todas —</option>
-        {% for a in acoes %}
-        <option value="{{ a }}" {{ 'selected' if filtro_acao == a }}>{{ a }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    {# Múltipla escolha: dá pra olhar dois usuários, ou exclusão + login
+       juntos, sem repetir a consulta uma vez pra cada. #}
+    {{ f.multi('user_id', 'Usuário', opcoes_usuarios, filtro_user_id, 'todos') }}
+    {{ f.multi('acao', 'Ação', acoes, filtro_acao, 'todas') }}
     <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
     <a href="/admin/auditoria" class="btn btn-warning">✕ Limpar</a>
   </form>
 </div>
 
 <div class="card">
-  <form method="get" action="/admin/auditoria" class="busca-form">
+  {# Busca ao vivo: troca só o #bloco-auditoria (resumo + tabela + paginação). #}
+  <form method="get" action="/admin/auditoria" class="busca-form"
+        data-busca-viva="#bloco-auditoria">
     {% if data_ini %}<input type="hidden" name="data_ini" value="{{ data_ini }}">{% endif %}
     {% if data_fim %}<input type="hidden" name="data_fim" value="{{ data_fim }}">{% endif %}
-    {% if filtro_user_id %}<input type="hidden" name="user_id" value="{{ filtro_user_id }}">{% endif %}
-    {% if filtro_acao %}<input type="hidden" name="acao" value="{{ filtro_acao }}">{% endif %}
+    {% for u in filtro_user_id %}<input type="hidden" name="user_id" value="{{ u }}">{% endfor %}
+    {% for a in filtro_acao %}<input type="hidden" name="acao" value="{{ a }}">{% endfor %}
     <input type="text" name="busca" value="{{ busca }}"
            placeholder="🔍 Buscar no detalhe, usuário, ação ou IP...">
     <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
     {% if busca %}
-    <a href="/admin/auditoria?data_ini={{ data_ini }}&data_fim={{ data_fim }}&user_id={{ filtro_user_id }}&acao={{ filtro_acao }}"
+    <a href="/admin/auditoria?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for u in filtro_user_id %}&user_id={{ u|urlencode }}{% endfor %}{% for a in filtro_acao %}&acao={{ a|urlencode }}{% endfor %}"
        class="btn btn-sm btn-secondary">✕ Limpar</a>
     {% endif %}
   </form>
+  <div id="bloco-auditoria">
   {% if busca %}
   <p class="busca-resultado">
     Busca em todas as páginas por <strong>{{ busca }}</strong>
@@ -109,7 +99,10 @@
   </div>
 
   {% if pag_registros.total_paginas > 1 %}
-  {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&user_id=' + (filtro_user_id or '') + '&acao=' + (filtro_acao or '') + ('&busca=' + busca|urlencode if busca else '') %}
+  {% set ns_qs = namespace(v='data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + ('&busca=' + busca|urlencode if busca else '')) %}
+  {% for u in filtro_user_id %}{% set ns_qs.v = ns_qs.v + '&user_id=' + (u|urlencode) %}{% endfor %}
+  {% for a in filtro_acao %}{% set ns_qs.v = ns_qs.v + '&acao=' + (a|urlencode) %}{% endfor %}
+  {% set filtros_qs = ns_qs.v %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag_registros.pagina }} de {{ pag_registros.total_paginas }}</span>
     {% for p in pag_registros.paginas_visiveis %}
@@ -127,6 +120,7 @@
     Nenhum registro encontrado para esse filtro.
   </p>
   {% endif %}
+  </div>{# /bloco-auditoria #}
 </div>
 
 {% endblock %}

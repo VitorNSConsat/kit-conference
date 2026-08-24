@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% block title %}Relatórios — Conferência de Kits{% endblock %}
 {% block content %}
@@ -35,26 +36,12 @@
             <label>Data final</label>
             <input type="date" name="data_fim" value="{{ data_fim }}" style="width:160px; margin:0;">
         </div>
-        <div class="form-group" style="margin:0;">
-            <label>Operador</label>
-            <select name="operador_id" style="width:180px; margin:0;">
-                <option value="">Todos</option>
-                {% for u in usuarios %}
-                <option value="{{ u.id }}" {{ 'selected' if operador_id == u.id|string }}>{{ u.nome }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-            <label>Tipo</label>
-            <select name="tipo" style="width:140px; margin:0;">
-                <option value="">Todos</option>
-                <option value="kit" {{ 'selected' if tipo == 'kit' }}>🎁 Kit</option>
-                <option value="pedido" {{ 'selected' if tipo == 'pedido' }}>📑 Pedido</option>
-            </select>
-        </div>
+        {# Múltipla escolha: dois operadores de uma vez, kit + pedido juntos. #}
+        {{ f.multi('operador_id', 'Operador', opcoes_usuarios, operador_id, 'todos') }}
+        {{ f.multi('tipo', 'Tipo', [('kit', '🎁 Kit'), ('pedido', '📑 Pedido')], tipo, 'todos') }}
         <button type="submit" class="btn btn-primary">Filtrar</button>
         <a href="/reports" class="btn btn-warning">Limpar</a>
-        <a href="/reports/exportar-todos.xlsx?data_ini={{ data_ini }}&data_fim={{ data_fim }}&operador_id={{ operador_id }}&tipo={{ tipo }}"
+        <a href="/reports/exportar-todos.xlsx?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for o in operador_id %}&operador_id={{ o|urlencode }}{% endfor %}{% for tp in tipo %}&tipo={{ tp|urlencode }}{% endfor %}"
            class="btn btn-success" title="Exporta todos os kits/pedidos que batem com os filtros acima, num só Excel">
             📊 Exportar Todos
         </a>
@@ -174,7 +161,10 @@
     </table>
 
     {% if total_paginas > 1 %}
-    {% set filtros_qs = 'data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&operador_id=' + (operador_id or '') + '&tipo=' + (tipo or '') %}
+    {% set ns_qs = namespace(v='data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '')) %}
+    {% for o in operador_id %}{% set ns_qs.v = ns_qs.v + '&operador_id=' + (o|urlencode) %}{% endfor %}
+    {% for tp in tipo %}{% set ns_qs.v = ns_qs.v + '&tipo=' + (tp|urlencode) %}{% endfor %}
+    {% set filtros_qs = ns_qs.v %}
     <div class="paginacao">
         {% for p in paginas_visiveis %}
             {% if p is none %}

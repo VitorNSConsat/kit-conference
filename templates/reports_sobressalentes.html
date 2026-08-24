@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% block title %}Sobressalentes Enviados{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
@@ -23,15 +24,10 @@
     </div>
     <div class="form-group" style="margin:0;">
       <label>Cliente</label>
-      <select name="cliente">
-        <option value="">— todos —</option>
-        {% for c in clientes %}
-        <option value="{{ c.nome }}" {{ 'selected' if cliente == c.nome }}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
+      {{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}
     </div>
     <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
-    <a href="/reports/sobressalentes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}&cliente={{ cliente }}"
+    <a href="/reports/sobressalentes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for c in cliente %}&cliente={{ c|urlencode }}{% endfor %}"
        class="btn btn-success">📥 Exportar Excel</a>
   </form>
 </div>

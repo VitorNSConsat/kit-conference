@@ -17,6 +17,8 @@
 <div class="alert alert-success">✅ Senha alterada.</div>
 {% elif request.query_params.get('ok') == 'permissoes' %}
 <div class="alert alert-success">✅ Permissões atualizadas.</div>
+{% elif request.query_params.get('ok') == 'nome' %}
+<div class="alert alert-success">✅ Nome alterado. O login continua o mesmo.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
@@ -58,12 +60,16 @@
 
 <div class="card">
   <h2>Usuários</h2>
-  {{ pg.contagem(pag_usuarios, "usuários") }}
-  <form method="get" action="/admin/usuarios" class="busca-form">
+  {# A busca acontece enquanto se digita; o botão continua aí pra quem estiver
+     sem JS. O bloco trocado é o #bloco-usuarios. #}
+  <form method="get" action="/admin/usuarios" class="busca-form"
+        data-busca-viva="#bloco-usuarios">
     <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou login...">
     <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
     {% if busca %}<a href="/admin/usuarios" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
   </form>
+  <div id="bloco-usuarios">
+  {{ pg.contagem(pag_usuarios, "usuários") }}
   {% if busca %}
   <p class="busca-resultado">
     Busca em todas as páginas por <strong>{{ busca }}</strong>
@@ -77,9 +83,30 @@
     <tbody>
     {% for u in pag_usuarios.itens %}
     <tr class="filtro-item" style="{{ 'opacity:.55;' if not u.ativo }}">
-      <td><strong>{{ u.nome }}</strong>{% if user and u.id == user.id %}
-        <span style="font-size:11px;color:#888;">(você)</span>{% endif %}</td>
-      <td style="font-family:monospace;">{{ u.username }}</td>
+      {# Nome de exibição editável no lugar: clicar troca o texto pelo campo.
+         O LOGIN não: ele identifica a pessoa em tudo que já foi gravado e é
+         o que ela digita pra entrar. #}
+      <td>
+        <span id="nome-usuario-{{ u.id }}" onclick="editarNomeUsuario({{ u.id }})"
+              style="cursor:pointer;" title="Clique para corrigir o nome">
+          <strong>{{ u.nome }}</strong>
+        </span>{% if user and u.id == user.id %}
+        <span style="font-size:11px;color:#888;">(você)</span>{% endif %}
+        <form method="post" action="/admin/usuarios/{{ u.id }}/nome"
+              id="form-nome-usuario-{{ u.id }}" style="display:none;gap:4px;">
+          <input type="text" name="nome" value="{{ u.nome }}" maxlength="80" required
+                 style="margin:0;padding:3px 6px;font-size:13px;width:170px;"
+                 {# O bloqueio global do Enter existe por causa do leitor de
+                    código de barras; aqui o Enter tem que salvar, então o
+                    próprio campo trata antes de o bloqueio pegar. #}
+                 onkeydown="if(event.key==='Escape'){cancelarNomeUsuario({{ u.id }});}
+                            else if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit();}">
+          <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+          <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
+                  onclick="cancelarNomeUsuario({{ u.id }})">✕</button>
+        </form>
+      </td>
+      <td style="font-family:monospace;" title="O login não muda — é o que identifica a pessoa no histórico">{{ u.username }}</td>
       <td>
         <span class="badge {{ 'badge-success' if u.admin else 'badge-warning' }}">
           {{ 'Administrador' if u.admin else 'Comum' }}
@@ -175,6 +202,7 @@
     {% endfor %}
   </div>
   {% endif %}
+  </div>
 </div>
 
 {% endblock %}
@@ -187,6 +215,24 @@ function mostrarSenha(id) {
 function mostrarPermissoes(id) {
     const linha = document.getElementById('permissoes-' + id);
     linha.style.display = linha.style.display === 'none' ? 'table-row' : 'none';
+}
+
+// Nome de exibição editável no lugar — mesmo gesto do catálogo de itens:
+// clica no nome, corrige, Enter salva e Esc desiste.
+function editarNomeUsuario(id) {
+    document.getElementById('nome-usuario-' + id).style.display = 'none';
+    const form = document.getElementById('form-nome-usuario-' + id);
+    form.style.display = 'inline-flex';
+    const campo = form.querySelector('input[name=nome]');
+    campo.focus();
+    campo.select();
+}
+function cancelarNomeUsuario(id) {
+    const form = document.getElementById('form-nome-usuario-' + id);
+    form.style.display = 'none';
+    form.querySelector('input[name=nome]').value =
+        document.getElementById('nome-usuario-' + id).textContent.trim();
+    document.getElementById('nome-usuario-' + id).style.display = '';
 }
 </script>
 {% endblock %}

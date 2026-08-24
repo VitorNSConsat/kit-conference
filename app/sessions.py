@@ -4,6 +4,7 @@ import app.kit_templates as templates_mod
 import app.estoque as estoque_mod
 import app.codigos_gerados as codigos_gerados_mod
 import app.datas as datas_mod
+import app.filtros as filtros_mod
 
 
 def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
@@ -1658,11 +1659,16 @@ def listar_por_operador(operador_id: int | None = None,
     """
     p_and: list = []
     p_fim: list = []
-    if operador_id:
-        em_andamento += " AND ss.operador_id = ?"
-        finalizados += " AND kr.operador_id = ?"
-        p_and.append(operador_id)
-        p_fim.append(operador_id)
+    # Aceita uma lista de operadores (filtro de múltipla escolha) ou um só.
+    ops = [int(o) for o in filtros_mod.lista(
+        operador_id if isinstance(operador_id, (list, tuple)) else [operador_id])
+        if str(o).isdigit()]
+    sql_op_and, p_op = filtros_mod.em("ss.operador_id", ops)
+    sql_op_fim, _ = filtros_mod.em("kr.operador_id", ops)
+    em_andamento += sql_op_and
+    finalizados += sql_op_fim
+    p_and += p_op
+    p_fim += list(p_op)
     sql_and, p_d_and = datas_mod.clausula("ss.iniciado_em", data_ini, data_fim)
     sql_fim, p_d_fim = datas_mod.clausula("kr.finalizado_em", data_ini, data_fim)
     em_andamento += sql_and

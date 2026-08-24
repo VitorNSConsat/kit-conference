@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% block title %}Kits por Operador{% endblock %}
 {% block content %}
@@ -14,16 +15,14 @@
 
 <!-- Filtros -->
 <div class="card">
+  {# Filtra enquanto se digita; o botao continua valendo sem JS. Troca os
+     dois blocos de resultado — resumo e lista. #}
   <form method="get" action="/reports/operadores" class="filter-form"
+        data-busca-viva="#bloco-resumo-operadores,#bloco-lista-operadores"
         style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
     <div class="form-group" style="margin:0;">
       <label>Operador</label>
-      <select name="operador_id" style="width:200px;margin:0;">
-        <option value="">Todos</option>
-        {% for u in usuarios %}
-        <option value="{{ u.id }}" {{ 'selected' if operador_id == u.id|string }}>{{ u.nome }}</option>
-        {% endfor %}
-      </select>
+      {{ f.multi('operador_id', 'Operador', opcoes_usuarios, operador_id, 'todos') }}
     </div>
     <div class="form-group" style="margin:0;">
       <label>De</label>
@@ -44,6 +43,7 @@
 </div>
 
 <!-- Resumo por operador -->
+<div id="bloco-resumo-operadores">
 {% if resumo %}
 <div class="card">
   <h2 style="margin-bottom:10px;">Resumo do período</h2>
@@ -78,8 +78,10 @@
 </div>
 {% endif %}
 
+</div>
+
 <!-- Lista -->
-<div class="card table-scroll">
+<div class="card table-scroll" id="bloco-lista-operadores">
   <p style="color:#888;font-size:13px;margin-bottom:12px;">
     {{ pg.contagem(pag, "kits") }}
     {%- if busca %} · busca: <strong>{{ busca }}</strong>{% endif %}
@@ -141,7 +143,9 @@
   </table>
 
   {% if pag.total_paginas > 1 %}
-  {% set qs = 'operador_id=' + (operador_id or '') + '&data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + ('&busca=' + busca|urlencode if busca else '') %}
+  {% set ns_qs = namespace(v='data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + ('&busca=' + busca|urlencode if busca else '')) %}
+  {% for o in operador_id %}{% set ns_qs.v = ns_qs.v + '&operador_id=' + (o|urlencode) %}{% endfor %}
+  {% set qs = ns_qs.v %}
   <div class="paginacao">
     {% for p in pag.paginas_visiveis %}
       {% if p is none %}

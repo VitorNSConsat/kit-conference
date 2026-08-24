@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% block title %}Itens & Estoque — Conferência de Kits{% endblock %}
 {% block content %}
@@ -165,18 +166,18 @@
 
         {# Busca e filtro de quantidade no mesmo formulário: filtrar por
            "no vermelho" e depois buscar não pode perder o filtro. #}
-        <form method="get" action="/admin/items" class="busca-form" id="form-filtros-estoque">
+        <form method="get" action="/admin/items" class="busca-form" id="form-filtros-estoque"
+              data-busca-viva="#bloco-catalogo">
             <input type="hidden" name="tab" value="catalogo">
             <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou código...">
-            <select name="q_situacao" style="margin:0;" onchange="this.form.submit()">
-                <option value="">Quantidade: todas</option>
-                <option value="alerta" {{ 'selected' if q_situacao == 'alerta' }}>⚠️ No aviso (zerado, no mínimo ou perto)</option>
-                <option value="zerado" {{ 'selected' if q_situacao == 'zerado' }}>🚫 Zerado</option>
-                <option value="critico" {{ 'selected' if q_situacao == 'critico' }}>🔴 No mínimo ou abaixo</option>
-                <option value="atencao" {{ 'selected' if q_situacao == 'atencao' }}>🟡 Perto do mínimo</option>
-                <option value="ok" {{ 'selected' if q_situacao == 'ok' }}>🟢 Acima do mínimo</option>
-                <option value="sem_estoque" {{ 'selected' if q_situacao == 'sem_estoque' }}>— Sem estoque cadastrado</option>
-            </select>
+            {{ f.multi('q_situacao', 'Quantidade', [
+                 ('alerta', '⚠️ No aviso (zerado, no mínimo ou perto)'),
+                 ('zerado', '🚫 Zerado'),
+                 ('critico', '🔴 No mínimo ou abaixo'),
+                 ('atencao', '🟡 Perto do mínimo'),
+                 ('ok', '🟢 Acima do mínimo'),
+                 ('sem_estoque', '— Sem estoque cadastrado'),
+               ], q_situacao, 'todas') }}
             <input type="number" name="q_min" value="{{ q_min }}" min="0" placeholder="qtd. de"
                    style="width:90px;margin:0;" title="Quantidade mínima">
             <input type="number" name="q_max" value="{{ q_max }}" min="0" placeholder="até"
@@ -186,14 +187,6 @@
             <a href="/admin/items?tab=catalogo" class="btn btn-sm btn-secondary">✕ Limpar</a>
             {% endif %}
         </form>
-        {% if busca or q_situacao or q_min or q_max %}
-        <p class="busca-resultado">
-            <strong>{{ tipos | length }}</strong> tipo(s)
-            {%- if busca %} para <strong>{{ busca }}</strong>{% endif %}
-            {%- if q_situacao or q_min or q_max %} com o filtro de quantidade{% endif %}
-            <span style="color:#888;">(de {{ total_tipos }} no total)</span>
-        </p>
-        {% endif %}
 
         {# Configuração do aviso: mora aqui, ao lado do mínimo de cada item,
            porque é a mesma decisão — o que conta como falta. #}
@@ -254,6 +247,18 @@
             <button type="submit" class="btn btn-sm btn-success">💾 Salvar avisos</button>
           </form>
         </details>
+        {% endif %}
+        {# Daqui pra baixo é o que a busca ao vivo troca: o resumo, a lista
+           e as janelas de configuração de cada item. O formulário de busca e
+           o painel de avisos ficam de fora, pra não fecharem ao digitar. #}
+        <div id="bloco-catalogo">
+        {% if busca or q_situacao or q_min or q_max %}
+        <p class="busca-resultado">
+            <strong>{{ tipos | length }}</strong> tipo(s)
+            {%- if busca %} para <strong>{{ busca }}</strong>{% endif %}
+            {%- if q_situacao or q_min or q_max %} com o filtro de quantidade{% endif %}
+            <span style="color:#888;">(de {{ total_tipos }} no total)</span>
+        </p>
         {% endif %}
         {% if tipos %}
         <table id="tabela-catalogo">
@@ -557,6 +562,7 @@
         {% else %}
         <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "➕ Novo Item".</p>
         {% endif %}
+        </div>{# /bloco-catalogo #}
     </div>
 </div>
 
@@ -690,24 +696,13 @@
             </div>
             <div style="min-width:260px;">
                 <label style="font-size:12px;color:#555;">Situação</label>
-                <select name="situacao" onchange="this.form.submit()" style="margin:0;">
-                    <option value="">Todas as situações</option>
-                    <option value="ok" {{ 'selected' if patrimonio_situacao == 'ok' }}>
-                        ✅ Com veículo ({{ resumo_situacoes.get('ok', 0) }})
-                    </option>
-                    <option value="nunca_bipado" {{ 'selected' if patrimonio_situacao == 'nunca_bipado' }}>
-                        ⚪ Nunca bipado ({{ resumo_situacoes.get('nunca_bipado', 0) }})
-                    </option>
-                    <option value="em_bipagem" {{ 'selected' if patrimonio_situacao == 'em_bipagem' }}>
-                        🔄 Em bipagem ({{ resumo_situacoes.get('em_bipagem', 0) }})
-                    </option>
-                    <option value="kit_sem_veiculo" {{ 'selected' if patrimonio_situacao == 'kit_sem_veiculo' }}>
-                        ⚠️ Kit sem veículo ({{ resumo_situacoes.get('kit_sem_veiculo', 0) }})
-                    </option>
-                    <option value="kit_removido" {{ 'selected' if patrimonio_situacao == 'kit_removido' }}>
-                        🗑️ Kit excluído ({{ resumo_situacoes.get('kit_removido', 0) }})
-                    </option>
-                </select>
+                {{ f.multi('situacao', 'Situação', [
+                     ('ok', '✅ Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
+                     ('nunca_bipado', '⚪ Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
+                     ('em_bipagem', '🔄 Em bipagem (' ~ resumo_situacoes.get('em_bipagem', 0) ~ ')'),
+                     ('kit_sem_veiculo', '⚠️ Kit sem veículo (' ~ resumo_situacoes.get('kit_sem_veiculo', 0) ~ ')'),
+                     ('kit_removido', '🗑️ Kit excluído (' ~ resumo_situacoes.get('kit_removido', 0) ~ ')'),
+                   ], patrimonio_situacao, 'todas') }}
             </div>
             {% if patrimonio_veiculo_id or patrimonio_situacao %}
             <a href="/admin/items?tab=patrimonios" class="btn btn-sm btn-warning">Limpar filtros</a>
@@ -719,18 +714,20 @@
             e o que foi bipado junto com ele.
         </p>
 
-        <form method="get" action="/admin/items" class="busca-form">
+        <form method="get" action="/admin/items" class="busca-form"
+              data-busca-viva="#bloco-patrimonios">
             <input type="hidden" name="tab" value="patrimonios">
             {% if patrimonio_veiculo_id %}<input type="hidden" name="veiculo_id" value="{{ patrimonio_veiculo_id }}">{% endif %}
-            {% if patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ patrimonio_situacao }}">{% endif %}
+            {% for sit in patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ sit }}">{% endfor %}
             <input type="text" name="busca" value="{{ busca }}"
                    placeholder="🔍 Buscar código, tipo, veículo, série ou operador...">
             <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
             {% if busca %}
-            <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}"
+            <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{% for sit in patrimonio_situacao %}&situacao={{ sit|urlencode }}{% endfor %}"
                class="btn btn-sm btn-secondary">✕ Limpar</a>
             {% endif %}
         </form>
+        <div id="bloco-patrimonios">
         {% if busca %}
         <p class="busca-resultado">
             Busca em todas as páginas por <strong>{{ busca }}</strong>
@@ -813,12 +810,13 @@
                 {% if p is none %}
                 <span class="paginacao-ellipsis">…</span>
                 {% else %}
-                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{{ '&situacao=' + patrimonio_situacao if patrimonio_situacao }}{{ '&busca=' + busca|urlencode if busca }}&pagina={{ p }}"
+                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{% for sit in patrimonio_situacao %}&situacao={{ sit|urlencode }}{% endfor %}{{ '&busca=' + busca|urlencode if busca }}&pagina={{ p }}"
                    class="btn btn-sm {{ 'btn-primary' if p == pag_itens.pagina else 'btn-secondary' }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
         </div>
         {% endif %}
+        </div>{# /bloco-patrimonios #}
     </div>
 </div>
 
@@ -848,7 +846,8 @@
             kit: isso libera o tipo do item pra ser bipado em vários kits ativos ao mesmo
             tempo (equivale a marcar "Reutilizável" no Estoque).
         </p>
-        <form method="get" action="/admin/items" class="busca-form">
+        <form method="get" action="/admin/items" class="busca-form"
+              data-busca-viva="#bloco-codigos">
             <input type="hidden" name="tab" value="codigos">
             <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar código...">
             <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
@@ -856,6 +855,7 @@
             <a href="/admin/items?tab=codigos" class="btn btn-sm btn-secondary">✕ Limpar</a>
             {% endif %}
         </form>
+        <div id="bloco-codigos">
         {% if busca %}
         <p class="busca-resultado">
             Busca em todas as páginas por <strong>{{ busca }}</strong>
@@ -927,6 +927,7 @@
             {% endfor %}
         </div>
         {% endif %}
+        </div>{# /bloco-codigos #}
     </div>
 </div>
 

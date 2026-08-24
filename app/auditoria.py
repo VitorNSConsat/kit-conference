@@ -8,6 +8,7 @@ alguém lembrar de instrumentar.
 
 from database import db, now_brt
 import app.datas as datas_mod
+import app.filtros as filtros_mod
 
 # Nunca guardar o valor destes campos no detalhe do log.
 _CAMPOS_SENSIVEIS = {"password", "senha", "senha_atual", "nova_senha",
@@ -102,12 +103,18 @@ def _filtros(data_ini: str, data_fim: str, user_id: str, acao: str,
     where = "WHERE 1=1"
     sql_data, params = datas_mod.clausula("criado_em", data_ini, data_fim)
     where += sql_data
-    if user_id and str(user_id).isdigit():
-        where += " AND user_id = ?"
-        params.append(int(user_id))
-    if acao:
-        where += " AND acao = ?"
-        params.append(acao)
+    # Os dois aceitam lista (filtro de múltipla escolha) ou um valor só —
+    # as telas antigas e os links salvos continuam mandando um valor.
+    ids = [int(u) for u in filtros_mod.lista(
+        user_id if isinstance(user_id, (list, tuple)) else [user_id])
+        if str(u).isdigit()]
+    sql_u, p_u = filtros_mod.em("user_id", ids)
+    where += sql_u
+    params += p_u
+    acoes = filtros_mod.lista(acao if isinstance(acao, (list, tuple)) else [acao])
+    sql_a, p_a = filtros_mod.em("acao", acoes)
+    where += sql_a
+    params += p_a
     if caminho_prefixo:
         where += " AND caminho LIKE ?"
         params.append(caminho_prefixo + "%")

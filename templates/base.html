@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=17">
+    <link rel="stylesheet" href="/static/style.css?v=18">
 </head>
 <body>
 {% if user %}
@@ -90,6 +90,108 @@ function filtrarLista(input) {
         }
     });
 }
+
+// ── Filtro de múltipla escolha ────────────────────────────────────────────
+// Abre um só por vez; clicar fora fecha. O texto do botão é recalculado a
+// cada marcação pra dizer o que está valendo mesmo com a lista fechada.
+function abrirMulti(botao) {
+    const caixa = botao.parentElement;
+    const estavaAberto = caixa.classList.contains('aberto');
+    document.querySelectorAll('.multi.aberto').forEach(m => m.classList.remove('aberto'));
+    if (estavaAberto) return;
+    caixa.classList.add('aberto');
+    // O último filtro da linha abriria pra fora da tela e daria rolagem
+    // horizontal na página inteira: quando não cabe à direita, alinha pela
+    // direita do próprio botão.
+    const lista = caixa.querySelector('.multi-lista');
+    lista.style.left = '';
+    lista.style.right = '';
+    const larguraTela = document.documentElement.clientWidth;
+    if (lista.getBoundingClientRect().right > larguraTela - 8) {
+        lista.style.left = 'auto';
+        lista.style.right = '0';
+    }
+}
+function atualizarMulti(caixa) {
+    const marcados = [...caixa.querySelectorAll('input[type=checkbox]:checked')];
+    const rotulo = caixa.dataset.rotulo || '';
+    const vazio = caixa.dataset.vazio || 'todos';
+    const texto = caixa.querySelector('.multi-texto');
+    if (!marcados.length) texto.textContent = rotulo + ': ' + vazio;
+    else if (marcados.length === 1)
+        texto.textContent = rotulo + ': ' + marcados[0].parentElement.textContent.trim();
+    else texto.textContent = rotulo + ': ' + marcados.length + ' selecionados';
+    caixa.classList.toggle('marcado', marcados.length > 0);
+}
+document.addEventListener('change', function (e) {
+    const caixa = e.target.closest && e.target.closest('.multi');
+    if (caixa) atualizarMulti(caixa);
+});
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.multi')) {
+        document.querySelectorAll('.multi.aberto').forEach(m => m.classList.remove('aberto'));
+    }
+});
+
+// ── Busca ao vivo (a mesma de Veículos e Clientes, agora em qualquer tela) ──
+// Um formulário GET marcado com data-busca-viva="#bloco-x" passa a buscar
+// enquanto se digita: pede a MESMA URL ao servidor (então continua varrendo
+// todas as páginas, não só a que está aberta) e troca só os pedaços listados.
+// Debounce de 350ms pra não disparar a cada tecla; um contador de versão
+// descarta resposta velha que chegue depois da nova — sem isso, digitar
+// rápido embaralha o resultado. Sem JS, o botão "Buscar" continua valendo.
+const _timersBusca = new WeakMap();
+const _versoesBusca = new WeakMap();
+
+function ativarBuscaViva(form) {
+    const alvos = (form.dataset.buscaViva || '').split(',')
+                    .map(s => s.trim()).filter(Boolean);
+    if (!alvos.length) return;
+
+    function buscar() {
+        const params = new URLSearchParams(new FormData(form));
+        const base = form.getAttribute('action') || window.location.pathname;
+        const url = base + (params.toString() ? '?' + params.toString() : '');
+        const versao = (_versoesBusca.get(form) || 0) + 1;
+        _versoesBusca.set(form, versao);
+        fetch(url, {headers: {'X-Requested-With': 'fetch'}})
+            .then(r => r.text())
+            .then(html => {
+                if (_versoesBusca.get(form) !== versao) return;   // resposta velha
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                alvos.forEach(function (sel) {
+                    const novo = doc.querySelector(sel);
+                    const atual = document.querySelector(sel);
+                    if (novo && atual) atual.outerHTML = novo.outerHTML;
+                });
+                history.replaceState(null, '', url);
+            })
+            .catch(() => { window.location = url; });   // sem fetch, navega normal
+    }
+
+    form.addEventListener('input', function (e) {
+        // Select e data aplicam na hora pelo 'change' — aqui é só o texto.
+        if (e.target.tagName === 'SELECT' || e.target.type === 'date') return;
+        clearTimeout(_timersBusca.get(form));
+        _timersBusca.set(form, setTimeout(buscar, 350));
+    });
+    form.addEventListener('change', function (e) {
+        // Select, data e os checkboxes do filtro múltiplo aplicam na hora.
+        const ehMulti = e.target.closest && e.target.closest('.multi');
+        if (e.target.tagName !== 'SELECT' && e.target.type !== 'date' && !ehMulti) return;
+        clearTimeout(_timersBusca.get(form));
+        buscar();
+    });
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearTimeout(_timersBusca.get(form));
+        buscar();
+    });
+}
+// Este script roda no topo do body — os formulários ainda não existem aqui.
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[data-busca-viva]').forEach(ativarBuscaViva);
+});
 
 // Menu "⋯" de ações secundárias — posição calculada em JS (position:fixed) pra
 // nunca ficar cortado por uma tabela com rolagem horizontal (.table-scroll) nem
