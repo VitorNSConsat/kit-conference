@@ -174,6 +174,86 @@ def listar_unidades(template_id: int) -> list:
     return [dict(r) for r in rows]
 
 
+_CAMPOS_UNIDADE = ("iccid", "telefone", "cdt", "id_hardware")
+
+
+def _limpar(valor) -> str | None:
+    """Célula vazia vira NULL, não string vazia — as consultas e a
+    exportação já tratam NULL como '—', e ter os dois representando 'sem
+    valor' faria a mesma unidade parecer diferente de si mesma."""
+    v = str(valor if valor is not None else "").strip()
+    return v or None
+
+
+def atualizar_unidade(unidade_id: int, campos: dict) -> bool:
+    """Corrige os dados de uma unidade já cadastrada.
+
+    É correção CADASTRAL: não mexe no template, na bipagem nem em kit
+    nenhum — a unidade é só a ficha do aparelho que vai naquele pedido.
+    Só os quatro campos da ficha podem mudar; template_id não entra, pra
+    não existir caminho que mova a unidade de pedido por engano."""
+    valores = {c: _limpar(campos.get(c)) for c in _CAMPOS_UNIDADE if c in campos}
+    if not valores:
+        return False
+    sets = ", ".join(f"{c} = ?" for c in valores)
+    with db() as conn:
+        cur = conn.execute(f"UPDATE pedido_unidades SET {sets} WHERE id = ?",
+                           list(valores.values()) + [unidade_id])
+        return cur.rowcount > 0
+
+
+def adicionar_unidades(template_id: int, linhas: list[dict]) -> dict:
+    """Cadastra uma ou várias unidades à mão, sem depender da planilha.
+
+    Linha totalmente vazia é ignorada em silêncio: o formulário nasce com
+    algumas linhas em branco, e sobrar uma sem preencher é o caso normal —
+    não é erro que mereça travar o envio.
+
+    Não recusa repetido: dois aparelhos podem legitimamente chegar sem
+    ICCID informado, e bloquear aqui obrigaria a inventar um valor. O que
+    existe é o aviso de duplicado na tela, pra o operador decidir."""
+    novas = []
+    for l in linhas:
+        valores = {c: _limpar(l.get(c)) for c in _CAMPOS_UNIDADE}
+        if not any(valores.values()):
+            continue
+        novas.append(valores)
+    if not novas:
+        return {"inseridas": 0}
+    with db() as conn:
+        for v in novas:
+            conn.execute(
+                "INSERT INTO pedido_unidades (kit_template_id, iccid, telefone, cdt, "
+                "id_hardware, criado_em) VALUES (?, ?, ?, ?, ?, ?)",
+                (template_id, v["iccid"], v["telefone"], v["cdt"],
+                 v["id_hardware"], now_brt()))
+    return {"inseridas": len(novas)}
+
+
+def remover_unidade(unidade_id: int) -> bool:
+    with db() as conn:
+        cur = conn.execute("DELETE FROM pedido_unidades WHERE id = ?", (unidade_id,))
+        return cur.rowcount > 0
+
+
+def duplicados_do_pedido(template_id: int) -> dict[str, set]:
+    """Valores repetidos entre as unidades DESTE pedido, por campo.
+
+    ICCID e ID Hardware são identificadores de aparelho: repetir quase
+    sempre é erro de digitação ou linha colada duas vezes. A tela marca em
+    vez de bloquear — pode haver motivo real, e travar o cadastro por causa
+    disso atrapalharia mais do que ajuda."""
+    repetidos = {}
+    with db() as conn:
+        for campo in ("iccid", "id_hardware"):
+            rows = conn.execute(
+                f"SELECT {campo} AS v FROM pedido_unidades "
+                f"WHERE kit_template_id = ? AND TRIM(COALESCE({campo}, '')) != '' "
+                f"GROUP BY {campo} HAVING COUNT(*) > 1", (template_id,)).fetchall()
+            repetidos[campo] = {r["v"] for r in rows}
+    return repetidos
+
+
 def buscar_por_id_hardware(id_hardware: str) -> list:
     """Localiza em qual(is) pedido(s) um determinado ID Hardware está —
     usado pra permitir achar rápido qual pedido tem um equipamento."""

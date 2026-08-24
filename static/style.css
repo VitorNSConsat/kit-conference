@@ -670,3 +670,12 @@ tr:hover td { background: var(--surface-alt); }
     .filter-form select,
     .filter-form input[type=date] { width: 100% !important; }
 }
+
+/* Valor repetido entre unidades do mesmo pedido: marca, nao bloqueia.
+   ICCID e ID Hardware identificam o aparelho, entao repetir quase sempre e
+   erro de digitacao — mas pode haver motivo real, e travar o cadastro por
+   isso atrapalharia mais do que ajuda. */
+.campo-duplicado {
+    border-color: #e67e22 !important;
+    background: #fdf6ea !important;
+}

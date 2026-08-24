@@ -57,36 +57,120 @@
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 
-{% if template.tipo == 'pedido' and unidades %}
+{% if template.tipo == 'pedido' %}
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <h2 style="margin:0;">📱 Unidades do Pedido ({{ unidades | length }})</h2>
+        <h2 style="margin:0;">&#128241; Unidades do Pedido ({{ unidades | length }})</h2>
         <a href="/admin/templates/{{ template.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">
-            📊 Exportar Excel
+            &#128202; Exportar Excel
         </a>
     </div>
     <p style="font-size:12px;color:#888;margin:6px 0 12px;">
-        Importadas da planilha do pedido — só para consulta, não entram na bipagem.
+        A ficha de cada aparelho do pedido. D&aacute; pra corrigir aqui mesmo e cadastrar novas
+        &agrave; m&atilde;o, sem depender da planilha. N&atilde;o entram na bipagem &mdash;
+        &eacute; consulta e confer&ecirc;ncia.
     </p>
-    <input type="text" class="busca-box" placeholder="🔍 Buscar por ID Hardware, ICCID, telefone ou CDT..."
+
+    {% if request.query_params.get('ok_unidades') %}
+    <div class="alert alert-success">&#9989; {{ request.query_params.get('ok_unidades') }}</div>
+    {% endif %}
+
+    {% if pode('pedidos_criar_editar') %}
+    <form method="post" action="/admin/templates/{{ template.id }}/unidades" id="form-unidades"></form>
+    {% endif %}
+
+    <input type="text" class="busca-box" placeholder="&#128269; Buscar por ID Hardware, ICCID, telefone ou CDT..."
            oninput="filtrarLista(this)" data-filtro-alvo="#tabela-unidades tr.filtro-item">
-    <div style="max-height:280px;overflow-y:auto;">
+    <div class="table-scroll" style="max-height:420px;overflow-y:auto;">
     <table id="tabela-unidades">
         <thead>
-            <tr><th>ICCID</th><th>Número de Telefone</th><th>CDT</th><th>ID Hardware</th></tr>
+            <tr>
+              <th>ICCID</th><th>N&uacute;mero de Telefone</th><th>CDT</th><th>ID Hardware</th>
+              {% if pode('pedidos_criar_editar') %}<th style="width:44px;"></th>{% endif %}
+            </tr>
         </thead>
         <tbody>
         {% for u in unidades %}
         <tr class="filtro-item">
-            <td style="font-family:monospace;">{{ u.iccid or '—' }}</td>
-            <td>{{ u.telefone or '—' }}</td>
-            <td>{{ u.cdt or '—' }}</td>
-            <td style="font-family:monospace;">{{ u.id_hardware or '—' }}</td>
+            {% if pode('pedidos_criar_editar') %}
+            {# Campos edit&aacute;veis direto na linha: corrigir um ICCID digitado errado
+               n&atilde;o deveria exigir reimportar a planilha inteira. O form fica FORA
+               da tabela e os campos apontam pra ele por form="", porque form dentro
+               de <table> n&atilde;o &eacute; HTML v&aacute;lido. #}
+            <td>
+              <input type="hidden" name="unidade_id" value="{{ u.id }}" form="form-unidades">
+              <input type="text" name="edit_iccid" value="{{ u.iccid or '' }}" form="form-unidades"
+                     class="{{ 'campo-duplicado' if u.iccid and u.iccid in duplicados.iccid }}"
+                     style="margin:0;font-family:monospace;font-size:12px;padding:4px 6px;"
+                     {% if u.iccid and u.iccid in duplicados.iccid %}title="Este ICCID aparece em mais de uma unidade deste pedido"{% endif %}>
+            </td>
+            <td><input type="text" name="edit_telefone" value="{{ u.telefone or '' }}" form="form-unidades"
+                       style="margin:0;font-size:12px;padding:4px 6px;"></td>
+            <td><input type="text" name="edit_cdt" value="{{ u.cdt or '' }}" form="form-unidades"
+                       style="margin:0;font-size:12px;padding:4px 6px;"></td>
+            <td>
+              <input type="text" name="edit_id_hardware" value="{{ u.id_hardware or '' }}" form="form-unidades"
+                     class="{{ 'campo-duplicado' if u.id_hardware and u.id_hardware in duplicados.id_hardware }}"
+                     style="margin:0;font-family:monospace;font-size:12px;padding:4px 6px;"
+                     {% if u.id_hardware and u.id_hardware in duplicados.id_hardware %}title="Este ID Hardware aparece em mais de uma unidade deste pedido"{% endif %}>
+            </td>
+            <td>
+              <button type="submit" class="btn btn-sm btn-danger" style="padding:3px 7px;"
+                      form="form-remover-{{ u.id }}" title="Remover esta unidade">&times;</button>
+            </td>
+            {% else %}
+            <td style="font-family:monospace;">{{ u.iccid or '&mdash;' }}</td>
+            <td>{{ u.telefone or '&mdash;' }}</td>
+            <td>{{ u.cdt or '&mdash;' }}</td>
+            <td style="font-family:monospace;">{{ u.id_hardware or '&mdash;' }}</td>
+            {% endif %}
         </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;color:#888;padding:16px;">
+            Nenhuma unidade ainda &mdash; importe a planilha do pedido ou cadastre abaixo.
+        </td></tr>
         {% endfor %}
         </tbody>
+        {% if pode('pedidos_criar_editar') %}
+        <tbody id="linhas-novas-unidade"></tbody>
+        {% endif %}
     </table>
     </div>
+
+    {% if pode('pedidos_criar_editar') %}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaUnidade()">
+            &#65291; Adicionar unidade
+        </button>
+        <button type="submit" class="btn btn-success" form="form-unidades">&#128190; Salvar unidades</button>
+        <span style="font-size:12px;color:#888;">
+            Linha nova em branco &eacute; ignorada. Campo vazio significa "sem valor".
+        </span>
+    </div>
+
+    {# Um form de remo&ccedil;&atilde;o por unidade, fora da tabela: remover &eacute;
+       a&ccedil;&atilde;o isolada e n&atilde;o pode ir junto do salvamento em massa. #}
+    {% for u in unidades %}
+    <form method="post" id="form-remover-{{ u.id }}"
+          action="/admin/templates/{{ template.id }}/unidades/{{ u.id }}/remover"
+          onsubmit="return confirm('Remover esta unidade do pedido?')" style="display:none;"></form>
+    {% endfor %}
+
+    <template id="modelo-linha-unidade">
+        <tr>
+            <td><input type="text" name="nova_iccid" form="form-unidades" placeholder="ICCID"
+                       style="margin:0;font-family:monospace;font-size:12px;padding:4px 6px;"></td>
+            <td><input type="text" name="nova_telefone" form="form-unidades" placeholder="Telefone"
+                       style="margin:0;font-size:12px;padding:4px 6px;"></td>
+            <td><input type="text" name="nova_cdt" form="form-unidades" placeholder="CDT"
+                       style="margin:0;font-size:12px;padding:4px 6px;"></td>
+            <td><input type="text" name="nova_id_hardware" form="form-unidades" placeholder="ID Hardware"
+                       style="margin:0;font-family:monospace;font-size:12px;padding:4px 6px;"></td>
+            <td><button type="button" class="btn btn-sm btn-secondary" style="padding:3px 7px;"
+                        onclick="this.closest('tr').remove()" title="Descartar esta linha">&times;</button></td>
+        </tr>
+    </template>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -333,6 +417,18 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<script>
+// Linhas novas de unidade, clonadas do <template>: o operador cadastra uma
+// ou varias e salva tudo junto com as correcoes das ja existentes.
+function addLinhaUnidade() {
+    var alvo = document.getElementById('linhas-novas-unidade');
+    var modelo = document.getElementById('modelo-linha-unidade');
+    if (!alvo || !modelo) return;
+    alvo.appendChild(modelo.content.cloneNode(true));
+    var linha = alvo.lastElementChild;
+    if (linha) { var i = linha.querySelector('input'); if (i) i.focus(); }
+}
+</script>
 <script>
 // Avisa só quando o nome muda de verdade — alerta permanente vira ruído e
 // para de ser lido.

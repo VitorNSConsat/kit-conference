@@ -1199,6 +1199,54 @@ async def admin_templates_import_bom(request: Request,
         })
 
 
+@app.post("/admin/templates/{template_id}/unidades")
+@require_permission("pedidos_criar_editar")
+async def admin_pedido_unidades(request: Request, template_id: int):
+    """Salva as unidades do pedido: corrige as existentes e cadastra as
+    novas, num envio só. Correção cadastral — não toca em bipagem, kit nem
+    estoque; a unidade é a ficha do aparelho que vai naquele pedido."""
+    form = await request.form()
+    destino = f"/admin/templates/{template_id}/edit"
+
+    # Edição das já cadastradas: listas paralelas indexadas por id.
+    ids = form.getlist("unidade_id")
+    campos = {c: form.getlist("edit_" + c) for c in
+              ("iccid", "telefone", "cdt", "id_hardware")}
+    editadas = 0
+    for i, uid in enumerate(ids):
+        if not str(uid).strip().isdigit():
+            continue
+        if pedidos_mod.atualizar_unidade(
+                int(uid), {c: (campos[c][i] if i < len(campos[c]) else "")
+                           for c in campos}):
+            editadas += 1
+
+    # Novas linhas, em branco no formulário — as vazias são ignoradas.
+    novos = {c: form.getlist("nova_" + c) for c in
+             ("iccid", "telefone", "cdt", "id_hardware")}
+    total_novas = max((len(v) for v in novos.values()), default=0)
+    linhas = [{c: (novos[c][i] if i < len(novos[c]) else "") for c in novos}
+              for i in range(total_novas)]
+    r = pedidos_mod.adicionar_unidades(template_id, linhas)
+
+    partes = []
+    if r["inseridas"]:
+        partes.append(f"{r['inseridas']} unidade(s) adicionada(s)")
+    if editadas:
+        partes.append(f"{editadas} atualizada(s)")
+    msg = " · ".join(partes) or "Nada foi alterado."
+    return RedirectResponse(destino + "?ok_unidades=" + quote(msg), status_code=302)
+
+
+@app.post("/admin/templates/{template_id}/unidades/{unidade_id}/remover")
+@require_permission("pedidos_criar_editar")
+async def admin_pedido_unidade_remover(request: Request, template_id: int, unidade_id: int):
+    pedidos_mod.remover_unidade(unidade_id)
+    return RedirectResponse(
+        f"/admin/templates/{template_id}/edit?ok_unidades="
+        + quote("Unidade removida."), status_code=302)
+
+
 @app.post("/admin/templates/import-pedido")
 @require_permission("pedidos_criar_editar")
 async def admin_templates_import_pedido(request: Request,
@@ -1285,6 +1333,9 @@ async def admin_template_edit_page(request: Request, template_id: int):
         # Quantos veículos apontam pro NOME atual deste kit. Renomear
         # desliga todos eles da bipagem em silêncio — a tela avisa antes.
         "veiculos_vinculados": veiculos_mod.contar_por_modelo(template["nome"]),
+        # Valores repetidos entre as unidades: a tela MARCA, não bloqueia.
+        "duplicados": (pedidos_mod.duplicados_do_pedido(template_id)
+                       if template.get("tipo") == "pedido" else {"iccid": set(), "id_hardware": set()}),
         "template": template,
         "itens": itens,
         "consumo": consumo,
