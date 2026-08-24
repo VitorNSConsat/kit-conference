@@ -89,8 +89,18 @@
     <div><div class="n">{{ resumo.produzido }}</div><div class="r">Produzido</div></div>
     <div><div class="n">{{ resumo.transito }}</div><div class="r">Trânsito</div></div>
     <div><div class="n">{{ resumo.cliente }}</div><div class="r">No cliente</div></div>
-    <div><div class="n">{{ resumo.total_kits }}</div><div class="r">Total</div></div>
+    {# "Total" dava a entender soma da tela inteira. É o total de kits que
+       JÁ EXISTEM (produzido + trânsito + no cliente): "a produzir" ainda é
+       veículo esperando e "em produção" é bipagem que ainda não virou kit. #}
+    <div title="Produzido + trânsito + no cliente. Não inclui 'a produzir' (ainda sem kit) nem 'em produção' (bipagem em andamento).">
+      <div class="n">{{ resumo.total_kits }}</div><div class="r">Já montados</div>
+    </div>
   </div>
+
+  <p style="font-size:11px;color:#9aa7b4;margin:-6px 0 12px;text-align:center;">
+    “Já montados” = produzido + trânsito + no cliente. <strong>A produzir</strong> ainda não
+    tem kit e <strong>em produção</strong> vira kit ao finalizar a bipagem.
+  </p>
 
   <div class="aviso">
     Tela de consulta. Mover kit de etapa, nota fiscal e envio em lote continuam
