@@ -313,6 +313,14 @@
       <div class="qb-label">Estoque</div>
     </a>
     {% endif %}
+    {% if pode('ver_producao') %}
+    {# Versão de consulta da esteira — a de computador tem ação em lote, que
+       no telefone só rende toque errado. #}
+    <a href="/producao/mobile" class="quick-btn">
+      <div class="qb-icon">🚚</div>
+      <div class="qb-label">Produção</div>
+    </a>
+    {% endif %}
     <button type="button" class="quick-btn" onclick="abrirConsultaEstoque()">
       <div class="qb-icon">🔍</div>
       <div class="qb-label">Consultar Item</div>

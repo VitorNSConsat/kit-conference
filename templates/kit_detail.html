@@ -454,12 +454,17 @@
       <div class="item-info">
         <div class="item-tipo">{{ item.tipo_nome }}</div>
         {% if item.barcodes %}
-        {# Patrimônio clicável fecha a corrente Veículo → Kit → Itens →
-           Patrimônio, reaproveitando a tela de rastreamento que já existe.
-           Só pra quem está logado: esta página é pública (abre pelo QR da
-           etiqueta), e sem sessão o link só levaria pro login. #}
+        {# Patrimônio clicável levava pra tela de rastreamento — DESLIGADO por
+           ora. No celular aquela tela é bloqueada pelo portão do mobile, então
+           tocar no código jogava o operador pra fora do kit, no meio da
+           conferência. O código continua à vista; o rastreamento segue
+           acessível pelo computador (Itens & Estoque → Itens Cadastrados).
+
+           Pra religar: troque para true. O link volta só pra quem está
+           logado — esta página é pública (abre pelo QR da etiqueta). #}
+        {% set patrimonio_clicavel = false %}
         <div class="item-barcodes">
-          {% if user %}
+          {% if user and patrimonio_clicavel %}
             {% for cb in item.barcodes.split(', ') %}
             <a href="/admin/items/patrimonio/{{ cb | urlencode }}"
                style="color:inherit;text-decoration:underline;"

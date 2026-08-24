@@ -3317,6 +3317,78 @@ async def prateleira_tv(request: Request, minutos: int = 5):
 
 # ── Produção (Consat → Trânsito → Cliente) ────────────────────────────────────
 
+_PRODUCAO_MOBILE_LIMITE = 40
+
+
+@app.get("/producao/mobile", response_class=HTMLResponse)
+@require_login
+async def producao_mobile(request: Request):
+    """A esteira no celular, só pra olhar.
+
+    A tela de computador tem seleção em massa, nota fiscal e botões de
+    estágio — coisa de mesa, que no telefone vira toque errado. Aqui vão os
+    números e as listas; quem precisa mover kit continua no computador.
+
+    Cada etapa mostra até 40 linhas e diz quando cortou, em vez de deixar o
+    resto sumir sem aviso."""
+    def _linhas(itens, veiculo, sub, quando, destino=None):
+        cortadas = itens[:_PRODUCAO_MOBILE_LIMITE]
+        return [{
+            "veiculo": veiculo(i) or "—",
+            "sub": sub(i),
+            "quando": (quando(i) or "")[:16],
+            "destino": destino(i) if destino else None,
+        } for i in cortadas]
+
+    def _cli_gar(i):
+        partes = [i.get("cliente") or "", i.get("garagem") or ""]
+        return " · ".join(p for p in partes if p)
+
+    a_produzir = producao_mod.listar_a_produzir()
+    em_producao = producao_mod.listar_em_producao()
+    produzido = producao_mod.listar_produzido()
+    transito = producao_mod.listar_transito()
+    no_cliente = producao_mod.listar_no_cliente()
+
+    etapas = [
+        {"titulo": "Kits a produzir", "total": len(a_produzir),
+         "vazio": "Nada pronto pra produzir agora.",
+         "linhas": _linhas(a_produzir, lambda i: i.get("veiculo"),
+                           lambda i: _cli_gar(i) + (" · " + (i.get("modelo") or "") if i.get("modelo") else ""),
+                           lambda i: "")},
+        {"titulo": "Em produção", "total": len(em_producao),
+         "vazio": "Nenhuma bipagem em andamento.",
+         # Única ação que faz sentido no celular: continuar a bipagem.
+         "linhas": _linhas(em_producao, lambda i: i.get("veiculo"),
+                           lambda i: _cli_gar(i) + " · " + (i.get("operador_nome") or ""),
+                           lambda i: i.get("iniciado_em"),
+                           lambda i: "/session/%s" % i["sessao_id"])},
+        {"titulo": "Produzido", "total": len(produzido),
+         "vazio": "Nada esperando envio.",
+         "linhas": _linhas(produzido, lambda i: i.get("veiculo") or i.get("kit_nome"),
+                           _cli_gar, lambda i: i.get("finalizado_em"),
+                           lambda i: "/kit/%s" % i["kit_id"])},
+        {"titulo": "Em trânsito", "total": len(transito),
+         "vazio": "Nada em trânsito.",
+         "linhas": _linhas(transito, lambda i: i.get("veiculo") or i.get("kit_nome"),
+                           _cli_gar, lambda i: i.get("transito_em"),
+                           lambda i: "/kit/%s" % i["kit_id"])},
+        {"titulo": "No cliente", "total": len(no_cliente),
+         "vazio": "Nenhum kit no cliente.",
+         "linhas": _linhas(
+             no_cliente,
+             lambda i: i.get("veiculo") or i.get("kit_nome"),
+             lambda i: _cli_gar(i) + (" · ✅ concluído"
+                                      if i.get("status_producao") == "cliente_concluido"
+                                      else " · 🔧 instalando"),
+             lambda i: i.get("chegou_em"),
+             lambda i: "/kit/%s" % i["kit_id"])},
+    ]
+    resumo = producao_mod.resumo()
+    resumo["total_kits"] = (resumo["produzido"] + resumo["transito"] + resumo["cliente"])
+    return render(request, "producao_mobile.html", {"resumo": resumo, "etapas": etapas})
+
+
 @app.get("/producao/tv", response_class=HTMLResponse)
 async def producao_tv(request: Request, minutos: int = 5):
     minutos = max(1, minutos)
