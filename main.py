@@ -65,6 +65,58 @@ class _MobileGateMiddleware(BaseHTTPMiddleware):
         return RedirectResponse('/mobile', status_code=302)
 
 
+class _PaginaPermitidaMiddleware(BaseHTTPMiddleware):
+    """Porteiro das telas: esconde uma página inteira de quem não pode vê-la.
+
+    Fica no middleware, e não rota a rota, porque a regra é "esta ÁREA do
+    sistema" — cada tela tem várias rotas (lista, detalhe, exportação,
+    formulários) e uma delas ficaria de fora na hora de acrescentar rota
+    nova. Vale pra qualquer método: esconder a tela e deixar o POST dela
+    aberto seria esconder o botão, não a permissão.
+
+    Deslogado não é "sem permissão": aí quem manda é a própria rota, que
+    pode ser pública de propósito (o kit lido pelo QR, por exemplo)."""
+
+    async def dispatch(self, request: Request, call_next):
+        chave = permissoes_mod.permissao_da_rota(request.url.path)
+        if chave:
+            user = None
+            try:
+                user = get_current_user(request)
+            except Exception:
+                pass
+            if user and not permissoes_mod.tem_permissao(user, chave):
+                inicio = _primeira_tela(user)
+                # Na raiz, mandar 403 seria receber "acesso negado" logo
+                # depois de entrar. Cai na primeira tela que a pessoa pode ver.
+                if request.url.path == "/" and inicio:
+                    return RedirectResponse(inicio, status_code=302)
+                atalho = (f"<p style='padding:0 32px'><a href='{inicio}'>Ir para o início</a></p>"
+                          if inicio else
+                          "<p style='font-family:sans-serif;padding:0 32px'>Nenhuma tela está "
+                          "liberada para o seu usuário. <a href='/logout'>Sair</a></p>")
+                return HTMLResponse(
+                    "<h2 style='font-family:sans-serif;padding:32px'>Tela indisponível</h2>"
+                    "<p style='font-family:sans-serif;padding:0 32px'>Seu usuário não tem "
+                    "acesso a esta tela. Fale com um administrador.</p>" + atalho,
+                    status_code=403,
+                )
+        return await call_next(request)
+
+
+def _primeira_tela(user: dict) -> str | None:
+    """Primeira tela que este usuário pode abrir, ou None quando não sobrou
+    nenhuma.
+
+    Nunca devolve /logout: o redirecionamento da raiz é automático, e
+    apontar pra saída significaria deslogar sozinho quem entrou — foi
+    exatamente o que aconteceu na primeira versão disto."""
+    for chave, _rotulo, destino, _prefixos in permissoes_mod.TELAS:
+        if permissoes_mod.tem_permissao(user, chave):
+            return destino
+    return None
+
+
 class _AuditoriaMiddleware(BaseHTTPMiddleware):
     """Grava toda requisição que altera dados.
 
@@ -186,7 +238,9 @@ if not _SECRET_KEY:
 
 # Ordem importa: quem é adicionado por último fica por fora. A auditoria
 # precisa enxergar a sessão, então entra ANTES do SessionMiddleware para
-# ficar por dentro dele.
+# ficar por dentro dele. O porteiro das telas entra antes da auditoria pra
+# ficar por dentro dela — assim o 403 dele também é registrado.
+app.add_middleware(_PaginaPermitidaMiddleware)
 app.add_middleware(_AuditoriaMiddleware)
 app.add_middleware(
     SessionMiddleware,
@@ -302,7 +356,11 @@ def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
     alertas_estoque = estoque_mod.alertas_abaixo_minimo() if user else []
     pode = (lambda chave: permissoes_mod.tem_permissao(user, chave)) if user else (lambda chave: False)
-    return jinja.TemplateResponse(template, {"request": request, "user": user, "alertas_estoque": alertas_estoque, "pode": pode, **ctx})
+    # O menu é montado a partir do mesmo cadastro de telas que o porteiro usa:
+    # esconder o link e barrar a rota não podem discordar.
+    return jinja.TemplateResponse(template, {"request": request, "user": user,
+                                             "alertas_estoque": alertas_estoque,
+                                             "pode": pode, "telas": permissoes_mod.TELAS, **ctx})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -428,6 +486,7 @@ async def admin_usuarios(request: Request, pagina: int = 1, busca: str = ""):
         "pag_usuarios": paginacao_mod.paginar(usuarios, pagina),
         "busca": busca,
         "permissoes": permissoes_mod.PERMISSOES,
+        "grupos": permissoes_mod.GRUPOS,
         "negadas_por_usuario": negadas_por_usuario,
     })
 
@@ -666,6 +725,7 @@ async def funcionalidades(request: Request):
     do próprio código — assim a página não descreve uma lista que já mudou."""
     return render(request, "funcionalidades.html", {
         "permissoes": permissoes_mod.PERMISSOES,
+        "grupos": permissoes_mod.GRUPOS,
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
     })
 
@@ -3746,7 +3806,8 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
 def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
-                            modelo: str = "", situacao: str = "") -> dict:
+                            modelo: str = "", situacao: str = "",
+                            garagem: str = "") -> dict:
     todos = veiculos_mod.listar(ativo=True)
     total_geral = len(todos)
     # Localização de todos numa consulta só — usada tanto pra exibir a coluna
@@ -3761,6 +3822,14 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
     veiculos = todos
     if cliente:
         veiculos = [v for v in veiculos if v["cliente"] == cliente]
+    # Garagem: comparação pelo nome INTEIRO (a busca livre casa por pedaço e
+    # "GARAGEM 1" trazia junto a "GARAGEM 10"). __sem__ = os que estão sem
+    # garagem — o furo de cadastro que tira o veículo de "Kits a produzir".
+    if garagem == "__sem__":
+        veiculos = [v for v in veiculos if not (v["garagem"] or "").strip()]
+    elif garagem:
+        veiculos = [v for v in veiculos
+                    if (v["garagem"] or "").strip().upper() == garagem.strip().upper()]
     if modelo:
         veiculos = [v for v in veiculos
                     if (v["modelo"] or "").strip().lower() == modelo.strip().lower()]
@@ -3803,6 +3872,27 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
     cadastrados_clientes = clientes_mod.listar()
     cadastradas_garagens = garagens_mod.listar()
+
+    # Cliente ⇄ garagem pra as listas suspensas do topo: abrir um cliente
+    # mostra as garagens dele (e vice-versa). O vínculo não existe em
+    # cadastro nenhum — quem liga os dois é o veículo —, então sai daqui.
+    _id_garagem = {g["nome"].upper(): g["id"] for g in cadastradas_garagens}
+    garagens_por_cliente: dict[str, list] = {}
+    clientes_por_garagem: dict[str, list] = {}
+    for par in veiculos_mod.mapa_cliente_garagem():
+        nome_g = par["garagem"]
+        garagens_por_cliente.setdefault(par["cliente"], []).append({
+            "nome": nome_g or "(sem garagem)",
+            "id": _id_garagem.get(nome_g.upper()) if nome_g else None,
+            "veiculos": par["veiculos"],
+        })
+        if nome_g:
+            clientes_por_garagem.setdefault(nome_g.upper(), []).append({
+                "nome": par["cliente"],
+                "id": next((c["id"] for c in cadastrados_clientes
+                            if c["nome"] == par["cliente"]), None),
+                "veiculos": par["veiculos"],
+            })
     return {
         # Onde cada veículo está agora no fluxo — derivado dos estados que a
         # Produção já usa, numa consulta só pra todos (nada de N+1).
@@ -3810,8 +3900,9 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         "busca": busca,
         "filtro_modelo": modelo,
         "filtro_situacao": situacao,
+        "filtro_garagem": garagem,
         "total_geral": total_geral,
-        "tem_filtro": bool(cliente or modelo or situacao or busca),
+        "tem_filtro": bool(cliente or garagem or modelo or situacao or busca),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(cliente or None),
         "pag_veiculos": paginacao_mod.paginar(veiculos, pagina),
@@ -3828,6 +3919,8 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         # panorama de cada um sem uma consulta por linha.
         "id_cliente": {c["nome"]: c["id"] for c in cadastrados_clientes},
         "id_garagem": {g["nome"]: g["id"] for g in cadastradas_garagens},
+        "garagens_por_cliente": garagens_por_cliente,
+        "clientes_por_garagem": clientes_por_garagem,
         "filtro_cliente": cliente,
     }
 
@@ -3835,9 +3928,10 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
 @app.get("/admin/veiculos", response_class=HTMLResponse)
 @require_login
 async def admin_veiculos(request: Request, cliente: str = "", pagina: int = 1,
-                         busca: str = "", modelo: str = "", situacao: str = ""):
+                         busca: str = "", modelo: str = "", situacao: str = "",
+                         garagem: str = ""):
     return render(request, "admin_veiculos.html",
-                  _admin_veiculos_context(cliente, pagina, busca, modelo, situacao))
+                  _admin_veiculos_context(cliente, pagina, busca, modelo, situacao, garagem))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)

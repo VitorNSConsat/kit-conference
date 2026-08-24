@@ -43,7 +43,7 @@
     </div>
   </div>
   <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="/admin/veiculos?busca={{ garagem.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos desta garagem</a>
+    <a href="/admin/veiculos?garagem={{ garagem.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos desta garagem</a>
   </div>
 </div>
 
@@ -67,7 +67,7 @@
       <td>{{ c.veiculos }}</td>
       <td style="color:{{ '#e67e22' if c.sem_modelo else '#888' }};">{{ c.sem_modelo or 0 }}</td>
       <td>
-        <a href="/admin/veiculos?cliente={{ c.cliente | urlencode }}&busca={{ garagem.nome | urlencode }}"
+        <a href="/admin/veiculos?cliente={{ c.cliente | urlencode }}&garagem={{ garagem.nome | urlencode }}"
            class="btn btn-sm btn-secondary">Ver veículos</a>
       </td>
     </tr>
@@ -130,10 +130,10 @@
       <td>{{ m.veiculos }}</td>
       <td>
         {% if m.modelo != '(sem kit definido)' %}
-        <a href="/admin/veiculos?modelo={{ m.modelo | urlencode }}&busca={{ garagem.nome | urlencode }}"
+        <a href="/admin/veiculos?modelo={{ m.modelo | urlencode }}&garagem={{ garagem.nome | urlencode }}"
            class="btn btn-sm btn-secondary">Ver veículos</a>
         {% else %}
-        <a href="/admin/veiculos?situacao=sem_modelo&busca={{ garagem.nome | urlencode }}"
+        <a href="/admin/veiculos?situacao=sem_modelo&garagem={{ garagem.nome | urlencode }}"
            class="btn btn-sm btn-warning">Definir modelo</a>
         {% endif %}
       </td>

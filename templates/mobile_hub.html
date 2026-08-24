@@ -305,10 +305,14 @@
   <!-- ── Ações Rápidas ─────────────────────────────────── -->
   <div class="sec-title">Ações</div>
   <div class="quick-nav">
+    {# Mesmo porteiro do computador: quem não enxerga Itens & Estoque não vê
+       o atalho aqui (a rota também barra). #}
+    {% if pode('ver_itens') %}
     <a href="/estoque" class="quick-btn">
       <div class="qb-icon">📦</div>
       <div class="qb-label">Estoque</div>
     </a>
+    {% endif %}
     <button type="button" class="quick-btn" onclick="abrirConsultaEstoque()">
       <div class="qb-icon">🔍</div>
       <div class="qb-label">Consultar Item</div>

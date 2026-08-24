@@ -79,7 +79,9 @@
       <td>{{ g.veiculos }}</td>
       <td style="color:{{ '#e67e22' if g.sem_modelo else '#888' }};">{{ g.sem_modelo or 0 }}</td>
       <td>
-        <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&busca={{ g.garagem | urlencode }}"
+        {# Filtro de garagem, não busca livre: a busca casa por pedaço de
+           texto e "GARAGEM 1" traria junto a "GARAGEM 10". #}
+        <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&garagem={{ ('__sem__' if g.garagem == '(sem garagem)' else g.garagem) | urlencode }}"
            class="btn btn-sm btn-secondary">Ver veículos</a>
       </td>
     </tr>

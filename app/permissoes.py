@@ -10,10 +10,33 @@ com tudo liberado, exatamente como era antes dessa tabela existir.
 
 from database import db
 
+# ── Telas ────────────────────────────────────────────────────────────────────
+# (chave, rótulo, para onde o link do menu aponta, prefixos de rota da tela).
+# Uma tela = várias rotas (lista, detalhe, exportação, formulários); os
+# prefixos existem pra o porteiro cobrir a área inteira, inclusive rota nova
+# que venha a ser criada dentro dela.
+#
+# A ORDEM é a do menu: é ela que decide pra onde vai quem não pode ver a
+# tela inicial.
+TELAS = (
+    ("ver_bipagem",        "⚡ Bipagem",            "/",                ("/", "/session")),
+    ("ver_impressao",      "🖨️ Impressão",          "/print-queue",     ("/print-queue",)),
+    ("ver_itens",          "📋 Itens & Estoque",    "/admin/items",     ("/admin/items", "/admin/tipos",
+                                                                        "/admin/estoque", "/estoque")),
+    ("ver_kits",           "📄 Criar Kit/Pedido",   "/admin/templates", ("/admin/templates",)),
+    ("ver_veiculos",       "🚗 Veículos e Clientes", "/admin/veiculos", ("/admin/veiculos", "/admin/clientes",
+                                                                        "/admin/garagens")),
+    ("ver_prateleira",     "🗄️ Prateleira",         "/admin/prateleira", ("/admin/prateleira", "/prateleira")),
+    ("ver_producao",       "🚚 Produção",           "/admin/producao",  ("/admin/producao", "/producao")),
+    ("ver_relatorios",     "📊 Relatórios",         "/reports",         ("/reports",)),
+    ("ver_rede",           "🌐 Rede",               "/rede",            ("/rede",)),
+    ("ver_funcionalidades", "📖 Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
+)
+
 # Chave -> rótulo exibido na tela de gestão de usuários.
-PERMISSOES = {
-    "ver_rede": "Ver a tela Rede",
-    "ver_relatorios": "Ver Relatórios",
+PERMISSOES_TELAS = {chave: rotulo for chave, rotulo, _destino, _prefixos in TELAS}
+
+PERMISSOES_ACOES = {
     "estoque_editar": "Repor/corrigir quantidade em Estoque",
     "producao_nota_fiscal": "Editar Nota Fiscal na Produção",
     "producao_mover_estagio": "Mover kits na esteira (trânsito, cliente, voltar)",
@@ -22,9 +45,32 @@ PERMISSOES = {
     "itens_apagar": "Apagar itens do catálogo",
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
 }
+
+PERMISSOES = {**PERMISSOES_TELAS, **PERMISSOES_ACOES}
+
+# Como a tela de usuários agrupa os checkboxes — ver tela x poder fazer são
+# perguntas diferentes e ficavam embaralhadas numa lista só.
+GRUPOS = (
+    ("Telas que o usuário enxerga", PERMISSOES_TELAS),
+    ("O que o usuário pode fazer", PERMISSOES_ACOES),
+)
+
 # Toda chave nova nasce PERMITIDA pra quem já existe: tem_permissao() nega só
 # o que está na lista de negadas do usuário. Então acrescentar uma permissão
 # aqui não tira acesso de ninguém — só passa a ser possível restringir.
+
+
+def permissao_da_rota(caminho: str) -> str | None:
+    """Qual permissão de tela cobre este caminho (None = tela sem porteiro).
+
+    Casa por segmento inteiro: '/reports' cobre '/reports/operadores', mas
+    '/estoque' não pode cobrir '/estoquex' nem '/admin/estoque' virar dono
+    de tudo que comece com essas letras."""
+    for chave, _rotulo, _destino, prefixos in TELAS:
+        for p in prefixos:
+            if caminho == p or (p != "/" and caminho.startswith(p + "/")):
+                return chave
+    return None
 
 
 def negadas_do_usuario(user_id: int) -> set[str]:

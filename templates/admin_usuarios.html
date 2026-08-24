@@ -134,16 +134,24 @@
           <div style="font-size:13px;margin-bottom:8px;">
             Permissões de <strong>{{ u.nome }}</strong> — desmarcado significa negado:
           </div>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
-            {% set negadas = negadas_por_usuario.get(u.id, []) %}
-            {% for chave, rotulo in permissoes.items() %}
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
-              <input type="checkbox" name="{{ chave }}" style="width:auto;margin:0;"
-                     {{ 'checked' if chave not in negadas }}>
-              {{ rotulo }}
-            </label>
-            {% endfor %}
+          {% set negadas = negadas_por_usuario.get(u.id, []) %}
+          {# Dois blocos: que TELAS a pessoa enxerga e o que ela pode FAZER.
+             Desmarcar uma tela some com ela do menu e fecha as rotas dela. #}
+          {% for titulo, chaves in grupos %}
+          <div style="margin-bottom:10px;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+                        color:#8a97a4;margin-bottom:5px;">{{ titulo }}</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;">
+              {% for chave, rotulo in chaves.items() %}
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                <input type="checkbox" name="{{ chave }}" style="width:auto;margin:0;"
+                       {{ 'checked' if chave not in negadas }}>
+                {{ rotulo }}
+              </label>
+              {% endfor %}
+            </div>
           </div>
+          {% endfor %}
           <button type="submit" class="btn btn-sm btn-success">Salvar Permissões</button>
         </form>
       </td>

@@ -19,24 +19,24 @@
     <a href="/" class="brand">🏠 Início</a>
     <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">☰</button>
     {% set p = request.url.path %}
+    {# O menu sai do cadastro de telas (app/permissoes.py): cada uma só
+       aparece pra quem pode vê-la, e "qual está ativa" usa os mesmos
+       prefixos que o porteiro das rotas — link e permissão não têm como
+       discordar. #}
     <div class="nav-links" id="nav-links">
-        <a href="/" class="{{ 'nav-active' if p == '/' else '' }}">⚡ Bipagem</a>
-        <a href="/print-queue" class="{{ 'nav-active' if p.startswith('/print-queue') else '' }}">🖨️ Impressão</a>
-        <a href="/admin/items" class="{{ 'nav-active' if p.startswith('/admin/items') or p.startswith('/admin/estoque') else '' }}">📋 Itens &amp; Estoque</a>
-        <a href="/admin/templates" class="{{ 'nav-active' if p.startswith('/admin/templates') else '' }}">📄 Criar Kit/Pedido</a>
-        <a href="/admin/veiculos" class="{{ 'nav-active' if p.startswith('/admin/veiculos') else '' }}">🚗 Veículos e Clientes</a>
-        <a href="/admin/prateleira" class="{{ 'nav-active' if p.startswith('/admin/prateleira') else '' }}">🗄️ Prateleira</a>
-        <a href="/admin/producao" class="{{ 'nav-active' if p.startswith('/admin/producao') else '' }}">🚚 Produção</a>
-        {% if pode('ver_relatorios') %}
-        <a href="/reports" class="{{ 'nav-active' if p.startswith('/reports') else '' }}">📊 Relatórios</a>
+        {% for chave, rotulo, destino, prefixos in telas %}
+        {% if pode(chave) %}
+        {% set ns = namespace(ativa=false) %}
+        {% for pre in prefixos %}
+        {% if p == pre or (pre != '/' and p.startswith(pre + '/')) %}{% set ns.ativa = true %}{% endif %}
+        {% endfor %}
+        <a href="{{ destino }}" class="{{ 'nav-active' if ns.ativa else '' }}"
+           {% if chave == 'ver_rede' %}style="color:#7ecfff;"{% endif %}>{{ rotulo }}</a>
         {% endif %}
+        {% endfor %}
         {% if user.admin %}
         <a href="/admin/usuarios" class="{{ 'nav-active' if p.startswith('/admin/usuarios') or p.startswith('/admin/auditoria') else '' }}">👥 Usuários</a>
         {% endif %}
-        {% if pode('ver_rede') %}
-        <a href="/rede" class="{{ 'nav-active' if p.startswith('/rede') else '' }}" style="color:#7ecfff;">🌐 Rede</a>
-        {% endif %}
-        <a href="/funcionalidades" class="{{ 'nav-active' if p.startswith('/funcionalidades') else '' }}">📖 Funcionalidades</a>
         <a href="/logout" class="nav-logout">🚪 Sair ({{ user.nome }})</a>
     </div>
 </nav>
@@ -63,7 +63,16 @@ function toggleNav() {
 function filtrarLista(input) {
     const termo = input.value.trim().toLowerCase();
     document.querySelectorAll(input.dataset.filtroAlvo).forEach(function(el) {
-        el.style.display = (!termo || el.textContent.toLowerCase().includes(termo)) ? '' : 'none';
+        const casa = !termo || el.textContent.toLowerCase().includes(termo);
+        el.style.display = casa ? '' : 'none';
+        // Lista suspensa: quando o que casou está DENTRO (uma garagem do
+        // cliente, por exemplo), abre sozinha — senão o resultado aparecia
+        // fechado e dava a impressão de que a busca não achou nada.
+        if (el.tagName === 'DETAILS' && termo) {
+            const resumo = el.querySelector('summary');
+            el.open = casa && !!resumo
+                      && !resumo.textContent.toLowerCase().includes(termo);
+        }
     });
 }
 

@@ -486,13 +486,24 @@
     Dois perfis de base: <strong>admin</strong> (faz tudo) e <strong>comum</strong>. Sobre o
     perfil comum, cada permissão pode ser tirada individualmente. Toda permissão
     <strong>nasce liberada</strong> — o que se configura é o que aquele usuário
-    <strong>não</strong> pode:
+    <strong>não</strong> pode. São duas perguntas diferentes: que telas a pessoa
+    enxerga e o que ela pode fazer.
   </p>
+  {% for titulo, chaves in grupos %}
+  <h3>{{ titulo }}</h3>
   <ul>
-    {% for chave, rotulo in permissoes.items() %}
+    {% for chave, rotulo in chaves.items() %}
     <li><span class="campo">{{ rotulo }}</span> <code>{{ chave }}</code></li>
     {% endfor %}
   </ul>
+  {% endfor %}
+  <div class="nota">
+    Desmarcar uma <strong>tela</strong> faz duas coisas: some com ela do menu e fecha as
+    rotas dela — inclusive as ações e exportações de dentro. Quem tentar entrar pelo
+    endereço direto recebe "tela indisponível", e a tentativa fica na auditoria. Quem
+    perdeu a tela inicial cai na primeira tela que ainda pode ver, em vez de tomar um
+    "acesso negado" logo depois de entrar.
+  </div>
   <p>
     A <strong>auditoria</strong> grava toda alteração (quem, quando, de onde, o quê) e também
     as tentativas <strong>negadas</strong> — que é o sinal que interessa quando alguém está

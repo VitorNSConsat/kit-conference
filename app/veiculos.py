@@ -188,6 +188,24 @@ def atualizar_garagem(veiculo_id: int, garagem: str):
         conn.execute("UPDATE veiculos SET garagem = ? WHERE id = ?", (garagem, veiculo_id))
 
 
+def mapa_cliente_garagem() -> list[dict]:
+    """Quantos veículos ativos existem em cada par cliente + garagem.
+
+    Uma consulta só pra montar as duas listas suspensas da tela (garagens de
+    cada cliente e clientes de cada garagem) — nada de uma consulta por linha.
+    Garagem vazia vira '' e é tratada como "sem garagem" na tela."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT cliente,
+                   TRIM(COALESCE(garagem, '')) AS garagem,
+                   COUNT(*) AS veiculos
+            FROM veiculos WHERE ativo = 1
+            GROUP BY cliente, UPPER(TRIM(COALESCE(garagem, '')))
+            ORDER BY veiculos DESC, garagem
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+
 def mover_veiculos_de_garagem(origem: str, destino: str,
                               cliente: str | None = None) -> int:
     """Move de uma vez todos os veículos que estão numa garagem para outra.
