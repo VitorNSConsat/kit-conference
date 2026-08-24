@@ -36,6 +36,7 @@
         {% if pode('ver_rede') %}
         <a href="/rede" class="{{ 'nav-active' if p.startswith('/rede') else '' }}" style="color:#7ecfff;">🌐 Rede</a>
         {% endif %}
+        <a href="/funcionalidades" class="{{ 'nav-active' if p.startswith('/funcionalidades') else '' }}">📖 Funcionalidades</a>
         <a href="/logout" class="nav-logout">🚪 Sair ({{ user.nome }})</a>
     </div>
 </nav>

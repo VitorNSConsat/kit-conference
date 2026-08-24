@@ -45,7 +45,11 @@ load_dotenv()
 _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 
 # Rotas GET permitidas em dispositivos móveis (bipagem + estoque)
-_MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque'}
+# /funcionalidades entra aqui porque é só leitura: o portão existe pra manter
+# tela de administração fora do celular, não o manual — que é justamente o que
+# o operador quer consultar em campo, com o celular na mão.
+_MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque',
+                    '/funcionalidades'}
 _MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/')
 
 
@@ -654,6 +658,17 @@ async def admin_auditoria_exportar(request: Request,
 
 
 # ── Rede ──────────────────────────────────────────────────────────────────────
+
+@app.get("/funcionalidades", response_class=HTMLResponse)
+@require_login
+async def funcionalidades(request: Request):
+    """Manual do sistema tela a tela. As permissões e os status de compra vêm
+    do próprio código — assim a página não descreve uma lista que já mudou."""
+    return render(request, "funcionalidades.html", {
+        "permissoes": permissoes_mod.PERMISSOES,
+        "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
+    })
+
 
 @app.get("/rede", response_class=HTMLResponse)
 @require_permission("ver_rede")

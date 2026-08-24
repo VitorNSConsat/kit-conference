@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+{% block title %}Funcionalidades do sistema{% endblock %}
+{% block content %}
+
+<style>
+/* Página de leitura: texto mais largo respira melhor que a tabela padrão. */
+.doc h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 0; }
+.doc h3 { margin: 22px 0 6px; font-size: 16px; color: var(--brand); }
+.doc p, .doc li { font-size: 14px; line-height: 1.6; }
+.doc ul { margin: 6px 0 6px 18px; }
+.doc code { background: #eef2f6; padding: 1px 6px; border-radius: 4px;
+            font-family: monospace; font-size: 13px; }
+.doc table { font-size: 13px; }
+.doc .campo { font-weight: 700; }
+.indice { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 16px; }
+.indice a { font-size: 14px; text-decoration: none; }
+.doc .nota { background: #f0f4f8; border-left: 4px solid var(--brand);
+             border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
+.doc .cuidado { background: var(--warn-bg); border-left: 4px solid #e67e22;
+                border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
+</style>
+
+<div class="doc">
+
+<h1 style="margin-bottom:4px;">📖 Funcionalidades do sistema</h1>
+<p style="color:#666;margin-top:0;">
+  O que cada tela faz, o que cada campo significa, as regras dos códigos e o que
+  o sistema quer dizer com cada aviso. Feito pra ser lido do começo ou consultado
+  no ponto que interessa.
+</p>
+
+<div class="card">
+  <h2>Índice</h2>
+  <div class="indice">
+    <a href="#fluxo">1. Como o sistema pensa</a>
+    <a href="#codigos">2. Regras dos códigos</a>
+    <a href="#bipagem">3. Bipagem</a>
+    <a href="#impressao">4. Impressão</a>
+    <a href="#itens">5. Itens &amp; Estoque</a>
+    <a href="#kits">6. Criar Kit/Pedido</a>
+    <a href="#veiculos">7. Veículos e Clientes</a>
+    <a href="#prateleira">8. Prateleira</a>
+    <a href="#producao">9. Produção</a>
+    <a href="#verificacao">10. Verificação do kit</a>
+    <a href="#relatorios">11. Relatórios</a>
+    <a href="#usuarios">12. Usuários e Auditoria</a>
+    <a href="#rede">13. Rede</a>
+    <a href="#avisos">14. Avisos e erros</a>
+    <a href="#regras">15. Regras que nunca mudam</a>
+  </div>
+</div>
+
+<!-- 1 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="fluxo">
+  <h2>1. Como o sistema pensa</h2>
+  <p>Tudo gira em torno de quatro cadastros que se amarram nesta ordem:</p>
+  <ul>
+    <li><strong>Tipo de item</strong> — o que a peça É (“Antena”, “Parafuso M6”). É o
+      cadastro base; tudo o mais aponta pra ele.</li>
+    <li><strong>Kit (template)</strong> — a receita: quais tipos, em que quantidade, de
+      qual cliente. O <strong>nome do kit</strong> é o que o sistema chama de
+      <strong>modelo</strong>.</li>
+    <li><strong>Veículo</strong> — número, cliente, garagem e <strong>modelo</strong>. O modelo
+      é o que liga o veículo ao kit: sem ele, o veículo não aparece em bipagem nenhuma.</li>
+    <li><strong>Kit montado (bipagem)</strong> — a execução: os itens realmente bipados
+      pra aquele veículo, com data, operador e etiqueta.</li>
+  </ul>
+  <p>O caminho completo de um kit:</p>
+  <p style="font-size:14px;background:#f0f4f8;border-radius:8px;padding:12px 14px;">
+    Cadastrar itens → montar o kit (template) → cadastrar o veículo com o modelo →
+    <strong>Kits a produzir</strong> → bipar → etiqueta impressa → <strong>Produzido</strong> →
+    verificação → <strong>Em trânsito</strong> → <strong>Cliente</strong> (instalando → concluído).
+  </p>
+  <div class="nota">
+    <strong>Por que o veículo precisa de modelo, garagem e cliente:</strong> a lista
+    “Kits a produzir” só mostra veículo que tem <strong>os três</strong> preenchidos e
+    ainda não tem kit. Faltando um, o veículo simplesmente não aparece — e é essa a
+    causa mais comum de “sumiu um veículo da produção”.
+  </div>
+</div>
+
+<!-- 2 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="codigos">
+  <h2>2. Regras dos códigos</h2>
+  <p>
+    O leitor manda tudo pro mesmo campo. Quem decide o que fazer com o código é o
+    sistema, sempre <strong>nesta ordem</strong>:
+  </p>
+  <ol style="font-size:14px;line-height:1.7;">
+    <li>É um <strong>código de caixa</strong> (código fixo de um tipo)?</li>
+    <li>É um <strong>item de estoque</strong> (código de barras do estoque ou o QR da etiqueta)?</li>
+    <li>É um <strong>patrimônio já cadastrado</strong>?</li>
+    <li>Não é nenhum dos três → o sistema pergunta de que tipo é aquele código.</li>
+  </ol>
+
+  <h3>🏷️ Item de patrimônio</h3>
+  <p>
+    É a peça com identidade própria — cada unidade tem um código único e o sistema
+    guarda em qual kit ela entrou. Marcado no tipo de item como
+    <span class="campo">Item de Patrimônio</span>.
+  </p>
+  <ul>
+    <li>O mesmo patrimônio <strong>não pode estar em dois kits ativos</strong> ao mesmo tempo.</li>
+    <li>Bipar duas vezes na mesma sessão é recusado.</li>
+    <li>Se o código não existir, o sistema pergunta o tipo e cadastra na hora — só
+      oferece tipos que <strong>pertencem àquele kit</strong>.</li>
+    <li>Digitou errado? Dá pra corrigir depois na página do patrimônio, sem reabrir a
+      produção e sem perder o histórico (precisa da permissão
+      <em>Corrigir patrimônio</em>).</li>
+  </ul>
+
+  <h3>📦 Código da caixa (código fixo)</h3>
+  <p>
+    É o código impresso na <strong>caixa</strong> do produto, cadastrado no tipo de item
+    como <span class="campo">Código fixo</span>. Serve pra ganhar tempo: o operador bipa
+    a caixa e o sistema já sabe o tipo.
+  </p>
+  <ul>
+    <li>Bipar a caixa <strong>não fecha o item</strong> — o sistema responde
+      “<em>Código da caixa detectado. Bipe o patrimônio.</em>” e fica esperando.</li>
+    <li>O próximo código lido é gravado como o patrimônio daquela peça.</li>
+    <li>Dá pra cancelar antes de bipar o patrimônio; nada fica registrado.</li>
+    <li>Um código fixo só funciona se aquele tipo estiver no kit sendo montado.</li>
+  </ul>
+
+  <h3>🔢 Serial number</h3>
+  <p>
+    Alguns tipos exigem, além do patrimônio, o <strong>número de série</strong> — marcado
+    no tipo como <span class="campo">Requer serial</span>. O fluxo é sempre em dois tempos:
+    primeiro o patrimônio, depois o serial.
+  </p>
+  <ul>
+    <li>O serial <strong>não pode ser igual ao código do item</strong> — bipar a mesma
+      etiqueta duas vezes é recusado com essa mensagem exata.</li>
+    <li>O mesmo serial não pode se repetir na mesma sessão.</li>
+    <li>Enquanto o serial não vem, o item fica <em>aguardando serial</em> e não conta como
+      completo.</li>
+  </ul>
+
+  <h3>📦 Item de estoque</h3>
+  <p>
+    Peça contada por quantidade, sem identidade individual (parafuso, abraçadeira,
+    cabo). Tem um código de barras próprio no cadastro de estoque, e a etiqueta com QR
+    aponta pra mesma coisa — dá pra bipar o QR durante a bipagem ou fora dela.
+  </p>
+  <ul>
+    <li>Uma bipada resolve o item inteiro: desconta <strong>de uma vez</strong> a quantidade
+      que o kit exige e registra a saída.</li>
+    <li>O mesmo item de estoque não é aceito duas vezes na mesma sessão.</li>
+    <li>Se o saldo for menor que o exigido, o sistema recusa e diz quanto tem e quanto
+      falta.</li>
+    <li>Ao descontar, se o saldo ficar no mínimo ou abaixo, aparece o aviso de estoque baixo.</li>
+  </ul>
+
+  <h3>🔗 Conjunto</h3>
+  <p>
+    Vários tipos que chegam numa embalagem só (um chicote com conector, presilha e
+    parafuso). No kit eles compartilham o mesmo <span class="campo">código de componente</span>.
+    Bipar o conjunto lança todos os itens dele de uma vez.
+  </p>
+  <ul>
+    <li>Na verificação, conferir um item do conjunto confere o conjunto inteiro.</li>
+    <li>Isso pode ser desligado por conjunto, na aba <strong>Conjuntos</strong>: aí a
+      conferência passa a ser item a item.</li>
+  </ul>
+
+  <h3>Códigos que o próprio sistema cria</h3>
+  <p>Aparecem no histórico do kit e não são bipados por ninguém:</p>
+  <ul>
+    <li><code>ESTOQUE:&lt;código&gt;:&lt;n&gt;</code> — cada unidade descontada do estoque.</li>
+    <li><code>COMP:&lt;conjunto&gt;:&lt;tipo&gt;:&lt;n&gt;</code> — cada item que entrou por um conjunto.</li>
+    <li><code>ESTOQUE:&lt;código&gt;:T&lt;n&gt;</code> — itens acrescentados por uma troca de kit já pronto.</li>
+  </ul>
+  <div class="nota">
+    Esses códigos são o que permite <strong>devolver ao estoque</strong> exatamente o que
+    saiu quando um kit é cancelado ou trocado. Linha de patrimônio não volta pro
+    estoque — volta a ficar livre pra outro kit.
+  </div>
+
+  <h3>♻️ Códigos gerados e recicláveis</h3>
+  <p>
+    Em <strong>Etiquetas &amp; Códigos</strong> dá pra gerar códigos internos pra peça que
+    veio sem etiqueta. Marcar um código como <strong>reciclável</strong> significa que ele
+    pode ser reaproveitado em outro kit depois — o sistema mantém o tipo dele
+    sincronizado automaticamente.
+  </p>
+</div>
+
+<!-- 3 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="bipagem">
+  <h2>3. ⚡ Bipagem</h2>
+
+  <h3>Tela inicial</h3>
+  <p>
+    Mostra as <strong>sessões em andamento</strong> (pra retomar de onde parou) e a
+    abertura de uma <strong>nova sessão</strong>: escolhe-se o cliente e o kit. Só entra
+    kit ativo.
+  </p>
+
+  <h3>Destino — “pra onde vai esse kit?”</h3>
+  <p>
+    Logo depois de abrir a sessão, escolhe-se o <span class="campo">Veículo</span>.
+    <strong>Só o veículo</strong> é escolhido: garagem e modelo vêm do cadastro, então não
+    tem como divergir do que está registrado.
+  </p>
+  <ul>
+    <li>A lista traz só veículos <strong>daquele cliente</strong> cujo modelo é
+      <strong>este kit</strong> — é o que impede montar o kit errado pro veículo errado.</li>
+    <li>Veículo que já tem kit não aparece. Pra reaproveitar, use
+      <strong>🔓 Liberar veículo</strong> na tela do veículo.</li>
+    <li>Se a lista vier vazia, o aviso diz qual dos dois é o motivo: nenhum veículo com
+      esse modelo, ou todos já com kit.</li>
+  </ul>
+
+  <h3>Durante a bipagem</h3>
+  <ul>
+    <li><strong>Contador por item</strong> — cada linha mostra <em>bipados/exigidos</em>. Ao
+      chegar perto do total, o sistema avisa.</li>
+    <li><strong>Substituição</strong> — se o patrimônio já foi usado em outro kit, o sistema
+      não deixa passar batido: pede confirmação e <strong>motivo</strong>, e a troca fica
+      registrada com o motivo no histórico.</li>
+    <li><strong>↩️ Desfazer</strong> — cancela a última bipagem, com estorno do que foi
+      descontado. Não existe “desfazer parcial” silencioso.</li>
+    <li><strong>Quantidade manual</strong> — pra itens medidos (metros, por exemplo), dá pra
+      informar a quantidade em vez de bipar unidade por unidade.</li>
+    <li><strong>Excluir uma bipagem específica</strong> — só com a permissão
+      <em>Excluir bipagem de item específico</em>, e só com o kit ainda aberto.</li>
+    <li><strong>Trocar o kit da bipagem</strong> — dá pra corrigir o kit escolhido errado sem
+      perder o que já foi bipado; o sistema mostra antes o que sobra e o que falta. Em
+      bipagem em andamento, <strong>só o admin</strong> troca.</li>
+    <li><strong>Etiqueta “Em Andamento”</strong> — imprime uma etiqueta provisória pra quem
+      precisa parar no meio e identificar a caixa.</li>
+  </ul>
+
+  <h3>Finalização</h3>
+  <p>
+    Ao finalizar, o sistema grava o kit, guarda a <strong>foto dos itens que o kit exigia
+    naquele momento</strong>, gera a etiqueta e manda pra fila de impressão. O kit ganha um
+    número de sequência (o “contador”) que aparece na etiqueta.
+  </p>
+</div>
+
+<!-- 4 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="impressao">
+  <h2>4. 🖨️ Impressão</h2>
+  <p>
+    Fila única com as etiquetas de <strong>kit finalizado</strong> e as etiquetas
+    <strong>“Em Andamento”</strong>, na ordem em que foram pedidas — pra não ter que olhar
+    duas telas pra saber o que falta imprimir.
+  </p>
+  <ul>
+    <li><strong>Marcar como impresso</strong> tira da fila; <strong>cancelar</strong> descarta o pedido.</li>
+    <li><strong>Reimprimir</strong> gera um pedido novo pro mesmo kit — o kit continua um só,
+      o que muda é a quantidade de pedidos de impressão.</li>
+  </ul>
+</div>
+
+<!-- 5 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="itens">
+  <h2>5. 📋 Itens &amp; Estoque</h2>
+
+  <h3>📦 Estoque (catálogo)</h3>
+  <p>Cada linha é um tipo de item com saldo. Campos:</p>
+  <ul>
+    <li><span class="campo">Código de barras</span> — o código que o operador bipa (ou o QR da etiqueta).</li>
+    <li><span class="campo">Quantidade atual</span> — saldo. Desce sozinho a cada kit bipado.</li>
+    <li><span class="campo">Quantidade mínima</span> — a partir daqui o item entra no alerta
+      de estoque baixo (a faixa amarela no topo do sistema).</li>
+    <li><span class="campo">Status de compra</span> — independente do saldo, pra marcar o que
+      já foi providenciado:
+      {% for chave, rotulo in status_compra_opcoes.items() %}<code>{{ rotulo }}</code>{{ ", " if not loop.last }}{% endfor %},
+      ou vazio pra “sem pendência”.</li>
+  </ul>
+  <p>
+    O botão <strong>⚙️ de configuração</strong> de cada item abre a janela central com
+    correção de quantidade, mínimo, status de compra e código de barras. Toda correção
+    entra no histórico do item com autor e data.
+  </p>
+  <div class="cuidado">
+    <strong>Atualização em massa pela planilha:</strong> baixe a planilha
+    <strong>na hora de usar</strong>, preencha e suba de volta. Ela é identificada por um
+    ID interno; usar uma planilha baixada há dias pode apontar pro item errado se o
+    cadastro mudou. Célula em branco = <strong>não mexe</strong> naquele campo.
+  </div>
+
+  <h3>➕ Novo Item</h3>
+  <p>Cadastra o tipo de item. As marcações mudam o comportamento na bipagem:</p>
+  <ul>
+    <li><span class="campo">Item de Patrimônio</span> — cada unidade é rastreada individualmente.</li>
+    <li><span class="campo">Requer serial</span> — depois do patrimônio, exige o número de série.</li>
+    <li><span class="campo">Reutilizável</span> — a peça pode voltar a ser usada em outro kit.</li>
+    <li><span class="campo">Código fixo</span> — o código da caixa daquele produto.</li>
+    <li><span class="campo">Unidade</span> — <code>un</code> (peça) ou <code>m</code> (medida, aceita fração).</li>
+  </ul>
+
+  <h3>🏷️ Itens Cadastrados</h3>
+  <p>
+    Todos os patrimônios, com filtro por veículo e por situação, e busca por código.
+    Clicando no código abre a <strong>página do patrimônio</strong>: onde foi bipado, em
+    que kit, com quem, o que foi bipado junto e a correção de código/serial.
+  </p>
+
+  <h3>🖨️ Etiquetas &amp; Códigos</h3>
+  <p>Geração de códigos internos e etiquetas, incluindo a marcação de reciclável.</p>
+
+  <h3>🚚 Sobressalentes</h3>
+  <p>
+    Baixa manual de peça enviada fora do kit, sempre amarrada a um <strong>cliente</strong>.
+    Dá pra lançar <strong>vários itens num envio só</strong>. Aqui a regra é
+    <strong>tudo ou nada</strong>: o sistema confere o saldo de todas as linhas antes e, se
+    faltar qualquer uma, não grava nenhuma.
+  </p>
+</div>
+
+<!-- 6 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="kits">
+  <h2>6. 📄 Criar Kit/Pedido</h2>
+  <ul>
+    <li><strong>🎁 Kit</strong> — a receita usada na bipagem. Nome do kit = modelo do veículo.</li>
+    <li><strong>📑 Pedido</strong> — lista avulsa, sem média por kit. Tem a tabela
+      <strong>Unidades do Pedido</strong> (ICCID, telefone, CDT, ID hardware), editável e com
+      inclusão manual de linhas; valores repetidos são <strong>marcados</strong>, não bloqueados.</li>
+    <li><strong>🔗 Conjuntos</strong> — quais conjuntos são conferidos em bloco e quais são
+      conferidos item a item.</li>
+  </ul>
+  <p>Em cada item do kit define-se:</p>
+  <ul>
+    <li><span class="campo">Quantidade exigida</span> — quantos entram no kit.</li>
+    <li><span class="campo">Obrigatório</span> — se pode ou não faltar na finalização.</li>
+    <li><span class="campo">Código de componente</span> — preenchido quando o item faz parte de um conjunto.</li>
+  </ul>
+  <div class="cuidado">
+    <strong>Renomear um kit é sério:</strong> o vínculo com o veículo é pelo
+    <strong>nome</strong>. Mudou o nome do kit, os veículos que apontavam pro nome antigo
+    ficam órfãos e somem de “Kits a produzir”. A tela avisa quantos veículos serão
+    afetados antes de salvar.
+  </div>
+  <p>
+    <strong>Nova versão</strong> cria uma versão nova e desativa a anterior. Kits já montados
+    continuam apontando pra versão em que foram montados — o histórico não é reescrito.
+  </p>
+</div>
+
+<!-- 7 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="veiculos">
+  <h2>7. 🚗 Veículos e Clientes</h2>
+  <p>Campos do veículo:</p>
+  <ul>
+    <li><span class="campo">Número</span> — identificação do veículo. É
+      <strong>único no sistema inteiro</strong>, inclusive entre clientes diferentes: o mesmo
+      número em dois clientes é o mesmo ônibus. Clicando no número vai direto pros
+      itens e patrimônios dele.</li>
+    <li><span class="campo">Cliente</span> e <span class="campo">Garagem</span> — escolhidos do
+      cadastro, não digitados livremente.</li>
+    <li><span class="campo">Modelo (kit)</span> — qual kit este veículo usa. Sem modelo, o
+      veículo não aparece em bipagem nenhuma.</li>
+    <li><span class="campo">Localização atual</span> — onde ele está no fluxo (a produzir,
+      em produção, produzido, em trânsito, no cliente). É calculada, não digitada.</li>
+  </ul>
+
+  <h3>Páginas de Cliente e de Garagem</h3>
+  <p>
+    Clicando no nome de um cliente ou de uma garagem abre o panorama dele: veículos,
+    garagens usadas (ou clientes atendidos), modelos, kits e em que ponto da esteira
+    estão. Como <strong>cliente e garagem não são cadastrados juntos</strong> — quem liga os
+    dois é o veículo — “atribuir uma garagem a um cliente” é exatamente
+    <strong>mover os veículos dele pra ela</strong>, e é isso que o botão de transferência faz.
+    O destino tem que ser uma garagem já cadastrada, e kits já bipados mantêm a garagem
+    que valia na hora da montagem.
+  </p>
+
+  <h3>Importação por planilha</h3>
+  <ul>
+    <li>A planilha <strong>sobrescreve</strong> os dados do veículo que já existe.</li>
+    <li>A coluna <strong>Modelo (Kit)</strong> tem lista dos modelos disponíveis; digitando
+      parecido (“mercedes euro 6”), o sistema casa com o modelo existente mais próximo.</li>
+    <li>A importação <strong>não cria</strong> modelos novos — trabalha só sobre os que existem.</li>
+  </ul>
+
+  <h3>Liberar veículo</h3>
+  <p>
+    Um veículo fica bloqueado pra nova bipagem assim que tem qualquer kit, em qualquer
+    estágio. <strong>🔓 Liberar</strong> abre uma exceção que vale até a próxima sessão ser
+    criada pra ele.
+  </p>
+</div>
+
+<!-- 8 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="prateleira">
+  <h2>8. 🗄️ Prateleira</h2>
+  <p>
+    O mapa físico do almoxarifado: uma grade de linhas e colunas onde cada bloco é
+    ocupado por um item do estoque, mais uma área livre pro que não tem posição fixa.
+    As cores seguem o saldo (esgotado, crítico, atenção, normal) e existe um painel de
+    TV com o resumo.
+  </p>
+  <ul>
+    <li>Dois blocos só dividem a mesma região se forem <strong>exatamente</strong> a mesma
+      região (aí empilham); seleção que cruza outro bloco pela metade é recusada.</li>
+    <li>Reduzir a grade abaixo do que algum bloco ocupa é bloqueado, pra não perder
+      posições sem avisar.</li>
+  </ul>
+</div>
+
+<!-- 9 ─────────────────────────────────────────────────────────────────── -->
+<div class="card" id="producao">
+  <h2>9. 🚚 Produção</h2>
+  <p>A esteira, na ordem:</p>
+  <ul>
+    <li><strong>Kits a Produzir</strong> — veículo pronto (cliente + garagem + modelo) que
+      ainda não tem bipagem. É lista calculada: some daqui no instante em que a bipagem começa.</li>
+    <li><strong>Em Produção</strong> — bipagem em andamento.</li>
+    <li><strong>Produzido</strong> — kit finalizado, ainda na Consat.</li>
+    <li><strong>Em Trânsito</strong> — despachado, com nota fiscal.</li>
+    <li><strong>Cliente</strong> — instalando e concluído.</li>
+  </ul>
+  <p>Colunas úteis: <span class="campo">Modelo</span>, <span class="campo">Kits possíveis</span>
+    (quantos kits o estoque ainda aguenta, com o item que é o gargalo) e
+    <span class="campo">Nota fiscal</span>.</p>
+  <ul>
+    <li><strong>Mover estágio</strong> (inclusive voltar) exige a permissão
+      <em>Mover kits na esteira</em>.</li>
+    <li><strong>Nota fiscal</strong> exige a permissão <em>Editar Nota Fiscal</em>; alterar uma
+      nota já preenchida pede <strong>motivo</strong> — inclusive quando feito em lote.</li>
+    <li><strong>Trânsito em lote</strong> e <strong>nota em lote</strong> usam exatamente as
+      mesmas regras da ação individual.</li>
+    <li><strong>Zerar o contador</strong> reinicia a sequência das etiquetas. Todos os
+      usuários podem fazer.</li>
+    <li><strong>Patrimônio</strong> continua editável depois de finalizado — corrigir número
+      não reabre a produção.</li>
+  </ul>
+  <p>O <strong>painel de TV</strong> mostra os mesmos números em tela cheia, incluindo “Kits a
+    produzir”, com limites configuráveis por estágio.</p>
+</div>
+
+<!-- 10 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="verificacao">
+  <h2>10. ✅ Verificação do kit</h2>
+  <p>
+    Depois de produzido, o kit passa pela conferência item a item. Cada item conferido
+    fica marcado com quem conferiu e quando; conferir um item de conjunto marca o
+    conjunto inteiro (salvo quando o conjunto está configurado pra conferência manual).
+    Um kit pode ter 1ª, 2ª, 3ª verificação — todas ficam no histórico.
+  </p>
+  <p><strong>A verificação sempre segue o template ATUAL do kit.</strong> Consequências:</p>
+  <ul>
+    <li>Item removido do template <strong>não é mais cobrado</strong> na conferência.</li>
+    <li>Item acrescentado ao template <strong>passa a ser cobrado</strong>.</li>
+    <li>Quando isso acontece, o painel avisa
+      “<em>🔄 O template deste kit foi atualizado</em>” e lista o que
+      <strong>não faz mais parte</strong> e o que <strong>passou a fazer parte</strong>.</li>
+  </ul>
+  <p>
+    A mensagem <strong>“Divergências com o modelo atual”</strong> compara o que está fisicamente
+    no kit com o que o modelo pede hoje: <em>sobrando</em> é o que foi bipado e o modelo não
+    pede mais; <em>faltando</em> é o que o modelo pede e não foi bipado.
+  </p>
+  <p>
+    <strong>Trocar o kit de um registro já produzido</strong> mostra antes o que sai, o que
+    entra, o que volta pro estoque e o que precisa sair dele. É
+    <strong>tudo ou nada</strong>: se faltar estoque, nada é gravado. Depois da troca a
+    verificação recomeça, porque o que precisa ser conferido mudou.
+  </p>
+</div>
+
+<!-- 11 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="relatorios">
+  <h2>11. 📊 Relatórios</h2>
+  <ul>
+    <li><strong>Kits</strong> — todos os kits com filtro de período, operador e tipo, e
+      exportação em Excel (a exportação leva exatamente o mesmo filtro da tela).</li>
+    <li><strong>Operadores</strong> — produção por pessoa.</li>
+    <li><strong>Validações</strong> — as conferências, agrupadas por kit (1ª, 2ª, 3ª na ordem).</li>
+    <li><strong>Sobressalentes</strong> — o que foi enviado fora do kit, por cliente e período.</li>
+  </ul>
+  <div class="nota">
+    Os filtros de data são sempre <strong>do primeiro dia às 00:00 até o fim do último dia
+    escolhido</strong> — o último dia entra inteiro. Deixar o período em branco traz tudo.
+  </div>
+</div>
+
+<!-- 12 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="usuarios">
+  <h2>12. 👥 Usuários e Auditoria</h2>
+  <p>
+    Dois perfis de base: <strong>admin</strong> (faz tudo) e <strong>comum</strong>. Sobre o
+    perfil comum, cada permissão pode ser tirada individualmente. Toda permissão
+    <strong>nasce liberada</strong> — o que se configura é o que aquele usuário
+    <strong>não</strong> pode:
+  </p>
+  <ul>
+    {% for chave, rotulo in permissoes.items() %}
+    <li><span class="campo">{{ rotulo }}</span> <code>{{ chave }}</code></li>
+    {% endfor %}
+  </ul>
+  <p>
+    A <strong>auditoria</strong> grava toda alteração (quem, quando, de onde, o quê) e também
+    as tentativas <strong>negadas</strong> — que é o sinal que interessa quando alguém está
+    testando o que consegue acessar. Dá pra filtrar por período, usuário, tipo de ação e
+    texto, e <strong>exportar tudo em Excel</strong> pra análise.
+  </p>
+</div>
+
+<!-- 13 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="rede">
+  <h2>13. 🌐 Rede</h2>
+  <p>
+    Endereços de acesso ao sistema (HTTPS e HTTP) e os QR codes pra abrir no celular.
+    Visível só pra quem tem a permissão <em>Ver a tela Rede</em>.
+  </p>
+</div>
+
+<!-- 14 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="avisos">
+  <h2>14. Avisos e erros — o que significam</h2>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>O que aparece</th><th>O que quer dizer</th><th>O que fazer</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>“<em>Código X não cadastrado</em>”</td>
+        <td>O código não é caixa, nem estoque, nem patrimônio conhecido.</td>
+        <td>Escolher o tipo na janela que abre — o item é cadastrado na hora.</td>
+      </tr>
+      <tr>
+        <td>“<em>… não pertence a este kit</em>”</td>
+        <td>O item existe, mas o kit sendo montado não pede esse tipo.</td>
+        <td>Conferir se o kit da bipagem é o certo; se não for, trocar o kit da bipagem.</td>
+      </tr>
+      <tr>
+        <td>“<em>quantidade máxima (N) já atingida</em>”</td>
+        <td>Esse tipo já tem no kit tudo o que o modelo pede.</td>
+        <td>Se sobrou peça, ela não é deste kit. Se faltou em outro lugar, revisar o modelo.</td>
+      </tr>
+      <tr>
+        <td>“<em>Patrimônio já foi bipado nesta sessão</em>”</td>
+        <td>Leitura repetida da mesma etiqueta.</td>
+        <td>Seguir para a próxima peça — nada foi perdido.</td>
+      </tr>
+      <tr>
+        <td>“<em>Patrimônio já está em outro kit ativo</em>”</td>
+        <td>Essa peça consta como montada em outro kit.</td>
+        <td>Conferir a peça. É o caso típico de patrimônio digitado errado no kit anterior.</td>
+      </tr>
+      <tr>
+        <td>“<em>Patrimônio já utilizado no kit … Confirme a substituição e informe o motivo</em>”</td>
+        <td>O sistema aceita reaproveitar, mas quer o motivo registrado.</td>
+        <td>Escrever o motivo real — ele fica no histórico do kit.</td>
+      </tr>
+      <tr>
+        <td>“<em>O serial não pode ser igual ao código do item</em>”</td>
+        <td>A mesma etiqueta foi lida duas vezes no lugar do serial.</td>
+        <td>Bipar a etiqueta do número de série, que é outra.</td>
+      </tr>
+      <tr>
+        <td>“<em>Estoque insuficiente (X disponíveis, Y necessários)</em>”</td>
+        <td>O saldo não cobre o que o kit pede.</td>
+        <td>Repor o estoque ou corrigir o saldo em Itens &amp; Estoque.</td>
+      </tr>
+      <tr>
+        <td>“<em>⚠️ Estoque baixo (N restantes)</em>”</td>
+        <td>Aviso, não bloqueio: o saldo chegou ao mínimo.</td>
+        <td>A bipagem continua normalmente; providenciar a reposição.</td>
+      </tr>
+      <tr>
+        <td>“<em>estoque já registrado nesta sessão</em>”</td>
+        <td>Esse item de estoque já foi descontado nesta bipagem.</td>
+        <td>Nada — o desconto já aconteceu na primeira leitura.</td>
+      </tr>
+      <tr>
+        <td>“<em>Sessão inválida ou já encerrada</em>”</td>
+        <td>A bipagem foi finalizada ou cancelada em outra tela.</td>
+        <td>Voltar ao início e abrir/retomar a sessão certa.</td>
+      </tr>
+      <tr>
+        <td>“<em>Nenhum veículo do modelo … </em>”</td>
+        <td>Nenhum veículo do cliente tem esse kit como modelo.</td>
+        <td>Definir o modelo do veículo em Veículos e Clientes.</td>
+      </tr>
+      <tr>
+        <td>“<em>Todos os veículos … já têm kit associado</em>”</td>
+        <td>Os veículos elegíveis já foram usados.</td>
+        <td>Liberar o veículo certo com 🔓 Liberar veículo.</td>
+      </tr>
+      <tr>
+        <td>“<em>⚠️ Divergências com o modelo atual</em>”</td>
+        <td>O que está no kit não bate com o que o modelo pede hoje.</td>
+        <td>Ver as listas de sobrando/faltando; se o modelo mudou de propósito, o aviso de template atualizado explica.</td>
+      </tr>
+      <tr>
+        <td>“<em>🔄 O template deste kit foi atualizado</em>”</td>
+        <td>O modelo mudou depois que este kit foi fechado.</td>
+        <td>Conferir a lista do que saiu e do que entrou — a verificação já segue o modelo novo.</td>
+      </tr>
+      <tr>
+        <td>“<em>Sem permissão</em>” / acesso negado</td>
+        <td>A ação exige uma permissão que o usuário não tem.</td>
+        <td>Pedir a um admin em Usuários. A tentativa fica registrada na auditoria.</td>
+      </tr>
+      <tr>
+        <td>Número de veículo duplicado</td>
+        <td>Cadastros antigos, de antes da regra de número único.</td>
+        <td>Limpar com a exclusão em massa por cliente — o sistema não apaga sozinho porque cada cadastro pode ter kits no histórico.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- 15 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="regras">
+  <h2>15. Regras que nunca mudam</h2>
+  <ul>
+    <li><strong>Estoque nunca trava o operador em campo.</strong> Desconto automático durante
+      a bipagem sempre passa, mesmo negativando o saldo. Quem bloqueia por falta de
+      estoque são as ações de escritório, feitas com calma: sobressalente e troca de kit
+      pronto.</li>
+    <li><strong>Correção de estoque é manual.</strong> Nada é ajustado por robô ou agendamento.</li>
+    <li><strong>Ação em lote usa a mesma regra da individual.</strong> Nota fiscal em lote pede
+      motivo igual; sobressalente em lote confere saldo igual.</li>
+    <li><strong>Contagem e lista sempre saem da mesma consulta.</strong> Se o número diz 12, a
+      lista abre 12 — nunca um cortado por limite invisível.</li>
+    <li><strong>Histórico não é reescrito.</strong> Kit guarda a versão, a garagem e os itens
+      que valiam na hora da montagem, mesmo que cadastro e template mudem depois.</li>
+    <li><strong>Cadastro manda no que pode ser escolhido.</strong> Cliente, garagem e modelo
+      vêm de lista; texto livre não entra por telas de operação.</li>
+  </ul>
+</div>
+
+<p style="text-align:center;color:#888;font-size:13px;margin:24px 0;">
+  Alguma tela mudou e esta página não acompanhou? Avise — ela é feita pra bater com o
+  sistema, não pra ficar de enfeite.
+</p>
+
+</div>
+{% endblock %}
