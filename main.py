@@ -1282,6 +1282,9 @@ async def admin_template_edit_page(request: Request, template_id: int):
     unidades = pedidos_mod.listar_unidades(template_id) if template.get("tipo") == "pedido" else []
     consumo = consumo_mod.analise_template(template_id)
     return render(request, "admin_template_edit.html", {
+        # Quantos veículos apontam pro NOME atual deste kit. Renomear
+        # desliga todos eles da bipagem em silêncio — a tela avisa antes.
+        "veiculos_vinculados": veiculos_mod.contar_por_modelo(template["nome"]),
         "template": template,
         "itens": itens,
         "consumo": consumo,
@@ -3200,13 +3203,20 @@ async def admin_producao_nota_fiscal(request: Request, kit_id: str):
 @app.get("/admin/producao/historico", response_class=HTMLResponse)
 @require_login
 async def admin_producao_historico(request: Request,
-                                    data_ini: str = "", data_fim: str = ""):
-    # Mesmo limite da exportação. Antes a tela usava o default (500) e a
-    # exportação pedia 5000: o mesmo período mostrava um número na tela e
-    # outro na planilha, sem nada explicando a diferença.
+                                    data_ini: str = "", data_fim: str = "",
+                                    pagina: int = 1):
+    # Pagina em vez de cortar: o teto (LIMITE_HISTORICO) era o último corte
+    # silencioso que sobrava — passando dele, o excedente sumia sem aviso.
+    # Agora a lista inteira do período é paginada e a contagem diz o total.
+    # A exportação continua trazendo tudo, com o mesmo filtro.
+    todos = producao_mod.listar_historico(data_ini, data_fim,
+                                          limite=producao_mod.LIMITE_HISTORICO)
+    pag = paginacao_mod.paginar(todos, pagina)
     return render(request, "admin_producao_historico.html", {
-        "registros": producao_mod.listar_historico(data_ini, data_fim,
-                                                   limite=producao_mod.LIMITE_HISTORICO),
+        "registros": pag["itens"],
+        "pag": pag,
+        "atingiu_teto": len(todos) >= producao_mod.LIMITE_HISTORICO,
+        "limite": producao_mod.LIMITE_HISTORICO,
         "data_ini": data_ini, "data_fim": data_fim,
     })
 

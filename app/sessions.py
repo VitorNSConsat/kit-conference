@@ -43,7 +43,14 @@ def _aviso_quantidade(template_item: dict | None) -> str:
 
 
 def deletar_kit_record(kit_id: str):
-    """Remove um kit finalizado e todos os dados vinculados em cascade."""
+    """Remove um kit finalizado e todos os dados vinculados em cascade.
+
+    TODA tabela que referencia kit_id precisa estar aqui: com PRAGMA
+    foreign_keys ligado, uma sobrando faz o DELETE do kit_record estourar
+    IntegrityError e a exclusão inteira volta atrás. Foi o que acontecia com
+    kit_verificacao_itens e kit_itens_exigidos — kit nunca conferido excluía
+    normal, kit conferido dava erro 500. Ao acrescentar uma tabela nova com
+    kit_id, ela tem que entrar nesta lista."""
     with db() as conn:
         sessao = conn.execute(
             "SELECT sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)
@@ -53,6 +60,8 @@ def deletar_kit_record(kit_id: str):
             conn.execute("DELETE FROM scan_session_items WHERE sessao_id = ?", (sessao[0],))
             conn.execute("DELETE FROM estoque_movimentos WHERE sessao_id = ?", (sessao[0],))
         conn.execute("DELETE FROM kit_validacoes WHERE kit_id = ?", (kit_id,))
+        conn.execute("DELETE FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))
+        conn.execute("DELETE FROM kit_itens_exigidos WHERE kit_id = ?", (kit_id,))
         conn.execute("DELETE FROM print_queue WHERE kit_id = ?", (kit_id,))
         conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))
         if sessao:

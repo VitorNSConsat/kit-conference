@@ -227,7 +227,22 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
             <div class="form-group">
                 <label>Nome do Kit</label>
-                <input type="text" name="nome" required value="{{ template.nome }}">
+                <input type="text" name="nome" required value="{{ template.nome }}"
+                       data-nome-original="{{ template.nome }}" id="campo-nome-kit"
+                       oninput="avisarRenomear()">
+                {% if veiculos_vinculados %}
+                {# O veículo aponta pro kit pelo NOME (uma FK apontaria pro
+                   template antigo a cada Nova Versão). Renomear desliga
+                   todos eles da bipagem sem avisar — daí o alerta. #}
+                <div id="aviso-renomear" style="display:none;font-size:12.5px;color:#8a6d3b;
+                     background:#fdf6ea;border:1px solid #f0d9a8;border-radius:6px;
+                     padding:8px 10px;margin-top:6px;">
+                    ⚠️ <strong>{{ veiculos_vinculados }} veículo(s)</strong> apontam para
+                    <strong>{{ template.nome }}</strong>. O vínculo é pelo nome, então renomear
+                    aqui faz esses veículos <strong>sumirem da bipagem</strong> até você
+                    atualizar o modelo deles em Veículos e Clientes.
+                </div>
+                {% endif %}
             </div>
             <div class="form-group">
                 <label>Cliente</label>
@@ -318,6 +333,17 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<script>
+// Avisa só quando o nome muda de verdade — alerta permanente vira ruído e
+// para de ser lido.
+function avisarRenomear() {
+    const campo = document.getElementById('campo-nome-kit');
+    const aviso = document.getElementById('aviso-renomear');
+    if (!campo || !aviso) return;
+    const mudou = campo.value.trim() !== (campo.dataset.nomeOriginal || '').trim();
+    aviso.style.display = mudou ? 'block' : 'none';
+}
+</script>
 <style>
 /* ── Consumo & Estoque ─────────────────────────────────────────────── */
 .consumo-chips {

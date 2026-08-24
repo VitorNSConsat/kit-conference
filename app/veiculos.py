@@ -140,6 +140,21 @@ def casar_modelo(texto: str, modelos: list[str] | None = None) -> str | None:
     return por_chave[proximos[0]] if proximos else None
 
 
+def contar_por_modelo(nome_kit: str) -> int:
+    """Quantos veículos ativos apontam pra este nome de kit.
+
+    O vínculo veículo ↔ kit é pelo NOME (uma FK apontaria pro template
+    antigo a cada "Nova Versão"), então renomear um kit desliga todos os
+    veículos que apontavam pro nome anterior — eles somem da bipagem sem
+    nada avisando. Serve pra tela alertar ANTES de salvar o nome novo."""
+    with db() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM veiculos WHERE ativo = 1 "
+            "AND LOWER(TRIM(COALESCE(modelo, ''))) = ?",
+            ((nome_kit or "").strip().lower(),)
+        ).fetchone()[0]
+
+
 def contar_sem_modelo(cliente: str | None = None) -> int:
     """Quantos veículos ativos ainda estão sem modelo — eles não aparecem
     em nenhum kit, então a tela precisa avisar."""

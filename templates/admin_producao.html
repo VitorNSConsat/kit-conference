@@ -147,7 +147,7 @@
   {% if a_produzir %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Kits possíveis</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th></tr></thead>
     <tbody>
     {% for v in a_produzir %}
     <tr>
@@ -182,7 +182,7 @@
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
     <tbody>
     {% for s in em_producao %}
     <tr>
@@ -375,7 +375,7 @@
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-cliente tr.filtro-item">
   <div style="overflow-x:auto;">
   <table id="tabela-cliente">
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente %}
     <tr class="filtro-item">

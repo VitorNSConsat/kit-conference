@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Histórico de Produção{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
@@ -8,8 +9,7 @@
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Toda mudança de estágio e edição de nota fiscal feita manualmente na esteira fica
-  registrada aqui — quem fez, quando e o quê. Mostrando os {{ registros | length }}
-  registros mais recentes que batem com o filtro.
+  registrada aqui — quem fez, quando e o quê.
 </p>
 
 <div class="card">
@@ -29,6 +29,13 @@
 </div>
 
 <div class="card">
+  {{ pg.contagem(pag, "registros") }}
+  {% if atingiu_teto %}
+  <div class="alert alert-warning" style="font-size:13px;">
+    ⚠️ Este período tem mais de {{ limite }} registros e só os mais recentes foram
+    carregados. Estreite o período pra ver o resto.
+  </div>
+  {% endif %}
   {% if registros %}
   <input type="text" class="busca-box" placeholder="🔍 Buscar no detalhe..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-historico-producao tr.filtro-item">
@@ -58,6 +65,21 @@
     {% endfor %}
     </tbody>
   </table>
+
+  {% if pag.total_paginas > 1 %}
+  {% set qs = 'data_ini=' + (data_ini|urlencode) + '&data_fim=' + (data_fim|urlencode) %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}
+      <span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="/admin/producao/historico?{{ qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   </div>
   {% else %}
   <p style="color:#888;text-align:center;padding:24px;">
