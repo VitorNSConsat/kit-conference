@@ -1345,6 +1345,11 @@ async def admin_template_edit_page(request: Request, template_id: int):
     unidades = pedidos_mod.listar_unidades(template_id) if template.get("tipo") == "pedido" else []
     consumo = consumo_mod.analise_template(template_id)
     return render(request, "admin_template_edit.html", {
+        # Voltar tem que cair na aba de onde se veio: editando um Pedido, o
+        # botão levava pra lista de Kits — a aba é escolhida pela query, e o
+        # padrão agora segue o tipo do que está aberto.
+        "voltar_para": _voltar_para(
+            request, "/admin/templates?tab=" + ("pedido" if template.get("tipo") == "pedido" else "kit")),
         # Quantos veículos apontam pro NOME atual deste kit. Renomear
         # desliga todos eles da bipagem em silêncio — a tela avisa antes.
         "veiculos_vinculados": veiculos_mod.contar_por_modelo(template["nome"]),
@@ -2165,6 +2170,10 @@ async def kit_detail(request: Request, kit_id: str):
     validacoes_antigas = [v for v in validacoes if v["id"] <= corte]
 
     return render(request, "kit_detail.html", {
+        # No celular o kit é aberto pelo hub; no computador, pela Produção,
+        # pelo patrimônio ou pelo veículo. Mandar todo mundo pro hub deixava
+        # quem veio da Produção sem caminho de volta.
+        "voltar_para": _voltar_para(request, "/mobile"),
         "kit": kit,
         "mudancas": mudancas,
         "validacoes_vigentes": validacoes_vigentes,
@@ -2305,6 +2314,7 @@ async def reports_operadores(request: Request, operador_id: str = "",
         usuarios = [dict(u) for u in conn.execute(
             "SELECT id, nome FROM users ORDER BY nome").fetchall()]
     return render(request, "reports_operadores.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
         "pag": paginacao_mod.paginar(linhas, pagina),
         "resumo": sessions_mod.resumo_por_operador(data_ini, data_fim),
         "usuarios": usuarios,
@@ -2896,6 +2906,7 @@ async def reports_validacoes(request: Request,
     with db() as conn:
         usuarios = conn.execute("SELECT id, nome FROM users ORDER BY nome").fetchall()
     return render(request, "reports_validacoes.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
         "rows": pag["itens"],
         "pag": pag,
         "pagina": pag["pagina"],
@@ -2988,6 +2999,7 @@ async def reports_sobressalentes(request: Request,
                                  cliente: str = ""):
     rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
     return render(request, "reports_sobressalentes.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
         "rows": rows,
         "clientes": clientes_mod.listar(),
         "data_ini": data_ini,
@@ -3684,6 +3696,9 @@ async def admin_estoque_historico(request: Request, estoque_id: int):
     historico = estoque_mod.listar_historico(estoque_id)
     return render(request, "admin_estoque_historico.html", {
         "est": est, "historico": historico,
+        # O histórico é aberto pela janela de configuração do item, que vive na
+        # aba Estoque — voltar pra /admin/items pelado caía na aba errada.
+        "voltar_para": _voltar_para(request, "/admin/items?tab=catalogo"),
     })
 
 
@@ -3932,7 +3947,9 @@ async def admin_veiculos_modelo(request: Request):
 @app.get("/admin/veiculos/import", response_class=HTMLResponse)
 @require_login
 async def admin_veiculos_import_form(request: Request):
-    return render(request, "admin_veiculos_import.html", {})
+    return render(request, "admin_veiculos_import.html", {
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
+    })
 
 
 @app.post("/admin/veiculos/import", response_class=HTMLResponse)

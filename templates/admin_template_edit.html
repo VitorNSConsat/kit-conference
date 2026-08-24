@@ -2,8 +2,8 @@
 {% block title %}Editar Template — {{ template.nome }}{% endblock %}
 {% block content %}
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-    <a href="/admin/templates" class="btn btn-sm btn-primary">← Voltar</a>
-    <h1 style="margin:0;">Editar Template</h1>
+    <a href="{{ voltar_para }}" class="btn btn-sm btn-primary">← Voltar</a>
+    <h1 style="margin:0;">Editar {{ 'Pedido' if template.tipo == 'pedido' else 'Kit' }}</h1>
 </div>
 
 {% if sessoes_em_andamento %}

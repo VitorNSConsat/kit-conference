@@ -2,7 +2,10 @@
 {% import "_paginacao.html" as pg %}
 {% block title %}Relatório de Verificações{% endblock %}
 {% block content %}
-<h1>Relatório de Verificações</h1>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">Relatório de Verificações</h1>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+</div>
 
 <div class="card">
   <h2>Filtros</h2>

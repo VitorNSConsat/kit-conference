@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Sobressalentes Enviados{% endblock %}
 {% block content %}
-<h1>📦 Sobressalentes Enviados</h1>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">📦 Sobressalentes Enviados</h1>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+</div>
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza —
   cada envio desconta do estoque na hora e fica registrado aqui.

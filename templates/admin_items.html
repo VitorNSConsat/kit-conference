@@ -254,137 +254,143 @@
             </tbody>
         </table>
 
-        <!-- Popovers de configuração por tipo (ocultos, posicionados via JS) -->
+        <!-- Janela de configuração por tipo (oculta; centralizada pelo CSS) -->
         {% for tipo in tipos %}
         {% set est = estoque_por_tipo.get(tipo.id) %}
-        <div id="popup-{{ tipo.id }}" class="config-popup">
-            <div class="config-titulo" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <strong style="color:#1a3a5c;">⚙️ {{ tipo.nome }}</strong>
-                <button type="button" onclick="fecharPopup()"
-                        style="background:none;border:none;cursor:pointer;font-size:16px;color:#aaa;
-                               line-height:1;padding:0 2px;">&times;</button>
+        <div id="popup-{{ tipo.id }}" class="config-popup" role="dialog" aria-modal="true"
+             aria-labelledby="popup-titulo-{{ tipo.id }}">
+            {# Cabeçalho fixo: com a janela rolando por dentro no celular, o
+               nome do item e o botão de fechar precisam ficar sempre à vista. #}
+            <div class="config-cabecalho">
+                <div>
+                    <strong id="popup-titulo-{{ tipo.id }}">⚙️ {{ tipo.nome }}</strong>
+                    <span class="config-sub">
+                        {{ '📏 medido em metros' if tipo.unidade == 'm' else '📦 contado por unidade' }}
+                        {%- if est %} · estoque {{ est.quantidade_atual }} (mín. {{ est.quantidade_minima }})
+                        {%- else %} · sem estoque cadastrado{% endif %}
+                    </span>
+                </div>
+                <button type="button" class="config-fechar" onclick="fecharPopup()"
+                        title="Fechar (Esc)">&times;</button>
             </div>
-            <div class="config-grade">
-                <!-- Medida -->
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <span style="font-size:13px;color:#555;">Medida</span>
-                    <div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid #ddd;">
-                        {% if tipo.unidade == 'm' %}
-                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade" style="margin:0;">
-                            <button type="submit" title="Trocar para Unidade"
-                                    style="padding:5px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
-                                           background:#f0f0f0;color:#888;">📦 Unidade</button>
+
+            <div class="config-corpo">
+                <!-- Coluna 1: o que este tipo faz na hora de bipar -->
+                <section class="cfg-secao">
+                    <h4>Comportamento na bipagem</h4>
+
+                    <div class="cfg-linha">
+                        <span class="cfg-rotulo">Medida
+                            <span class="cfg-ajuda">como a quantidade é contada</span>
+                        </span>
+                        <div class="cfg-alternador">
+                            {% if tipo.unidade == 'm' %}
+                            <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
+                                <button type="submit" title="Trocar para Unidade" class="cfg-opcao">📦 Unidade</button>
+                            </form>
+                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#0984e3;">📏 Metro</span>
+                            {% else %}
+                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#00b894;">📦 Unidade</span>
+                            <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
+                                <button type="submit" title="Trocar para Metro" class="cfg-opcao">📏 Metro</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="cfg-linha">
+                        <span class="cfg-rotulo">Reutilizável
+                            <span class="cfg-ajuda">pode estar em vários kits ao mesmo tempo</span>
+                        </span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
+                            <button type="submit" class="btn btn-sm cfg-chave"
+                                    style="{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                                {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
+                            </button>
                         </form>
-                        <span style="padding:5px 12px;font-size:12px;font-weight:700;background:#0984e3;color:#fff;">📏 Metro</span>
-                        {% else %}
-                        <span style="padding:5px 12px;font-size:12px;font-weight:700;background:#00b894;color:#fff;">📦 Unidade</span>
-                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade" style="margin:0;">
-                            <button type="submit" title="Trocar para Metro"
-                                    style="padding:5px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
-                                           background:#f0f0f0;color:#888;">📏 Metro</button>
+                    </div>
+
+                    <div class="cfg-linha">
+                        <span class="cfg-rotulo">Item de Patrimônio
+                            <span class="cfg-ajuda">cada unidade é rastreada pelo código — é o tipo que aparece ao identificar um código desconhecido</span>
+                        </span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
+                            <button type="submit" class="btn btn-sm cfg-chave"
+                                    style="{% if tipo.controle_externo %}background:#e67e22;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                                {{ '🌐 Sim' if tipo.controle_externo else '— Não' }}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="cfg-linha">
+                        <span class="cfg-rotulo">Requer Serial
+                            <span class="cfg-ajuda">depois do patrimônio, pede o número de série</span>
+                        </span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-requer-serial">
+                            <button type="submit" class="btn btn-sm cfg-chave"
+                                    style="{% if tipo.requer_serial %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
+                                {{ '🔢 Sim' if tipo.requer_serial else '— Não' }}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Código da Caixa
+                            <span class="cfg-ajuda">ao bipar este código o sistema pede o patrimônio em seguida</span>
+                        </span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
+                              class="cfg-campo-linha">
+                            <input type="text" name="codigo_fixo" value="{{ tipo.codigo_fixo or '' }}"
+                                   placeholder="ex: 10ID000700X1" class="cfg-mono">
+                            <button type="submit" class="btn btn-sm btn-success">💾</button>
+                        </form>
+                        {% if tipo.codigo_fixo %}
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo">
+                            <input type="hidden" name="codigo_fixo" value="">
+                            <button type="submit" class="cfg-remover">✕ Remover código da caixa</button>
                         </form>
                         {% endif %}
                     </div>
-                </div>
-                <!-- Reutilizável -->
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <span style="font-size:13px;color:#555;">Reutilizável
-                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">múltiplos kits ao mesmo tempo</span>
-                    </span>
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
-                        <button type="submit" class="btn btn-sm"
-                                style="min-width:100px;{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                            {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
-                        </button>
-                    </form>
-                </div>
-                <!-- Item de Patrimônio (controle externo) -->
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <span style="font-size:13px;color:#555;">Item de Patrimônio
-                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">controlado por patrimônio neste sistema — aparece na tela de identificar código desconhecido</span>
-                    </span>
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
-                        <button type="submit" class="btn btn-sm"
-                                style="min-width:100px;{% if tipo.controle_externo %}background:#e67e22;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                            {{ '🌐 Sim' if tipo.controle_externo else '— Não' }}
-                        </button>
-                    </form>
-                </div>
-                <!-- Requer Serial -->
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                    <span style="font-size:13px;color:#555;">Requer Serial
-                        <span style="font-size:11px;color:#aaa;display:block;margin-top:1px;">pede o serial number ao bipar este tipo em qualquer kit</span>
-                    </span>
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-requer-serial">
-                        <button type="submit" class="btn btn-sm"
-                                style="min-width:100px;{% if tipo.requer_serial %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                            {{ '🔢 Sim' if tipo.requer_serial else '— Não' }}
-                        </button>
-                    </form>
-                </div>
-                <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
-                <!-- Código da Caixa (codigo_fixo) -->
-                <div>
-                    <div style="font-size:13px;color:#555;margin-bottom:6px;">
-                        Código da Caixa
-                        <span style="font-size:11px;color:#aaa;margin-left:4px;"
-                              title="Ao bipar este código o sistema pede o patrimônio em seguida">ⓘ</span>
-                    </div>
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
-                          style="display:flex;gap:6px;">
-                        <input type="text" name="codigo_fixo"
-                               value="{{ tipo.codigo_fixo or '' }}"
-                               placeholder="ex: 10ID000700X1"
-                               style="flex:1;margin-bottom:0;font-size:12px;padding:5px 8px;font-family:monospace;">
-                        <button type="submit" class="btn btn-sm btn-success">💾</button>
-                    </form>
-                    {% if tipo.codigo_fixo %}
-                    <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo"
-                          style="margin-top:5px;">
-                        <input type="hidden" name="codigo_fixo" value="">
-                        <button type="submit" class="btn btn-sm" style="font-size:11px;color:#e74c3c;
-                                background:none;border:1px solid #e74c3c;padding:2px 8px;">
-                            ✕ Remover código da caixa
-                        </button>
-                    </form>
-                    {% endif %}
-                </div>
-                <hr style="margin:2px 0;border:none;border-top:1px solid #eee;">
-                <!-- Estoque -->
-                <div style="background:#f0f8f4;border:1.5px solid #27ae60;border-radius:10px;padding:12px;">
-                    <div style="font-size:13px;color:#1a3a5c;margin-bottom:10px;font-weight:700;">📦 Estoque</div>
+                </section>
+
+                <!-- Coluna 2: estoque deste tipo -->
+                <section class="cfg-secao cfg-estoque">
+                    <h4>📦 Estoque</h4>
                     {% if est %}
                     {% if pode('estoque_editar') %}
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Quantidade Atual</label>
-                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Corrige o valor diretamente — use para acertar contagens divergentes</div>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/corrigir" style="display:flex;gap:6px;">
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Quantidade Atual
+                            <span class="cfg-ajuda">corrige o valor direto — para acertar contagem divergente</span>
+                        </span>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/corrigir" class="cfg-campo-linha">
                             <input type="number" name="quantidade_atual" value="{{ est.quantidade_atual }}" min="0"
-                                   style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
-                            <button type="submit" class="btn btn-sm btn-primary" style="padding:6px 12px;">💾 Corrigir</button>
+                                   class="cfg-numero">
+                            <button type="submit" class="btn btn-sm btn-primary">💾 Corrigir</button>
                         </form>
                     </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Quantidade Mínima</label>
-                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Dispara alerta quando o estoque chegar nesse valor</div>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" style="display:flex;gap:6px;">
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Quantidade Mínima
+                            <span class="cfg-ajuda">dispara o alerta de estoque baixo nesse valor</span>
+                        </span>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" class="cfg-campo-linha">
                             <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
-                                   style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
-                            <button type="submit" class="btn btn-sm btn-success" style="padding:6px 12px;">💾 Salvar</button>
+                                   class="cfg-numero">
+                            <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
                         </form>
                     </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Repor Estoque</label>
-                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Quantidade a adicionar ao estoque atual ({{ est.quantidade_atual }})</div>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/repor" style="display:flex;gap:6px;">
-                            <input type="number" name="quantidade" value="1" min="1"
-                                   style="width:80px;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;" required>
-                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;padding:6px 12px;">+ Repor</button>
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Repor Estoque
+                            <span class="cfg-ajuda">soma ao saldo atual ({{ est.quantidade_atual }})</span>
+                        </span>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/repor" class="cfg-campo-linha">
+                            <input type="number" name="quantidade" value="1" min="1" class="cfg-numero" required>
+                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;">+ Repor</button>
                         </form>
                     </div>
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:2px;">Status de Compra</label>
-                        <div style="font-size:11px;color:#999;margin-bottom:6px;">Independente da quantidade — sinaliza se já tem reposição a caminho</div>
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Status de Compra
+                            <span class="cfg-ajuda">independe do saldo — sinaliza reposição a caminho</span>
+                        </span>
                         <form method="post" action="/admin/estoque/{{ est.id }}/status-compra">
                             <select name="status_compra" onchange="this.form.submit()" style="margin:0;">
                                 <option value="" {{ 'selected' if not est.status_compra }}>Sem pendência</option>
@@ -394,63 +400,71 @@
                             </select>
                         </form>
                     </div>
-                    {% else %}
-                    <div style="margin-bottom:12px;font-size:12px;color:#888;">
-                        Quantidade atual: <strong>{{ est.quantidade_atual }}</strong> · mínima: {{ est.quantidade_minima }}
-                        {% if est.status_compra %}
-                        <br>Status de compra: <span class="badge badge-info">{{ status_compra_opcoes.get(est.status_compra, est.status_compra) }}</span>
-                        {% endif %}
-                        <br>Seu usuário não tem permissão pra alterar o estoque.
-                    </div>
-                    {% endif %}
-                    <div style="margin-bottom:12px;">
-                        <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:6px;">Código de Barras</label>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/codigo" style="display:flex;gap:6px;">
+                    {# Alterar o código de barras é edição de estoque como as
+                       outras — a rota exige a mesma permissão, então o campo
+                       fica no mesmo bloco em vez de oferecer um botão que
+                       sempre daria 403. #}
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Código de Barras
+                            <span class="cfg-ajuda">o que o operador bipa (a etiqueta com QR aponta pra ele)</span>
+                        </span>
+                        <form method="post" action="/admin/estoque/{{ est.id }}/codigo" class="cfg-campo-linha">
                             <input type="text" name="codigo_barra" value="{{ est.codigo_barra }}"
-                                   style="flex:1;margin-bottom:0;font-size:13px;padding:8px;font-family:monospace;" required>
-                            <button type="submit" class="btn btn-sm btn-success" style="padding:6px 12px;">💾</button>
+                                   class="cfg-mono" required>
+                            <button type="submit" class="btn btn-sm btn-success">💾</button>
                         </form>
                     </div>
-                    <div style="display:flex;gap:4px;">
+                    {% else %}
+                    <div class="cfg-linha cfg-linha-coluna">
+                        <span class="cfg-rotulo">Atual: {{ est.quantidade_atual }} · mínima: {{ est.quantidade_minima }}
+                            {% if est.status_compra %}
+                            <span class="cfg-ajuda">compra: {{ status_compra_opcoes.get(est.status_compra, est.status_compra) }}</span>
+                            {% endif %}
+                            <span class="cfg-ajuda">código: {{ est.codigo_barra }}</span>
+                            <span class="cfg-ajuda">seu usuário não tem permissão pra alterar o estoque</span>
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="cfg-acoes">
                         <a href="/admin/estoque/{{ est.id }}/etiqueta" target="_blank"
-                           class="btn btn-sm btn-primary" style="flex:1;text-align:center;">🏷️ Etiqueta</a>
+                           class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
                         <a href="/admin/estoque/{{ est.id }}/historico"
-                           class="btn btn-sm btn-primary" style="flex:1;text-align:center;">📋 Histórico</a>
+                           class="btn btn-sm btn-primary">📋 Histórico</a>
                     </div>
                     {% else %}
-                    <p style="font-size:12px;color:#888;margin-bottom:10px;">
-                        Este tipo ainda não tem estoque cadastrado.
+                    <p class="cfg-ajuda" style="margin:0 0 10px;">
+                        Este tipo ainda não tem estoque cadastrado. Sem estoque, ele só entra no kit
+                        por patrimônio.
                     </p>
                     <form method="post" action="/admin/estoque" style="display:flex;flex-direction:column;gap:10px;">
                         <input type="hidden" name="item_tipo_id" value="{{ tipo.id }}">
                         <div>
-                            <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Código de Barras</label>
-                            <input type="text" name="codigo_barra" required
-                                   style="margin-bottom:0;font-size:13px;padding:8px;font-family:monospace;">
+                            <label class="cfg-rotulo" style="display:block;margin-bottom:4px;">Código de Barras</label>
+                            <input type="text" name="codigo_barra" required class="cfg-mono" style="width:100%;">
                         </div>
                         <div style="display:flex;gap:10px;">
                             <div style="flex:1;">
-                                <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Qtd. Inicial</label>
+                                <label class="cfg-rotulo" style="display:block;margin-bottom:4px;">Qtd. Inicial</label>
                                 <input type="number" name="quantidade" value="0" min="0"
-                                       style="width:100%;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
+                                       class="cfg-numero" style="width:100%;">
                             </div>
                             <div style="flex:1;">
-                                <label style="font-size:12px;color:#555;font-weight:700;display:block;margin-bottom:4px;">Mínimo</label>
+                                <label class="cfg-rotulo" style="display:block;margin-bottom:4px;">Mínimo</label>
                                 <input type="number" name="quantidade_minima" value="5" min="0"
-                                       style="width:100%;text-align:center;margin-bottom:0;font-size:16px;font-weight:700;padding:8px;">
+                                       class="cfg-numero" style="width:100%;">
                             </div>
                         </div>
                         <button type="submit" class="btn btn-sm btn-success">+ Adicionar ao Estoque</button>
                     </form>
                     {% endif %}
-                </div>
+                </section>
             </div>
         </div>
         {% endfor %}
 
-        <!-- Overlay transparente para fechar popup ao clicar fora -->
-        <div id="popup-overlay" onclick="fecharPopup()"
-             style="display:none;position:fixed;inset:0;z-index:98;"></div>
+        <!-- Fundo escurecido: fecha ao clicar fora e deixa claro que a janela
+             é modal (antes era transparente, e a tela atrás parecia clicável) -->
+        <div id="popup-overlay" onclick="fecharPopup()"></div>
 
         {% else %}
         <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "➕ Novo Item".</p>
@@ -977,50 +991,6 @@ function abrirImportarAjuste() {
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
 }
 </script>
-<style>
-/* Modal centralizado, não mais um popover colado no botão. O popover de
-   300px nascia perto da engrenagem — muitas vezes no canto ou no rodapé —
-   e o conteúdo (medida, reutilizável, serial, código da caixa, estoque)
-   ficava espremido em coluna estreita, com rolagem interna. Centralizado e
-   largo, tudo cabe de uma olhada e a posição é sempre a mesma. */
-.config-popup {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1001;
-    background: #fff;
-    border: 1px solid #e0e7ef;
-    border-radius: 14px;
-    padding: 22px 24px;
-    width: min(680px, calc(100vw - 32px));
-    max-height: min(86vh, 760px);
-    overflow-y: auto;
-    box-shadow: 0 18px 48px rgba(0,0,0,.28);
-    animation: popIn .12s ease;
-}
-/* Os campos ficam lado a lado quando há largura, em vez de uma coluna
-   única e comprida que obrigava a rolar dentro do próprio pop-up. */
-.config-popup .config-grade {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 14px;
-}
-.config-popup .config-titulo {
-    font-size: 16px !important;
-    border-bottom: 1px solid #eef2f7;
-    padding-bottom: 10px;
-}
-@keyframes popIn {
-    from { opacity: 0; transform: translateY(-6px) scale(.97); }
-    to   { opacity: 1; transform: translateY(0)   scale(1);    }
-}
-
-/* O estilo do menu de abas mora em static/style.css, carregado no <head> —
-   aqui no rodapé ele só seria aplicado depois da página inteira, fazendo
-   as abas piscarem sem estilo. */
-</style>
 <script>
 let _popupAberto = null;
 
@@ -1028,25 +998,31 @@ function abrirPopup(event, tipoId) {
     event.stopPropagation();
     if (_popupAberto === tipoId) { fecharPopup(); return; }
     fecharPopup();
-    // Sem cálculo de posição: o modal é centralizado pelo CSS. Antes a
+    // Sem cálculo de posição: a janela é centralizada pelo CSS. Antes a
     // posição vinha do botão, e a engrenagem da última linha abria o
     // pop-up colado no rodapé.
-    document.getElementById('popup-' + tipoId).style.display = 'block';
-    document.getElementById('popup-overlay').style.display = 'block';
+    document.getElementById('popup-' + tipoId).classList.add('aberto');
+    document.getElementById('popup-overlay').classList.add('aberto');
     // Trava a rolagem do fundo pra o clique de fechar não mover a página.
+    // A largura da barra de rolagem vira padding: sem isso a página inteira
+    // dava um pulo lateral no instante em que a janela abria — o "tranco"
+    // que dava a impressão de a janela travar pra aparecer.
+    const barra = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
+    if (barra > 0) document.body.style.paddingRight = barra + 'px';
     _popupAberto = tipoId;
 }
 
 function fecharPopup() {
     if (_popupAberto !== null) {
         const el = document.getElementById('popup-' + _popupAberto);
-        if (el) el.style.display = 'none';
+        if (el) el.classList.remove('aberto');
         _popupAberto = null;
     }
     const overlay = document.getElementById('popup-overlay');
-    if (overlay) overlay.style.display = 'none';
+    if (overlay) overlay.classList.remove('aberto');
     document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });

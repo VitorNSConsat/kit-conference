@@ -679,3 +679,112 @@ tr:hover td { background: var(--surface-alt); }
     border-color: #e67e22 !important;
     background: #fdf6ea !important;
 }
+
+/* ── Janela de configuracao do item (Itens & Estoque) ─────────────────────
+   Mora aqui, e nao num <style> no rodape da pagina, porque o rodape so e
+   aplicado depois que a pagina inteira chega: ate la o navegador desenha
+   TODAS as janelas (uma por tipo de item) abertas, calcula o layout de
+   todas e so entao esconde. Era isso que travava a tela ao abrir. */
+/* Janela de configuração centralizada, dividida em dois blocos com título:
+   "Comportamento na bipagem" e "Estoque". Antes tudo era uma sequência de
+   linhas iguais numa grade solta — dava pra ver os campos, mas não dava pra
+   ver a QUAL assunto cada um pertencia. */
+.config-popup {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    /* O translate mora numa variável porque a animação também mexe em
+       transform: sem isso o keyframe apagava a centralização e a janela
+       aparecia deslocada antes de "pular" pro meio — que é o tranco que
+       se via ao abrir. */
+    --cfg-centro: translate(-50%, -50%);
+    transform: var(--cfg-centro);
+    z-index: 1001;
+    background: #fff;
+    border: 1px solid #e0e7ef;
+    border-radius: 14px;
+    width: min(900px, calc(100vw - 32px));
+    max-height: min(88vh, 780px);
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(0,0,0,.28);
+}
+.config-popup.aberto { display: flex; animation: popIn .12s ease; }
+@keyframes popIn {
+    from { opacity: 0; transform: var(--cfg-centro) scale(.97); }
+    to   { opacity: 1; transform: var(--cfg-centro) scale(1);   }
+}
+#popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(16, 28, 42, .45);
+}
+#popup-overlay.aberto { display: block; }
+
+.config-cabecalho {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 16px 22px; border-bottom: 1px solid #eef2f7; background: #f8fafc;
+    flex: 0 0 auto;
+}
+.config-cabecalho strong { color: var(--brand); font-size: 16px; display: block; }
+.config-sub { font-size: 12px; color: #8a97a4; display: block; margin-top: 2px; }
+.config-fechar {
+    background: none; border: 0; cursor: pointer; font-size: 22px; color: #9aa7b4;
+    line-height: 1; padding: 0 4px; border-radius: 6px;
+}
+.config-fechar:hover { background: #e9eef3; color: #5b6875; }
+
+/* Rola o CONTEÚDO, não a janela inteira — o cabeçalho fica parado. */
+.config-corpo {
+    /* min(320px, 100%): sem o min(), no celular a coluna de 320px ficava mais
+       larga que a janela e o conteudo vazava pro lado. */
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 14px; padding: 16px 22px 22px; overflow-y: auto; align-items: start;
+}
+.cfg-secao { border: 1px solid #e6ecf2; border-radius: 12px; padding: 4px 14px 12px; }
+.cfg-secao > h4 {
+    margin: 12px 0 2px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .8px; color: #8a97a4;
+}
+.cfg-estoque { background: #f5faf7; border-color: #cfe7d9; }
+.cfg-linha {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 0; border-top: 1px solid #edf1f5;
+}
+.cfg-linha-coluna { flex-direction: column; align-items: stretch; gap: 6px; }
+.cfg-linha form { margin: 0; }
+.cfg-rotulo { font-size: 13px; color: #33404d; font-weight: 600; }
+.cfg-ajuda {
+    font-size: 11px; color: #97a3af; display: block; margin-top: 2px; font-weight: 400;
+    line-height: 1.35;
+}
+.cfg-chave { min-width: 104px; }
+.cfg-alternador { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
+.cfg-alternador form { display: flex; }
+.cfg-opcao {
+    padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; cursor: pointer;
+    background: #f0f0f0; color: #888; white-space: nowrap;
+}
+.cfg-opcao-ativa { color: #fff; cursor: default; }
+.cfg-campo-linha { display: flex; gap: 6px; align-items: center; }
+.cfg-campo-linha .cfg-mono { flex: 1; }
+.config-popup .cfg-mono {
+    margin-bottom: 0; font-size: 13px; padding: 7px 9px; font-family: monospace;
+}
+.config-popup .cfg-numero {
+    width: 92px; text-align: center; margin-bottom: 0; font-size: 16px;
+    font-weight: 700; padding: 7px;
+}
+.cfg-remover {
+    font-size: 11px; color: #e74c3c; background: none; border: 1px solid #e74c3c;
+    padding: 3px 9px; border-radius: 6px; cursor: pointer; align-self: flex-start;
+}
+.cfg-acoes { display: flex; gap: 6px; margin-top: 12px; }
+.cfg-acoes .btn { flex: 1; text-align: center; }
+
+/* O estilo do menu de abas mora em static/style.css, carregado no <head> —
+   aqui no rodapé ele só seria aplicado depois da página inteira, fazendo
+   as abas piscarem sem estilo. */

@@ -302,7 +302,7 @@
   {# Voltar também aqui em cima: o botão do rodapé obriga a rolar o kit
      inteiro só pra sair, o que num kit grande é bem chato no celular.
      O header é sticky, então este fica sempre à mão. #}
-  <a href="/mobile" class="btn-voltar-topo">← Voltar</a>
+  <a href="{{ voltar_para }}" class="btn-voltar-topo">← Voltar</a>
   <div class="header-top">
     <div>
       <h1>{{ kit.kit_nome }}</h1>
@@ -603,7 +603,7 @@
      style="background:#2980b9;margin-bottom:10px;">🔄 Trocar Kit (corrigir modelo)</a>
   {% endif %}
 
-  <a href="/mobile" class="btn-voltar-inicio">← Voltar ao Início</a>
+  <a href="{{ voltar_para }}" class="btn-voltar-inicio">← Voltar</a>
 
 </div>
 
