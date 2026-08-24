@@ -188,6 +188,36 @@ def atualizar_garagem(veiculo_id: int, garagem: str):
         conn.execute("UPDATE veiculos SET garagem = ? WHERE id = ?", (garagem, veiculo_id))
 
 
+def mover_veiculos_de_garagem(origem: str, destino: str,
+                              cliente: str | None = None) -> int:
+    """Move de uma vez todos os veículos que estão numa garagem para outra.
+
+    É o que amarra cliente e garagem na prática: como não existe cadastro
+    ligando os dois (quem liga é o veículo), "atribuir uma garagem a um
+    cliente" é justamente passar os veículos dele pra ela. `origem` vazia
+    significa "os que ainda estão sem garagem"; `cliente` vazio/None move os
+    de todos os clientes. Devolve quantos veículos mudaram.
+
+    Só mexe no cadastro do veículo — não toca em kit nem em sessão já
+    gravada, que guardam a garagem que valia na hora da bipagem."""
+    destino = (destino or "").strip().upper()
+    origem = (origem or "").strip().upper()
+    if not destino or destino == origem:
+        return 0
+    sql = ["UPDATE veiculos SET garagem = ? WHERE ativo = 1"]
+    params: list = [destino]
+    if origem:
+        sql.append("AND UPPER(TRIM(COALESCE(garagem, ''))) = ?")
+        params.append(origem)
+    else:
+        sql.append("AND TRIM(COALESCE(garagem, '')) = ''")
+    if cliente:
+        sql.append("AND cliente = ?")
+        params.append(cliente.strip())
+    with db() as conn:
+        return conn.execute(" ".join(sql), params).rowcount
+
+
 def esta_ocupado(veiculo_id: int) -> bool:
     """Um veículo fica bloqueado pra nova bipagem assim que tem qualquer
     kit associado — em andamento ou já finalizado, não importa em que

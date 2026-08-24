@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Garagem {{ garagem.nome }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">🏭 {{ garagem.nome }}</h1>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+</div>
+
+{% if ok.startswith('movidos_') %}
+  {% set qtd = ok[8:] %}
+  {% if qtd == '0' %}
+  <div class="alert alert-danger">⚠️ Nenhum veículo mudou de garagem — não havia veículo com esse filtro aqui.</div>
+  {% else %}
+  <div class="alert alert-success">✅ {{ qtd }} veículo(s) saíram desta garagem.</div>
+  {% endif %}
+{% endif %}
+{% if erro == 'destino' %}
+<div class="alert alert-danger">⚠️ Escolha uma garagem de destino que já esteja cadastrada.</div>
+{% endif %}
+
+<!-- Resumo -->
+<div class="card">
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Cadastrada em</div>
+      <div style="font-size:16px;">{{ garagem.criado_em[:10] if garagem.criado_em else '—' }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Veículos ativos</div>
+      <div style="font-size:18px;font-weight:700;">{{ totais.veiculos or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Clientes atendidos</div>
+      <div style="font-size:18px;font-weight:700;">{{ clientes | length }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem modelo</div>
+      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Kits montados aqui</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.total or 0 }}</div>
+    </div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/admin/veiculos?busca={{ garagem.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos desta garagem</a>
+  </div>
+</div>
+
+<!-- Clientes desta garagem -->
+<div class="card">
+  <h2>Clientes com veículos nesta garagem</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Garagem e cliente não são cadastrados juntos — quem liga os dois é o
+    <strong>veículo</strong>. Esta lista sai dos veículos que estão aqui.
+  </p>
+  {% if clientes %}
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Cliente</th><th>Veículos</th><th>Sem modelo</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for c in clientes %}
+    <tr>
+      <td><strong>{{ c.cliente }}</strong></td>
+      <td>{{ c.veiculos }}</td>
+      <td style="color:{{ '#e67e22' if c.sem_modelo else '#888' }};">{{ c.sem_modelo or 0 }}</td>
+      <td>
+        <a href="/admin/veiculos?cliente={{ c.cliente | urlencode }}&busca={{ garagem.nome | urlencode }}"
+           class="btn btn-sm btn-secondary">Ver veículos</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum veículo cadastrado nesta garagem.</p>
+  {% endif %}
+
+  <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Transferir veículos desta garagem</summary>
+    <p style="color:#666;font-size:13px;margin:8px 0;">
+      Tira os veículos desta garagem e coloca em outra — de um cliente só ou de todos.
+      Só muda o <strong>cadastro do veículo</strong>: kits já bipados continuam com a
+      garagem que valia na hora da montagem.
+    </p>
+    <form method="post" action="/admin/garagens/{{ garagem.id }}/mover-garagem"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
+          onsubmit="return confirm('Transferir os veículos para a garagem escolhida?')">
+      <div class="form-group" style="margin:0;">
+        <label>Cliente</label>
+        <select name="cliente" style="margin:0;">
+          <option value="">— todos os clientes ({{ totais.veiculos or 0 }}) —</option>
+          {% for c in clientes %}
+          <option value="{{ c.cliente }}">{{ c.cliente }} ({{ c.veiculos }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Para *</label>
+        <select name="destino" required style="margin:0;">
+          <option value="">— selecione —</option>
+          {% for g in garagens_cadastradas %}
+          {% if g.id != garagem.id %}
+          <option value="{{ g.nome }}">{{ g.nome }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success">Transferir</button>
+    </form>
+  </details>
+</div>
+
+<!-- Modelos usados -->
+<div class="card">
+  <h2>Modelos (kits) dos veículos desta garagem</h2>
+  {% if modelos %}
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Modelo</th><th>Veículos</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for m in modelos %}
+    <tr>
+      <td><strong>{{ m.modelo }}</strong></td>
+      <td>{{ m.veiculos }}</td>
+      <td>
+        {% if m.modelo != '(sem kit definido)' %}
+        <a href="/admin/veiculos?modelo={{ m.modelo | urlencode }}&busca={{ garagem.nome | urlencode }}"
+           class="btn btn-sm btn-secondary">Ver veículos</a>
+        {% else %}
+        <a href="/admin/veiculos?situacao=sem_modelo&busca={{ garagem.nome | urlencode }}"
+           class="btn btn-sm btn-warning">Definir modelo</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum veículo cadastrado nesta garagem.</p>
+  {% endif %}
+</div>
+
+<!-- Esteira -->
+<div class="card">
+  <h2>Kits montados para esta garagem</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Conta pela garagem gravada no kit na hora da montagem — por isso pode não bater
+    com o cadastro atual dos veículos se algum foi transferido depois.
+  </p>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Produzidos</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.produzido or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Em trânsito</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.transito or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">No cliente</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.no_cliente or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Total já montado</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.total or 0 }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

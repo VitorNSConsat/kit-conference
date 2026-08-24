@@ -86,6 +86,8 @@ def classificar(caminho: str) -> str:
             return "PRODUCAO: INSTALACAO CONCLUIDA"
         if "/voltar" in c:
             return "PRODUCAO: VOLTAR ESTAGIO"
+    if "/mover-garagem" in c:
+        return "VEICULOS: MUDANCA DE GARAGEM"
     return "ALTERACAO"
 
 

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Cliente {{ cliente.nome }}{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1 style="margin:0;">🏢 {{ cliente.nome }}</h1>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+</div>
+
+{% if ok.startswith('movidos_') %}
+  {% set qtd = ok[8:] %}
+  {% if qtd == '0' %}
+  <div class="alert alert-danger">⚠️ Nenhum veículo mudou de garagem — não havia veículo na garagem de origem.</div>
+  {% else %}
+  <div class="alert alert-success">✅ {{ qtd }} veículo(s) mudaram de garagem.</div>
+  {% endif %}
+{% endif %}
+{% if erro == 'destino' %}
+<div class="alert alert-danger">⚠️ Escolha uma garagem de destino que já esteja cadastrada.</div>
+{% endif %}
+
+<!-- Resumo -->
+<div class="card">
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Cliente desde</div>
+      <div style="font-size:16px;">{{ cliente.criado_em[:10] if cliente.criado_em else '—' }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Veículos ativos</div>
+      <div style="font-size:18px;font-weight:700;">{{ totais.veiculos or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Garagens</div>
+      <div style="font-size:18px;font-weight:700;">{{ garagens | length }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem garagem</div>
+      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_garagem else 'inherit' }};">{{ totais.sem_garagem or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem modelo</div>
+      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Kits montados</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.total or 0 }}</div>
+    </div>
+  </div>
+  {% if totais.sem_garagem or totais.sem_modelo %}
+  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
+    ⚠️ Veículo sem garagem ou sem modelo não entra em <strong>Kits a produzir</strong> —
+    a produção só lista o que tem cliente, garagem e modelo preenchidos.
+  </p>
+  {% endif %}
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos deste cliente</a>
+    <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&situacao=a_produzir"
+       class="btn btn-sm btn-secondary">🛠️ Ver o que falta produzir</a>
+  </div>
+</div>
+
+<!-- Garagens deste cliente -->
+<div class="card">
+  <h2>Garagens deste cliente</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    O que liga cliente e garagem é o <strong>veículo</strong> — a garagem aparece aqui
+    porque tem veículo deste cliente nela.
+  </p>
+  {% if garagens %}
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Garagem</th><th>Veículos</th><th>Sem modelo</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for g in garagens %}
+    <tr>
+      <td><strong>{{ g.garagem }}</strong></td>
+      <td>{{ g.veiculos }}</td>
+      <td style="color:{{ '#e67e22' if g.sem_modelo else '#888' }};">{{ g.sem_modelo or 0 }}</td>
+      <td>
+        <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&busca={{ g.garagem | urlencode }}"
+           class="btn btn-sm btn-secondary">Ver veículos</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Este cliente ainda não tem veículos cadastrados.</p>
+  {% endif %}
+
+  {# Atribuir garagem ao cliente = passar os veículos dele pra ela. Como não
+     existe cadastro ligando cliente e garagem, é essa a ação que amarra os
+     dois de verdade. #}
+  <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Atribuir garagem aos veículos deste cliente</summary>
+    <p style="color:#666;font-size:13px;margin:8px 0;">
+      Move de uma vez todos os veículos deste cliente que estão numa garagem para outra.
+      Só muda o <strong>cadastro do veículo</strong> — kits já bipados continuam com a
+      garagem que valia na hora da montagem.
+    </p>
+    <form method="post" action="/admin/clientes/{{ cliente.id }}/mover-garagem"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
+          onsubmit="return confirm('Mover os veículos para a garagem escolhida?')">
+      <div class="form-group" style="margin:0;">
+        <label>De</label>
+        <select name="origem" style="margin:0;">
+          <option value="">— sem garagem ({{ totais.sem_garagem or 0 }}) —</option>
+          {% for g in garagens %}
+          {% if g.garagem != '(sem garagem)' %}
+          <option value="{{ g.garagem }}">{{ g.garagem }} ({{ g.veiculos }})</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Para *</label>
+        <select name="destino" required style="margin:0;">
+          <option value="">— selecione —</option>
+          {% for g in garagens_cadastradas %}
+          <option value="{{ g.nome }}">{{ g.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-success">Mover veículos</button>
+    </form>
+  </details>
+</div>
+
+<!-- Modelos usados -->
+<div class="card">
+  <h2>Modelos (kits) usados por este cliente</h2>
+  {% if modelos %}
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Modelo</th><th>Veículos</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for m in modelos %}
+    <tr>
+      <td><strong>{{ m.modelo }}</strong></td>
+      <td>{{ m.veiculos }}</td>
+      <td>
+        {% if m.modelo != '(sem kit definido)' %}
+        <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&modelo={{ m.modelo | urlencode }}"
+           class="btn btn-sm btn-secondary">Ver veículos</a>
+        {% else %}
+        <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&situacao=sem_modelo"
+           class="btn btn-sm btn-warning">Definir modelo</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum veículo cadastrado.</p>
+  {% endif %}
+</div>
+
+<!-- Esteira -->
+<div class="card">
+  <h2>Kits deste cliente na esteira</h2>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Produzidos</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.produzido or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Em trânsito</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.transito or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">No cliente</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.no_cliente or 0 }}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Total já montado</div>
+      <div style="font-size:18px;font-weight:700;">{{ producao.total or 0 }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Kits e pedidos cadastrados -->
+<div class="card">
+  <h2>Kits e pedidos cadastrados para este cliente</h2>
+  {% if kits %}
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>Nome</th><th>Tipo</th><th>Versão</th><th>Situação</th><th>Kits montados</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for k in kits %}
+    <tr>
+      <td><strong>{{ k.nome }}</strong></td>
+      <td>{{ 'Pedido' if k.tipo == 'pedido' else 'Kit' }}</td>
+      <td>v{{ k.versao }}</td>
+      <td>
+        {% if k.ativo %}<span class="badge badge-success">Ativo</span>
+        {% else %}<span style="color:#888;font-size:12px;">Inativo</span>{% endif %}
+      </td>
+      <td>{{ k.montados }}</td>
+      <td><a href="/admin/templates/{{ k.id }}/edit" class="btn btn-sm btn-secondary">Abrir</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;text-align:center;padding:16px;">Nenhum kit ou pedido cadastrado com este cliente.</p>
+  {% endif %}
+</div>
+{% endblock %}

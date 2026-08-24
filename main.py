@@ -3771,6 +3771,8 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         veiculos = por_texto + extras
 
     veiculos_inativos = veiculos_mod.listar(cliente=cliente or None, ativo=False)
+    cadastrados_clientes = clientes_mod.listar()
+    cadastradas_garagens = garagens_mod.listar()
     return {
         # Onde cada veículo está agora no fluxo — derivado dos estados que a
         # Produção já usa, numa consulta só pra todos (nada de N+1).
@@ -3790,8 +3792,12 @@ def _admin_veiculos_context(cliente: str = "", pagina: int = 1, busca: str = "",
         # ter kits no histórico.
         "duplicados": veiculos_mod.numeros_duplicados(),
         "clientes": [c["nome"] for c in clientes_mod.listar()],
-        "clientes_cadastrados": clientes_mod.listar(),
-        "garagens_cadastradas": garagens_mod.listar(),
+        "clientes_cadastrados": cadastrados_clientes,
+        "garagens_cadastradas": cadastradas_garagens,
+        # Nome → id, pra cliente e garagem na tabela virarem link pro
+        # panorama de cada um sem uma consulta por linha.
+        "id_cliente": {c["nome"]: c["id"] for c in cadastrados_clientes},
+        "id_garagem": {g["nome"]: g["id"] for g in cadastradas_garagens},
         "filtro_cliente": cliente,
     }
 
@@ -4073,6 +4079,98 @@ async def admin_garagens_post(request: Request):
 async def admin_garagem_delete(request: Request, garagem_id: int):
     garagens_mod.deletar(garagem_id)
     return RedirectResponse("/admin/veiculos?ok=garagem_excluida", status_code=302)
+
+
+# ── Cliente e Garagem — páginas de detalhe ────────────────────────────────────
+# Cliente e garagem não têm vínculo próprio no banco: quem liga os dois é o
+# VEÍCULO. Estas telas juntam num lugar só tudo que hoje estava espalhado
+# (veículos, garagens usadas, modelos, kits e a esteira) e dão a única ação
+# que de fato amarra os dois — mover veículos de uma garagem pra outra.
+
+@app.get("/admin/clientes/{cliente_id}", response_class=HTMLResponse)
+@require_login
+async def admin_cliente_detalhe(request: Request, cliente_id: int, ok: str = "",
+                                erro: str = ""):
+    cliente = clientes_mod.buscar(cliente_id)
+    if not cliente:
+        return RedirectResponse("/admin/veiculos?erro_cliente=nao_encontrado",
+                                status_code=302)
+    dados = clientes_mod.panorama(cliente["nome"])
+    return render(request, "admin_cliente.html", {
+        **dados,
+        "garagens_cadastradas": garagens_mod.listar(),
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
+        "ok": ok, "erro": erro,
+    })
+
+
+@app.get("/admin/garagens/{garagem_id}", response_class=HTMLResponse)
+@require_login
+async def admin_garagem_detalhe(request: Request, garagem_id: int, ok: str = "",
+                                erro: str = ""):
+    garagem = garagens_mod.buscar(garagem_id)
+    if not garagem:
+        return RedirectResponse("/admin/veiculos?erro_garagem=nao_encontrada",
+                                status_code=302)
+    dados = garagens_mod.panorama(garagem["nome"])
+    return render(request, "admin_garagem.html", {
+        **dados,
+        "garagens_cadastradas": garagens_mod.listar(),
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
+        "ok": ok, "erro": erro,
+    })
+
+
+@app.post("/admin/clientes/{cliente_id}/mover-garagem")
+@require_login
+async def admin_cliente_mover_garagem(request: Request, cliente_id: int):
+    """Passa os veículos deste cliente de uma garagem para outra."""
+    cliente = clientes_mod.buscar(cliente_id)
+    if not cliente:
+        return RedirectResponse("/admin/veiculos?erro_cliente=nao_encontrado",
+                                status_code=302)
+    destino = await _garagem_destino_valida(request)
+    if destino is None:
+        return RedirectResponse(f"/admin/clientes/{cliente_id}?erro=destino",
+                                status_code=302)
+    form = await request.form()
+    origem = str(form.get("origem", "")).strip()
+    movidos = veiculos_mod.mover_veiculos_de_garagem(origem, destino, cliente["nome"])
+    return RedirectResponse(f"/admin/clientes/{cliente_id}?ok=movidos_{movidos}",
+                            status_code=302)
+
+
+@app.post("/admin/garagens/{garagem_id}/mover-garagem")
+@require_login
+async def admin_garagem_mover(request: Request, garagem_id: int):
+    """Tira veículos desta garagem e joga em outra — de um cliente só ou de
+    todos, conforme o que foi escolhido na tela."""
+    garagem = garagens_mod.buscar(garagem_id)
+    if not garagem:
+        return RedirectResponse("/admin/veiculos?erro_garagem=nao_encontrada",
+                                status_code=302)
+    destino = await _garagem_destino_valida(request)
+    if destino is None:
+        return RedirectResponse(f"/admin/garagens/{garagem_id}?erro=destino",
+                                status_code=302)
+    form = await request.form()
+    cliente = str(form.get("cliente", "")).strip()
+    movidos = veiculos_mod.mover_veiculos_de_garagem(
+        garagem["nome"], destino, cliente or None)
+    return RedirectResponse(f"/admin/garagens/{garagem_id}?ok=movidos_{movidos}",
+                            status_code=302)
+
+
+async def _garagem_destino_valida(request: Request) -> str | None:
+    """O destino tem que ser uma garagem CADASTRADA — senão a tela viraria
+    uma porta de entrada pra garagem digitada errada, que é exatamente o que
+    o cadastro existe pra evitar. Devolve None quando não serve."""
+    form = await request.form()
+    destino = str(form.get("destino", "")).strip()
+    if not destino:
+        return None
+    nomes = {g["nome"].upper() for g in garagens_mod.listar()}
+    return destino if destino.upper() in nomes else None
 
 
 # ── Estoque — página mobile (acesso via QR code) ──────────────────────────────

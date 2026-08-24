@@ -70,7 +70,9 @@
       <tbody>
       {% for c in clientes_cadastrados %}
       <tr class="filtro-item">
-        <td><strong>{{ c.nome }}</strong></td>
+        {# O nome é atalho pra página do cliente: veículos, garagens usadas,
+           modelos e kits num lugar só. #}
+        <td><a href="/admin/clientes/{{ c.id }}"><strong>{{ c.nome }}</strong></a></td>
         <td style="font-size:12px;color:#888;">{{ c.criado_em[:10] }}</td>
         <td>
           {% if user and user.admin %}
@@ -110,7 +112,7 @@
       <tbody>
       {% for g in garagens_cadastradas %}
       <tr class="filtro-item">
-        <td><strong>{{ g.nome }}</strong></td>
+        <td><a href="/admin/garagens/{{ g.id }}"><strong>{{ g.nome }}</strong></a></td>
         <td style="font-size:12px;color:#888;">{{ g.criado_em[:10] }}</td>
         <td>
           {% if user and user.admin %}
@@ -304,8 +306,18 @@
            style="font-weight:700;color:#1a3a5c;"
            title="Ver os itens e patrimônios deste veículo">{{ v.numero }}</a>
       </td>
-      <td>{{ v.cliente }}</td>
-      <td>{{ v.garagem or '—' }}</td>
+      {# Cliente e garagem também são atalhos: daqui se chega no panorama de
+         cada um sem precisar rolar até os cards do topo. #}
+      <td>
+        {% if id_cliente.get(v.cliente) %}
+        <a href="/admin/clientes/{{ id_cliente[v.cliente] }}">{{ v.cliente }}</a>
+        {% else %}{{ v.cliente }}{% endif %}
+      </td>
+      <td>
+        {% if v.garagem and id_garagem.get(v.garagem) %}
+        <a href="/admin/garagens/{{ id_garagem[v.garagem] }}">{{ v.garagem }}</a>
+        {% else %}{{ v.garagem or '—' }}{% endif %}
+      </td>
       <td>
         {% if v.modelo %}{{ v.modelo }}
         {% else %}<span style="color:#e67e22;font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">⚠️ sem modelo</span>{% endif %}
