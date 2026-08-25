@@ -1099,13 +1099,22 @@ def kits_incompletos() -> dict:
 
 
 def veiculos_com_kit_incompleto() -> dict:
-    """{veiculo_id: {kit_id, faltas}} — a mesma pendência, indexada pelo
-    veículo, que é como a lista de veículos precisa consultar."""
+    """A mesma pendência, indexada pelo veículo — que é como a lista de
+    veículos consulta.
+
+    Vem com DUAS chaves pro mesmo kit: o id do veículo e o NÚMERO em
+    maiúsculas. kit_record.veiculo_id foi acrescentado por migração, então
+    kit finalizado antes disso tem só o texto do veículo — indexar só por id
+    fazia a marca não aparecer justamente nos kits mais antigos, que são os
+    que mais precisam de conferência."""
     por_veiculo: dict = {}
     for kit_id, dados in kits_incompletos().items():
+        alvo = {"kit_id": kit_id, "faltas": dados["faltas"]}
         if dados["veiculo_id"]:
-            por_veiculo[dados["veiculo_id"]] = {"kit_id": kit_id,
-                                                "faltas": dados["faltas"]}
+            por_veiculo[dados["veiculo_id"]] = alvo
+        numero = (dados["veiculo"] or "").strip().upper()
+        if numero:
+            por_veiculo.setdefault(numero, alvo)
     return por_veiculo
 
 

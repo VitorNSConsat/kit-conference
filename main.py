@@ -1153,6 +1153,22 @@ def _patrimonio_context(request: Request, codigo_barra: str) -> dict:
     }
 
 
+# ATENCAO A ORDEM: esta rota vem ANTES da tela de detalhe porque o
+# conversor {codigo:path} e guloso — declarada depois, ela nunca seria
+# alcancada: /patrimonio/PAT-A/painel casaria com o detalhe, tratando
+# "PAT-A/painel" como se fosse o codigo do patrimonio.
+@app.get("/admin/items/patrimonio/{codigo_barra:path}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_patrimonio_painel(request: Request, codigo_barra: str, voltar: str = ""):
+    """Pedaço de tela com tudo que dá pra fazer com um patrimônio — pra abrir
+    numa janela sobre a lista, em vez de mandar o operador pra outra página e
+    depois pra outra."""
+    return render(request, "_patrimonio_painel.html", {
+        **_patrimonio_context(request, codigo_barra),
+        "voltar": voltar,
+    })
+
+
 @app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
 @require_login
 async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
@@ -1160,6 +1176,38 @@ async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
     quem, pra qual veículo — e o que mais foi bipado na mesma sessão."""
     return render(request, "admin_patrimonio.html",
                   _patrimonio_context(request, codigo_barra))
+
+
+def _destino_apos_acao(request: Request, voltar: str, codigo_barra: str,
+                       msg: str, erro: bool = False) -> str:
+    """Pra onde voltar depois de mexer no patrimônio.
+
+    Quando a ação saiu da JANELA (aberta em cima de uma lista), a pessoa tem
+    que voltar exatamente pra aquela lista, com filtro e página — e não pra
+    página do patrimônio, que era um pulo pra fora do que ela estava fazendo.
+    `voltar` só é aceito se for caminho do próprio site."""
+    chave = "erro" if erro else "ok"
+    if voltar.startswith("/") and not voltar.startswith("//"):
+        junta = "&" if "?" in voltar else "?"
+        return f"{voltar}{junta}{chave}=" + quote(msg)
+    return f"/admin/items/patrimonio/{quote(codigo_barra)}?{chave}=" + quote(msg)
+
+
+@app.post("/admin/items/patrimonio/{codigo_barra:path}/painel", response_class=HTMLResponse)
+@require_permission("patrimonio_mover")
+async def admin_patrimonio_painel_previa(request: Request, codigo_barra: str):
+    """A prévia de "mover" dentro da janela: mesma conta da página inteira,
+    devolvida como pedaço pra trocar só o conteúdo da janela."""
+    form = await request.form()
+    destino = str(form.get("destino", "")).strip()
+    motivo = str(form.get("motivo", "")).strip()
+    return render(request, "_patrimonio_painel.html", {
+        **_patrimonio_context(request, codigo_barra),
+        "voltar": str(form.get("voltar", "")),
+        "previa_mover": items_mod.previa_mover(codigo_barra, destino),
+        "mover_destino": destino,
+        "mover_motivo": motivo,
+    })
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/mover")
@@ -1182,19 +1230,19 @@ async def admin_patrimonio_mover(request: Request, codigo_barra: str):
             "mover_destino": destino,
             "mover_motivo": motivo,
         })
+    voltar = str(form.get("voltar", ""))
     try:
         r = items_mod.mover_patrimonio(codigo_barra, destino, motivo,
                                        (get_current_user(request) or {}).get("id"))
     except ValueError as e:
         return RedirectResponse(
-            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            _destino_apos_acao(request, voltar, codigo_barra, str(e), erro=True),
             status_code=302)
-    msg = (f"Patrimônio movido para o veículo {r['destino']['veiculo']}. "
+    msg = (f"Patrimônio {codigo_barra} movido para o veículo {r['destino']['veiculo']}. "
            f"O kit do veículo {r['origem']['veiculo'] or '—'} ficou faltando este item "
            "e aparece na lista de pendências até receber outro.")
-    return RedirectResponse(
-        f"/admin/items/patrimonio/{quote(codigo_barra)}?ok=" + quote(msg),
-        status_code=302)
+    return RedirectResponse(_destino_apos_acao(request, voltar, codigo_barra, msg),
+                            status_code=302)
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/retirar")
@@ -1203,18 +1251,42 @@ async def admin_patrimonio_retirar(request: Request, codigo_barra: str):
     """Tira o patrimônio do kit sem colocar em outro (voltou pro estoque,
     quebrou, sumiu). O kit passa a acusar o item faltando — que é a verdade."""
     form = await request.form()
+    voltar = str(form.get("voltar", ""))
     try:
         r = items_mod.retirar_do_kit(codigo_barra, str(form.get("motivo", "")),
                                      (get_current_user(request) or {}).get("id"))
     except ValueError as e:
         return RedirectResponse(
-            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            _destino_apos_acao(request, voltar, codigo_barra, str(e), erro=True),
             status_code=302)
-    msg = (f"Patrimônio retirado do kit do veículo {r['origem']['veiculo'] or '—'}. "
-           "Esse kit entrou na lista de pendências até receber outro item.")
-    return RedirectResponse(
-        f"/admin/items/patrimonio/{quote(codigo_barra)}?ok=" + quote(msg),
-        status_code=302)
+    msg = (f"Patrimônio {codigo_barra} retirado do kit do veículo "
+           f"{r['origem']['veiculo'] or '—'}. Esse kit entrou na lista de pendências "
+           "até receber outro item.")
+    return RedirectResponse(_destino_apos_acao(request, voltar, codigo_barra, msg),
+                            status_code=302)
+
+
+@app.post("/kit/{kit_id}/trazer-patrimonio")
+@require_permission("patrimonio_mover")
+async def kit_trazer_patrimonio(request: Request, kit_id: str):
+    """Traz pra este kit um patrimônio que está em outro veículo — a mesma
+    mudança de "mover", só que escolhida do lado de quem vai receber.
+
+    É como o operador pensa na hora de repor: "esse veículo está sem antena,
+    qual antena eu trago?". Antes ele precisava saber o código de cabeça e ir
+    até a página daquele patrimônio."""
+    form = await request.form()
+    try:
+        r = items_mod.mover_para_kit(
+            str(form.get("codigo_barra", "")), kit_id, str(form.get("motivo", "")),
+            (get_current_user(request) or {}).get("id"))
+    except ValueError as e:
+        return RedirectResponse(f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
+                                status_code=302)
+    msg = (f"{r['origem']['tipo_nome']} {str(form.get('codigo_barra', '')).strip()} "
+           f"veio do veículo {r['origem']['veiculo'] or '—'}, que ficou faltando "
+           "este item e entrou na lista de pendências.")
+    return RedirectResponse(f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
 
 
 @app.post("/kit/{kit_id}/atribuir-patrimonio")
@@ -1250,6 +1322,7 @@ async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
     novo_codigo = str(form.get("novo_codigo", "")).strip()
     serial_bruto = form.get("novo_serial")
     novo_serial = str(serial_bruto) if serial_bruto is not None else None
+    voltar = str(form.get("voltar", ""))
     try:
         # Motivo obrigatório também aqui: renomear patrimônio é mudança de
         # identidade do item, e sem o porquê o histórico não se explica.
@@ -1257,7 +1330,7 @@ async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
         r = items_mod.corrigir_patrimonio(codigo_barra, novo_codigo, novo_serial)
     except ValueError as e:
         return RedirectResponse(
-            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            _destino_apos_acao(request, voltar, codigo_barra, str(e), erro=True),
             status_code=302)
     partes = []
     if r["renomeou"]:
@@ -1266,9 +1339,8 @@ async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
     if r["seriais_atualizados"]:
         partes.append("Número de série atualizado na bipagem mais recente.")
     msg = " ".join(partes) or "Nada foi alterado."
-    return RedirectResponse(
-        f"/admin/items/patrimonio/{quote(r['codigo'])}?ok=" + quote(msg),
-        status_code=302)
+    return RedirectResponse(_destino_apos_acao(request, voltar, r["codigo"], msg),
+                            status_code=302)
 
 
 @app.get("/admin/gerar-codigo/etiqueta", response_class=HTMLResponse)
@@ -2421,6 +2493,10 @@ async def kit_detail(request: Request, kit_id: str):
     # O que este kit está devendo em relação ao modelo — é isso que vira o
     # aviso de pendência aqui e a marca do veículo nas outras telas.
     faltas = (sessions_mod.kits_incompletos().get(kit_id) or {}).get("faltas", [])
+    # A lista de candidatos só é consultada pra quem pode movê-los: é uma
+    # varredura de bipagens, e não vale pagar por ela pra quem não vai usar.
+    _u = get_current_user(request)
+    pode_ver_patrimonio = permissoes_mod.tem_permissao(_u, "patrimonio_mover")
 
     return render(request, "kit_detail.html", {
         # No celular o kit é aberto pelo hub; no computador, pela Produção,
@@ -2431,6 +2507,10 @@ async def kit_detail(request: Request, kit_id: str):
         # Tipos que este kit aceita por patrimônio — as opções do formulário
         # de atribuir um item novo ao kit já fechado.
         "tipos_para_atribuir": items_mod.listar_tipos_para_kit(kit["kit_template_id"]),
+        # Patrimônios que estão em OUTROS veículos e caberiam aqui: repor
+        # escolhendo da lista, sem precisar decorar o código.
+        "candidatos_outros": (items_mod.candidatos_de_outros_kits(kit_id)
+                              if pode_ver_patrimonio else []),
         "kit": kit,
         "mudancas": mudancas,
         "validacoes_vigentes": validacoes_vigentes,
@@ -4135,7 +4215,11 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
     # vista até alguém repor. Um mapa só pra todos (nada de N+1).
     incompletos = sessions_mod.veiculos_com_kit_incompleto()
     for v in todos:
-        v["falta_item"] = incompletos.get(v["id"])
+        # Por id e, na falta dele, pelo número: kit antigo (anterior à coluna
+        # veiculo_id) só tem o texto do veículo, e sem isso a marca não
+        # aparecia justamente nos kits mais velhos.
+        v["falta_item"] = (incompletos.get(v["id"])
+                           or incompletos.get((v["numero"] or "").strip().upper()))
 
     veiculos = todos
     # Dentro do mesmo filtro as opções somam (duas garagens = as duas listas
@@ -4414,8 +4498,13 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
     historico = veiculos_mod.historico_kits(veiculo_id)
     clientes_cadastrados = clientes_mod.listar()
     garagens_cadastradas = garagens_mod.listar()
+    # Pendência de patrimônio deste veículo — a mesma marca da lista, aqui
+    # também: quem abre o veículo pra entender o que houve tem que ver.
+    _pend = sessions_mod.veiculos_com_kit_incompleto()
     return render(request, "admin_veiculo_detalhe.html", {
         "voltar_para": _voltar_para(request, "/admin/veiculos"),
+        "falta_item": (_pend.get(veiculo_id)
+                       or _pend.get((v["numero"] or "").strip().upper())),
         "v": v, "historico": historico, "clientes": clientes_cadastrados,
         "garagens": garagens_cadastradas,
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),

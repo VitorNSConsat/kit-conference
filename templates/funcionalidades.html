@@ -336,10 +336,17 @@
 
   <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
   <p>
-    Na página do patrimônio, o primeiro bloco responde <strong>“onde este item está
-    agora”</strong>: veículo, kit, cliente, garagem, desde quando e por quem. É a informação
-    que decide o que fazer — e é ela que faltava quando o sistema só dizia “esse código já
-    pertence a outro patrimônio”.
+    <strong>O caminho curto:</strong> em <em>Itens Cadastrados</em>, clique no
+    <strong>código do patrimônio</strong> — abre uma janela por cima da lista, como a
+    engrenagem do Estoque, com tudo que dá pra fazer com aquele item. Ao terminar, você volta
+    pra mesma lista, no mesmo filtro e na mesma página. (Vindo de <em>Veículos e Clientes</em>,
+    clicar no número do veículo já leva pra lista dos patrimônios dele.)
+  </p>
+  <p>
+    O primeiro bloco da janela responde <strong>“onde este item está agora”</strong>: veículo,
+    kit, cliente, garagem, desde quando e por quem — com atalho pro kit e pro histórico
+    completo. É a informação que decide o que fazer, e é ela que faltava quando o sistema só
+    dizia “esse código já pertence a outro patrimônio”.
   </p>
   <p>São três ações diferentes, e escolher a certa importa:</p>
   <ul>
@@ -352,10 +359,16 @@
       pra outro veículo: voltou pro estoque, quebrou, sumiu.</li>
   </ul>
   <p>
-    <span class="campo">➕ Atribuir patrimônio a este kit</span> fica na página do kit (no fim),
-    e é o caminho oposto: coloca um item num kit já fechado. Se o código não existir, ele é
-    cadastrado na hora.
+    <span class="campo">➕ Colocar patrimônio neste kit</span> fica na página do kit (no fim) e
+    é o caminho oposto — o de quem está olhando o veículo que ficou sem a peça. São dois modos:
   </p>
+  <ul>
+    <li><strong>Trazer de outro veículo</strong> — escolhe da lista um patrimônio que está
+      instalado em outro kit. É a mesma mudança do “mover”, vista do lado de quem recebe:
+      não precisa decorar o código nem ir procurar na página daquele item.</li>
+    <li><strong>Cadastrar um novo</strong> — o item de reposição que vai ser enviado. Se o
+      código ainda não existir, ele é cadastrado na hora.</li>
+  </ul>
   <div class="nota">
     <strong>Motivo é obrigatório nas quatro ações</strong>, e fica gravado no histórico do item
     e na auditoria. Seis meses depois, “por que este item mudou de veículo?” só tem resposta
@@ -368,8 +381,8 @@
     <strong>1415</strong> apresentou defeito e a equipe usou a do 1219, que tinha ido junto.
   </p>
   <ul>
-    <li>Abra a página do patrimônio <strong>PAT-A</strong> (Itens &amp; Estoque → Itens
-      Cadastrados, ou pela busca).</li>
+    <li>Em Itens &amp; Estoque → Itens Cadastrados, clique no código <strong>PAT-A</strong>
+      (a janela abre por cima da lista).</li>
     <li>Confira em “Onde está agora” que ele consta no 1219.</li>
     <li>Use <strong>🔀 Mover para outro veículo</strong>, informe <em>1415</em> e o motivo
       (“antena do 1415 com defeito, usada a do 1219”).</li>
@@ -385,8 +398,10 @@
   </p>
   <ul>
     <li>Abra o kit do 1219 (pelo veículo, pela Produção ou pelo aviso “⚠️ falta item”).</li>
-    <li>No fim da página, use <strong>➕ Atribuir patrimônio a este kit</strong>: tipo do item,
-      código PAT-B, nº de série (se houver) e o motivo.</li>
+    <li>No fim da página, use <strong>➕ Colocar patrimônio neste kit</strong> → “Cadastrar um
+      novo”: tipo do item, código PAT-B, nº de série (se houver) e o motivo. (Se em vez de
+      uma peça nova você for trazer a de outro veículo, use “Trazer de outro veículo” e
+      escolha da lista.)</li>
     <li>Pronto — o aviso de pendência some, porque o kit voltou a ter o que o modelo pede.</li>
   </ul>
 
@@ -408,6 +423,7 @@
       item</strong> (que abre o kit) e um filtro próprio em Situação;</li>
     <li>na <strong>Produção</strong>, ao lado do veículo em cada etapa — é ali que o kit
       espera pra ser despachado;</li>
+    <li>na página do veículo, com atalho pro kit;</li>
     <li>na própria página do kit, dizendo o que falta e quantos.</li>
   </ul>
   <div class="nota">

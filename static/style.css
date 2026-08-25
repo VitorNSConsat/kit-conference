@@ -680,6 +680,53 @@ tr:hover td { background: var(--surface-alt); }
     background: #fdf6ea !important;
 }
 
+/* ── Painel do patrimônio (dentro da janela) ──────────────────────────────
+   As mesmas ações da página do item, agora em cima da lista onde o operador
+   está: antes eram três telas (lista → item → volta) pra uma correção. */
+.btn-codigo {
+    background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+    color: var(--brand); display: inline-flex; align-items: center; gap: 5px;
+}
+.btn-codigo:hover code { text-decoration: underline; }
+.btn-codigo code { color: var(--brand); }
+
+.pat-onde { background: #f5f8fb; border-radius: 10px; padding: 12px 14px; }
+.pat-rotulo {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a97a4;
+}
+.pat-veic { font-size: 18px; font-weight: 800; color: var(--brand); margin-top: 2px; }
+.pat-sub { font-size: 12px; color: #667382; margin-top: 3px; }
+.pat-atalhos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+.pat-acao {
+    border: 1px solid #e6ecf2; border-radius: 10px; margin-top: 10px; padding: 0 14px 2px;
+}
+.pat-acao[open] { padding-bottom: 14px; border-color: #cfdae6; }
+.pat-acao > summary {
+    cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 14px; color: #33404d;
+    list-style: none;
+}
+.pat-acao > summary::-webkit-details-marker { display: none; }
+.pat-acao > summary::before { content: '▸ '; color: #9aa7b4; }
+.pat-acao[open] > summary::before { content: '▾ '; }
+.pat-ajuda { font-size: 12px; color: #7a8794; margin: 2px 0 8px; line-height: 1.45; }
+.pat-acao label {
+    display: block; font-size: 12px; font-weight: 700; color: #5b6875; margin: 10px 0 4px;
+}
+.pat-acao input {
+    width: 100%; margin: 0; padding: 9px 10px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-input, 8px);
+}
+.pat-acao .pat-mono { font-family: monospace; }
+.pat-acao button[type=submit] { margin-top: 12px; }
+.pat-previa {
+    background: #fffdf4; border: 1px solid #f0d9a0; border-radius: 10px;
+    padding: 12px 14px; margin-top: 12px; font-size: 13px;
+}
+.pat-previa p { margin: 6px 0 0; }
+.pat-aviso { color: #b8860b; font-size: 12px; }
+.pat-linha { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
 /* ── Filtro de múltipla escolha ───────────────────────────────────────────
    Parece um select, mas cada opção é um checkbox: dá pra ver duas garagens
    (ou três situações) ao mesmo tempo, em vez de uma de cada vez. */

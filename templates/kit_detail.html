@@ -370,7 +370,8 @@
     ⚠️ <strong>Falta patrimônio neste kit:</strong>
     {% for f in faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}.
     {% if pode('patrimonio_atribuir') %}
-    Use “➕ Atribuir patrimônio a este kit”, no fim da página, quando a reposição for enviada.
+    Use “➕ Colocar patrimônio neste kit”, no fim da página, quando a reposição for enviada
+    ou quando for trazer a peça de outro veículo.
     {% else %}
     A reposição precisa ser atribuída por quem tem permissão de patrimônio.
     {% endif %}
@@ -646,11 +647,39 @@
      Não reabre produção nem mexe em estoque — só diz que este item passou a
      fazer parte deste kit, com motivo gravado. #}
   <details class="card-atribuir">
-    <summary>➕ Atribuir patrimônio a este kit</summary>
+    <summary>➕ Colocar patrimônio neste kit</summary>
     <div style="padding:0 14px 14px;">
+      {% if pode('patrimonio_mover') and candidatos_outros %}
+      {# Trazer de outro veículo: é o caminho de quem está OLHANDO o veículo
+         que ficou sem a peça — sem precisar decorar o código e ir procurar
+         na página daquele patrimônio. #}
       <p style="font-size:12px;color:#666;margin:6px 0 10px;">
-        Para o item de reposição que vai ser enviado. Se o código ainda não existir,
-        ele é cadastrado agora. Motivo é obrigatório e fica no histórico do item.
+        <strong>Trazer de outro veículo</strong> — quando a peça que vai ficar aqui já está
+        instalada em outro kit. O veículo de origem passa a acusar a falta.
+      </p>
+      <form method="post" action="/kit/{{ kit.kit_id }}/trazer-patrimonio"
+            onsubmit="return confirm('Trazer este patrimônio para o kit deste veículo?')">
+        <label>Patrimônio que está em outro veículo *</label>
+        <select name="codigo_barra" required>
+          <option value="">— escolha —</option>
+          {% for c in candidatos_outros %}
+          <option value="{{ c.codigo_barra }}">
+            {{ c.tipo_nome }} · {{ c.codigo_barra }} — 🚗 {{ c.veiculo or 'sem veículo' }}
+          </option>
+          {% endfor %}
+        </select>
+        <label>Motivo *</label>
+        <input type="text" name="motivo" required minlength="5"
+               placeholder="ex: peça remanejada na instalação">
+        <button type="submit" style="background:#2980b9;">🔀 Trazer para este kit</button>
+      </form>
+      <hr style="border:none;border-top:1px solid #eee;margin:16px 0 10px;">
+      {% endif %}
+
+      <p style="font-size:12px;color:#666;margin:6px 0 10px;">
+        <strong>Cadastrar um novo</strong> — para o item de reposição que vai ser enviado.
+        Se o código ainda não existir, ele é cadastrado agora. Motivo é obrigatório e fica
+        no histórico do item.
       </p>
       <form method="post" action="/kit/{{ kit.kit_id }}/atribuir-patrimonio">
         <label>Tipo do item *</label>

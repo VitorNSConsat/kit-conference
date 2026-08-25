@@ -59,6 +59,16 @@
 {% elif request.query_params.get('erro_import') %}
 <div class="alert alert-danger">Erro na importação: {{ request.query_params.get('erro_import') }}</div>
 {% endif %}
+{# Mensagem livre: as ações do patrimônio voltam pra ESTA lista contando o que
+   fizeram (em vez de mandar o operador pra outra tela só pra ler o aviso).
+   Fica fora da corrente de códigos fixos acima justamente por ser texto. #}
+{% set ok_livre = request.query_params.get('ok') %}
+{% if ok_livre and ok_livre not in ('1', 'item_criado', 'estoque_criado', 'codigo_atualizado',
+                                    'codigo_renomeado', 'minimo', 'status_compra', 'reposto',
+                                    'quantidade_corrigida', 'alertas', 'sobressalente',
+                                    'reconciliado_vazio', 'reconciliado') %}
+<div class="alert alert-success">✅ {{ ok_livre }}</div>
+{% endif %}
 {% if request.query_params.get('ok_ajuste') %}
 <div class="alert alert-success">📥 {{ request.query_params.get('ok_ajuste') }}</div>
 {% endif %}
@@ -750,10 +760,14 @@
             {% for item in pag_itens.itens %}
                 <tr class="filtro-item">
                     <td>
-                        <a href="/admin/items/patrimonio/{{ item.codigo_barra | urlencode }}"
-                           title="Ver onde foi bipado, por quem e o que veio junto">
-                            <code>{{ item.codigo_barra }}</code>
-                        </a>
+                        {# Abre a janela com as acoes do patrimonio na propria
+                           lista: antes era ir pra tela do item, agir la e
+                           voltar — tres telas pra uma correcao. #}
+                        <button type="button" class="btn-codigo"
+                                onclick="abrirPainelPatrimonio('{{ item.codigo_barra | e }}')"
+                                title="Alterar, mover, retirar — sem sair da lista">
+                            <code>{{ item.codigo_barra }}</code> ⚙️
+                        </button>
                     </td>
                     <td>{{ item.descricao }}</td>
                     <td>
@@ -817,6 +831,26 @@
         </div>
         {% endif %}
         </div>{# /bloco-patrimonios #}
+
+        {# UMA janela pra lista inteira: o conteudo vem por fetch quando se
+           clica. Uma janela por linha encheria a pagina de HTML escondido —
+           com 500 patrimonios seria meia tela de nada. #}
+        <div class="modal-lista" id="modal-patrimonio" role="dialog" aria-modal="true"
+             aria-labelledby="titulo-modal-patrimonio">
+          <div class="modal-cabecalho">
+            <div>
+              <strong id="titulo-modal-patrimonio">🏷️ Patrimônio</strong>
+              <span class="modal-sub" id="modal-patrimonio-codigo"></span>
+            </div>
+            <button type="button" class="modal-fechar" onclick="fecharPainelPatrimonio()"
+                    title="Fechar (Esc)">&times;</button>
+          </div>
+          <div class="modal-corpo" id="modal-patrimonio-corpo">
+            <p style="color:#888;">Carregando…</p>
+          </div>
+        </div>
+        <div id="modal-fundo-patrimonio" class="modal-fundo"
+             onclick="fecharPainelPatrimonio()"></div>
     </div>
 </div>
 
@@ -1081,6 +1115,54 @@ function abrirImportarAjuste() {
 }
 </script>
 <script>
+// ── Janela do patrimônio ──────────────────────────────────────────────────
+// O conteúdo vem por fetch (fragmento pronto do servidor), então a página
+// não carrega uma janela por linha. As ações de dentro fazem POST normal e
+// voltam pra ESTA lista, com filtro e página — quem estava corrigindo cinco
+// itens não perde o lugar a cada um.
+function abrirPainelPatrimonio(codigo) {
+    const janela = document.getElementById('modal-patrimonio');
+    const corpo = document.getElementById('modal-patrimonio-corpo');
+    document.getElementById('modal-patrimonio-codigo').textContent = codigo;
+    corpo.innerHTML = '<p style="color:#888;">Carregando…</p>';
+    janela.classList.add('aberto');
+    document.getElementById('modal-fundo-patrimonio').classList.add('aberto');
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (barra > 0) document.body.style.paddingRight = barra + 'px';
+    const volta = window.location.pathname + window.location.search;
+    fetch('/admin/items/patrimonio/' + encodeURIComponent(codigo) + '/painel?voltar='
+          + encodeURIComponent(volta), {headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => { corpo.innerHTML = html; })
+        .catch(() => {
+            // Sem fetch, o caminho antigo continua valendo.
+            window.location = '/admin/items/patrimonio/' + encodeURIComponent(codigo);
+        });
+}
+function fecharPainelPatrimonio() {
+    document.getElementById('modal-patrimonio').classList.remove('aberto');
+    document.getElementById('modal-fundo-patrimonio').classList.remove('aberto');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+// A prévia de "mover" troca só o conteúdo da janela — quem está conferindo
+// origem e destino não pode perder a lista de trás.
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form.matches('#modal-patrimonio form[data-fragmento="1"]')) return;
+    e.preventDefault();
+    const corpo = document.getElementById('modal-patrimonio-corpo');
+    fetch(form.action, {method: 'POST', body: new FormData(form),
+                        headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => { corpo.innerHTML = html; })
+        .catch(() => form.submit());
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fecharPainelPatrimonio();
+});
+
 let _popupAberto = null;
 
 function abrirPopup(event, tipoId) {

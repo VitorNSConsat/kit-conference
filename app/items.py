@@ -414,6 +414,74 @@ def _validar_motivo(motivo: str) -> str:
     return motivo
 
 
+def kit_por_id(kit_id: str) -> dict | None:
+    """Mesmos campos de kit_do_veiculo(), mas achando pelo kit_id — usado
+    quando a escolha parte do KIT (a tela do kit pedindo um item de outro
+    veículo), e não do número digitado."""
+    with db() as conn:
+        row = conn.execute("""
+            SELECT kr.kit_id, kr.sessao_id, kr.kit_template_id, kr.status_producao,
+                   kr.finalizado_em, kt.nome AS kit_nome, kt.cliente,
+                   COALESCE(v.numero, kr.veiculo, '') AS veiculo,
+                   COALESCE(kr.garagem, '') AS garagem
+            FROM kit_record kr
+            JOIN kit_template kt ON kt.id = kr.kit_template_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            WHERE kr.kit_id = ?
+        """, (kit_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def candidatos_de_outros_kits(kit_id: str, item_tipo_id: int | None = None,
+                              limite: int = 200) -> list[dict]:
+    """Patrimônios que estão em OUTROS kits e poderiam vir pra este.
+
+    Serve à pergunta do operador na hora de repor: "esse veículo está sem a
+    antena — qual antena eu trago?". Sem isso ele precisaria saber de cabeça
+    o código e ir procurar na página daquele patrimônio."""
+    destino = kit_por_id(kit_id)
+    if not destino:
+        return []
+    sql = """
+        SELECT si.codigo_barra, si.serial_number, si.item_tipo_id,
+               it.nome AS tipo_nome,
+               COALESCE(v.numero, kr.veiculo, '') AS veiculo,
+               kt.nome AS kit_nome, kr.kit_id, kr.status_producao
+        FROM scan_session_items si
+        JOIN item_tipo it ON it.id = si.item_tipo_id
+        JOIN kit_record kr ON kr.sessao_id = si.sessao_id
+        JOIN kit_template kt ON kt.id = kr.kit_template_id
+        LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+        WHERE kr.status = 'ativo'
+          AND kr.kit_id != ?
+          AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
+          AND COALESCE(it.controle_externo, 0) = 1
+          AND si.item_tipo_id IN (
+              SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ?)
+    """
+    params: list = [kit_id, destino["kit_template_id"]]
+    if item_tipo_id:
+        sql += " AND si.item_tipo_id = ?"
+        params.append(int(item_tipo_id))
+    sql += " ORDER BY it.nome, veiculo, si.codigo_barra LIMIT ?"
+    params.append(int(limite))
+    with db() as conn:
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def mover_para_kit(codigo_barra: str, kit_id: str, motivo: str,
+                   user_id: int | None = None) -> dict:
+    """Mesma mudança de mover_patrimonio(), escolhida a partir do KIT que vai
+    receber. Reaproveita a função por número de veículo pra não existirem
+    duas regras diferentes pra mesma coisa."""
+    destino = kit_por_id(kit_id)
+    if not destino:
+        raise ValueError("Kit de destino não encontrado.")
+    if not destino["veiculo"]:
+        raise ValueError("O kit de destino está sem veículo — defina o veículo antes.")
+    return mover_patrimonio(codigo_barra, destino["veiculo"], motivo, user_id)
+
+
 def previa_mover(codigo_barra: str, numero_destino: str) -> dict:
     """O que vai acontecer se este patrimônio for pro veículo informado.
 
