@@ -658,85 +658,94 @@
 <!-- ── Aba: Patrimônios ──────────────────────────────────────────────────── -->
 <div id="tab-patrimonios" class="tab-panel" style="display:{{ 'block' if aba == 'patrimonios' else 'none' }};">
     <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-            <div>
-                <h2 style="margin-bottom:4px;">Itens Cadastrados no Sistema</h2>
-                <p style="color:#666;font-size:13px;margin-top:0;">
-                    Patrimônios são registrados automaticamente durante a bipagem.
-                    Você também pode cadastrar manualmente abaixo.
-                </p>
-            </div>
-            {% if pag_itens.itens and user and user.admin %}
-            <form method="post" action="/admin/items/clear"
-                  onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
-                <button type="submit" class="btn btn-danger" style="margin-top:8px;">
-                    🗑️ Apagar Todos os Patrimônios
-                </button>
-            </form>
-            {% endif %}
-        </div>
-
-        <!-- Cadastro manual -->
-        <form method="post" action="/admin/items"
-              style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:16px;">
-            <input type="text" name="codigo_barra" required placeholder="Código de barras / patrimônio">
-            <select name="item_tipo_id" required>
-                <option value="">— selecione o tipo —</option>
-                {% for tipo in tipos if tipo.ativo %}
-                <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary">Cadastrar</button>
-        </form>
-
-        <!-- Filtros: veículo e situação -->
-        <form method="get" action="/admin/items"
-              style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
-            <input type="hidden" name="tab" value="patrimonios">
-            <div style="min-width:220px;">
-                <label style="font-size:12px;color:#555;">Filtrar por veículo</label>
-                <select name="veiculo_id" onchange="this.form.submit()" style="margin:0;">
-                    <option value="">Todos os veículos</option>
-                    {% for v in veiculos_todos %}
-                    <option value="{{ v.id }}" {{ 'selected' if patrimonio_veiculo_id == v.id }}>
-                        {{ v.numero }}{{ ' — ' + v.cliente if v.cliente else '' }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div style="min-width:260px;">
-                <label style="font-size:12px;color:#555;">Situação</label>
-                {{ f.multi('situacao', 'Situação', [
-                     ('ok', '✅ Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
-                     ('nunca_bipado', '⚪ Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
-                     ('em_bipagem', '🔄 Em bipagem (' ~ resumo_situacoes.get('em_bipagem', 0) ~ ')'),
-                     ('kit_sem_veiculo', '⚠️ Kit sem veículo (' ~ resumo_situacoes.get('kit_sem_veiculo', 0) ~ ')'),
-                     ('kit_removido', '🗑️ Kit excluído (' ~ resumo_situacoes.get('kit_removido', 0) ~ ')'),
-                   ], patrimonio_situacao, 'todas') }}
-            </div>
-            {% if patrimonio_veiculo_id or patrimonio_situacao %}
-            <a href="/admin/items?tab=patrimonios" class="btn btn-sm btn-warning">Limpar filtros</a>
-            {% endif %}
-        </form>
-
-        <p style="font-size:12px;color:#888;margin:-4px 0 10px;">
-            Clique no código de qualquer item pra ver onde ele foi bipado, por qual operador
-            e o que foi bipado junto com ele.
+        <h2 style="margin-bottom:4px;">Itens Cadastrados no Sistema</h2>
+        <p style="color:#666;font-size:13px;margin-top:0;margin-bottom:14px;">
+            Um item por linha: <strong>que peça é</strong>, <strong>em que veículo
+            está</strong> e <strong>como ela chegou lá</strong>. Cada patrimônio nasce
+            sozinho na bipagem — esta tela é pra <em>encontrar</em> um e
+            <em>consertar</em> o que ficou errado.
+        </p>
+        <p class="ajuda-passo">
+            👉 <strong>Clique no código</strong> pra abrir a janela do item: onde ele
+            está, o que mudou depois da montagem, e as ações de
+            <strong>mover para outro veículo</strong> e <strong>corrigir o
+            código</strong>.
         </p>
 
-        <form method="get" action="/admin/items" class="busca-form"
-              data-busca-viva="#bloco-patrimonios">
-            <input type="hidden" name="tab" value="patrimonios">
-            {% if patrimonio_veiculo_id %}<input type="hidden" name="veiculo_id" value="{{ patrimonio_veiculo_id }}">{% endif %}
-            {% for sit in patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ sit }}">{% endfor %}
-            <input type="text" name="busca" value="{{ busca }}"
-                   placeholder="🔍 Buscar código, tipo, veículo, série ou operador...">
-            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-            {% if busca %}
-            <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{% for sit in patrimonio_situacao %}&situacao={{ sit|urlencode }}{% endfor %}"
-               class="btn btn-sm btn-secondary">✕ Limpar</a>
+        <!-- Busca e filtros num bloco só: é por aqui que a tela começa. -->
+        <div class="busca-bloco">
+            <form method="get" action="/admin/items" class="busca-form" style="margin:0;"
+                  data-busca-viva="#bloco-patrimonios">
+                <input type="hidden" name="tab" value="patrimonios">
+                {% if patrimonio_veiculo_id %}<input type="hidden" name="veiculo_id" value="{{ patrimonio_veiculo_id }}">{% endif %}
+                {% for sit in patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ sit }}">{% endfor %}
+                <input type="text" name="busca" value="{{ busca }}"
+                       placeholder="🔍 Buscar código, tipo, veículo, série ou operador...">
+                <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+                {% if busca %}
+                <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{% for sit in patrimonio_situacao %}&situacao={{ sit|urlencode }}{% endfor %}"
+                   class="btn btn-sm btn-secondary">✕ Limpar</a>
+                {% endif %}
+            </form>
+            <form method="get" action="/admin/items"
+                  style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:10px 0 0;">
+                <input type="hidden" name="tab" value="patrimonios">
+                <div style="min-width:220px;">
+                    <label style="font-size:12px;color:#555;">Veículo</label>
+                    <select name="veiculo_id" onchange="this.form.submit()" style="margin:0;">
+                        <option value="">Todos os veículos</option>
+                        {% for v in veiculos_todos %}
+                        <option value="{{ v.id }}" {{ 'selected' if patrimonio_veiculo_id == v.id }}>
+                            {{ v.numero }}{{ ' — ' + v.cliente if v.cliente else '' }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="min-width:260px;">
+                    <label style="font-size:12px;color:#555;">Situação</label>
+                    {{ f.multi('situacao', 'Situação', [
+                         ('ok', '✅ Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
+                         ('nunca_bipado', '⚪ Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
+                         ('em_bipagem', '🔄 Em bipagem (' ~ resumo_situacoes.get('em_bipagem', 0) ~ ')'),
+                         ('kit_sem_veiculo', '⚠️ Kit sem veículo (' ~ resumo_situacoes.get('kit_sem_veiculo', 0) ~ ')'),
+                         ('kit_removido', '🗑️ Kit excluído (' ~ resumo_situacoes.get('kit_removido', 0) ~ ')'),
+                       ], patrimonio_situacao, 'todas') }}
+                </div>
+                {% if patrimonio_veiculo_id or patrimonio_situacao %}
+                <a href="/admin/items?tab=patrimonios" class="btn btn-sm btn-warning">Limpar filtros</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Cadastro manual e limpeza saíram do topo: são exceção, e ocupavam
+             a primeira tela de quem só veio procurar um item. -->
+        <details class="pat-acao" style="margin-bottom:14px;">
+            <summary>➕ Cadastrar um patrimônio à mão</summary>
+            <p class="pat-ajuda">
+                Só pra peça que ainda não passou por bipagem nenhuma (chegou avulsa, veio
+                de reposição). O normal é o patrimônio nascer sozinho quando é bipado.
+            </p>
+            <form method="post" action="/admin/items"
+                  style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:8px;">
+                <input type="text" name="codigo_barra" required placeholder="Código de barras / patrimônio">
+                <select name="item_tipo_id" required>
+                    <option value="">— selecione o tipo —</option>
+                    {% for tipo in tipos if tipo.ativo %}
+                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Cadastrar</button>
+            </form>
+            {% if pag_itens.itens and user and user.admin %}
+            <form method="post" action="/admin/items/clear" style="margin-top:14px;"
+                  onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
+                <button type="submit" class="btn btn-sm btn-danger">
+                    🗑️ Apagar todos os patrimônios
+                </button>
+                <span class="pat-ajuda" style="margin-left:8px;">Não dá pra desfazer.</span>
+            </form>
             {% endif %}
-        </form>
+        </details>
         <div id="bloco-patrimonios">
         {% if busca %}
         <p class="busca-resultado">
@@ -744,15 +753,16 @@
         </p>
         {% endif %}
         {{ pg.contagem(pag_itens, "patrimônios") }}
+        {# Cinco colunas em vez de sete: série entrou embaixo do código e a
+           data de cadastro embaixo do tipo. É a mesma informação, lida na
+           ordem em que a pergunta aparece — que peça é, onde está, como está. #}
         <table id="tabela-patrimonios">
             <thead>
                 <tr>
                     <th>Código / Patrimônio</th>
-                    <th>Tipo</th>
-                    <th>Veículo atual</th>
-                    <th>Nº de Série</th>
-                    <th>Cadastrado em</th>
-                    <th>Status</th>
+                    <th>Que peça é</th>
+                    <th>Onde está</th>
+                    <th>Situação</th>
                     <th></th>
                 </tr>
             </thead>
@@ -765,37 +775,45 @@
                            voltar — tres telas pra uma correcao. #}
                         <button type="button" class="btn-codigo"
                                 onclick="abrirPainelPatrimonio('{{ item.codigo_barra | e }}')"
-                                title="Alterar, mover, retirar — sem sair da lista">
+                                title="Abrir a janela deste item: mover para outro veículo, corrigir o código">
                             <code>{{ item.codigo_barra }}</code> ⚙️
                         </button>
+                        {% if item.serial_atual %}
+                        <div style="font-size:11px;color:#999;font-family:monospace;">
+                            série {{ item.serial_atual }}
+                        </div>
+                        {% endif %}
                     </td>
-                    <td>{{ item.descricao }}</td>
+                    <td>
+                        {{ item.descricao }}
+                        <div style="font-size:11px;color:#aaa;">
+                            cadastrado em {{ item.criado_em[:10] if item.criado_em else '—' }}
+                        </div>
+                    </td>
                     <td>
                         {% if item.veiculo_atual %}
                         <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:#1a3a5c;"
                            title="Abrir o kit deste veículo">
-                            {{ item.veiculo_atual }}
+                            🚗 {{ item.veiculo_atual }}
                         </a>
                         {% if item.veiculo_id_atual %}
                         <a href="/admin/veiculos/{{ item.veiculo_id_atual }}"
-                           style="text-decoration:none;" title="Abrir o cadastro do veículo">🚗</a>
+                           style="text-decoration:none;" title="Abrir o cadastro do veículo">↗</a>
                         {% endif %}
                         {% if item.operador_atual %}
-                        <div style="font-size:11px;color:#999;">por {{ item.operador_atual }}</div>
+                        <div style="font-size:11px;color:#999;">bipado por {{ item.operador_atual }}</div>
                         {% endif %}
                         {% else %}
-                        <span style="color:#bbb;" title="{{ item.situacao_texto }}">—</span>
-                        <div style="font-size:11px;color:#e67e22;">
+                        <span style="color:#e67e22;font-size:13px;" title="{{ item.situacao_texto }}">
                             {%- if item.situacao == 'nunca_bipado' %}⚪ nunca bipado
                             {%- elif item.situacao == 'em_bipagem' %}🔄 em bipagem
                             {%- elif item.situacao == 'kit_sem_veiculo' %}⚠️ kit sem veículo
                             {%- elif item.situacao == 'kit_removido' %}🗑️ kit excluído
+                            {%- else %}— em nenhum veículo
                             {%- endif %}
-                        </div>
+                        </span>
                         {% endif %}
                     </td>
-                    <td style="font-family:monospace;font-size:12px;">{{ item.serial_atual or '—' }}</td>
-                    <td style="font-size:12px;color:#888;">{{ item.criado_em[:16] if item.criado_em else '—' }}</td>
                     <td>
                         <span class="badge {{ 'badge-success' if item.ativo else 'badge-danger' }}">
                             {{ 'Ativo' if item.ativo else 'Inativo' }}
@@ -812,7 +830,7 @@
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="7" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
             {% endfor %}
             </tbody>
         </table>

@@ -1166,7 +1166,7 @@ async def admin_patrimonio_painel(request: Request, codigo_barra: str, voltar: s
     # O MESMO painel do veículo, com este item em foco: entrar pelo código ou
     # pelo número do veículo tem que dar no mesmo lugar.
     return render(request, "_painel.html",
-                  _painel_context(request, None, codigo_barra, voltar))
+                  _painel_context(request, None, codigo_barra, voltar, modo="item"))
 
 
 @app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
@@ -1202,7 +1202,8 @@ async def admin_patrimonio_painel_previa(request: Request, codigo_barra: str):
     por aqui também precisa poder adicionar item. Prévia não grava nada; quem
     grava são as rotas de mover/atribuir, cada uma com sua permissão."""
     form = await request.form()
-    ctx = _painel_context(request, None, codigo_barra, str(form.get("voltar", "")))
+    ctx = _painel_context(request, None, codigo_barra, str(form.get("voltar", "")),
+                          modo="item")
     return render(request, "_painel.html", _preencher_previa(ctx, form, codigo_barra))
 
 
@@ -4496,7 +4497,8 @@ async def admin_veiculos_import_post(request: Request):
 
 
 def _painel_context(request: Request, veiculo_id: int | None = None,
-                    codigo_barra: str = "", voltar: str = "") -> dict:
+                    codigo_barra: str = "", voltar: str = "",
+                    modo: str = "veiculo") -> dict:
     """Contexto do PAINEL ÚNICO — o mesmo pedaço de tela aberto pelo número do
     veículo e pelo código do patrimônio.
 
@@ -4505,7 +4507,13 @@ def _painel_context(request: Request, veiculo_id: int | None = None,
     porta errada tinha que sair e entrar de novo. Agora é um só: o veículo
     sempre aparece, e o item fica "em foco" quando se entra por ele.
 
-    `codigo_barra` manda: se veio um patrimônio, o veículo é o do kit dele."""
+    `codigo_barra` manda: se veio um patrimônio, o veículo é o do kit dele.
+
+    `modo` diz PARA QUE a janela foi aberta, e é só a quantidade de tela:
+    "veiculo" (clique no número, em Veículos e Clientes) é a janela inteira —
+    itens do kit, pendência e adicionar item; "item" (clique no código, em
+    Itens Cadastrados) é a janela curta de quem só quer resolver aquele
+    patrimônio: veículo, item em foco, mover, corrigir e o histórico."""
     item_sel = items_mod.onde_esta(codigo_barra) if codigo_barra else None
     v = None
     if item_sel and item_sel.get("veiculo"):
@@ -4520,6 +4528,7 @@ def _painel_context(request: Request, veiculo_id: int | None = None,
     return {
         "v": v,
         "kit": kit,
+        "modo": modo,
         "codigo_barra": codigo_barra,
         "item_sel": item_sel,
         "conferencia": sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else [],

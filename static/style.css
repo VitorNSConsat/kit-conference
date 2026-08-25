@@ -295,6 +295,18 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
     max-width: 340px;
     margin: 0;
 }
+/* Busca e filtros juntos numa caixa só: são a mesma pergunta ("qual item eu
+   quero ver?") e, soltos, a tela abria com quatro formulários empilhados. */
+.busca-bloco {
+    background: #f7f9fb; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 14px;
+}
+.busca-bloco .busca-form { margin-bottom: 0; }
+/* A linha que ensina o gesto principal da tela. */
+.ajuda-passo {
+    background: #eef4fb; border-left: 4px solid var(--brand); border-radius: 8px;
+    padding: 9px 12px; margin: 0 0 14px; font-size: 13px; color: #40536a;
+}
 .busca-resultado {
     font-size: 12.5px;
     color: var(--text-muted);
@@ -690,7 +702,33 @@ tr:hover td { background: var(--surface-alt); }
 .btn-codigo:hover code { text-decoration: underline; }
 .btn-codigo code { color: var(--brand); }
 
+/* ── Painel único (veículo + patrimônio) ──────────────────────────────────
+   Duas colunas quando a janela é a do veículo, que tem muito mais coisa:
+   à esquerda o item em foco e o que fazer com ele, à direita o kit. O card
+   do veículo e a nota do rodapé ocupam a linha inteira. Em tela estreita
+   vira uma coluna só, na ordem em que está no HTML. */
+.pat-painel { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+.pat-painel > .pat-coluna:empty { display: none; }
+@media (min-width: 860px) {
+    .pat-largo { grid-template-columns: 1fr 1fr; column-gap: 18px; }
+    .pat-largo > .pat-full { grid-column: 1 / -1; }
+}
+/* Os blocos já vêm com margem própria; dentro da coluna ela some no topo
+   pra as duas começarem alinhadas. */
+.pat-coluna > :first-child { margin-top: 0; }
+.pat-vazio {
+    border: 1px dashed #d6dfe8; border-radius: 10px; padding: 12px 14px; margin: 0;
+}
+
 .pat-onde { background: #f5f8fb; border-radius: 10px; padding: 12px 14px; }
+/* Pendência dentro do card do veículo: quem ele é e o que falta nele são a
+   mesma informação — separados, o operador lia só a primeira. */
+.pat-falta {
+    background: var(--danger-bg, #fdecea); border-left: 4px solid #c0392b;
+    border-radius: 8px; padding: 9px 12px; margin-top: 12px;
+    font-size: 14px; color: #8e2a20;
+}
+.pat-falta-ajuda { font-size: 12px; font-weight: 400; margin-top: 4px; color: #a0554c; }
 .pat-rotulo {
     font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a97a4;
 }
@@ -743,9 +781,10 @@ tr:hover td { background: var(--surface-alt); }
    nao dava pra saber qual dos itens esta "em foco". */
 .vp-item-sel { background: #eaf2fb; box-shadow: inset 0 0 0 1px #bcd4ee; }
 .pat-foco {
-    background: #f5f8fb; border: 1px solid #cfdae6; border-radius: 10px;
-    padding: 12px 14px; margin-top: 12px;
+    background: #eef4fb; border: 1px solid #cfdae6; border-radius: 10px;
+    padding: 12px 14px;
 }
+.pat-foco-titulo { font-size: 15px; font-weight: 800; color: var(--brand); margin-top: 2px; }
 
 /* ── Filtro de múltipla escolha ───────────────────────────────────────────
    Parece um select, mas cada opção é um checkbox: dá pra ver duas garagens
@@ -793,6 +832,9 @@ tr:hover td { background: var(--surface-alt); }
     box-shadow: 0 18px 48px rgba(0,0,0,.28);
 }
 .modal-lista.aberto { display: flex; animation: popIn .12s ease; }
+/* A janela do veículo mostra duas colunas (item em foco | kit) e precisa de
+   mais largura; a do patrimônio, que é curta, continua na medida padrão. */
+.modal-lista.modal-largo { width: min(1080px, calc(100vw - 32px)); }
 .modal-fundo {
     display: none; position: fixed; inset: 0; z-index: 1000;
     background: rgba(16, 28, 42, .45);

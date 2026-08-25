@@ -324,10 +324,16 @@
 
   <h3>🏷️ Itens Cadastrados</h3>
   <p>
-    Todos os patrimônios, com filtro por veículo e por situação, e busca por código.
-    Clicando no código abre a <strong>janela do patrimônio</strong> — a mesma que abre pelo
-    número do veículo: onde ele está agora, o que falta naquele kit, o histórico de
-    alterações e as ações de mover, corrigir e adicionar.
+    Um item por linha, respondendo três perguntas nesta ordem: <strong>que peça é</strong>,
+    <strong>onde está</strong> e <strong>como está</strong>. Em cima ficam a busca e os
+    filtros (veículo e situação) — é por ali que a tela começa. O cadastro manual e o
+    “apagar todos” são exceção e ficam recolhidos em <span class="campo">➕ Cadastrar um
+    patrimônio à mão</span>, pra não ocupar a primeira tela de quem só veio procurar.
+  </p>
+  <p>
+    <strong>Clicar no código</strong> abre a <strong>janela do patrimônio</strong>: onde ele
+    está, o histórico de alterações e as ações de <strong>mover</strong> e
+    <strong>corrigir</strong>. É a janela curta, de quem veio resolver aquele item.
   </p>
   <div class="nota">
     Essa página é aberta <strong>por aqui</strong>. Na lista de verificação do kit, o código
@@ -337,27 +343,34 @@
 
   <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
   <p>
-    <strong>É uma janela só</strong>, aberta por dois caminhos. Não existe mais “a tela do
-    veículo” e “a tela do patrimônio” com poderes diferentes: as duas portas levam ao mesmo
-    lugar e permitem as mesmas ações.
+    <strong>É a mesma janela</strong>, aberta por dois caminhos. O que muda entre eles é só
+    o <em>tamanho</em> — nunca o que cada bloco faz, nem quem pode o quê:
   </p>
   <ul>
-    <li>Em <strong>Veículos e Clientes</strong>, clicar no <strong>número do veículo</strong>
-      abre a janela naquele veículo.</li>
-    <li>Em <strong>Itens Cadastrados</strong>, clicar no <strong>código do patrimônio</strong>
-      abre a mesma janela, já com aquele item em foco (e no veículo em que ele está).</li>
+    <li><strong>Pelo número do veículo</strong> (em Veículos e Clientes) — a
+      <strong>janela inteira</strong>, mais larga, em duas colunas: à esquerda o item em
+      foco e o que fazer com ele; à direita o kit (histórico, itens e adicionar).</li>
+    <li><strong>Pelo código do patrimônio</strong> (em Itens Cadastrados) — a
+      <strong>janela curta</strong>: veículo, item em foco, mover, corrigir e o histórico.
+      Sem lista de itens e sem “adicionar”, que é trabalho de quem está olhando o veículo.</li>
   </ul>
-  <p>Dentro dela, sempre na mesma ordem:</p>
+  <p>Em qualquer uma das duas, a leitura é sempre a mesma, de cima pra baixo:</p>
   <ul>
-    <li><strong>O veículo</strong> — cliente, garagem, kit e situação.</li>
-    <li><strong>O que está faltando</strong> — <em>“CVC não encontrado”</em>, com o nome do
-      item, não um “falta item” genérico.</li>
-    <li><strong>📜 Alterações depois da montagem</strong> — o histórico curto do veículo:
-      o que saiu, o que entrou, quando e por quê.</li>
-    <li><strong>🏷️ Itens deste kit</strong> — clicar em qualquer patrimônio da lista coloca
-      ele em foco, sem sair da janela.</li>
-    <li><strong>As ações</strong> — do item em foco e do veículo.</li>
+    <li><strong>O veículo</strong> — cliente, garagem, kit e situação, com
+      <em>“CVC não encontrado”</em> dentro do próprio card quando falta alguma coisa.</li>
+    <li><strong>Item em foco</strong>, <strong>logo abaixo do veículo</strong> — o item e as
+      ações dele (🔀 mover, ✏️ corrigir). É a leitura natural: “este veículo, este item
+      dele”; no fim da página, ninguém achava a ação.</li>
+    <li><strong>📜 Alterações depois da montagem</strong> — o que saiu, o que entrou, quando
+      e por quê.</li>
+    <li><strong>🏷️ Itens deste kit</strong> e <strong>➕ Adicionar item</strong> — só na
+      janela do veículo. Clicar na ⚙️ de um item da lista coloca ele em foco
+      <strong>sem fechar a janela</strong>: você continua com o kit e o “adicionar” à mão.</li>
   </ul>
+  <div class="nota">
+    Como a janela do veículo já traz os itens do kit, o antigo atalho “Lista completa” saiu:
+    ele levava pra outra tela pra mostrar o que já estava ali.
+  </div>
   <p>
     Ao terminar, você volta pra mesma lista, no mesmo filtro e na mesma página — quem está
     resolvendo cinco itens não perde o lugar a cada um.
@@ -371,7 +384,7 @@
       <strong>número</strong> é que está errado (digitado torto na bipagem). O histórico
       acompanha.</li>
     <li><span class="campo">➕ Adicionar item</span> — traz um patrimônio pro kit deste
-      veículo, pelo código.</li>
+      veículo, pelo código. Só na <strong>janela do veículo</strong>.</li>
   </ul>
   <div class="nota">
     <strong>“Retirar do kit” saiu da janela.</strong> Na prática o item nunca some do mundo:
@@ -380,7 +393,7 @@
     (peça quebrada, devolvida ao estoque) continua fazendo isso pela página do kit.
   </div>
 
-  <h4>➕ Adicionar item</h4>
+  <h4>➕ Adicionar item (pela janela do veículo)</h4>
   <p style="font-size:14px;">
     Bipe ou digite o código do patrimônio que vai fazer parte do kit daquele veículo. O
     sistema mostra o que vai acontecer <strong>antes</strong> de gravar:

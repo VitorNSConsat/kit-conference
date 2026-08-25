@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=21">
+    <link rel="stylesheet" href="/static/style.css?v=22">
 </head>
 <body>
 {% if user %}
@@ -90,8 +90,10 @@ function toggleNav() {
 // O painel chega pronto por fetch: a lista de trás continua intacta, e as
 // ações de dentro voltam pra ELA (com filtro e página), em vez de levar o
 // operador pra outra tela e obrigá-lo a refazer o caminho.
-function abrirJanelaPainel(url, titulo, sub) {
+function abrirJanelaPainel(url, titulo, sub, largo) {
     const janela = document.getElementById('janela-painel');
+    // A janela do veículo tem duas colunas; a do patrimônio é curta.
+    janela.classList.toggle('modal-largo', !!largo);
     const corpo = document.getElementById('janela-painel-corpo');
     document.getElementById('janela-painel-titulo').textContent = titulo;
     document.getElementById('janela-painel-sub').textContent = sub || '';
@@ -120,9 +122,12 @@ function abrirPainelPatrimonio(codigo) {
     abrirJanelaPainel('/admin/items/patrimonio/' + encodeURIComponent(codigo)
                       + '/painel?voltar=' + _voltaAtual(), '🏷️ Patrimônio', codigo);
 }
-function abrirPainelVeiculo(id, numero) {
-    abrirJanelaPainel('/admin/veiculos/' + id + '/painel?voltar=' + _voltaAtual(),
-                      '🚗 Veículo', numero || '');
+function abrirPainelVeiculo(id, numero, item) {
+    // `item` foca um patrimônio SEM sair da janela do veículo — quem clica na
+    // engrenagem da lista continua com o kit e o "adicionar item" à mão.
+    abrirJanelaPainel('/admin/veiculos/' + id + '/painel?voltar=' + _voltaAtual()
+                      + (item ? '&item=' + encodeURIComponent(item) : ''),
+                      '🚗 Veículo', numero || '', true);
 }
 // Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
 // conferindo origem e destino não pode perder a lista de trás.
