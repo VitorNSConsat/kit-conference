@@ -41,6 +41,8 @@ PERMISSOES_ACOES = {
     "producao_nota_fiscal": "Editar Nota Fiscal na Produção",
     "producao_mover_estagio": "Mover kits na esteira (trânsito, cliente, voltar)",
     "patrimonio_corrigir": "Corrigir patrimônio (código e nº de série)",
+    "patrimonio_mover": "Mover patrimônio de um veículo para outro",
+    "patrimonio_atribuir": "Atribuir/retirar patrimônio de um kit fechado",
     "pedidos_criar_editar": "Criar/editar Pedidos",
     "itens_apagar": "Apagar itens do catálogo",
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",

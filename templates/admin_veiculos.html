@@ -356,6 +356,7 @@
            ('sem_garagem', 'Sem garagem'),
            ('sem_kits', 'Nunca recebeu kit'),
            ('com_kits', 'Já recebeu kit'),
+           ('falta_item', '⚠️ Kit faltando item'),
          ], filtro_situacao, 'todas') }}
       <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
       <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
@@ -429,6 +430,15 @@
       <td>
         {% if v.modelo %}{{ v.modelo }}
         {% else %}<span style="color:#e67e22;font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">⚠️ sem modelo</span>{% endif %}
+        {# Pendência de reposição: o kit deste veículo está com menos itens do
+           que o modelo pede (item foi pra outro veículo ou foi retirado). #}
+        {% if v.falta_item %}
+        <a href="/kit/{{ v.falta_item.kit_id }}" class="badge badge-danger"
+           style="text-decoration:none;display:inline-block;margin-top:3px;"
+           title="Falta: {% for f in v.falta_item.faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %} — clique para abrir o kit">
+          ⚠️ falta item
+        </a>
+        {% endif %}
       </td>
       <td style="white-space:nowrap;">
         {% set loc = localizacao.get(v.id) %}

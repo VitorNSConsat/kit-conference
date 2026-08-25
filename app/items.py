@@ -214,7 +214,10 @@ def listar_itens(veiculo_id: int | None = None, situacao: str = "") -> list:
                 FROM scan_session_items si
                 JOIN item_master im ON im.codigo_barra = si.codigo_barra
                 JOIN kit_record kr ON kr.sessao_id = si.sessao_id
+                -- Linha movida/retirada nao diz mais onde o item esta: ela
+                -- conta onde ele ESTEVE.
                 WHERE kr.status = 'ativo'
+                  AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
             )
             SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome,
                    k.veiculo_id AS veiculo_id_atual,
@@ -305,6 +308,7 @@ def bipados_na_mesma_sessao(sessao_id: int, codigo_barra: str) -> list[dict]:
             JOIN item_tipo it ON it.id = si.item_tipo_id
             LEFT JOIN users u ON u.id = si.operador_id
             WHERE si.sessao_id = ?
+              AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
             ORDER BY si.bipado_em, si.id
         """, (sessao_id,)).fetchall()
     itens = []
@@ -333,6 +337,218 @@ def kit_da_sessao(sessao_id: int) -> dict | None:
             WHERE ss.id = ?
         """, (sessao_id,)).fetchone()
     return dict(row) if row else None
+
+
+# Linhas de bipagem que NÃO contam mais como conteúdo do kit: o item saiu
+# dali (foi pra outro veículo ou foi retirado). A linha continua no banco de
+# propósito — é o que prova onde o item esteve e por quê.
+STATUS_FORA_DO_KIT = ("movido", "retirado")
+
+
+def onde_esta(codigo_barra: str) -> dict | None:
+    """Onde este patrimônio está AGORA: o kit/veículo da bipagem mais recente
+    que ainda vale (linha não movida nem retirada).
+
+    É a resposta que faltava antes de deixar alguém mexer no patrimônio: sem
+    ela, o operador só descobria que o código estava em uso quando levava um
+    erro seco — e não dizia onde."""
+    codigo_barra = (codigo_barra or "").strip()
+    if not codigo_barra:
+        return None
+    with db() as conn:
+        row = conn.execute("""
+            SELECT si.id AS si_id, si.sessao_id, si.bipado_em, si.serial_number,
+                   si.item_tipo_id, it.nome AS tipo_nome,
+                   ss.status AS sessao_status,
+                   kt.nome AS kit_nome, kt.cliente,
+                   kr.kit_id, kr.status_producao,
+                   COALESCE(v.numero, kr.veiculo, ss.veiculo, '') AS veiculo,
+                   COALESCE(kr.garagem, ss.garagem, '') AS garagem,
+                   COALESCE(opi.nome, ops.nome) AS operador_nome
+            FROM scan_session_items si
+            JOIN item_tipo it ON it.id = si.item_tipo_id
+            JOIN scan_session ss ON ss.id = si.sessao_id
+            JOIN kit_template kt ON kt.id = ss.kit_template_id
+            LEFT JOIN kit_record kr ON kr.sessao_id = ss.id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            LEFT JOIN users opi ON opi.id = si.operador_id
+            LEFT JOIN users ops ON ops.id = ss.operador_id
+            WHERE si.codigo_barra = ?
+              AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
+            ORDER BY si.bipado_em DESC, si.id DESC LIMIT 1
+        """, (codigo_barra,)).fetchone()
+    return dict(row) if row else None
+
+
+def kit_do_veiculo(numero: str) -> dict | None:
+    """O kit mais recente de um veículo, procurando pelo NÚMERO — que é como
+    o operador pensa ("o 1219"), não pelo kit_id."""
+    numero = (numero or "").strip()
+    if not numero:
+        return None
+    with db() as conn:
+        row = conn.execute("""
+            SELECT kr.kit_id, kr.sessao_id, kr.kit_template_id, kr.status_producao,
+                   kr.finalizado_em, kt.nome AS kit_nome, kt.cliente,
+                   COALESCE(v.numero, kr.veiculo) AS veiculo,
+                   COALESCE(kr.garagem, '') AS garagem
+            FROM kit_record kr
+            JOIN kit_template kt ON kt.id = kr.kit_template_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            WHERE kr.status = 'ativo'
+              AND (UPPER(TRIM(COALESCE(v.numero, ''))) = UPPER(?)
+                   OR UPPER(TRIM(COALESCE(kr.veiculo, ''))) = UPPER(?))
+            ORDER BY kr.finalizado_em DESC LIMIT 1
+        """, (numero, numero)).fetchone()
+    return dict(row) if row else None
+
+
+def _validar_motivo(motivo: str) -> str:
+    """Motivo é obrigatório em toda mexida manual de patrimônio: seis meses
+    depois, "por que este item mudou de veículo?" só tem resposta se alguém
+    escreveu na hora."""
+    motivo = (motivo or "").strip()
+    if len(motivo) < 5:
+        raise ValueError("Informe o motivo da alteração (pelo menos 5 letras) — "
+                         "ele fica gravado no histórico do item.")
+    return motivo
+
+
+def previa_mover(codigo_barra: str, numero_destino: str) -> dict:
+    """O que vai acontecer se este patrimônio for pro veículo informado.
+
+    Não grava nada: existe pra a pessoa confirmar vendo de onde sai, pra onde
+    vai e o que cada lado perde ou ganha."""
+    codigo_barra = (codigo_barra or "").strip()
+    origem = onde_esta(codigo_barra)
+    destino = kit_do_veiculo(numero_destino)
+    avisos = []
+    bloqueio = None
+    if not destino:
+        bloqueio = (f"Nenhum kit encontrado para o veículo '{numero_destino}'. "
+                    "Confira o número — o veículo precisa ter um kit montado.")
+    elif origem and origem.get("sessao_id") == destino["sessao_id"]:
+        bloqueio = "Este patrimônio já está neste kit."
+    elif not origem:
+        bloqueio = ("Este patrimônio não está em nenhum kit. Use "
+                    "\"Atribuir a um kit\" no kit de destino.")
+    if destino and not bloqueio and origem:
+        with db() as conn:
+            pertence = conn.execute(
+                "SELECT 1 FROM kit_template_items WHERE kit_template_id = ? "
+                "AND item_tipo_id = ?",
+                (destino["kit_template_id"], origem["item_tipo_id"])
+            ).fetchone()
+        if not pertence:
+            avisos.append(
+                f"O tipo '{origem['tipo_nome']}' não faz parte do modelo "
+                f"'{destino['kit_nome']}'. O item vai entrar assim mesmo (foi o que "
+                "aconteceu de verdade), mas vai aparecer como sobrando na verificação.")
+        if origem.get("status_producao"):
+            avisos.append(
+                f"O kit de origem ({origem['veiculo'] or '—'}) fica FALTANDO este item "
+                "e passa a aparecer na lista de pendências até receber outro.")
+    return {"origem": origem, "destino": destino, "avisos": avisos, "bloqueio": bloqueio}
+
+
+def mover_patrimonio(codigo_barra: str, numero_destino: str, motivo: str,
+                     user_id: int | None = None) -> dict:
+    """Passa um patrimônio do kit onde ele está para o kit de outro veículo.
+
+    É o caso real que o sistema não cobria: o item saiu do kit do veículo A e
+    foi instalado no veículo B na hora da instalação. Antes só dava pra
+    resolver apagando o item do A, o que sumia com o rastro.
+
+    A linha antiga NÃO é apagada — vira 'movido', com o motivo gravado, e
+    continua no histórico do item provando onde ele esteve. Uma linha nova
+    entra no kit de destino com a data de agora."""
+    motivo = _validar_motivo(motivo)
+    previa = previa_mover(codigo_barra, numero_destino)
+    if previa["bloqueio"]:
+        raise ValueError(previa["bloqueio"])
+    origem, destino = previa["origem"], previa["destino"]
+    carimbo = now_brt()
+    nota = (f"Movido para o veículo {destino['veiculo']} em {carimbo} — {motivo}")
+    with db() as conn:
+        conn.execute(
+            "UPDATE scan_session_items SET status = 'movido', observacao = ? WHERE id = ?",
+            (nota, origem["si_id"]))
+        conn.execute(
+            "INSERT INTO scan_session_items "
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
+            " serial_number, observacao, quantidade, estoque_debitado) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0)",
+            (destino["sessao_id"], codigo_barra, origem["item_tipo_id"], carimbo,
+             user_id, origem.get("serial_number"),
+             f"Veio do veículo {origem['veiculo'] or '—'} em {carimbo} — {motivo}"))
+    return {"origem": origem, "destino": destino, "motivo": motivo}
+
+
+def atribuir_patrimonio(codigo_barra: str, kit_id: str, item_tipo_id: int,
+                        motivo: str, serial: str = "",
+                        user_id: int | None = None) -> dict:
+    """Cadastra (se preciso) um patrimônio e coloca num kit já finalizado.
+
+    É a outra metade do caso: o veículo que ficou sem o item precisa receber
+    outro, e isso acontece fora da bipagem — o kit já está fechado, às vezes
+    já no cliente. Não mexe em estágio de produção nem em estoque; só diz
+    que este item passou a fazer parte deste kit."""
+    motivo = _validar_motivo(motivo)
+    codigo_barra = (codigo_barra or "").strip()
+    if not codigo_barra:
+        raise ValueError("Informe o código do patrimônio.")
+    ocupado = onde_esta(codigo_barra)
+    if ocupado:
+        raise ValueError(
+            f"O patrimônio {codigo_barra} já está no kit do veículo "
+            f"{ocupado['veiculo'] or '—'} ({ocupado['kit_nome']}). Use "
+            "\"Mover para outro veículo\" na página desse patrimônio.")
+    with db() as conn:
+        kit = conn.execute(
+            "SELECT kr.kit_id, kr.sessao_id, kr.kit_template_id, "
+            "COALESCE(v.numero, kr.veiculo, '') AS veiculo "
+            "FROM kit_record kr LEFT JOIN veiculos v ON v.id = kr.veiculo_id "
+            "WHERE kr.kit_id = ?", (kit_id,)).fetchone()
+        if not kit:
+            raise ValueError("Kit não encontrado.")
+        tipo = conn.execute("SELECT nome FROM item_tipo WHERE id = ?",
+                            (item_tipo_id,)).fetchone()
+        if not tipo:
+            raise ValueError("Tipo de item não encontrado.")
+        carimbo = now_brt()
+        # O cadastro do patrimônio nasce junto quando o código é novo — é o
+        # mesmo que a bipagem faz ao encontrar um código desconhecido.
+        ja_cadastrado = conn.execute(
+            "SELECT id FROM item_master WHERE codigo_barra = ?", (codigo_barra,)).fetchone()
+        if not ja_cadastrado:
+            conn.execute(
+                "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
+                "VALUES (?, ?, ?, ?)", (codigo_barra, item_tipo_id, user_id, carimbo))
+        conn.execute(
+            "INSERT INTO scan_session_items "
+            "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
+            " serial_number, observacao, quantidade, estoque_debitado) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0)",
+            (kit["sessao_id"], codigo_barra, item_tipo_id, carimbo, user_id,
+             (serial or "").strip() or None,
+             f"Atribuído manualmente em {carimbo} — {motivo}"))
+    return {"kit_id": kit["kit_id"], "veiculo": kit["veiculo"],
+            "tipo_nome": tipo["nome"], "novo_cadastro": not ja_cadastrado}
+
+
+def retirar_do_kit(codigo_barra: str, motivo: str, user_id: int | None = None) -> dict:
+    """Tira o patrimônio do kit sem colocar em outro — peça que voltou pro
+    estoque, quebrou ou sumiu. A linha vira 'retirado' com o motivo; o kit
+    passa a acusar o item faltando, que é a verdade."""
+    motivo = _validar_motivo(motivo)
+    origem = onde_esta(codigo_barra)
+    if not origem:
+        raise ValueError("Este patrimônio não está em nenhum kit.")
+    with db() as conn:
+        conn.execute(
+            "UPDATE scan_session_items SET status = 'retirado', observacao = ? WHERE id = ?",
+            (f"Retirado do kit em {now_brt()} — {motivo}", origem["si_id"]))
+    return {"origem": origem, "motivo": motivo}
 
 
 def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
@@ -368,8 +584,19 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
                 "SELECT 1 FROM item_master WHERE codigo_barra = ?", (novo_codigo,)
             ).fetchone()
             if existe:
+                # Diz ONDE está o dono do código: só "já pertence a outro"
+                # deixava o operador sem saber o que fazer — foi o que
+                # obrigou, no campo, a apagar o item pra conseguir seguir.
+                dono = onde_esta(novo_codigo)
+                if dono:
+                    raise ValueError(
+                        f"O código {novo_codigo} já é de outro patrimônio, que está "
+                        f"no kit do veículo {dono['veiculo'] or '—'} "
+                        f"({dono['kit_nome']}, {dono['cliente']}). Se o item trocou de "
+                        "veículo, use \"Mover para outro veículo\" em vez de renomear.")
                 raise ValueError(
-                    f"O código {novo_codigo} já pertence a outro patrimônio.")
+                    f"O código {novo_codigo} já pertence a outro patrimônio "
+                    "(sem kit no momento).")
             conn.execute("UPDATE item_master SET codigo_barra = ? WHERE id = ?",
                          (novo_codigo, item["id"]))
             conn.execute(

@@ -281,6 +281,30 @@
     padding: 12px 16px; margin-bottom: 14px;
     font-size: 14px; font-weight: 600;
   }
+  /* Atribuir patrimônio ao kit fechado — fechado por padrão, porque é
+     exceção: só aparece quando alguém foi lá resolver uma pendência. */
+  .card-atribuir {
+    background: #fff; border-radius: 12px; margin-bottom: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  }
+  .card-atribuir > summary {
+    cursor: pointer; padding: 14px; font-weight: 700; font-size: 15px; color: #1a3a5c;
+    list-style: none;
+  }
+  .card-atribuir > summary::-webkit-details-marker { display: none; }
+  .card-atribuir label {
+    display: block; font-size: 12px; font-weight: 700; color: #7a7468;
+    margin: 10px 0 4px;
+  }
+  .card-atribuir input, .card-atribuir select {
+    width: 100%; padding: 12px 10px; font-size: 15px; border: 1.5px solid #e8e1d4;
+    border-radius: 10px; background: #faf7f1; box-sizing: border-box;
+  }
+  .card-atribuir button {
+    width: 100%; margin-top: 14px; padding: 14px; border: none; border-radius: 999px;
+    background: #1e7a46; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+
   .btn-voltar-inicio {
     display: block;
     width: 100%;
@@ -336,6 +360,21 @@
 
   {% if ok and ok != 'validado' %}
   <div class="alert-success">✅ {{ ok }}</div>
+  {% endif %}
+
+  {# Pendência de item: o kit está com menos do que o modelo pede — em geral
+     porque o patrimônio foi pra outro veículo ou foi retirado. Fica à vista
+     aqui e marca o veículo nas outras telas, pra ninguém esquecer de voltar. #}
+  {% if faltas %}
+  <div class="alert-success" style="background:#fdecea;color:#a33a2c;border-color:#f3c9c2;">
+    ⚠️ <strong>Falta item neste kit:</strong>
+    {% for f in faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}.
+    {% if pode('patrimonio_atribuir') %}
+    Use “➕ Atribuir patrimônio a este kit”, no fim da página, quando a reposição for enviada.
+    {% else %}
+    A reposição precisa ser atribuída por quem tem permissão de patrimônio.
+    {% endif %}
+  </div>
   {% endif %}
 
   {# O aviso é a pendência, não o registro: some assim que alguém verifica o
@@ -600,6 +639,40 @@
     </div>
     {% endif %}
   </div>
+
+  {% if pode('patrimonio_atribuir') %}
+  {# Atribuir item a um kit JÁ FECHADO: o veículo que ficou sem a peça
+     (porque ela foi parar em outro na instalação) recebendo a reposição.
+     Não reabre produção nem mexe em estoque — só diz que este item passou a
+     fazer parte deste kit, com motivo gravado. #}
+  <details class="card-atribuir">
+    <summary>➕ Atribuir patrimônio a este kit</summary>
+    <div style="padding:0 14px 14px;">
+      <p style="font-size:12px;color:#666;margin:6px 0 10px;">
+        Para o item de reposição que vai ser enviado. Se o código ainda não existir,
+        ele é cadastrado agora. Motivo é obrigatório e fica no histórico do item.
+      </p>
+      <form method="post" action="/kit/{{ kit.kit_id }}/atribuir-patrimonio">
+        <label>Tipo do item *</label>
+        <select name="item_tipo_id" required>
+          <option value="">— escolha —</option>
+          {% for t in tipos_para_atribuir %}
+          <option value="{{ t.id }}"
+                  {{ 'selected' if faltas | length == 1 and faltas[0].tipo == t.nome }}>{{ t.nome }}</option>
+          {% endfor %}
+        </select>
+        <label>Código do patrimônio *</label>
+        <input type="text" name="codigo_barra" required placeholder="bipe ou digite o código">
+        <label>Nº de série</label>
+        <input type="text" name="serial" placeholder="opcional">
+        <label>Motivo *</label>
+        <input type="text" name="motivo" required minlength="5"
+               placeholder="ex: reposição do item que foi para o veículo 1415">
+        <button type="submit">➕ Atribuir ao kit</button>
+      </form>
+    </div>
+  </details>
+  {% endif %}
 
   {% if user and user.admin %}
   {# Troca de kit do kit pronto — mesma lógica da troca em bipagem, com

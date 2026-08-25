@@ -6,6 +6,12 @@
 /* Página de leitura: texto mais largo respira melhor que a tabela padrão. */
 .doc h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 0; }
 .doc h3 { margin: 22px 0 6px; font-size: 16px; color: var(--brand); }
+/* h4 = exemplo prático dentro de um assunto: menor que o título da seção,
+   e destacado à esquerda pra ler como "caso", não como mais um tópico. */
+.doc h4 {
+    margin: 16px 0 4px; font-size: 14px; color: #33404d;
+    border-left: 3px solid var(--brand); padding-left: 8px;
+}
 .doc p, .doc li { font-size: 14px; line-height: 1.6; }
 .doc ul { margin: 6px 0 6px 18px; }
 .doc code { background: #eef2f6; padding: 1px 6px; border-radius: 4px;
@@ -326,6 +332,87 @@
     Essa página é aberta <strong>por aqui</strong>. Na lista de verificação do kit, o código
     do patrimônio aparece mas não é clicável: no celular aquele toque jogava o operador
     pra fora do kit no meio da conferência.
+  </div>
+
+  <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
+  <p>
+    Na página do patrimônio, o primeiro bloco responde <strong>“onde este item está
+    agora”</strong>: veículo, kit, cliente, garagem, desde quando e por quem. É a informação
+    que decide o que fazer — e é ela que faltava quando o sistema só dizia “esse código já
+    pertence a outro patrimônio”.
+  </p>
+  <p>São três ações diferentes, e escolher a certa importa:</p>
+  <ul>
+    <li><span class="campo">✏️ Corrigir patrimônio</span> — o item é o mesmo, o
+      <strong>número</strong> é que está errado (digitado torto na bipagem). Muda código e/ou
+      nº de série; o histórico acompanha.</li>
+    <li><span class="campo">🔀 Mover para outro veículo</span> — o número está certo, o item
+      é que <strong>mudou de lugar</strong>. Sai do kit de um veículo e entra no de outro.</li>
+    <li><span class="campo">📤 Retirar do kit</span> — o item saiu e <strong>não</strong> foi
+      pra outro veículo: voltou pro estoque, quebrou, sumiu.</li>
+  </ul>
+  <p>
+    <span class="campo">➕ Atribuir patrimônio a este kit</span> fica na página do kit (no fim),
+    e é o caminho oposto: coloca um item num kit já fechado. Se o código não existir, ele é
+    cadastrado na hora.
+  </p>
+  <div class="nota">
+    <strong>Motivo é obrigatório nas quatro ações</strong>, e fica gravado no histórico do item
+    e na auditoria. Seis meses depois, “por que este item mudou de veículo?” só tem resposta
+    se alguém escreveu na hora.
+  </div>
+
+  <h4>Exemplo 1 — o item foi instalado em outro veículo</h4>
+  <p style="font-size:14px;">
+    O kit do <strong>1219</strong> foi enviado com a antena PAT-A. Na instalação, a antena do
+    <strong>1415</strong> apresentou defeito e a equipe usou a do 1219, que tinha ido junto.
+  </p>
+  <ul>
+    <li>Abra a página do patrimônio <strong>PAT-A</strong> (Itens &amp; Estoque → Itens
+      Cadastrados, ou pela busca).</li>
+    <li>Confira em “Onde está agora” que ele consta no 1219.</li>
+    <li>Use <strong>🔀 Mover para outro veículo</strong>, informe <em>1415</em> e o motivo
+      (“antena do 1415 com defeito, usada a do 1219”).</li>
+    <li>O sistema mostra <strong>de onde sai, pra onde vai e o que cada lado perde ou
+      ganha</strong> antes de gravar. Confirme.</li>
+    <li>Resultado: o 1415 fica com a antena; o <strong>1219 passa a acusar “falta item”</strong>
+      até receber a reposição.</li>
+  </ul>
+
+  <h4>Exemplo 2 — repor o item que faltou</h4>
+  <p style="font-size:14px;">
+    Continuando: o 1219 vai receber uma antena nova, PAT-B.
+  </p>
+  <ul>
+    <li>Abra o kit do 1219 (pelo veículo, pela Produção ou pelo aviso “⚠️ falta item”).</li>
+    <li>No fim da página, use <strong>➕ Atribuir patrimônio a este kit</strong>: tipo do item,
+      código PAT-B, nº de série (se houver) e o motivo.</li>
+    <li>Pronto — o aviso de pendência some, porque o kit voltou a ter o que o modelo pede.</li>
+  </ul>
+
+  <div class="cuidado">
+    <strong>Não use “corrigir” pra resolver troca de veículo.</strong> Renomear PAT-A para
+    PAT-B faz o sistema achar que <em>o mesmo item</em> passou a se chamar outra coisa — e o
+    item que estava no outro veículo desaparece do rastreamento. Se o item mudou de lugar,
+    a ação é <strong>mover</strong>.
+  </div>
+
+  <h3>⚠️ Veículo com item faltando</h3>
+  <p>
+    Sempre que um kit fica com menos itens do que o modelo pede — porque o patrimônio foi
+    movido, retirado, ou porque a bipagem terminou incompleta — o veículo passa a aparecer
+    marcado, pra ninguém esquecer de voltar:
+  </p>
+  <ul>
+    <li>na lista de <strong>Veículos e Clientes</strong>, com a etiqueta <strong>⚠️ falta
+      item</strong> (que abre o kit) e um filtro próprio em Situação;</li>
+    <li>na <strong>Produção</strong>, ao lado do veículo em cada etapa — é ali que o kit
+      espera pra ser despachado;</li>
+    <li>na própria página do kit, dizendo o que falta e quantos.</li>
+  </ul>
+  <div class="nota">
+    A marca some sozinha quando o kit volta a ter tudo. Nenhuma dessas ações mexe em estágio
+    de produção ou em estoque: o veículo continua exatamente onde estava na esteira.
   </div>
 
   <h3>🖨️ Etiquetas &amp; Códigos</h3>

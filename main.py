@@ -1122,17 +1122,15 @@ async def admin_items(request: Request, cliente: str = "", data_ini: str = "", d
     ))
 
 
-@app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
-@require_login
-async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
-    """Rastreamento de um patrimônio: todo lugar onde ele foi bipado, por
-    quem, pra qual veículo — e o que mais foi bipado na mesma sessão."""
+def _patrimonio_context(request: Request, codigo_barra: str) -> dict:
+    """Tudo que a tela do patrimônio mostra. Numa função só porque a prévia
+    de "mover" reabre a MESMA tela — e ela não pode chegar mais pobre."""
     item = items_mod.buscar_item(codigo_barra)
     historico = items_mod.historico_patrimonio(codigo_barra)
     sessao_recente = historico[0]["sessao_id"] if historico else None
     vizinhos = (items_mod.bipados_na_mesma_sessao(sessao_recente, codigo_barra)
                 if sessao_recente else [])
-    return render(request, "admin_patrimonio.html", {
+    return {
         # Volta pra tela de onde a pessoa veio (com busca/filtro/página),
         # não pra lista pelada.
         "voltar_para": _voltar_para(request, "/admin/items?tab=patrimonios"),
@@ -1144,9 +1142,102 @@ async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
         # formado naquela sessão, não de itens vizinhos no tempo.
         "kit_sessao": items_mod.kit_da_sessao(sessao_recente) if sessao_recente else None,
         "serial_atual": historico[0]["serial_number"] if historico else None,
+        # Onde o item está AGORA, antes de qualquer alteração: é a pergunta
+        # que o operador precisa ver respondida pra decidir o que fazer.
+        "onde_esta": items_mod.onde_esta(codigo_barra),
+        "previa_mover": None,
+        "mover_destino": "",
+        "mover_motivo": "",
         "ok": request.query_params.get("ok", ""),
         "erro": request.query_params.get("erro", ""),
-    })
+    }
+
+
+@app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
+@require_login
+async def admin_patrimonio_detalhe(request: Request, codigo_barra: str):
+    """Rastreamento de um patrimônio: todo lugar onde ele foi bipado, por
+    quem, pra qual veículo — e o que mais foi bipado na mesma sessão."""
+    return render(request, "admin_patrimonio.html",
+                  _patrimonio_context(request, codigo_barra))
+
+
+@app.post("/admin/items/patrimonio/{codigo_barra:path}/mover")
+@require_permission("patrimonio_mover")
+async def admin_patrimonio_mover(request: Request, codigo_barra: str):
+    """Passa o patrimônio pro kit de outro veículo.
+
+    Dois passos de propósito: o primeiro mostra de onde sai, pra onde vai e o
+    que cada lado perde ou ganha; só o segundo grava. Motivo é obrigatório
+    nos dois — é ele que responde, meses depois, por que o item mudou de
+    veículo."""
+    form = await request.form()
+    destino = str(form.get("destino", "")).strip()
+    motivo = str(form.get("motivo", "")).strip()
+    if str(form.get("confirmado", "")) != "1":
+        previa = items_mod.previa_mover(codigo_barra, destino)
+        return render(request, "admin_patrimonio.html", {
+            **_patrimonio_context(request, codigo_barra),
+            "previa_mover": previa,
+            "mover_destino": destino,
+            "mover_motivo": motivo,
+        })
+    try:
+        r = items_mod.mover_patrimonio(codigo_barra, destino, motivo,
+                                       (get_current_user(request) or {}).get("id"))
+    except ValueError as e:
+        return RedirectResponse(
+            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            status_code=302)
+    msg = (f"Patrimônio movido para o veículo {r['destino']['veiculo']}. "
+           f"O kit do veículo {r['origem']['veiculo'] or '—'} ficou faltando este item "
+           "e aparece na lista de pendências até receber outro.")
+    return RedirectResponse(
+        f"/admin/items/patrimonio/{quote(codigo_barra)}?ok=" + quote(msg),
+        status_code=302)
+
+
+@app.post("/admin/items/patrimonio/{codigo_barra:path}/retirar")
+@require_permission("patrimonio_atribuir")
+async def admin_patrimonio_retirar(request: Request, codigo_barra: str):
+    """Tira o patrimônio do kit sem colocar em outro (voltou pro estoque,
+    quebrou, sumiu). O kit passa a acusar o item faltando — que é a verdade."""
+    form = await request.form()
+    try:
+        r = items_mod.retirar_do_kit(codigo_barra, str(form.get("motivo", "")),
+                                     (get_current_user(request) or {}).get("id"))
+    except ValueError as e:
+        return RedirectResponse(
+            f"/admin/items/patrimonio/{quote(codigo_barra)}?erro=" + quote(str(e)),
+            status_code=302)
+    msg = (f"Patrimônio retirado do kit do veículo {r['origem']['veiculo'] or '—'}. "
+           "Esse kit entrou na lista de pendências até receber outro item.")
+    return RedirectResponse(
+        f"/admin/items/patrimonio/{quote(codigo_barra)}?ok=" + quote(msg),
+        status_code=302)
+
+
+@app.post("/kit/{kit_id}/atribuir-patrimonio")
+@require_permission("patrimonio_atribuir")
+async def kit_atribuir_patrimonio(request: Request, kit_id: str):
+    """Cadastra e coloca um patrimônio num kit JÁ FECHADO — o veículo que
+    ficou sem o item recebendo a peça de reposição."""
+    form = await request.form()
+    try:
+        tipo_id = int(str(form.get("item_tipo_id", "0")) or 0)
+    except ValueError:
+        tipo_id = 0
+    try:
+        r = items_mod.atribuir_patrimonio(
+            str(form.get("codigo_barra", "")), kit_id, tipo_id,
+            str(form.get("motivo", "")), str(form.get("serial", "")),
+            (get_current_user(request) or {}).get("id"))
+    except ValueError as e:
+        return RedirectResponse(f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
+                                status_code=302)
+    msg = (f"{r['tipo_nome']} atribuído ao kit do veículo {r['veiculo'] or '—'}"
+           + (" (patrimônio cadastrado agora)." if r["novo_cadastro"] else "."))
+    return RedirectResponse(f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/corrigir")
@@ -1160,6 +1251,9 @@ async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
     serial_bruto = form.get("novo_serial")
     novo_serial = str(serial_bruto) if serial_bruto is not None else None
     try:
+        # Motivo obrigatório também aqui: renomear patrimônio é mudança de
+        # identidade do item, e sem o porquê o histórico não se explica.
+        items_mod._validar_motivo(str(form.get("motivo", "")))
         r = items_mod.corrigir_patrimonio(codigo_barra, novo_codigo, novo_serial)
     except ValueError as e:
         return RedirectResponse(
@@ -2294,7 +2388,7 @@ async def kit_detail(request: Request, kit_id: str):
             "GROUP_CONCAT(si.codigo_barra, ', ') AS barcodes "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
-            "WHERE si.sessao_id = ? "
+            "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
             "GROUP BY si.item_tipo_id ORDER BY it.nome",
             (kit["sessao_id"],)
         ).fetchall()
@@ -2324,11 +2418,19 @@ async def kit_detail(request: Request, kit_id: str):
     validacoes_vigentes = [v for v in validacoes if v["id"] > corte]
     validacoes_antigas = [v for v in validacoes if v["id"] <= corte]
 
+    # O que este kit está devendo em relação ao modelo — é isso que vira o
+    # aviso de pendência aqui e a marca do veículo nas outras telas.
+    faltas = (sessions_mod.kits_incompletos().get(kit_id) or {}).get("faltas", [])
+
     return render(request, "kit_detail.html", {
         # No celular o kit é aberto pelo hub; no computador, pela Produção,
         # pelo patrimônio ou pelo veículo. Mandar todo mundo pro hub deixava
         # quem veio da Produção sem caminho de volta.
         "voltar_para": _voltar_para(request, "/mobile"),
+        "faltas": faltas,
+        # Tipos que este kit aceita por patrimônio — as opções do formulário
+        # de atribuir um item novo ao kit já fechado.
+        "tipos_para_atribuir": items_mod.listar_tipos_para_kit(kit["kit_template_id"]),
         "kit": kit,
         "mudancas": mudancas,
         "validacoes_vigentes": validacoes_vigentes,
@@ -2685,7 +2787,7 @@ async def reprint_kit(request: Request, kit_id: str):
                 "SELECT it.nome AS descricao, COUNT(*) AS quantidade "
                 "FROM scan_session_items si "
                 "JOIN item_tipo it ON it.id = si.item_tipo_id "
-                "WHERE si.sessao_id = ? "
+                "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
                 "GROUP BY si.item_tipo_id ORDER BY it.nome",
                 (kit["sessao_id"],)
             ).fetchall()
@@ -2748,7 +2850,7 @@ async def report_excel(request: Request, kit_id: str):
             "SELECT it.nome AS tipo_nome, COUNT(*) AS quantidade "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
-            "WHERE si.sessao_id = ? "
+            "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
             "GROUP BY si.item_tipo_id ORDER BY it.nome",
             (kit["sessao_id"],)
         ).fetchall()
@@ -2758,7 +2860,7 @@ async def report_excel(request: Request, kit_id: str):
             "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, si.bipado_em "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
-            "WHERE si.sessao_id = ? "
+            "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
             "ORDER BY it.nome, si.bipado_em",
             (kit["sessao_id"],)
         ).fetchall()
@@ -2916,6 +3018,7 @@ async def reports_exportar_todos(request: Request,
                 "JOIN item_tipo it ON it.id = si.item_tipo_id "
                 "JOIN kit_record kr ON kr.sessao_id = si.sessao_id "
                 f"WHERE kr.kit_id IN ({placeholders}) "
+                "AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
                 "ORDER BY kr.kit_id, it.nome, si.bipado_em",
                 kit_ids
             ).fetchall()
@@ -3425,6 +3528,10 @@ async def admin_producao(request: Request):
         # coluna separada), então nada foi perdido.
         "no_cliente": producao_mod.listar_no_cliente(limite=30),
         "resumo": producao_mod.resumo(),
+        # Kits devendo item (patrimônio movido pra outro veículo ou retirado):
+        # a esteira é onde o kit espera, então é aqui que a pendência precisa
+        # aparecer pra alguém repor antes de despachar.
+        "faltando_item": sessions_mod.kits_incompletos(),
         "tv_config": producao_mod.get_tv_config(),
         "ok": request.query_params.get("ok", ""),
     })
@@ -4024,6 +4131,12 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         v["localizacao"] = loc["texto"] if loc else ""
         v["localizacao_estado"] = loc["estado"] if loc else ""
 
+    # Veículo cujo kit está devendo item — a pendência que não pode sumir de
+    # vista até alguém repor. Um mapa só pra todos (nada de N+1).
+    incompletos = sessions_mod.veiculos_com_kit_incompleto()
+    for v in todos:
+        v["falta_item"] = incompletos.get(v["id"])
+
     veiculos = todos
     # Dentro do mesmo filtro as opções somam (duas garagens = as duas listas
     # juntas); entre filtros diferentes elas se cruzam (essas garagens E esse
@@ -4066,6 +4179,8 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
             if "sem_kits" in situacao and not v["total_kits"]:
                 return True
             if "com_kits" in situacao and v["total_kits"]:
+                return True
+            if "falta_item" in situacao and v.get("falta_item"):
                 return True
             return False
 

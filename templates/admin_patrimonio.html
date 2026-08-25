@@ -34,6 +34,41 @@
   </p>
   {% endif %}
 
+  {# Onde o item está AGORA — a pergunta que precisa estar respondida ANTES
+     de qualquer alteração. Sem isso, o operador só descobria que o código
+     estava em uso quando levava um erro, e o erro não dizia onde. #}
+  <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    {% if onde_esta %}
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Onde está agora</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:baseline;margin-top:4px;">
+      <div style="font-size:17px;font-weight:800;color:var(--brand);">
+        🚗 {{ onde_esta.veiculo or '— kit sem veículo —' }}
+      </div>
+      <div style="font-size:13px;color:#555;">
+        {{ onde_esta.kit_nome }} · {{ onde_esta.cliente }}
+        {%- if onde_esta.garagem %} · {{ onde_esta.garagem }}{% endif %}
+      </div>
+      <div style="font-size:12px;color:#888;">
+        desde {{ onde_esta.bipado_em[:16] if onde_esta.bipado_em else '—' }}
+        {%- if onde_esta.operador_nome %} · por {{ onde_esta.operador_nome }}{% endif %}
+      </div>
+      {% if onde_esta.status_producao %}
+      <span class="badge badge-info">{{ onde_esta.status_producao | replace('_', ' ') }}</span>
+      {% elif onde_esta.sessao_status == 'em_andamento' %}
+      <span class="badge badge-warning">bipagem em andamento</span>
+      {% endif %}
+      {% if onde_esta.kit_id %}
+      <a href="/kit/{{ onde_esta.kit_id }}" class="btn btn-sm btn-secondary">Abrir kit →</a>
+      {% endif %}
+    </div>
+    {% else %}
+    <div style="font-size:13px;color:#888;">
+      📍 <strong>Não está em nenhum kit no momento.</strong> Pra colocar num veículo,
+      abra o kit dele e use “Atribuir patrimônio”.
+    </div>
+    {% endif %}
+  </div>
+
   {% if item and pode('patrimonio_corrigir') %}
   {# Correção CADASTRAL: vale em qualquer estágio, inclusive com o veículo
      já no cliente e finalizado. Não mexe em produção — só na identificação
@@ -58,7 +93,94 @@
         <label>Nº de série <span style="font-weight:400;color:#888;font-size:12px;">— da bipagem mais recente</span></label>
         <input type="text" name="novo_serial" value="{{ serial_atual or '' }}" style="margin:0;font-family:monospace;">
       </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:240px;">
+        <label>Motivo *</label>
+        <input type="text" name="motivo" required minlength="5" style="margin:0;"
+               placeholder="ex: número digitado errado na bipagem">
+      </div>
       <button type="submit" class="btn btn-success">💾 Salvar correção</button>
+    </form>
+  </details>
+  {% endif %}
+
+  {% if pode('patrimonio_mover') and onde_esta %}
+  {# Mover ≠ renomear. Renomear troca a IDENTIDADE do item; mover diz que o
+     mesmo item passou a estar em outro veículo — que foi o caso que o
+     sistema não cobria e obrigava a apagar o item pra seguir. #}
+  <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;"
+           {{ 'open' if previa_mover }}>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Mover para outro veículo</summary>
+    <p style="color:#666;font-size:13px;margin:8px 0;">
+      Para quando o item saiu do kit de um veículo e foi instalado em outro — troca feita
+      na hora da instalação, por exemplo. O kit de origem passa a acusar o item faltando
+      (e entra na lista de pendências); o de destino recebe. Nada muda de estágio na
+      produção e o histórico do item guarda as duas passagens.
+    </p>
+
+    {% if previa_mover %}
+    {% if previa_mover.bloqueio %}
+    <div class="alert alert-danger">⚠️ {{ previa_mover.bloqueio }}</div>
+    {% else %}
+    <div class="card" style="background:#f7fafc;margin-bottom:12px;">
+      <h3 style="margin:0 0 8px;font-size:14px;">Confira antes de confirmar</h3>
+      <p style="font-size:13px;margin:0 0 6px;">
+        <strong>Sai de:</strong> 🚗 {{ previa_mover.origem.veiculo or '— sem veículo —' }}
+        ({{ previa_mover.origem.kit_nome }} · {{ previa_mover.origem.cliente }})
+      </p>
+      <p style="font-size:13px;margin:0 0 6px;">
+        <strong>Vai para:</strong> 🚗 {{ previa_mover.destino.veiculo }}
+        ({{ previa_mover.destino.kit_nome }} · {{ previa_mover.destino.cliente }}{% if previa_mover.destino.garagem %} · {{ previa_mover.destino.garagem }}{% endif %})
+      </p>
+      <p style="font-size:13px;margin:0 0 6px;"><strong>Motivo:</strong> {{ mover_motivo }}</p>
+      {% for a in previa_mover.avisos %}
+      <p style="font-size:12px;color:#b8860b;margin:6px 0 0;">⚠️ {{ a }}</p>
+      {% endfor %}
+      <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/mover"
+            style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="hidden" name="destino" value="{{ mover_destino }}">
+        <input type="hidden" name="motivo" value="{{ mover_motivo }}">
+        <input type="hidden" name="confirmado" value="1">
+        <button type="submit" class="btn btn-success">✔️ Confirmar a mudança</button>
+        <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}" class="btn btn-secondary">Cancelar</a>
+      </form>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/mover"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;">
+        <label>Número do veículo de destino *</label>
+        <input type="text" name="destino" required value="{{ mover_destino }}"
+               style="margin:0;" placeholder="ex: 1415">
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:240px;">
+        <label>Motivo *</label>
+        <input type="text" name="motivo" required minlength="5" value="{{ mover_motivo }}"
+               style="margin:0;" placeholder="ex: item do 1219 instalado no 1415 por falha na instalação">
+      </div>
+      <button type="submit" class="btn btn-primary">Ver o que vai acontecer →</button>
+    </form>
+  </details>
+  {% endif %}
+
+  {% if pode('patrimonio_atribuir') and onde_esta %}
+  <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;">
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">📤 Retirar do kit</summary>
+    <p style="color:#666;font-size:13px;margin:8px 0;">
+      Para quando o item saiu do kit e <strong>não</strong> foi pra outro veículo — voltou
+      pro estoque, quebrou ou sumiu. O kit fica acusando o item faltando, que é a verdade,
+      e aparece na lista de pendências até receber outro.
+    </p>
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/retirar"
+          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
+          onsubmit="return confirm('Retirar este patrimônio do kit do veículo {{ onde_esta.veiculo or '—' }}?')">
+      <div class="form-group" style="margin:0;flex:1;min-width:260px;">
+        <label>Motivo *</label>
+        <input type="text" name="motivo" required minlength="5" style="margin:0;"
+               placeholder="ex: peça com defeito, devolvida ao estoque">
+      </div>
+      <button type="submit" class="btn btn-warning">📤 Retirar do kit</button>
     </form>
   </details>
   {% endif %}

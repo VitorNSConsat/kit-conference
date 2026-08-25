@@ -1053,6 +1053,55 @@ def _comparar_com_exigido(contagem: dict, itens_exigidos: list[dict]) -> dict:
     }
 
 
+def kits_incompletos() -> dict:
+    """Kits que estão com MENOS itens do que o modelo pede.
+
+    Existe pra pendência não sumir de vista: quando um patrimônio é movido
+    pra outro veículo (ou retirado), o kit de origem fica devendo um item —
+    e sem uma marca em algum lugar ninguém lembra de voltar lá.
+
+    Devolve {kit_id: {"veiculo_id", "veiculo", "faltas": [{tipo, faltam}]}}.
+    Uma consulta só pra o sistema inteiro: a tela de veículos e a de produção
+    marcam a partir do mesmo mapa, então não têm como discordar."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT kr.kit_id, kr.veiculo_id,
+                   COALESCE(v.numero, kr.veiculo, '') AS veiculo,
+                   it.nome AS tipo_nome,
+                   kti.quantidade_exigida - COALESCE(si.q, 0) AS faltam
+            FROM kit_record kr
+            JOIN kit_template_items kti ON kti.kit_template_id = kr.kit_template_id
+            JOIN item_tipo it ON it.id = kti.item_tipo_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            LEFT JOIN (
+                SELECT sessao_id, item_tipo_id, SUM(COALESCE(quantidade, 1)) AS q
+                FROM scan_session_items
+                WHERE status IS NULL OR status NOT IN ('movido', 'retirado')
+                GROUP BY sessao_id, item_tipo_id
+            ) si ON si.sessao_id = kr.sessao_id AND si.item_tipo_id = kti.item_tipo_id
+            WHERE kr.status = 'ativo'
+              AND COALESCE(si.q, 0) < kti.quantidade_exigida
+            ORDER BY kr.kit_id, it.nome
+        """).fetchall()
+    mapa: dict = {}
+    for r in rows:
+        alvo = mapa.setdefault(r["kit_id"], {
+            "veiculo_id": r["veiculo_id"], "veiculo": r["veiculo"], "faltas": []})
+        alvo["faltas"].append({"tipo": r["tipo_nome"], "faltam": r["faltam"]})
+    return mapa
+
+
+def veiculos_com_kit_incompleto() -> dict:
+    """{veiculo_id: {kit_id, faltas}} — a mesma pendência, indexada pelo
+    veículo, que é como a lista de veículos precisa consultar."""
+    por_veiculo: dict = {}
+    for kit_id, dados in kits_incompletos().items():
+        if dados["veiculo_id"]:
+            por_veiculo[dados["veiculo_id"]] = {"kit_id": kit_id,
+                                                "faltas": dados["faltas"]}
+    return por_veiculo
+
+
 def gravar_itens_exigidos(conn, kit_id: str, kit_template_id: int) -> None:
     """Congela o que o kit exige, no momento em que ele é finalizado.
 
