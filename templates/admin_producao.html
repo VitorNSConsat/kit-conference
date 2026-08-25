@@ -265,7 +265,7 @@
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
         <span class="badge badge-danger" style="margin-left:4px;"
-              title="Falta: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
+              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
         {% endif %}</td>
         <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
@@ -346,7 +346,7 @@
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
@@ -405,7 +405,7 @@
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">⚠️ falta item</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>

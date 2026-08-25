@@ -435,7 +435,7 @@
         {% if v.falta_item %}
         <a href="/kit/{{ v.falta_item.kit_id }}" class="badge badge-danger"
            style="text-decoration:none;display:inline-block;margin-top:3px;"
-           title="Falta: {% for f in v.falta_item.faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %} — clique para abrir o kit">
+           title="Falta de patrimônio: {% for f in v.falta_item.faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %} — clique para abrir o kit">
           ⚠️ falta item
         </a>
         {% endif %}

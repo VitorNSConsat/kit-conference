@@ -367,7 +367,7 @@
      aqui e marca o veículo nas outras telas, pra ninguém esquecer de voltar. #}
   {% if faltas %}
   <div class="alert-success" style="background:#fdecea;color:#a33a2c;border-color:#f3c9c2;">
-    ⚠️ <strong>Falta item neste kit:</strong>
+    ⚠️ <strong>Falta patrimônio neste kit:</strong>
     {% for f in faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}.
     {% if pode('patrimonio_atribuir') %}
     Use “➕ Atribuir patrimônio a este kit”, no fim da página, quando a reposição for enviada.

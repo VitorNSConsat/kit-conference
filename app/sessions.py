@@ -1054,11 +1054,17 @@ def _comparar_com_exigido(contagem: dict, itens_exigidos: list[dict]) -> dict:
 
 
 def kits_incompletos() -> dict:
-    """Kits que estão com MENOS itens do que o modelo pede.
+    """Kits que estão devendo um item DE PATRIMÔNIO.
 
     Existe pra pendência não sumir de vista: quando um patrimônio é movido
     pra outro veículo (ou retirado), o kit de origem fica devendo um item —
     e sem uma marca em algum lugar ninguém lembra de voltar lá.
+
+    Só conta tipo marcado como **Item de Patrimônio**. Item contado por
+    quantidade (parafuso, cabo de estoque) fica de fora de propósito: quando
+    um template ganha um item novo, TODO kit antigo passaria a acusar falta —
+    e um aviso que aparece em tudo não é aviso, é ruído. O que interessa aqui
+    é a peça rastreada uma a uma, que de fato não está no veículo.
 
     Devolve {kit_id: {"veiculo_id", "veiculo", "faltas": [{tipo, faltam}]}}.
     Uma consulta só pra o sistema inteiro: a tela de veículos e a de produção
@@ -1080,6 +1086,7 @@ def kits_incompletos() -> dict:
                 GROUP BY sessao_id, item_tipo_id
             ) si ON si.sessao_id = kr.sessao_id AND si.item_tipo_id = kti.item_tipo_id
             WHERE kr.status = 'ativo'
+              AND COALESCE(it.controle_externo, 0) = 1
               AND COALESCE(si.q, 0) < kti.quantidade_exigida
             ORDER BY kr.kit_id, it.nome
         """).fetchall()
