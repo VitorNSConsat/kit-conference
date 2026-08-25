@@ -1281,12 +1281,17 @@ async def kit_trazer_patrimonio(request: Request, kit_id: str):
             str(form.get("codigo_barra", "")), kit_id, str(form.get("motivo", "")),
             (get_current_user(request) or {}).get("id"))
     except ValueError as e:
-        return RedirectResponse(f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
-                                status_code=302)
+        return RedirectResponse(
+            _destino_apos_acao(request, str(form.get("voltar", "")), "", str(e), erro=True)
+            if form.get("voltar") else f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
+            status_code=302)
     msg = (f"{r['origem']['tipo_nome']} {str(form.get('codigo_barra', '')).strip()} "
            f"veio do veículo {r['origem']['veiculo'] or '—'}, que ficou faltando "
            "este item e entrou na lista de pendências.")
-    return RedirectResponse(f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
+    voltar = str(form.get("voltar", ""))
+    return RedirectResponse(
+        _destino_apos_acao(request, voltar, "", msg) if voltar
+        else f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
 
 
 @app.post("/kit/{kit_id}/atribuir-patrimonio")
@@ -1305,11 +1310,16 @@ async def kit_atribuir_patrimonio(request: Request, kit_id: str):
             str(form.get("motivo", "")), str(form.get("serial", "")),
             (get_current_user(request) or {}).get("id"))
     except ValueError as e:
-        return RedirectResponse(f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
-                                status_code=302)
+        return RedirectResponse(
+            _destino_apos_acao(request, str(form.get("voltar", "")), "", str(e), erro=True)
+            if form.get("voltar") else f"/kit/{quote(kit_id)}?erro=" + quote(str(e)),
+            status_code=302)
     msg = (f"{r['tipo_nome']} atribuído ao kit do veículo {r['veiculo'] or '—'}"
            + (" (patrimônio cadastrado agora)." if r["novo_cadastro"] else "."))
-    return RedirectResponse(f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
+    voltar = str(form.get("voltar", ""))
+    return RedirectResponse(
+        _destino_apos_acao(request, voltar, "", msg) if voltar
+        else f"/kit/{quote(kit_id)}?ok=" + quote(msg), status_code=302)
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/corrigir")
@@ -4487,6 +4497,68 @@ async def admin_veiculos_import_post(request: Request):
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
     resultado = veiculos_mod.importar_excel(file_bytes)
     return render(request, "admin_veiculos_import.html", {"resultado": resultado})
+
+
+def _veiculo_painel_context(request: Request, veiculo_id: int, voltar: str = "") -> dict:
+    """O que a janela do veículo mostra: o kit, o que está nele, o que falta —
+    e, quando não falta nada, POR QUE não falta. Numa função só porque a
+    prévia de "adicionar item" reabre a mesma janela."""
+    v = veiculos_mod.buscar(veiculo_id)
+    if not v:
+        raise HTTPException(status_code=404)
+    kit = items_mod.kit_do_veiculo(v["numero"])
+    conferencia = sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else []
+    return {
+        "v": v,
+        "kit": kit,
+        "conferencia": conferencia,
+        # A pendência sai da MESMA fonte das outras telas, pra janela e lista
+        # nunca discordarem sobre o que está faltando.
+        "faltas": (sessions_mod.kits_incompletos().get(kit["kit_id"], {}).get("faltas", [])
+                   if kit else []),
+        "itens": sessions_mod.itens_do_kit(kit["kit_id"]) if kit else [],
+        "tipos_do_kit": (items_mod.listar_tipos_para_kit(kit["kit_template_id"])
+                         if kit else []),
+        "voltar": voltar,
+        "previa_add": None, "add_codigo": "", "add_serial": "", "add_motivo": "",
+    }
+
+
+@app.get("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_veiculo_painel(request: Request, veiculo_id: int, voltar: str = ""):
+    """Janela do veículo — abre no clique do número, sem sair da lista."""
+    return render(request, "_veiculo_painel.html",
+                  _veiculo_painel_context(request, veiculo_id, voltar))
+
+
+@app.post("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_veiculo_painel_previa(request: Request, veiculo_id: int):
+    """Prévia de "adicionar item": diz se o código já está em outro veículo
+    (e em qual) ANTES de mexer em nada. Confirmar é um segundo clique —
+    e o veículo de origem fica devendo o item, sem reposição automática."""
+    form = await request.form()
+    ctx = _veiculo_painel_context(request, veiculo_id, str(form.get("voltar", "")))
+    codigo = str(form.get("codigo_barra", "")).strip()
+    motivo = str(form.get("motivo", "")).strip()
+    previa: dict = {"codigo": codigo, "ocupado": None, "erro": None}
+    if not ctx["kit"]:
+        previa["erro"] = "Este veículo não tem kit montado."
+    elif len(motivo) < 5:
+        previa["erro"] = ("Informe o motivo (pelo menos 5 letras) — ele fica gravado "
+                          "no histórico do item.")
+    elif not codigo:
+        previa["erro"] = "Informe o código do patrimônio."
+    else:
+        ocupado = items_mod.onde_esta(codigo)
+        if ocupado and ocupado.get("kit_id") == ctx["kit"]["kit_id"]:
+            previa["erro"] = "Este patrimônio já está neste kit."
+        else:
+            previa["ocupado"] = ocupado
+    ctx.update({"previa_add": previa, "add_codigo": codigo,
+                "add_serial": str(form.get("serial", "")).strip(), "add_motivo": motivo})
+    return render(request, "_veiculo_painel.html", ctx)
 
 
 @app.get("/admin/veiculos/{veiculo_id}", response_class=HTMLResponse)

@@ -832,25 +832,6 @@
         {% endif %}
         </div>{# /bloco-patrimonios #}
 
-        {# UMA janela pra lista inteira: o conteudo vem por fetch quando se
-           clica. Uma janela por linha encheria a pagina de HTML escondido —
-           com 500 patrimonios seria meia tela de nada. #}
-        <div class="modal-lista" id="modal-patrimonio" role="dialog" aria-modal="true"
-             aria-labelledby="titulo-modal-patrimonio">
-          <div class="modal-cabecalho">
-            <div>
-              <strong id="titulo-modal-patrimonio">🏷️ Patrimônio</strong>
-              <span class="modal-sub" id="modal-patrimonio-codigo"></span>
-            </div>
-            <button type="button" class="modal-fechar" onclick="fecharPainelPatrimonio()"
-                    title="Fechar (Esc)">&times;</button>
-          </div>
-          <div class="modal-corpo" id="modal-patrimonio-corpo">
-            <p style="color:#888;">Carregando…</p>
-          </div>
-        </div>
-        <div id="modal-fundo-patrimonio" class="modal-fundo"
-             onclick="fecharPainelPatrimonio()"></div>
     </div>
 </div>
 
@@ -1115,54 +1096,6 @@ function abrirImportarAjuste() {
 }
 </script>
 <script>
-// ── Janela do patrimônio ──────────────────────────────────────────────────
-// O conteúdo vem por fetch (fragmento pronto do servidor), então a página
-// não carrega uma janela por linha. As ações de dentro fazem POST normal e
-// voltam pra ESTA lista, com filtro e página — quem estava corrigindo cinco
-// itens não perde o lugar a cada um.
-function abrirPainelPatrimonio(codigo) {
-    const janela = document.getElementById('modal-patrimonio');
-    const corpo = document.getElementById('modal-patrimonio-corpo');
-    document.getElementById('modal-patrimonio-codigo').textContent = codigo;
-    corpo.innerHTML = '<p style="color:#888;">Carregando…</p>';
-    janela.classList.add('aberto');
-    document.getElementById('modal-fundo-patrimonio').classList.add('aberto');
-    const barra = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = 'hidden';
-    if (barra > 0) document.body.style.paddingRight = barra + 'px';
-    const volta = window.location.pathname + window.location.search;
-    fetch('/admin/items/patrimonio/' + encodeURIComponent(codigo) + '/painel?voltar='
-          + encodeURIComponent(volta), {headers: {'X-Requested-With': 'fetch'}})
-        .then(r => r.text())
-        .then(html => { corpo.innerHTML = html; })
-        .catch(() => {
-            // Sem fetch, o caminho antigo continua valendo.
-            window.location = '/admin/items/patrimonio/' + encodeURIComponent(codigo);
-        });
-}
-function fecharPainelPatrimonio() {
-    document.getElementById('modal-patrimonio').classList.remove('aberto');
-    document.getElementById('modal-fundo-patrimonio').classList.remove('aberto');
-    document.body.style.overflow = '';
-    document.body.style.paddingRight = '';
-}
-// A prévia de "mover" troca só o conteúdo da janela — quem está conferindo
-// origem e destino não pode perder a lista de trás.
-document.addEventListener('submit', function (e) {
-    const form = e.target;
-    if (!form.matches('#modal-patrimonio form[data-fragmento="1"]')) return;
-    e.preventDefault();
-    const corpo = document.getElementById('modal-patrimonio-corpo');
-    fetch(form.action, {method: 'POST', body: new FormData(form),
-                        headers: {'X-Requested-With': 'fetch'}})
-        .then(r => r.text())
-        .then(html => { corpo.innerHTML = html; })
-        .catch(() => form.submit());
-});
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') fecharPainelPatrimonio();
-});
-
 let _popupAberto = null;
 
 function abrirPopup(event, tipoId) {

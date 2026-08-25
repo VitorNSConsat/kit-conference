@@ -726,6 +726,19 @@ tr:hover td { background: var(--surface-alt); }
 .pat-previa p { margin: 6px 0 0; }
 .pat-aviso { color: #b8860b; font-size: 12px; }
 .pat-linha { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.pat-acao select {
+    width: 100%; margin: 0; padding: 9px 10px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-input, 8px);
+}
+
+/* Itens do kit dentro da janela do veículo. */
+.vp-itens { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 2px; }
+.vp-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 10px; background: #f7fafc; border-radius: 8px;
+}
+.vp-tipo { font-size: 13px; font-weight: 700; color: #33404d; }
+.vp-codigo { font-size: 12px; color: #7a8794; font-family: monospace; }
 
 /* ── Filtro de múltipla escolha ───────────────────────────────────────────
    Parece um select, mas cada opção é um checkbox: dá pra ver duas garagens

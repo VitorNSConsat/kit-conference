@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=19">
+    <link rel="stylesheet" href="/static/style.css?v=20">
 </head>
 <body>
 {% if user %}
@@ -65,10 +65,81 @@
 })();
 </script>
 {% endif %}
+{# Janela única do sistema pra abrir um "painel" vindo do servidor (patrimônio,
+   veículo). Fica no base porque a mesma janela serve várias telas — e porque
+   uma janela por linha de lista encheria a página de HTML escondido. #}
+<div class="modal-lista" id="janela-painel" role="dialog" aria-modal="true"
+     aria-labelledby="janela-painel-titulo">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="janela-painel-titulo">Painel</strong>
+      <span class="modal-sub" id="janela-painel-sub"></span>
+    </div>
+    <button type="button" class="modal-fechar" onclick="fecharJanelaPainel()"
+            title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="modal-corpo" id="janela-painel-corpo"></div>
+</div>
+<div id="janela-painel-fundo" class="modal-fundo" onclick="fecharJanelaPainel()"></div>
 <script>
 function toggleNav() {
     document.getElementById('nav-links').classList.toggle('open');
 }
+
+// ── Janela com conteúdo vindo do servidor ─────────────────────────────────
+// O painel chega pronto por fetch: a lista de trás continua intacta, e as
+// ações de dentro voltam pra ELA (com filtro e página), em vez de levar o
+// operador pra outra tela e obrigá-lo a refazer o caminho.
+function abrirJanelaPainel(url, titulo, sub) {
+    const janela = document.getElementById('janela-painel');
+    const corpo = document.getElementById('janela-painel-corpo');
+    document.getElementById('janela-painel-titulo').textContent = titulo;
+    document.getElementById('janela-painel-sub').textContent = sub || '';
+    corpo.innerHTML = '<p style="color:#888;">Carregando…</p>';
+    janela.classList.add('aberto');
+    document.getElementById('janela-painel-fundo').classList.add('aberto');
+    // Compensa a barra de rolagem: sem isso a página dá um pulo lateral.
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (barra > 0) document.body.style.paddingRight = barra + 'px';
+    fetch(url, {headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => { corpo.innerHTML = html; })
+        .catch(() => { window.location = url; });   // sem fetch, navega normal
+}
+function fecharJanelaPainel() {
+    document.getElementById('janela-painel').classList.remove('aberto');
+    document.getElementById('janela-painel-fundo').classList.remove('aberto');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+function _voltaAtual() {
+    return encodeURIComponent(window.location.pathname + window.location.search);
+}
+function abrirPainelPatrimonio(codigo) {
+    abrirJanelaPainel('/admin/items/patrimonio/' + encodeURIComponent(codigo)
+                      + '/painel?voltar=' + _voltaAtual(), '🏷️ Patrimônio', codigo);
+}
+function abrirPainelVeiculo(id, numero) {
+    abrirJanelaPainel('/admin/veiculos/' + id + '/painel?voltar=' + _voltaAtual(),
+                      '🚗 Veículo', numero || '');
+}
+// Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
+// conferindo origem e destino não pode perder a lista de trás.
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form.matches('#janela-painel form[data-fragmento="1"]')) return;
+    e.preventDefault();
+    const corpo = document.getElementById('janela-painel-corpo');
+    fetch(form.action, {method: 'POST', body: new FormData(form),
+                        headers: {'X-Requested-With': 'fetch'}})
+        .then(r => r.text())
+        .then(html => { corpo.innerHTML = html; })
+        .catch(() => form.submit());
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') fecharJanelaPainel();
+});
 
 // Busca client-side genérica: filtra os elementos casados por
 // data-filtro-alvo (seletor CSS) comparando o texto digitado com o

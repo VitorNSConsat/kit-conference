@@ -1098,6 +1098,61 @@ def kits_incompletos() -> dict:
     return mapa
 
 
+def conferencia_com_modelo(kit_id: str) -> list[dict]:
+    """Linha a linha: o que o modelo pede × o que o kit tem.
+
+    Existe porque "não apareceu aviso" tinha três explicações possíveis (o
+    tipo não é patrimônio, o modelo não pede o item, ou o kit tem tudo) e
+    nenhuma delas estava escrita em lugar nenhum. Com esta lista a tela
+    consegue dizer qual é o caso, em vez de deixar o operador adivinhando."""
+    with db() as conn:
+        kr = conn.execute(
+            "SELECT sessao_id, kit_template_id FROM kit_record WHERE kit_id = ?",
+            (kit_id,)).fetchone()
+        if not kr:
+            return []
+        rows = conn.execute("""
+            SELECT it.id AS item_tipo_id, it.nome AS tipo,
+                   COALESCE(it.controle_externo, 0) AS e_patrimonio,
+                   kti.quantidade_exigida AS exigido,
+                   COALESCE(si.q, 0) AS presente
+            FROM kit_template_items kti
+            JOIN item_tipo it ON it.id = kti.item_tipo_id
+            LEFT JOIN (
+                SELECT sessao_id, item_tipo_id, SUM(COALESCE(quantidade, 1)) AS q
+                FROM scan_session_items
+                WHERE status IS NULL OR status NOT IN ('movido', 'retirado')
+                GROUP BY sessao_id, item_tipo_id
+            ) si ON si.sessao_id = ? AND si.item_tipo_id = kti.item_tipo_id
+            WHERE kti.kit_template_id = ?
+            ORDER BY it.nome
+        """, (kr["sessao_id"], kr["kit_template_id"])).fetchall()
+    linhas = []
+    for r in rows:
+        d = dict(r)
+        d["faltam"] = max(0, d["exigido"] - d["presente"])
+        d["e_patrimonio"] = bool(d["e_patrimonio"])
+        linhas.append(d)
+    return linhas
+
+
+def itens_do_kit(kit_id: str) -> list[dict]:
+    """Os patrimônios que estão neste kit agora — com tipo, série e quando
+    entraram. É a lista que a janela do veículo mostra."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT si.codigo_barra, si.serial_number, si.bipado_em, si.observacao,
+                   it.nome AS tipo, COALESCE(it.controle_externo, 0) AS e_patrimonio
+            FROM kit_record kr
+            JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
+            JOIN item_tipo it ON it.id = si.item_tipo_id
+            WHERE kr.kit_id = ?
+              AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
+            ORDER BY it.nome, si.codigo_barra
+        """, (kit_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def veiculos_com_kit_incompleto() -> dict:
     """A mesma pendência, indexada pelo veículo — que é como a lista de
     veículos consulta.

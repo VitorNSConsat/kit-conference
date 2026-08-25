@@ -335,13 +335,32 @@
   </div>
 
   <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
+  <p><strong>Dois caminhos curtos, os dois em janela sobre a lista:</strong></p>
+  <ul>
+    <li>Em <strong>Veículos e Clientes</strong>, clicar no <strong>número do veículo</strong>
+      abre a janela dele: itens do kit, o que falta, e <span class="campo">➕ Adicionar
+      item</span>.</li>
+    <li>Em <strong>Itens Cadastrados</strong>, clicar no <strong>código do patrimônio</strong>
+      abre a janela do item: onde ele está e as ações de mover, corrigir e retirar.</li>
+  </ul>
   <p>
-    <strong>O caminho curto:</strong> em <em>Itens Cadastrados</em>, clique no
-    <strong>código do patrimônio</strong> — abre uma janela por cima da lista, como a
-    engrenagem do Estoque, com tudo que dá pra fazer com aquele item. Ao terminar, você volta
-    pra mesma lista, no mesmo filtro e na mesma página. (Vindo de <em>Veículos e Clientes</em>,
-    clicar no número do veículo já leva pra lista dos patrimônios dele.)
+    Ao terminar, você volta pra mesma lista, no mesmo filtro e na mesma página — quem está
+    resolvendo cinco itens não perde o lugar a cada um.
   </p>
+
+  <h4>➕ Adicionar item pelo veículo</h4>
+  <p style="font-size:14px;">
+    Bipe ou digite o código do patrimônio que vai fazer parte do kit daquele veículo. O
+    sistema mostra o que vai acontecer <strong>antes</strong> de gravar:
+  </p>
+  <ul>
+    <li><strong>Código já em outro veículo</strong> — avisa em qual, e pede confirmação. Ao
+      confirmar, o item passa pra cá e <strong>o veículo de origem fica devendo</strong>,
+      entrando na lista de pendências. <strong>Nada é reposto automaticamente</strong>: quem
+      decide o que vai pro lugar é você.</li>
+    <li><strong>Código novo</strong> — avisa que vai ser cadastrado agora e pede o tipo do
+      item.</li>
+  </ul>
   <p>
     O primeiro bloco da janela responde <strong>“onde este item está agora”</strong>: veículo,
     kit, cliente, garagem, desde quando e por quem — com atalho pro kit e pro histórico
@@ -426,6 +445,15 @@
     <li>na página do veículo, com atalho pro kit;</li>
     <li>na própria página do kit, dizendo o que falta e quantos.</li>
   </ul>
+  <div class="nota">
+    <strong>Não apareceu o aviso e você esperava que aparecesse?</strong> Abra a janela do
+    veículo (clique no número, em Veículos e Clientes): ela diz qual é o caso — o kit tem
+    tudo que o modelo pede; o que falta é item de quantidade (não gera pendência); ou o item
+    que você procura <strong>não está no modelo</strong> daquele kit, e aí é o modelo que
+    precisa ser ajustado em Criar Kit/Pedido. Se o item deveria gerar pendência e não gera,
+    confira se o tipo dele está marcado como <strong>Item de Patrimônio</strong> (⚙️ do item,
+    em Itens &amp; Estoque).
+  </div>
   <div class="nota">
     <strong>Só conta item de patrimônio</strong> — a peça rastreada uma a uma. Item contado
     por quantidade (parafuso, abraçadeira, cabo de estoque) fica de fora de propósito:

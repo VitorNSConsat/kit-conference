@@ -411,9 +411,12 @@
          Reaproveita o filtro veiculo_id que a aba já tinha, em vez de uma
          tela nova. O botão "Ver" no fim da linha segue indo pro cadastro. #}
       <td>
-        <a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}"
-           style="font-weight:700;color:#1a3a5c;"
-           title="Ver os itens e patrimônios deste veículo">{{ v.numero }}</a>
+        {# Abre a janela do veículo na hora: itens do kit, o que falta e o
+           caminho pra resolver — antes era ir pra Itens & Estoque filtrado,
+           clicar no código e só então poder agir. #}
+        <button type="button" class="btn-codigo" style="font-weight:700;"
+                onclick="abrirPainelVeiculo({{ v.id }}, '{{ v.numero | e }}')"
+                title="Itens, pendências e alterações deste veículo">{{ v.numero }}</button>
       </td>
       {# Cliente e garagem também são atalhos: daqui se chega no panorama de
          cada um sem precisar rolar até os cards do topo. #}
