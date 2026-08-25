@@ -110,7 +110,7 @@
     <li>Bipar duas vezes na mesma sessão é recusado.</li>
     <li>Se o código não existir, o sistema pergunta o tipo e cadastra na hora — só
       oferece tipos que <strong>pertencem àquele kit</strong>.</li>
-    <li>Digitou errado? Dá pra corrigir depois na página do patrimônio, sem reabrir a
+    <li>Digitou errado? Dá pra corrigir depois na janela do patrimônio, sem reabrir a
       produção e sem perder o histórico (precisa da permissão
       <em>Corrigir patrimônio</em>).</li>
   </ul>
@@ -325,8 +325,9 @@
   <h3>🏷️ Itens Cadastrados</h3>
   <p>
     Todos os patrimônios, com filtro por veículo e por situação, e busca por código.
-    Clicando no código abre a <strong>página do patrimônio</strong>: onde foi bipado, em
-    que kit, com quem, o que foi bipado junto e a correção de código/serial.
+    Clicando no código abre a <strong>janela do patrimônio</strong> — a mesma que abre pelo
+    número do veículo: onde ele está agora, o que falta naquele kit, o histórico de
+    alterações e as ações de mover, corrigir e adicionar.
   </p>
   <div class="nota">
     Essa página é aberta <strong>por aqui</strong>. Na lista de verificação do kit, o código
@@ -335,20 +336,51 @@
   </div>
 
   <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
-  <p><strong>Dois caminhos curtos, os dois em janela sobre a lista:</strong></p>
+  <p>
+    <strong>É uma janela só</strong>, aberta por dois caminhos. Não existe mais “a tela do
+    veículo” e “a tela do patrimônio” com poderes diferentes: as duas portas levam ao mesmo
+    lugar e permitem as mesmas ações.
+  </p>
   <ul>
     <li>Em <strong>Veículos e Clientes</strong>, clicar no <strong>número do veículo</strong>
-      abre a janela dele: itens do kit, o que falta, e <span class="campo">➕ Adicionar
-      item</span>.</li>
+      abre a janela naquele veículo.</li>
     <li>Em <strong>Itens Cadastrados</strong>, clicar no <strong>código do patrimônio</strong>
-      abre a janela do item: onde ele está e as ações de mover, corrigir e retirar.</li>
+      abre a mesma janela, já com aquele item em foco (e no veículo em que ele está).</li>
+  </ul>
+  <p>Dentro dela, sempre na mesma ordem:</p>
+  <ul>
+    <li><strong>O veículo</strong> — cliente, garagem, kit e situação.</li>
+    <li><strong>O que está faltando</strong> — <em>“CVC não encontrado”</em>, com o nome do
+      item, não um “falta item” genérico.</li>
+    <li><strong>📜 Alterações depois da montagem</strong> — o histórico curto do veículo:
+      o que saiu, o que entrou, quando e por quê.</li>
+    <li><strong>🏷️ Itens deste kit</strong> — clicar em qualquer patrimônio da lista coloca
+      ele em foco, sem sair da janela.</li>
+    <li><strong>As ações</strong> — do item em foco e do veículo.</li>
   </ul>
   <p>
     Ao terminar, você volta pra mesma lista, no mesmo filtro e na mesma página — quem está
     resolvendo cinco itens não perde o lugar a cada um.
   </p>
 
-  <h4>➕ Adicionar item pelo veículo</h4>
+  <p>São três ações, e escolher a certa importa:</p>
+  <ul>
+    <li><span class="campo">🔀 Mover para outro veículo</span> — o número está certo, o item
+      é que <strong>mudou de lugar</strong>. Sai do kit de um veículo e entra no de outro.</li>
+    <li><span class="campo">✏️ Corrigir código / nº de série</span> — o item é o mesmo, o
+      <strong>número</strong> é que está errado (digitado torto na bipagem). O histórico
+      acompanha.</li>
+    <li><span class="campo">➕ Adicionar item</span> — traz um patrimônio pro kit deste
+      veículo, pelo código.</li>
+  </ul>
+  <div class="nota">
+    <strong>“Retirar do kit” saiu da janela.</strong> Na prática o item nunca some do mundo:
+    ele foi parar em outro veículo. Retirar sem dizer pra onde criava buraco no rastreamento —
+    o lugar dessa história é <strong>mover</strong>. Quem realmente precisa tirar sem destino
+    (peça quebrada, devolvida ao estoque) continua fazendo isso pela página do kit.
+  </div>
+
+  <h4>➕ Adicionar item</h4>
   <p style="font-size:14px;">
     Bipe ou digite o código do patrimônio que vai fazer parte do kit daquele veículo. O
     sistema mostra o que vai acontecer <strong>antes</strong> de gravar:
@@ -362,24 +394,14 @@
       item.</li>
   </ul>
   <p>
-    O primeiro bloco da janela responde <strong>“onde este item está agora”</strong>: veículo,
-    kit, cliente, garagem, desde quando e por quem — com atalho pro kit e pro histórico
-    completo. É a informação que decide o que fazer, e é ela que faltava quando o sistema só
-    dizia “esse código já pertence a outro patrimônio”.
+    O bloco <strong>“onde este item está agora”</strong> responde antes de você decidir:
+    veículo, kit, cliente, garagem, desde quando e por quem — com atalho pro kit e pro
+    histórico completo. É a informação que faltava quando o sistema só dizia “esse código já
+    pertence a outro patrimônio”.
   </p>
-  <p>São três ações diferentes, e escolher a certa importa:</p>
-  <ul>
-    <li><span class="campo">✏️ Corrigir patrimônio</span> — o item é o mesmo, o
-      <strong>número</strong> é que está errado (digitado torto na bipagem). Muda código e/ou
-      nº de série; o histórico acompanha.</li>
-    <li><span class="campo">🔀 Mover para outro veículo</span> — o número está certo, o item
-      é que <strong>mudou de lugar</strong>. Sai do kit de um veículo e entra no de outro.</li>
-    <li><span class="campo">📤 Retirar do kit</span> — o item saiu e <strong>não</strong> foi
-      pra outro veículo: voltou pro estoque, quebrou, sumiu.</li>
-  </ul>
   <p>
     <span class="campo">➕ Colocar patrimônio neste kit</span> fica na página do kit (no fim) e
-    é o caminho oposto — o de quem está olhando o veículo que ficou sem a peça. São dois modos:
+    faz o mesmo pelo lado de quem está com o kit aberto. São dois modos:
   </p>
   <ul>
     <li><strong>Trazer de outro veículo</strong> — escolhe da lista um patrimônio que está
@@ -389,7 +411,7 @@
       código ainda não existir, ele é cadastrado na hora.</li>
   </ul>
   <div class="nota">
-    <strong>Motivo é obrigatório nas quatro ações</strong>, e fica gravado no histórico do item
+    <strong>Motivo é obrigatório em todas as ações</strong>, e fica gravado no histórico do item
     e na auditoria. Seis meses depois, “por que este item mudou de veículo?” só tem resposta
     se alguém escreveu na hora.
   </div>
@@ -407,8 +429,8 @@
       (“antena do 1415 com defeito, usada a do 1219”).</li>
     <li>O sistema mostra <strong>de onde sai, pra onde vai e o que cada lado perde ou
       ganha</strong> antes de gravar. Confirme.</li>
-    <li>Resultado: o 1415 fica com a antena; o <strong>1219 passa a acusar “falta item”</strong>
-      até receber a reposição.</li>
+    <li>Resultado: o 1415 fica com a antena; o 1219 passa a acusar
+      <strong>“Antena não encontrada”</strong> até receber a reposição.</li>
   </ul>
 
   <h4>Exemplo 2 — repor o item que faltou</h4>
@@ -416,12 +438,13 @@
     Continuando: o 1219 vai receber uma antena nova, PAT-B.
   </p>
   <ul>
-    <li>Abra o kit do 1219 (pelo veículo, pela Produção ou pelo aviso “⚠️ falta item”).</li>
-    <li>No fim da página, use <strong>➕ Colocar patrimônio neste kit</strong> → “Cadastrar um
-      novo”: tipo do item, código PAT-B, nº de série (se houver) e o motivo. (Se em vez de
-      uma peça nova você for trazer a de outro veículo, use “Trazer de outro veículo” e
-      escolha da lista.)</li>
-    <li>Pronto — o aviso de pendência some, porque o kit voltou a ter o que o modelo pede.</li>
+    <li>Em Veículos e Clientes, clique no número <strong>1219</strong> (ou no próprio aviso
+      “⚠️ Antena não encontrada”) — a janela abre por cima da lista.</li>
+    <li>Use <strong>➕ Adicionar item</strong>, informe PAT-B e o motivo. Se PAT-B ainda não
+      existir, o sistema avisa e pede o tipo pra cadastrar na hora; se já estiver em outro
+      veículo, avisa em qual e pede confirmação.</li>
+    <li>Pronto — o aviso some, porque o kit voltou a ter a antena. A troca fica registrada em
+      <strong>📜 Alterações depois da montagem</strong>, na janela do 1219.</li>
   </ul>
 
   <div class="cuidado">
@@ -431,37 +454,61 @@
     a ação é <strong>mover</strong>.
   </div>
 
-  <h3>⚠️ Veículo com item faltando</h3>
+  <h3>⚠️ “CVC não encontrado” — veículo com item faltando</h3>
   <p>
-    Sempre que um kit fica devendo um <strong>item de patrimônio</strong> — porque ele foi
-    movido, retirado, ou porque a bipagem terminou incompleta — o veículo passa a aparecer
-    marcado, pra ninguém esquecer de voltar:
+    O aviso <strong>diz o nome do item</strong>: “CVC não encontrado”, “Antena não
+    encontrada”. Se for mais de um, mostra quantos são. Ele nasce sempre que um kit fica
+    devendo um <strong>item de patrimônio</strong> — porque ele foi movido pra outro veículo,
+    retirado, ou porque a bipagem terminou incompleta — e some sozinho quando o operador
+    coloca o substituto. <strong>Nada é reposto automaticamente.</strong>
   </p>
+  <p>Onde ele aparece:</p>
   <ul>
-    <li>na lista de <strong>Veículos e Clientes</strong>, com a etiqueta <strong>⚠️ falta
-      item</strong> (que abre o kit) e um filtro próprio em Situação;</li>
+    <li>na lista de <strong>Veículos e Clientes</strong>, ao lado do veículo — clicando nele,
+      a janela abre já no que falta — e num filtro próprio em Situação;</li>
     <li>na <strong>Produção</strong>, ao lado do veículo em cada etapa — é ali que o kit
       espera pra ser despachado;</li>
-    <li>na página do veículo, com atalho pro kit;</li>
-    <li>na própria página do kit, dizendo o que falta e quantos.</li>
+    <li>na página do veículo e na própria página do kit.</li>
   </ul>
+
+  <h4>Como o sistema decide que está faltando</h4>
+  <p style="font-size:14px;">
+    O que o kit <strong>deve ter</strong> de cada tipo de patrimônio é o
+    <strong>maior</strong> entre duas coisas:
+  </p>
+  <ul>
+    <li>o que o <strong>modelo do kit</strong> pede; e</li>
+    <li>o que o <strong>kit tinha quando foi montado</strong>.</li>
+  </ul>
+  <p>
+    A segunda metade é o que faz o caso do 1219 aparecer. O CVC dele estava certo no
+    template e certo na bipagem; ele saiu <em>depois</em> do kit finalizado, pro 1415. Pela
+    regra antiga — só o modelo — o 1219 não acusava nada se o modelo não listasse CVC.
+    Agora acusa: o kit tinha o CVC no dia da montagem e hoje não tem, então falta.
+  </p>
   <div class="nota">
     <strong>Não apareceu o aviso e você esperava que aparecesse?</strong> Abra a janela do
     veículo (clique no número, em Veículos e Clientes): ela diz qual é o caso — o kit tem
-    tudo que o modelo pede; o que falta é item de quantidade (não gera pendência); ou o item
-    que você procura <strong>não está no modelo</strong> daquele kit, e aí é o modelo que
-    precisa ser ajustado em Criar Kit/Pedido. Se o item deveria gerar pendência e não gera,
-    confira se o tipo dele está marcado como <strong>Item de Patrimônio</strong> (⚙️ do item,
-    em Itens &amp; Estoque).
+    tudo que devia; o que falta é item de quantidade (não gera pendência); ou o item nunca
+    esteve no kit nem está no modelo, e aí é o modelo que precisa ser ajustado em Criar
+    Kit/Pedido. Se o item deveria gerar pendência e não gera, confira se o tipo dele está
+    marcado como <strong>Item de Patrimônio</strong> (⚙️ do item, em Itens &amp; Estoque).
   </div>
   <div class="nota">
     <strong>Só conta item de patrimônio</strong> — a peça rastreada uma a uma. Item contado
     por quantidade (parafuso, abraçadeira, cabo de estoque) fica de fora de propósito:
     quando um modelo ganha um item novo, todo kit antigo passaria a acusar falta, e um aviso
-    que aparece em tudo deixa de ser aviso. A marca some sozinha quando o patrimônio volta.
-    Nenhuma dessas ações mexe em estágio de produção ou em estoque: o veículo continua
-    exatamente onde estava na esteira.
+    que aparece em tudo deixa de ser aviso. Nenhuma dessas ações mexe em estágio de produção
+    ou em estoque: o veículo continua exatamente onde estava na esteira.
   </div>
+
+  <h3>📜 Histórico de alterações do veículo</h3>
+  <p>
+    Dentro da janela do veículo, logo abaixo do aviso, fica o resumo do que mudou
+    <strong>depois</strong> que o kit foi finalizado: o item que saiu (e pra onde), o item que
+    entrou, a data e o motivo que alguém escreveu. Se não mudou nada, ele diz isso também —
+    é a resposta pra “esse veículo foi mexido ou está como saiu da montagem?”.
+  </p>
 
   <h3>🖨️ Etiquetas &amp; Códigos</h3>
   <p>Geração de códigos internos e etiquetas, incluindo a marcação de reciclável.</p>

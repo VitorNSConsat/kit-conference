@@ -20,8 +20,9 @@
 {# A mesma pendência da lista, aqui também: quem abre o veículo pra entender
    o que aconteceu precisa ver o que está faltando e chegar no kit num clique. #}
 <div class="alert alert-danger">
-  ⚠️ <strong>Falta patrimônio no kit deste veículo:</strong>
-  {% for f in falta_item.faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}.
+  {% for f in falta_item.faltas %}
+  ⚠️ <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ ' · ' if not loop.last }}
+  {% endfor %}
   <a href="/kit/{{ falta_item.kit_id }}" style="font-weight:700;">Abrir o kit →</a>
 </div>
 {% endif %}

@@ -566,6 +566,15 @@ def init_db():
             # verificar e trocar dentro do mesmo segundo tornaria a
             # comparação por data ambígua. Id é sempre crescente e exato.
             "ALTER TABLE kit_record ADD COLUMN verificacao_corte INTEGER",
+            # 1 = esta linha entrou no kit DEPOIS da montagem (item movido
+            # pra cá ou atribuído à mão). É o que separa "o kit foi montado
+            # com isso" de "isso foi colocado depois", e é dessa diferença
+            # que sai o aviso "CVC não encontrado": o kit deve ter o que o
+            # modelo pede OU o que tinha quando foi montado, o que for maior.
+            # Não dá pra separar só por data — now_brt() tem precisão de
+            # segundo, e finalizar e repor no mesmo segundo empataria. Nas
+            # linhas antigas fica 0 e a data continua valendo como critério.
+            "ALTER TABLE scan_session_items ADD COLUMN pos_montagem INTEGER NOT NULL DEFAULT 0",
         ]:
             try:
                 conn.execute(stmt)

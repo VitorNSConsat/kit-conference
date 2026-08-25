@@ -1163,10 +1163,10 @@ async def admin_patrimonio_painel(request: Request, codigo_barra: str, voltar: s
     """Pedaço de tela com tudo que dá pra fazer com um patrimônio — pra abrir
     numa janela sobre a lista, em vez de mandar o operador pra outra página e
     depois pra outra."""
-    return render(request, "_patrimonio_painel.html", {
-        **_patrimonio_context(request, codigo_barra),
-        "voltar": voltar,
-    })
+    # O MESMO painel do veículo, com este item em foco: entrar pelo código ou
+    # pelo número do veículo tem que dar no mesmo lugar.
+    return render(request, "_painel.html",
+                  _painel_context(request, None, codigo_barra, voltar))
 
 
 @app.get("/admin/items/patrimonio/{codigo_barra:path}", response_class=HTMLResponse)
@@ -1194,20 +1194,16 @@ def _destino_apos_acao(request: Request, voltar: str, codigo_barra: str,
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/painel", response_class=HTMLResponse)
-@require_permission("patrimonio_mover")
+@require_login
 async def admin_patrimonio_painel_previa(request: Request, codigo_barra: str):
-    """A prévia de "mover" dentro da janela: mesma conta da página inteira,
-    devolvida como pedaço pra trocar só o conteúdo da janela."""
+    """Prévia dentro da janela, entrando pelo código do patrimônio.
+
+    É a mesma janela do veículo, então trata os dois formulários — quem entra
+    por aqui também precisa poder adicionar item. Prévia não grava nada; quem
+    grava são as rotas de mover/atribuir, cada uma com sua permissão."""
     form = await request.form()
-    destino = str(form.get("destino", "")).strip()
-    motivo = str(form.get("motivo", "")).strip()
-    return render(request, "_patrimonio_painel.html", {
-        **_patrimonio_context(request, codigo_barra),
-        "voltar": str(form.get("voltar", "")),
-        "previa_mover": items_mod.previa_mover(codigo_barra, destino),
-        "mover_destino": destino,
-        "mover_motivo": motivo,
-    })
+    ctx = _painel_context(request, None, codigo_barra, str(form.get("voltar", "")))
+    return render(request, "_painel.html", _preencher_previa(ctx, form, codigo_barra))
 
 
 @app.post("/admin/items/patrimonio/{codigo_barra:path}/mover")
@@ -4499,49 +4495,52 @@ async def admin_veiculos_import_post(request: Request):
     return render(request, "admin_veiculos_import.html", {"resultado": resultado})
 
 
-def _veiculo_painel_context(request: Request, veiculo_id: int, voltar: str = "") -> dict:
-    """O que a janela do veículo mostra: o kit, o que está nele, o que falta —
-    e, quando não falta nada, POR QUE não falta. Numa função só porque a
-    prévia de "adicionar item" reabre a mesma janela."""
-    v = veiculos_mod.buscar(veiculo_id)
-    if not v:
-        raise HTTPException(status_code=404)
-    kit = items_mod.kit_do_veiculo(v["numero"])
-    conferencia = sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else []
+def _painel_context(request: Request, veiculo_id: int | None = None,
+                    codigo_barra: str = "", voltar: str = "") -> dict:
+    """Contexto do PAINEL ÚNICO — o mesmo pedaço de tela aberto pelo número do
+    veículo e pelo código do patrimônio.
+
+    Antes eram dois popups com metade das ações cada um: pelo veículo dava pra
+    adicionar item, pelo patrimônio dava pra mover/corrigir. Quem entrava pela
+    porta errada tinha que sair e entrar de novo. Agora é um só: o veículo
+    sempre aparece, e o item fica "em foco" quando se entra por ele.
+
+    `codigo_barra` manda: se veio um patrimônio, o veículo é o do kit dele."""
+    item_sel = items_mod.onde_esta(codigo_barra) if codigo_barra else None
+    v = None
+    if item_sel and item_sel.get("veiculo"):
+        v = veiculos_mod.buscar_por_numero(item_sel["veiculo"])
+    if v is None and veiculo_id:
+        v = veiculos_mod.buscar(veiculo_id)
+    kit = items_mod.kit_do_veiculo(v["numero"]) if v else None
+    # Entrando pelo item, o kit em foco é o DELE — não o mais recente do
+    # veículo, que pode ser outro se o veículo já teve mais de um kit.
+    if item_sel and item_sel.get("kit_id"):
+        kit = items_mod.kit_por_id(item_sel["kit_id"]) or kit
     return {
         "v": v,
         "kit": kit,
-        "conferencia": conferencia,
+        "codigo_barra": codigo_barra,
+        "item_sel": item_sel,
+        "conferencia": sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else [],
         # A pendência sai da MESMA fonte das outras telas, pra janela e lista
         # nunca discordarem sobre o que está faltando.
         "faltas": (sessions_mod.kits_incompletos().get(kit["kit_id"], {}).get("faltas", [])
                    if kit else []),
+        "mudancas": sessions_mod.historico_mudancas_do_kit(kit["kit_id"]) if kit else [],
         "itens": sessions_mod.itens_do_kit(kit["kit_id"]) if kit else [],
         "tipos_do_kit": (items_mod.listar_tipos_para_kit(kit["kit_template_id"])
                          if kit else []),
         "voltar": voltar,
+        "previa_mover": None, "mover_destino": "", "mover_motivo": "",
         "previa_add": None, "add_codigo": "", "add_serial": "", "add_motivo": "",
     }
 
 
-@app.get("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
-@require_login
-async def admin_veiculo_painel(request: Request, veiculo_id: int, voltar: str = ""):
-    """Janela do veículo — abre no clique do número, sem sair da lista."""
-    return render(request, "_veiculo_painel.html",
-                  _veiculo_painel_context(request, veiculo_id, voltar))
-
-
-@app.post("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
-@require_login
-async def admin_veiculo_painel_previa(request: Request, veiculo_id: int):
-    """Prévia de "adicionar item": diz se o código já está em outro veículo
-    (e em qual) ANTES de mexer em nada. Confirmar é um segundo clique —
-    e o veículo de origem fica devendo o item, sem reposição automática."""
-    form = await request.form()
-    ctx = _veiculo_painel_context(request, veiculo_id, str(form.get("voltar", "")))
-    codigo = str(form.get("codigo_barra", "")).strip()
-    motivo = str(form.get("motivo", "")).strip()
+def _previa_adicionar(ctx: dict, codigo: str, motivo: str) -> dict:
+    """O que vai acontecer ao adicionar este código no kit em foco — sem
+    gravar nada. Dizer em QUAL veículo o código está é o ponto: sem isso o
+    operador só descobria o conflito depois de tentar."""
     previa: dict = {"codigo": codigo, "ocupado": None, "erro": None}
     if not ctx["kit"]:
         previa["erro"] = "Este veículo não tem kit montado."
@@ -4556,9 +4555,48 @@ async def admin_veiculo_painel_previa(request: Request, veiculo_id: int):
             previa["erro"] = "Este patrimônio já está neste kit."
         else:
             previa["ocupado"] = ocupado
-    ctx.update({"previa_add": previa, "add_codigo": codigo,
-                "add_serial": str(form.get("serial", "")).strip(), "add_motivo": motivo})
-    return render(request, "_veiculo_painel.html", ctx)
+    return previa
+
+
+def _preencher_previa(ctx: dict, form, codigo_em_foco: str) -> dict:
+    """Preenche a prévia do formulário que foi enviado.
+
+    A janela é uma só e tem dois formulários — mover (manda `destino`) e
+    adicionar (manda `codigo_barra`). Como as duas portas abrem a mesma
+    janela, as duas rotas precisam entender os dois; separar por rota era o
+    que fazia "adicionar item" só funcionar entrando pelo veículo."""
+    motivo = str(form.get("motivo", "")).strip()
+    if form.get("destino") is not None and codigo_em_foco:
+        destino = str(form.get("destino", "")).strip()
+        ctx.update({"previa_mover": items_mod.previa_mover(codigo_em_foco, destino),
+                    "mover_destino": destino, "mover_motivo": motivo})
+    else:
+        codigo = str(form.get("codigo_barra", "")).strip()
+        ctx.update({"previa_add": _previa_adicionar(ctx, codigo, motivo),
+                    "add_codigo": codigo,
+                    "add_serial": str(form.get("serial", "")).strip(),
+                    "add_motivo": motivo})
+    return ctx
+
+
+@app.get("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_veiculo_painel(request: Request, veiculo_id: int, voltar: str = "",
+                               item: str = ""):
+    """Janela do veículo — abre no clique do número, sem sair da lista."""
+    return render(request, "_painel.html",
+                  _painel_context(request, veiculo_id, item, voltar))
+
+
+@app.post("/admin/veiculos/{veiculo_id}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_veiculo_painel_previa(request: Request, veiculo_id: int):
+    """Prévia dentro da janela, entrando pelo número do veículo — os mesmos
+    dois formulários da porta do patrimônio."""
+    form = await request.form()
+    item = str(form.get("item", ""))
+    ctx = _painel_context(request, veiculo_id, item, str(form.get("voltar", "")))
+    return render(request, "_painel.html", _preencher_previa(ctx, form, item))
 
 
 @app.get("/admin/veiculos/{veiculo_id}", response_class=HTMLResponse)

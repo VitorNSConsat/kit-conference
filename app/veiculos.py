@@ -35,6 +35,20 @@ def buscar(veiculo_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def buscar_por_numero(numero: str) -> dict | None:
+    """Acha o veículo pelo NÚMERO — que é como as telas se referem a ele
+    (e como o kit guarda, em kits antigos sem veiculo_id)."""
+    numero = (numero or "").strip()
+    if not numero:
+        return None
+    with db() as conn:
+        row = conn.execute(
+            "SELECT * FROM veiculos WHERE UPPER(TRIM(numero)) = UPPER(?) "
+            "ORDER BY ativo DESC, id DESC LIMIT 1", (numero,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def numero_em_uso(numero: str, excluir_id: int | None = None) -> dict | None:
     """O número do veículo é único no sistema INTEIRO — não só dentro do
     cliente. O mesmo 31001-50071 em dois clientes é o mesmo ônibus físico

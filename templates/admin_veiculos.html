@@ -436,11 +436,18 @@
         {# Pendência de reposição: o kit deste veículo está com menos itens do
            que o modelo pede (item foi pra outro veículo ou foi retirado). #}
         {% if v.falta_item %}
-        <a href="/kit/{{ v.falta_item.kit_id }}" class="badge badge-danger"
-           style="text-decoration:none;display:inline-block;margin-top:3px;"
-           title="Falta de patrimônio: {% for f in v.falta_item.faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %} — clique para abrir o kit">
-          ⚠️ falta item
-        </a>
+        {# Nomeia o item: "CVC não encontrado" diz o que fazer; "falta item"
+           obrigava a abrir pra descobrir o quê. #}
+        <button type="button" class="badge badge-danger"
+                style="border:0;cursor:pointer;display:inline-block;margin-top:3px;"
+                onclick="abrirPainelVeiculo({{ v.id }}, '{{ v.numero | e }}')"
+                title="Clique para ver o histórico e repor">
+          {% if v.falta_item.faltas | length == 1 %}
+          ⚠️ {{ v.falta_item.faltas[0].aviso }}
+          {% else %}
+          ⚠️ {{ v.falta_item.faltas | length }} itens não encontrados
+          {% endif %}
+        </button>
         {% endif %}
       </td>
       <td style="white-space:nowrap;">

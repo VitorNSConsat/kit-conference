@@ -1056,9 +1056,12 @@ def _comparar_com_exigido(contagem: dict, itens_exigidos: list[dict]) -> dict:
 def kits_incompletos() -> dict:
     """Kits que estão devendo um item DE PATRIMÔNIO.
 
-    Existe pra pendência não sumir de vista: quando um patrimônio é movido
-    pra outro veículo (ou retirado), o kit de origem fica devendo um item —
-    e sem uma marca em algum lugar ninguém lembra de voltar lá.
+    O que o kit "deve ter" de cada tipo é o MAIOR entre duas coisas: o que o
+    modelo pede e **o que o kit tinha quando foi montado**. A segunda parte é
+    o que faz o caso real funcionar — o item que saiu depois da montagem
+    (porque foi instalado em outro veículo) tem que acusar falta mesmo quando
+    o modelo não lista aquele tipo: o veículo ficou sem uma peça que estava
+    nele, e é isso que precisa de reposição.
 
     Só conta tipo marcado como **Item de Patrimônio**. Item contado por
     quantidade (parafuso, cabo de estoque) fica de fora de propósito: quando
@@ -1071,31 +1074,107 @@ def kits_incompletos() -> dict:
     marcam a partir do mesmo mapa, então não têm como discordar."""
     with db() as conn:
         rows = conn.execute("""
-            SELECT kr.kit_id, kr.veiculo_id,
-                   COALESCE(v.numero, kr.veiculo, '') AS veiculo,
-                   it.nome AS tipo_nome,
-                   kti.quantidade_exigida - COALESCE(si.q, 0) AS faltam
-            FROM kit_record kr
-            JOIN kit_template_items kti ON kti.kit_template_id = kr.kit_template_id
-            JOIN item_tipo it ON it.id = kti.item_tipo_id
-            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
-            LEFT JOIN (
+            WITH tipos AS (
+                -- Tipos que o modelo pede...
+                SELECT kr.kit_id AS kit_id, kti.item_tipo_id AS item_tipo_id
+                FROM kit_record kr
+                JOIN kit_template_items kti ON kti.kit_template_id = kr.kit_template_id
+                WHERE kr.status = 'ativo'
+                UNION
+                -- ...e tipos que o kit CHEGOU A TER, mesmo fora do modelo.
+                SELECT kr.kit_id, si.item_tipo_id
+                FROM kit_record kr
+                JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
+                WHERE kr.status = 'ativo'
+            ),
+            montagem AS (
+                -- O que estava no kit no fim da montagem. A linha conta mesmo
+                -- que tenha saído depois: é justamente a que pede reposição.
+                SELECT si.sessao_id AS sessao_id, si.item_tipo_id AS item_tipo_id,
+                       SUM(COALESCE(si.quantidade, 1)) AS q
+                FROM scan_session_items si
+                JOIN kit_record k2 ON k2.sessao_id = si.sessao_id
+                WHERE (si.status IS NULL
+                       OR si.status IN ('completo', 'movido', 'retirado'))
+                  AND COALESCE(si.pos_montagem, 0) = 0
+                  AND si.bipado_em <= k2.finalizado_em
+                GROUP BY si.sessao_id, si.item_tipo_id
+            ),
+            agora AS (
                 SELECT sessao_id, item_tipo_id, SUM(COALESCE(quantidade, 1)) AS q
                 FROM scan_session_items
                 WHERE status IS NULL OR status NOT IN ('movido', 'retirado')
                 GROUP BY sessao_id, item_tipo_id
-            ) si ON si.sessao_id = kr.sessao_id AND si.item_tipo_id = kti.item_tipo_id
-            WHERE kr.status = 'ativo'
-              AND COALESCE(it.controle_externo, 0) = 1
-              AND COALESCE(si.q, 0) < kti.quantidade_exigida
+            )
+            SELECT kr.kit_id, kr.veiculo_id,
+                   COALESCE(v.numero, kr.veiculo, '') AS veiculo,
+                   it.nome AS tipo_nome,
+                   MAX(COALESCE(kti.quantidade_exigida, 0), COALESCE(mont.q, 0))
+                       - COALESCE(ag.q, 0) AS faltam
+            FROM tipos t
+            JOIN kit_record kr ON kr.kit_id = t.kit_id
+            JOIN item_tipo it ON it.id = t.item_tipo_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            LEFT JOIN kit_template_items kti
+                   ON kti.kit_template_id = kr.kit_template_id
+                  AND kti.item_tipo_id = t.item_tipo_id
+            LEFT JOIN montagem mont
+                   ON mont.sessao_id = kr.sessao_id AND mont.item_tipo_id = t.item_tipo_id
+            LEFT JOIN agora ag
+                   ON ag.sessao_id = kr.sessao_id AND ag.item_tipo_id = t.item_tipo_id
+            WHERE COALESCE(it.controle_externo, 0) = 1
+              AND MAX(COALESCE(kti.quantidade_exigida, 0), COALESCE(mont.q, 0))
+                  > COALESCE(ag.q, 0)
             ORDER BY kr.kit_id, it.nome
         """).fetchall()
     mapa: dict = {}
     for r in rows:
         alvo = mapa.setdefault(r["kit_id"], {
             "veiculo_id": r["veiculo_id"], "veiculo": r["veiculo"], "faltas": []})
-        alvo["faltas"].append({"tipo": r["tipo_nome"], "faltam": r["faltam"]})
+        alvo["faltas"].append({"tipo": r["tipo_nome"], "faltam": r["faltam"],
+                               "aviso": frase_nao_encontrado(r["tipo_nome"])})
     return mapa
+
+
+def frase_nao_encontrado(tipo: str) -> str:
+    """"Antena não encontrada", "CVC não encontrado".
+
+    O aviso é lido por operador, então concorda em gênero: nome terminado em
+    "a" é feminino em quase todo nome de peça (antena, câmera, chicote não —
+    esse termina em "e"). Não é gramática perfeita, é o suficiente pra o aviso
+    não sair torto na tela."""
+    nome = (tipo or "").strip()
+    feminino = nome[-1:].lower() == "a" and len(nome) > 2
+    return f"{nome} não {'encontrada' if feminino else 'encontrado'}"
+
+
+def historico_mudancas_do_kit(kit_id: str) -> list[dict]:
+    """Resumo curto do que mudou no kit DEPOIS de finalizado: item que saiu
+    (pra onde) e item que entrou (de onde), com data e motivo.
+
+    É o "teve alteração ou não" que a janela do veículo mostra — sem isso, um
+    kit sem a peça e um kit que nunca teve a peça são indistinguíveis."""
+    with db() as conn:
+        rows = conn.execute("""
+            SELECT si.codigo_barra, si.bipado_em, si.status, si.observacao,
+                   it.nome AS tipo,
+                   kr.finalizado_em
+            FROM kit_record kr
+            JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
+            JOIN item_tipo it ON it.id = si.item_tipo_id
+            WHERE kr.kit_id = ?
+              AND COALESCE(it.controle_externo, 0) = 1
+              AND (si.status IN ('movido', 'retirado')
+                   OR COALESCE(si.pos_montagem, 0) = 1
+                   OR si.bipado_em > kr.finalizado_em)
+            ORDER BY si.bipado_em DESC, si.id DESC
+        """, (kit_id,)).fetchall()
+    mudancas = []
+    for r in rows:
+        d = dict(r)
+        d["saiu"] = d["status"] in ("movido", "retirado")
+        mudancas.append(d)
+    return mudancas
 
 
 def conferencia_com_modelo(kit_id: str) -> list[dict]:

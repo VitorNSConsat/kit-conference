@@ -544,8 +544,8 @@ def mover_patrimonio(codigo_barra: str, numero_destino: str, motivo: str,
         conn.execute(
             "INSERT INTO scan_session_items "
             "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
-            " serial_number, observacao, quantidade, estoque_debitado) "
-            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0)",
+            " serial_number, observacao, quantidade, estoque_debitado, pos_montagem) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0, 1)",
             (destino["sessao_id"], codigo_barra, origem["item_tipo_id"], carimbo,
              user_id, origem.get("serial_number"),
              f"Veio do veículo {origem['veiculo'] or '—'} em {carimbo} — {motivo}"))
@@ -595,8 +595,8 @@ def atribuir_patrimonio(codigo_barra: str, kit_id: str, item_tipo_id: int,
         conn.execute(
             "INSERT INTO scan_session_items "
             "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
-            " serial_number, observacao, quantidade, estoque_debitado) "
-            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0)",
+            " serial_number, observacao, quantidade, estoque_debitado, pos_montagem) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0, 1)",
             (kit["sessao_id"], codigo_barra, item_tipo_id, carimbo, user_id,
              (serial or "").strip() or None,
              f"Atribuído manualmente em {carimbo} — {motivo}"))

@@ -1,0 +1,286 @@
+{# Painel único do sistema: um veículo e (opcionalmente) um patrimônio dele
+   em foco. É o MESMO pedaço de tela aberto pelo número do veículo (em
+   Veículos e Clientes) e pelo código do patrimônio (em Itens Cadastrados) —
+   antes eram dois popups com metade das ações cada um, e o operador tinha
+   que adivinhar por qual porta entrar.
+
+   Fragmento: não estende base.html, é injetado por fetch. #}
+<div class="pat-painel">
+
+  {# ── Veículo ─────────────────────────────────────────────────────────── #}
+  {% if v %}
+  <div class="pat-onde">
+    <div class="pat-rotulo">Veículo</div>
+    <div class="pat-veic">🚗 {{ v.numero }}</div>
+    <div class="pat-sub">
+      {{ v.cliente }}{% if v.garagem %} · {{ v.garagem }}{% endif %}
+      {%- if v.modelo %} · modelo {{ v.modelo }}{% else %} · <strong>sem modelo</strong>{% endif %}
+    </div>
+    {% if kit %}
+    <div class="pat-sub">
+      kit {{ kit.kit_nome }} · {{ (kit.status_producao or '').replace('_', ' ') }}
+      {%- if kit.finalizado_em %} · montado em {{ kit.finalizado_em[:16] }}{% endif %}
+    </div>
+    {% endif %}
+    <div class="pat-atalhos">
+      {% if kit %}<a href="/kit/{{ kit.kit_id }}" target="_blank" class="btn btn-sm btn-secondary">Abrir kit ↗</a>{% endif %}
+      <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Cadastro do veículo →</a>
+      <a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}"
+         class="btn btn-sm btn-secondary">Lista completa →</a>
+    </div>
+  </div>
+  {% elif item_sel %}
+  <div class="pat-onde">
+    <div class="pat-rotulo">Patrimônio</div>
+    <div class="pat-veic">🏷️ {{ item_sel.codigo if item_sel.codigo is defined else codigo_barra }}</div>
+    <div class="pat-sub">📍 Não está em nenhum kit no momento.</div>
+    <div class="pat-atalhos">
+      <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}"
+         class="btn btn-sm btn-secondary">Histórico completo →</a>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Pendência: o que o kit tinha e não tem mais ─────────────────────── #}
+  {% if faltas %}
+  <div class="alert alert-danger" style="margin-top:12px;">
+    {% for f in faltas %}
+    ⚠️ <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ '<br>' | safe if not loop.last }}
+    {% endfor %}
+    <div style="font-size:12px;font-weight:400;margin-top:6px;">
+      Reponha em <strong>➕ Adicionar item</strong>, abaixo — o aviso some quando o item
+      voltar.
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Histórico curto: teve alteração ou não ──────────────────────────── #}
+  {% if kit %}
+  <details class="pat-acao" {{ 'open' if faltas }}>
+    <summary>📜 Alterações depois da montagem ({{ mudancas | length }})</summary>
+    {% if mudancas %}
+    <div class="vp-itens">
+      {% for m in mudancas %}
+      <div class="vp-item">
+        <div>
+          <div class="vp-tipo">
+            {{ '➡️ saiu' if m.saiu else '⬅️ entrou' }} · {{ m.tipo }}
+          </div>
+          <div class="vp-codigo">{{ m.codigo_barra }} · {{ m.bipado_em[:16] if m.bipado_em else '' }}</div>
+          {% if m.observacao %}
+          <div class="vp-codigo" style="font-family:inherit;">{{ m.observacao }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="pat-ajuda">
+      Nenhuma alteração desde a montagem — o kit está como foi bipado.
+    </p>
+    {% endif %}
+  </details>
+  {% endif %}
+
+  {# ── Itens do kit ─────────────────────────────────────────────────────── #}
+  {% if kit %}
+  <details class="pat-acao" {{ 'open' if not item_sel }}>
+    <summary>🏷️ Itens deste kit ({{ itens | length }})</summary>
+    {% if itens %}
+    <div class="vp-itens">
+      {% for i in itens %}
+      <div class="vp-item {{ 'vp-item-sel' if item_sel and i.codigo_barra == codigo_barra }}">
+        <div>
+          <div class="vp-tipo">{{ i.tipo }}</div>
+          <div class="vp-codigo">{{ i.codigo_barra }}{% if i.serial_number %} · série {{ i.serial_number }}{% endif %}</div>
+        </div>
+        {% if i.e_patrimonio %}
+        <button type="button" class="btn btn-sm btn-secondary"
+                onclick="abrirPainelPatrimonio('{{ i.codigo_barra | e }}')"
+                title="Mover ou corrigir este patrimônio">⚙️</button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="pat-ajuda">Nenhum item bipado neste kit.</p>
+    {% endif %}
+  </details>
+  {% endif %}
+
+  {# ── Ações do item em foco ───────────────────────────────────────────── #}
+  {% if item_sel %}
+  <div class="pat-foco">
+    <div class="pat-rotulo">Item em foco</div>
+    <div style="font-size:15px;font-weight:800;color:var(--brand);">
+      {{ item_sel.tipo_nome }} · {{ codigo_barra }}
+    </div>
+    <div class="pat-sub">
+      desde {{ item_sel.bipado_em[:16] if item_sel.bipado_em else '—' }}
+      {%- if item_sel.operador_nome %} · por {{ item_sel.operador_nome }}{% endif %}
+      {%- if item_sel.serial_number %} · série {{ item_sel.serial_number }}{% endif %}
+    </div>
+    <div class="pat-atalhos">
+      <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}"
+         class="btn btn-sm btn-secondary">Histórico completo →</a>
+    </div>
+  </div>
+
+  {% if previa_mover %}
+  {% if previa_mover.bloqueio %}
+  <div class="alert alert-danger">⚠️ {{ previa_mover.bloqueio }}</div>
+  {% else %}
+  <div class="pat-previa">
+    <strong>Confira antes de confirmar</strong>
+    <p><strong>Sai de:</strong> 🚗 {{ previa_mover.origem.veiculo or '— sem veículo —' }}
+      ({{ previa_mover.origem.kit_nome }} · {{ previa_mover.origem.cliente }})</p>
+    <p><strong>Vai para:</strong> 🚗 {{ previa_mover.destino.veiculo }}
+      ({{ previa_mover.destino.kit_nome }} · {{ previa_mover.destino.cliente }})</p>
+    <p><strong>Motivo:</strong> {{ mover_motivo }}</p>
+    {% for a in previa_mover.avisos %}
+    <p class="pat-aviso">⚠️ {{ a }}</p>
+    {% endfor %}
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/mover"
+          class="pat-linha">
+      <input type="hidden" name="destino" value="{{ mover_destino }}">
+      <input type="hidden" name="motivo" value="{{ mover_motivo }}">
+      <input type="hidden" name="confirmado" value="1">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      <button type="submit" class="btn btn-success">✔️ Confirmar a mudança</button>
+    </form>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if pode('patrimonio_mover') and item_sel.kit_id %}
+  <details class="pat-acao" {{ 'open' if previa_mover }}>
+    <summary>🔀 Mover para outro veículo</summary>
+    <p class="pat-ajuda">
+      O item saiu deste veículo e foi instalado em outro. O kit de origem passa a acusar
+      falta até receber outro; nada muda de estágio na produção.
+    </p>
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/painel"
+          data-fragmento="1">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      <label>Número do veículo de destino *</label>
+      <input type="text" name="destino" required value="{{ mover_destino }}" placeholder="ex: 1415">
+      <label>Motivo *</label>
+      <input type="text" name="motivo" required minlength="5" value="{{ mover_motivo }}"
+             placeholder="ex: antena do 1415 com defeito, usada a do 1219">
+      <button type="submit" class="btn btn-primary">Ver o que vai acontecer →</button>
+    </form>
+  </details>
+  {% endif %}
+
+  {% if pode('patrimonio_corrigir') %}
+  <details class="pat-acao">
+    <summary>✏️ Corrigir código / nº de série</summary>
+    <p class="pat-ajuda">
+      Para número digitado errado. O item é o mesmo — só a identificação muda, e o
+      histórico acompanha. <strong>Não use isto quando o item trocou de veículo.</strong>
+    </p>
+    <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/corrigir"
+          onsubmit="return confirm('Confirmar a correção deste patrimônio?')">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      <label>Código do patrimônio</label>
+      <input type="text" name="novo_codigo" value="{{ codigo_barra }}" class="pat-mono">
+      <label>Nº de série</label>
+      <input type="text" name="novo_serial" value="{{ item_sel.serial_number or '' }}" class="pat-mono">
+      <label>Motivo *</label>
+      <input type="text" name="motivo" required minlength="5"
+             placeholder="ex: número digitado errado na bipagem">
+      <button type="submit" class="btn btn-success">💾 Salvar correção</button>
+    </form>
+  </details>
+  {% endif %}
+  {% endif %}
+
+  {# ── Adicionar item ao kit (no lugar do antigo "retirar") ────────────── #}
+  {% if kit and (pode('patrimonio_atribuir') or pode('patrimonio_mover')) %}
+  <details class="pat-acao" {{ 'open' if previa_add or (faltas and not item_sel) }}>
+    <summary>➕ Adicionar item</summary>
+    <p class="pat-ajuda">
+      Bipe ou digite o código do patrimônio que vai fazer parte deste kit. Se ele já
+      estiver em outro veículo, o sistema avisa <strong>qual</strong> e pede confirmação —
+      e o veículo de origem fica devendo o item: <strong>nada é reposto sozinho</strong>.
+    </p>
+
+    {% if previa_add %}
+    {% if previa_add.erro %}
+    <div class="alert alert-danger">⚠️ {{ previa_add.erro }}</div>
+    {% elif previa_add.ocupado %}
+    <div class="pat-previa">
+      <strong>Este patrimônio já está em outro veículo</strong>
+      <p><strong>Código:</strong> {{ previa_add.codigo }} ({{ previa_add.ocupado.tipo_nome }})</p>
+      <p><strong>Hoje está em:</strong> 🚗 {{ previa_add.ocupado.veiculo or '— sem veículo —' }}
+        ({{ previa_add.ocupado.kit_nome }} · {{ previa_add.ocupado.cliente }})</p>
+      <p><strong>Vai passar para:</strong> 🚗 {{ kit.veiculo }}</p>
+      <p><strong>Motivo:</strong> {{ add_motivo }}</p>
+      <p class="pat-aviso">⚠️ O veículo {{ previa_add.ocupado.veiculo or '—' }} vai ficar
+        faltando este item e entra na lista de pendências. Nada é reposto automaticamente.</p>
+      <form method="post" action="/kit/{{ kit.kit_id }}/trazer-patrimonio" class="pat-linha">
+        <input type="hidden" name="codigo_barra" value="{{ previa_add.codigo }}">
+        <input type="hidden" name="motivo" value="{{ add_motivo }}">
+        <input type="hidden" name="voltar" value="{{ voltar }}">
+        <button type="submit" class="btn btn-success">✔️ Confirmar — trazer para o {{ kit.veiculo }}</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="pat-previa">
+      <strong>Código novo — vai ser cadastrado agora</strong>
+      <p><strong>Código:</strong> {{ previa_add.codigo }}</p>
+      <p><strong>Motivo:</strong> {{ add_motivo }}</p>
+      <form method="post" action="/kit/{{ kit.kit_id }}/atribuir-patrimonio"
+            style="display:flex;flex-direction:column;gap:2px;margin-top:10px;">
+        <input type="hidden" name="codigo_barra" value="{{ previa_add.codigo }}">
+        <input type="hidden" name="motivo" value="{{ add_motivo }}">
+        <input type="hidden" name="serial" value="{{ add_serial }}">
+        <input type="hidden" name="voltar" value="{{ voltar }}">
+        <label>Tipo do item *</label>
+        <select name="item_tipo_id" required>
+          <option value="">— escolha —</option>
+          {% for t in tipos_do_kit %}
+          <option value="{{ t.id }}"
+                  {{ 'selected' if faltas | length == 1 and faltas[0].tipo == t.nome }}>{{ t.nome }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-success">✔️ Cadastrar e colocar no {{ kit.veiculo }}</button>
+      </form>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {# A prévia volta pela mesma porta por onde a janela foi aberta, pra não
+       perder o item em foco (nem quebrar quando o kit não tem veículo). #}
+    <form method="post" data-fragmento="1"
+          action="{% if v %}/admin/veiculos/{{ v.id }}/painel{% else %}/admin/items/patrimonio/{{ codigo_barra | urlencode }}/painel{% endif %}">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      {% if item_sel %}<input type="hidden" name="item" value="{{ codigo_barra }}">{% endif %}
+      <label>Código do patrimônio *</label>
+      <input type="text" name="codigo_barra" required value="{{ add_codigo }}"
+             class="pat-mono" placeholder="bipe ou digite o código">
+      <label>Nº de série <span class="pat-ajuda">— só para código novo</span></label>
+      <input type="text" name="serial" value="{{ add_serial }}" class="pat-mono">
+      <label>Motivo *</label>
+      <input type="text" name="motivo" required minlength="5" value="{{ add_motivo }}"
+             placeholder="ex: reposição do item que foi para o 1415">
+      <button type="submit" class="btn btn-primary">Ver o que vai acontecer →</button>
+    </form>
+  </details>
+  {% endif %}
+
+  {# ── Por que não há aviso ────────────────────────────────────────────── #}
+  {% if kit and not faltas %}
+  {% set faltando_qtd = conferencia | selectattr('faltam') | rejectattr('e_patrimonio') | list %}
+  <p class="pat-ajuda" style="margin-top:12px;">
+    {% if faltando_qtd %}
+    O modelo também pede
+    {% for f in faltando_qtd %}<strong>{{ f.faltam }}× {{ f.tipo }}</strong>{{ ', ' if not loop.last }}{% endfor %},
+    que {{ 'são itens' if faltando_qtd | length > 1 else 'é item' }} contado por quantidade —
+    não gera aviso (só item de patrimônio gera).
+    {% else %}
+    ✅ Nenhum patrimônio faltando neste kit.
+    {% endif %}
+  </p>
+  {% endif %}
+</div>
