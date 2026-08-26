@@ -1677,12 +1677,18 @@ async def admin_items_clear(request: Request):
 async def admin_items_delete(request: Request, item_id: int):
     try:
         items_mod.deletar_item(item_id)
-        return RedirectResponse("/admin/items", status_code=302)
+    except ValueError as e:
+        # A recusa tem MOTIVO ("está no kit do veículo X") e ele precisa
+        # chegar na tela: "não foi possível" mandava o operador tentar de
+        # novo sem saber o que fazer diferente.
+        return RedirectResponse("/admin/items?tab=patrimonios&erro=" + quote(str(e)),
+                                status_code=302)
     except Exception:
-        return render(request, "admin_items.html", {
-            **_admin_items_context(tab="patrimonios"),
-            "erro": "Não foi possível excluir o patrimônio.",
-        })
+        return RedirectResponse(
+            "/admin/items?tab=patrimonios&erro=" + quote(
+                "Não foi possível excluir o patrimônio."), status_code=302)
+    return RedirectResponse("/admin/items?tab=patrimonios&ok=item_excluido",
+                            status_code=302)
 
 
 # ── Admin: Templates ──────────────────────────────────────────────────────────

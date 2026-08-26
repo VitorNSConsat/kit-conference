@@ -9,7 +9,9 @@
     os patrimônios já registrados, as etiquetas avulsas ou as peças sobressalentes.
 </p>
 
-{% if request.query_params.get('ok') == '1' %}
+{% if request.query_params.get('ok') == 'item_excluido' %}
+<div class="alert alert-success">✅ Patrimônio excluído do catálogo.</div>
+{% elif request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'item_criado' %}
 <div class="alert alert-success">Item cadastrado com sucesso.</div>

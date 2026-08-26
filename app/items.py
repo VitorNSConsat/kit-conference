@@ -653,14 +653,25 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
         item = conn.execute(
             "SELECT * FROM item_master WHERE codigo_barra = ?", (codigo_atual,)
         ).fetchone()
-        if not item:
+        # A peça pode estar NO KIT sem ter linha no catálogo: alguém excluiu o
+        # patrimônio em Itens Cadastrados enquanto ele seguia dentro de um kit
+        # montado. Quem manda sobre "este item está aqui" é a bipagem, não o
+        # catálogo — recusar a correção nesse caso punia o operador por um
+        # buraco que ele não criou e não enxerga.
+        na_bipagem = conn.execute(
+            "SELECT item_tipo_id FROM scan_session_items WHERE codigo_barra = ? "
+            "ORDER BY id DESC LIMIT 1", (codigo_atual,)).fetchone()
+        if not item and not na_bipagem:
             raise ValueError(f"Patrimônio {codigo_atual} não encontrado.")
 
         renomeou = False
         if novo_codigo and novo_codigo != codigo_atual:
+            # O código novo não pode estar em uso NEM no catálogo nem numa
+            # bipagem — os dois lados identificam o item pelo texto.
             existe = conn.execute(
-                "SELECT 1 FROM item_master WHERE codigo_barra = ?", (novo_codigo,)
-            ).fetchone()
+                "SELECT 1 FROM item_master WHERE codigo_barra = ? "
+                "UNION SELECT 1 FROM scan_session_items WHERE codigo_barra = ?",
+                (novo_codigo, novo_codigo)).fetchone()
             if existe:
                 # Diz ONDE está o dono do código: só "já pertence a outro"
                 # deixava o operador sem saber o que fazer — foi o que
@@ -675,8 +686,17 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
                 raise ValueError(
                     f"O código {novo_codigo} já pertence a outro patrimônio "
                     "(sem kit no momento).")
-            conn.execute("UPDATE item_master SET codigo_barra = ? WHERE id = ?",
-                         (novo_codigo, item["id"]))
+            if item:
+                conn.execute("UPDATE item_master SET codigo_barra = ? WHERE id = ?",
+                             (novo_codigo, item["id"]))
+            else:
+                # Sem catálogo, a correção também CONSERTA o cadastro: o item
+                # volta a existir em Itens Cadastrados com o código certo, em
+                # vez de seguir invisível ali e presente no kit.
+                conn.execute(
+                    "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_em) "
+                    "VALUES (?, ?, ?)",
+                    (novo_codigo, na_bipagem["item_tipo_id"], now_brt()))
             conn.execute(
                 "UPDATE scan_session_items SET codigo_barra = ? WHERE codigo_barra = ?",
                 (novo_codigo, codigo_atual))
@@ -726,7 +746,34 @@ def criar_item(codigo_barra: str, item_tipo_id: int, criado_por: int) -> int:
 
 
 def deletar_item(item_id: int):
+    """Tira o patrimônio do catálogo — recusando quando ele está DENTRO de um
+    kit ativo.
+
+    Sem esta trava, apagar aqui deixava a peça órfã: some do catálogo e
+    continua na bipagem do kit, e a partir daí ela não podia mais ser
+    corrigida nem movida. Foi assim que o CVC 001229 do veículo 31001-01219
+    ficou impossível de renomear."""
     with db() as conn:
+        item = conn.execute("SELECT codigo_barra FROM item_master WHERE id = ?",
+                            (item_id,)).fetchone()
+        if not item:
+            return
+        em_kit = conn.execute("""
+            SELECT COALESCE(v.numero, kr.veiculo, '') AS veiculo, kt.nome AS kit_nome
+            FROM scan_session_items si
+            JOIN kit_record kr ON kr.sessao_id = si.sessao_id
+            JOIN kit_template kt ON kt.id = kr.kit_template_id
+            LEFT JOIN veiculos v ON v.id = kr.veiculo_id
+            WHERE si.codigo_barra = ? AND kr.status = 'ativo'
+              AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
+            LIMIT 1
+        """, (item["codigo_barra"],)).fetchone()
+        if em_kit:
+            raise ValueError(
+                f"O patrimônio {item['codigo_barra']} está no kit do veículo "
+                f"{em_kit['veiculo'] or '—'} ({em_kit['kit_nome']}). Apagar aqui deixaria "
+                "a peça sem cadastro e presa no kit. Use \"Mover para outro veículo\" ou "
+                "\"Retirar do kit\" na janela do patrimônio.")
         conn.execute("DELETE FROM item_master WHERE id = ?", (item_id,))
 
 
