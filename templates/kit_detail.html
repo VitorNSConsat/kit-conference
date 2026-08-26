@@ -516,6 +516,12 @@
           {% endif %}
         </div>
         {% endif %}
+        {# Código da caixa = o lote de onde a peça saiu. Aparece na conferência
+           porque é ali que alguém pergunta "de que lote é este CVC?" — antes
+           esse dado morria na bipagem. #}
+        {% if item.caixas %}
+        <div class="item-barcodes" style="color:#b8860b;">📦 caixa {{ item.caixas }}</div>
+        {% endif %}
         {% if item.fora_do_template %}
         <div style="font-size:11px;color:#b8860b;margin-top:3px;font-weight:600;">
           🔄 não faz mais parte do modelo — não precisa conferir

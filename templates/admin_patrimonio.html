@@ -206,6 +206,7 @@
         <th>Veículo</th>
         <th>Garagem</th>
         <th>Serial</th>
+        <th title="Código da caixa bipado antes do patrimônio — o lote de onde a peça saiu">Caixa (lote)</th>
         <th>Situação</th>
       </tr>
     </thead>
@@ -232,6 +233,8 @@
         </td>
         <td>{{ h.garagem or '—' }}</td>
         <td style="font-family:monospace;font-size:12px;">{{ h.serial_number or '—' }}</td>
+        <td style="font-family:monospace;font-size:12px;color:#b8860b;">
+          {{- h.codigo_caixa or '—' }}</td>
         <td>
           {% if h.sessao_status == 'em_andamento' %}
           <span class="badge badge-warning">Em bipagem</span>

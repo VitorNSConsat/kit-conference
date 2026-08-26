@@ -126,9 +126,30 @@
     <li>Bipar a caixa <strong>não fecha o item</strong> — o sistema responde
       “<em>Código da caixa detectado. Bipe o patrimônio.</em>” e fica esperando.</li>
     <li>O próximo código lido é gravado como o patrimônio daquela peça.</li>
+    <li><strong>O código da caixa fica guardado como o lote</strong> daquela peça, junto do
+      patrimônio. Ele aparece na conferência do kit, na página do patrimônio, na janela do
+      veículo e nos relatórios em Excel (coluna <span class="campo">Caixa (lote)</span>) —
+      é o que responde “de que lote é este CVC?” quando um lote inteiro sai com defeito.
+      Ao mover a peça pra outro veículo, <strong>o lote vai junto</strong>: ele é da peça,
+      não do kit.</li>
     <li>Dá pra cancelar antes de bipar o patrimônio; nada fica registrado.</li>
     <li>Um código fixo só funciona se aquele tipo estiver no kit sendo montado.</li>
   </ul>
+  <div class="nota">
+    <strong>Item de caixa conta como item de patrimônio</strong> em todo o sistema — mesmo
+    que o tipo não esteja marcado como <em>Item de Patrimônio</em>. O motivo é simples:
+    bipar a caixa <strong>sempre exige o patrimônio da peça em seguida</strong>, então cada
+    unidade tem código próprio do mesmo jeito. Na prática isso quer dizer que CVC e CDD:
+    <ul>
+      <li>aparecem <strong>no topo</strong> da lista “Itens deste kit”, junto dos demais
+        patrimônios, e nunca são somados numa linha só;</li>
+      <li>podem ser <strong>movidos, corrigidos e trazidos de outro veículo</strong>;</li>
+      <li>geram o aviso <strong>“CVC não encontrado”</strong> quando saem do veículo e não
+        são repostos.</li>
+    </ul>
+    Antes eles caíam no balaio dos itens contados por quantidade: sem ação, somados numa
+    linha e no fim da lista — justamente os que mais precisam de troca.
+  </div>
 
   <h3>🔢 Serial number</h3>
   <p>

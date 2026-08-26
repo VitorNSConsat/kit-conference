@@ -116,6 +116,7 @@
         desde {{ item_sel.bipado_em[:16] if item_sel.bipado_em else '—' }}
         {%- if item_sel.operador_nome %} · por {{ item_sel.operador_nome }}{% endif %}
         {%- if item_sel.serial_number %} · série {{ item_sel.serial_number }}{% endif %}
+        {%- if item_sel.codigo_caixa %} · 📦 caixa (lote) {{ item_sel.codigo_caixa }}{% endif %}
       </div>
       <div class="pat-atalhos">
         <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}"
@@ -246,6 +247,7 @@
             </div>
             <div class="vp-codigo">
               {%- if i.codigo_barra %}{{ i.codigo_barra }}{% if i.serial_number %} · série {{ i.serial_number }}{% endif %}
+              {%- if i.codigo_caixa %} · 📦 caixa {{ i.codigo_caixa }}{% endif %}
               {%- else %}{{ i.linhas }} {{ 'bipagens somadas' if i.linhas > 1 else 'bipagem somada' }}
               {%- endif %}
             </div>

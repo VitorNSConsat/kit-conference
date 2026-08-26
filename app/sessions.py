@@ -262,10 +262,15 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operado
 
     with db() as conn:
         conn.execute(
-            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, "
+            " bipado_em, operador_id, codigo_caixa) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (sessao_id, codigo_patrimonio, tipo_id,
-             "aguardando_serial" if requer_serial else "completo", now_brt(), operador_id)
+             "aguardando_serial" if requer_serial else "completo", now_brt(), operador_id,
+             # O código da caixa é o LOTE de onde a peça saiu. Antes ele
+             # morria junto com a linha 'aguardando_patrimonio', e depois de
+             # montado ninguém sabia mais de que lote era a peça do veículo.
+             pendente["codigo_fixo"])
         )
 
     if requer_serial:
@@ -1053,6 +1058,15 @@ def _comparar_com_exigido(contagem: dict, itens_exigidos: list[dict]) -> dict:
     }
 
 
+# Um item "tem patrimônio individual" quando cada unidade é bipada uma a uma —
+# e isso acontece de DUAS formas: o tipo marcado como Item de Patrimônio, ou o
+# tipo com CÓDIGO DE CAIXA, porque bipar a caixa sempre exige o patrimônio da
+# peça em seguida. Faltava a segunda: CVC e CDD entram pela caixa e caíam no
+# balaio dos itens contados por quantidade, sem ação e no fim da lista.
+SQL_TEM_PATRIMONIO = ("(COALESCE(it.controle_externo, 0) = 1 "
+                      " OR TRIM(COALESCE(it.codigo_fixo, '')) <> '')")
+
+
 def kits_incompletos() -> dict:
     """Kits que estão devendo um item DE PATRIMÔNIO.
 
@@ -1122,7 +1136,7 @@ def kits_incompletos() -> dict:
                    ON mont.sessao_id = kr.sessao_id AND mont.item_tipo_id = t.item_tipo_id
             LEFT JOIN agora ag
                    ON ag.sessao_id = kr.sessao_id AND ag.item_tipo_id = t.item_tipo_id
-            WHERE COALESCE(it.controle_externo, 0) = 1
+            WHERE """ + SQL_TEM_PATRIMONIO + """
               AND MAX(COALESCE(kti.quantidade_exigida, 0), COALESCE(mont.q, 0))
                   > COALESCE(ag.q, 0)
             ORDER BY kr.kit_id, it.nome
@@ -1163,7 +1177,7 @@ def historico_mudancas_do_kit(kit_id: str) -> list[dict]:
             JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
             JOIN item_tipo it ON it.id = si.item_tipo_id
             WHERE kr.kit_id = ?
-              AND COALESCE(it.controle_externo, 0) = 1
+              AND """ + SQL_TEM_PATRIMONIO + """
               AND (si.status IN ('movido', 'retirado')
                    OR COALESCE(si.pos_montagem, 0) = 1
                    OR si.bipado_em > kr.finalizado_em)
@@ -1192,7 +1206,7 @@ def conferencia_com_modelo(kit_id: str) -> list[dict]:
             return []
         rows = conn.execute("""
             SELECT it.id AS item_tipo_id, it.nome AS tipo,
-                   COALESCE(it.controle_externo, 0) AS e_patrimonio,
+                   """ + SQL_TEM_PATRIMONIO + """ AS e_patrimonio,
                    kti.quantidade_exigida AS exigido,
                    COALESCE(si.q, 0) AS presente
             FROM kit_template_items kti
@@ -1230,13 +1244,19 @@ def itens_do_kit(kit_id: str) -> list[dict]:
        pronto grava uma por unidade — então "Parafuso" aparecia oito vezes,
        idênticas e sem nada pra fazer com elas. Patrimônio NUNCA é unificado:
        cada unidade tem código próprio e é justamente o que se quer clicar.
+
+    "Patrimônio" aqui inclui o item de CÓDIGO DE CAIXA (CVC, CDD): bipar a
+    caixa exige o patrimônio da peça em seguida, então cada unidade tem código
+    próprio do mesmo jeito — e são justamente esses que mais precisam de
+    troca. Ver SQL_TEM_PATRIMONIO.
     """
     with db() as conn:
         rows = conn.execute("""
             SELECT si.codigo_barra, si.serial_number, si.bipado_em, si.observacao,
-                   COALESCE(si.quantidade, 1) AS quantidade,
-                   it.nome AS tipo, COALESCE(it.controle_externo, 0) AS e_patrimonio,
-                   COALESCE(it.unidade, 'un') AS unidade
+                   si.codigo_caixa, COALESCE(si.quantidade, 1) AS quantidade,
+                   it.nome AS tipo, COALESCE(it.unidade, 'un') AS unidade,
+                   it.codigo_fixo AS codigo_fixo_do_tipo,
+                   """ + SQL_TEM_PATRIMONIO + """ AS e_patrimonio
             FROM kit_record kr
             JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
             JOIN item_tipo it ON it.id = si.item_tipo_id

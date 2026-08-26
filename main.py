@@ -2555,7 +2555,11 @@ async def kit_detail(request: Request, kit_id: str):
 
         itens = conn.execute(
             "SELECT si.item_tipo_id, it.nome AS tipo_nome, COUNT(*) AS quantidade, "
-            "GROUP_CONCAT(si.codigo_barra, ', ') AS barcodes "
+            "GROUP_CONCAT(si.codigo_barra, ', ') AS barcodes, "
+            # O código da caixa (o lote de onde a peça saiu) na conferência:
+            # é o dado que faltava pra responder "de que lote é este CVC?"
+            # sem abrir o histórico item por item.
+            "GROUP_CONCAT(DISTINCT si.codigo_caixa) AS caixas "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
             "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
@@ -3035,7 +3039,8 @@ async def report_excel(request: Request, kit_id: str):
         resumo = [dict(r) for r in resumo]
 
         itens = conn.execute(
-            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, si.bipado_em "
+            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, "
+            "si.codigo_caixa, si.bipado_em "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
             "WHERE si.sessao_id = ? AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
@@ -3090,7 +3095,10 @@ async def report_excel(request: Request, kit_id: str):
     # ── Aba Detalhes ────────────────────────────────────────────────────────────
     ws2 = wb.create_sheet("Detalhes")
     next_row = meta_block(ws2)
-    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Serial Number", "Origem", "Bipado em"], 1):
+    # "Caixa (lote)" entra antes de "Origem": quem lê o relatório procura a
+    # peça pelo lote quando um lote inteiro sai com defeito.
+    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Serial Number",
+                             "Caixa (lote)", "Origem", "Bipado em"], 1):
         hdr_cell(ws2, next_row, col, h)
     for i, item in enumerate(itens):
         row = next_row + 1 + i
@@ -3105,16 +3113,18 @@ async def report_excel(request: Request, kit_id: str):
         ws2.cell(row, 1, item["tipo_nome"])
         ws2.cell(row, 2, codigo_display)
         ws2.cell(row, 3, item.get("serial_number") or "")
-        ws2.cell(row, 4, origem)
-        ws2.cell(row, 5, item.get("bipado_em", ""))
+        ws2.cell(row, 4, item.get("codigo_caixa") or "")
+        ws2.cell(row, 5, origem)
+        ws2.cell(row, 6, item.get("bipado_em", ""))
         if i % 2 == 0:
-            for col in (1, 2, 3, 4, 5):
+            for col in (1, 2, 3, 4, 5, 6):
                 ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
     ws2.column_dimensions["A"].width = 32
     ws2.column_dimensions["B"].width = 28
     ws2.column_dimensions["C"].width = 24
-    ws2.column_dimensions["D"].width = 18
-    ws2.column_dimensions["E"].width = 22
+    ws2.column_dimensions["D"].width = 22
+    ws2.column_dimensions["E"].width = 18
+    ws2.column_dimensions["F"].width = 22
 
     # ── Aba Unidades do Pedido (ICCID/Telefone/CDT/ID Hardware) ────────────────
     if kit.get("kit_tipo") == "pedido":
@@ -3191,7 +3201,7 @@ async def reports_exportar_todos(request: Request,
             placeholders = ",".join("?" * len(kit_ids))
             rows_itens = conn.execute(
                 "SELECT kr.kit_id, it.nome AS tipo_nome, si.codigo_barra, "
-                "si.serial_number, si.bipado_em "
+                "si.serial_number, si.codigo_caixa, si.bipado_em "
                 "FROM scan_session_items si "
                 "JOIN item_tipo it ON it.id = si.item_tipo_id "
                 "JOIN kit_record kr ON kr.sessao_id = si.sessao_id "
@@ -3242,7 +3252,7 @@ async def reports_exportar_todos(request: Request,
     ws2 = wb.create_sheet("Detalhes")
     for col, h in enumerate(
         ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number",
-         "Origem", "Bipado em"], 1):
+         "Caixa (lote)", "Origem", "Bipado em"], 1):
         hdr_cell(ws2, 1, col, h)
     row = 2
     for k in kits:
@@ -3262,13 +3272,14 @@ async def reports_exportar_todos(request: Request,
             ws2.cell(row, 3, item["tipo_nome"])
             ws2.cell(row, 4, codigo_display)
             ws2.cell(row, 5, item.get("serial_number") or "")
-            ws2.cell(row, 6, origem)
-            ws2.cell(row, 7, item.get("bipado_em") or "")
+            ws2.cell(row, 6, item.get("codigo_caixa") or "")
+            ws2.cell(row, 7, origem)
+            ws2.cell(row, 8, item.get("bipado_em") or "")
             if row % 2 == 0:
-                for col in range(1, 8):
+                for col in range(1, 9):
                     ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
             row += 1
-    for col, w in zip("ABCDEFG", (34, 16, 28, 24, 20, 16, 20)):
+    for col, w in zip("ABCDEFGH", (34, 16, 28, 24, 20, 20, 16, 20)):
         ws2.column_dimensions[col].width = w
     ws2.freeze_panes = "A2"
 

@@ -129,6 +129,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "modelo_trocado_em" not in colunas_kit_record
         or "verificacao_corte" not in colunas_kit_record
         or "pos_montagem" not in colunas_scan_session_items
+        or "codigo_caixa" not in colunas_scan_session_items
         or "backup_registro" not in tabelas
     )
     if not pendente:
@@ -599,6 +600,11 @@ def init_db():
             # segundo, e finalizar e repor no mesmo segundo empataria. Nas
             # linhas antigas fica 0 e a data continua valendo como critério.
             "ALTER TABLE scan_session_items ADD COLUMN pos_montagem INTEGER NOT NULL DEFAULT 0",
+            # Codigo da CAIXA (o lote) que foi bipado antes do patrimonio.
+            # Ele era usado so pra descobrir o tipo e depois jogado fora com a
+            # linha 'aguardando_patrimonio' — entao, depois de montado, nao
+            # havia como saber de que lote a peca daquele veiculo tinha saido.
+            "ALTER TABLE scan_session_items ADD COLUMN codigo_caixa TEXT",
         ]:
             try:
                 conn.execute(stmt)

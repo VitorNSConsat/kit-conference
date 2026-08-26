@@ -272,7 +272,7 @@ def historico_patrimonio(codigo_barra: str) -> list[dict]:
     with db() as conn:
         rows = conn.execute("""
             SELECT si.id AS si_id, si.bipado_em, si.serial_number, si.observacao,
-                   si.sessao_id, ss.status AS sessao_status,
+                   si.codigo_caixa, si.sessao_id, ss.status AS sessao_status,
                    kt.nome AS kit_nome, kt.cliente,
                    kr.kit_id, kr.status AS kit_status,
                    COALESCE(v.numero, kr.veiculo, ss.veiculo, '') AS veiculo,
@@ -358,7 +358,7 @@ def onde_esta(codigo_barra: str) -> dict | None:
     with db() as conn:
         row = conn.execute("""
             SELECT si.id AS si_id, si.sessao_id, si.bipado_em, si.serial_number,
-                   si.item_tipo_id, it.nome AS tipo_nome,
+                   si.codigo_caixa, si.item_tipo_id, it.nome AS tipo_nome,
                    ss.status AS sessao_status,
                    kt.nome AS kit_nome, kt.cliente,
                    kr.kit_id, kr.status_producao,
@@ -438,12 +438,16 @@ def candidatos_de_outros_kits(kit_id: str, item_tipo_id: int | None = None,
 
     Serve à pergunta do operador na hora de repor: "esse veículo está sem a
     antena — qual antena eu trago?". Sem isso ele precisaria saber de cabeça
-    o código e ir procurar na página daquele patrimônio."""
+    o código e ir procurar na página daquele patrimônio.
+
+    Entra aqui também o item de CÓDIGO DE CAIXA (CVC, CDD): ele tem
+    patrimônio individual do mesmo jeito, e é dos que mais precisam de
+    troca — ficar de fora desta lista era o que obrigava a decorar o código."""
     destino = kit_por_id(kit_id)
     if not destino:
         return []
     sql = """
-        SELECT si.codigo_barra, si.serial_number, si.item_tipo_id,
+        SELECT si.codigo_barra, si.serial_number, si.codigo_caixa, si.item_tipo_id,
                it.nome AS tipo_nome,
                COALESCE(v.numero, kr.veiculo, '') AS veiculo,
                kt.nome AS kit_nome, kr.kit_id, kr.status_producao
@@ -455,7 +459,8 @@ def candidatos_de_outros_kits(kit_id: str, item_tipo_id: int | None = None,
         WHERE kr.status = 'ativo'
           AND kr.kit_id != ?
           AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
-          AND COALESCE(it.controle_externo, 0) = 1
+          AND (COALESCE(it.controle_externo, 0) = 1
+               OR TRIM(COALESCE(it.codigo_fixo, '')) <> '')
           AND si.item_tipo_id IN (
               SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ?)
     """
@@ -544,11 +549,16 @@ def mover_patrimonio(codigo_barra: str, numero_destino: str, motivo: str,
         conn.execute(
             "INSERT INTO scan_session_items "
             "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
-            " serial_number, observacao, quantidade, estoque_debitado, pos_montagem) "
-            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0, 1)",
+            " serial_number, observacao, quantidade, estoque_debitado, pos_montagem, "
+            " codigo_caixa) "
+            "VALUES (?, ?, ?, 'completo', ?, ?, ?, ?, 1, 0, 1, ?)",
             (destino["sessao_id"], codigo_barra, origem["item_tipo_id"], carimbo,
              user_id, origem.get("serial_number"),
-             f"Veio do veículo {origem['veiculo'] or '—'} em {carimbo} — {motivo}"))
+             f"Veio do veículo {origem['veiculo'] or '—'} em {carimbo} — {motivo}",
+             # O lote acompanha a PEÇA, não o kit: é a caixa de onde ela saiu
+             # de fábrica. Sem levar junto, mover o item apagava a única
+             # resposta pra "de que lote é este CVC?".
+             origem.get("codigo_caixa")))
     return {"origem": origem, "destino": destino, "motivo": motivo}
 
 
