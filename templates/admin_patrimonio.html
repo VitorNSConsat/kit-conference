@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Patrimônio {{ codigo_barra }}{% endblock %}
 {% block content %}
+{# Destino padrão das ações de patrimônio quando não há "voltar": sem estes
+   dois blocos, mover/corrigir/retirar respondiam em silêncio aqui também. #}
+{% if request.query_params.get('ok') %}
+<div class="alert alert-success">✅ {{ request.query_params.get('ok') }}</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
   <h1 style="margin:0;">🔎 Rastreamento do Patrimônio</h1>
   <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>

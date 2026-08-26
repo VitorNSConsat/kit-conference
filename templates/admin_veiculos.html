@@ -88,7 +88,20 @@
 {% elif request.query_params.get('ok') == 'garagem_excluida' %}
 <div class="alert alert-success">✅ Garagem excluída.</div>
 {% elif request.query_params.get('ok') %}
-<div class="alert alert-success">✅ Operação realizada com sucesso.</div>
+{# As ações de patrimônio (mover, corrigir, adicionar) mandam a FRASE do que
+   aconteceu — "Código alterado de X para Y". As outras rotas mandam um código
+   curto ("criado", "desativado"), que não faz sentido mostrar cru. Frase tem
+   espaço; código não. #}
+{% set msg_ok = request.query_params.get('ok') %}
+<div class="alert alert-success">
+  ✅ {{ msg_ok if ' ' in msg_ok else 'Operação realizada com sucesso.' }}
+</div>
+{% endif %}
+{# Sem este bloco, uma correção RECUSADA (motivo curto, código já em uso)
+   voltava pra cá sem dizer nada: a lista recarregava igual e a impressão era
+   de que o sistema tinha simplesmente ignorado o comando. #}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
 {% endif %}
 {% if request.query_params.get('erro_cliente') == 'duplicado' %}
 <div class="alert alert-danger">⚠️ Este cliente já está cadastrado.</div>
