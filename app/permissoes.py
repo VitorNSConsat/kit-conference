@@ -48,6 +48,7 @@ PERMISSOES_ACOES = {
     "itens_apagar": "Apagar itens do catálogo",
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
     "backup_configurar": "Configurar a rotina de backup e fazer cópia na hora",
+    "remessas_gerenciar": "Abrir remessa e mudar a quantidade do envio",
 }
 
 PERMISSOES = {**PERMISSOES_TELAS, **PERMISSOES_ACOES}

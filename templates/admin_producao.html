@@ -69,9 +69,73 @@
 </div>
 {% elif request.query_params.get('erro') == 'nota_lote_vazio' %}
 <div class="alert alert-danger">⚠️ Nenhum veículo selecionado — marque os veículos antes de atribuir a nota.</div>
+{% elif request.query_params.get('ok') == 'alvo' %}
+<div class="alert alert-success">
+  ✅ Quantidade da remessa atualizada.
+  {% if request.query_params.get('fechada') %}Como o alvo já estava alcançado, ela foi
+  <strong>fechada</strong> e a próxima começa do zero.{% endif %}
+</div>
 {% elif request.query_params.get('erro') == 'nf_motivo' %}
 <div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}
+
+<!-- ── Remessa em andamento ────────────────────────────────────────────── -->
+{# O lote combinado com o cliente ("mandar 90"). Fica no topo da esteira
+   porque é a pergunta do dia de quem despacha: quanto já saiu e quanto falta. #}
+<div class="card" style="border-left:4px solid var(--brand);">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="margin:0 0 2px;">📦 Remessa em andamento</h2>
+      {% if remessa %}
+      <p style="color:#666;font-size:13px;margin:0;">
+        <strong>{{ remessa.nome }}</strong>
+        {%- if remessa.cliente %} · <span style="color:{{ cor_do_cliente(remessa.cliente) }};font-weight:700;">{{ remessa.cliente }}</span>
+        {%- else %} · todos os clientes{% endif %}
+        · aberta em {{ remessa.criada_em[:16] }}
+      </p>
+      {% else %}
+      <p style="color:#e67e22;font-size:13px;margin:0;">
+        Nenhuma remessa aberta — os kits que forem pra trânsito não entram em contagem nenhuma.
+      </p>
+      {% endif %}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      {% if remessa %}
+      <a href="/admin/producao/remessas/{{ remessa.id }}/excel" class="btn btn-sm btn-success">📊 Excel desta remessa</a>
+      {% endif %}
+      <a href="/admin/producao/remessas" class="btn btn-sm btn-primary">📦 Remessas</a>
+    </div>
+  </div>
+
+  {% if remessa %}
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;">
+    <div style="font-size:30px;font-weight:800;color:var(--brand);line-height:1;">
+      {{ remessa.rotulo }}
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div class="remessa-trilho">
+        <div class="remessa-barra" style="width:{{ remessa.percentual }}%;"></div>
+      </div>
+      <div style="font-size:12px;color:#7a8794;margin-top:4px;">
+        {% if remessa.completa %}✅ Alvo alcançado — a remessa fecha e a próxima abre sozinha.
+        {% else %}Faltam <strong>{{ remessa.faltam }}</strong> kit(s) pra fechar.{% endif %}
+      </div>
+    </div>
+    {% if pode('remessas_gerenciar') %}
+    <form method="post" action="/admin/producao/remessas/{{ remessa.id }}/alvo"
+          style="display:flex;gap:6px;align-items:flex-end;">
+      <input type="hidden" name="voltar" value="/admin/producao">
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:11px;">Quantidade da remessa</label>
+        <input type="number" name="alvo" min="1" value="{{ remessa.alvo }}"
+               style="width:110px;margin:0;">
+      </div>
+      <button type="submit" class="btn btn-sm btn-success" title="Vale a partir de agora; o que já entrou continua contado">💾</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
@@ -145,6 +209,11 @@
   <summary>
     <h2>Kits a Produzir <span class="etapa-sub">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
   </summary>
+  {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
+     de campo sem dar acesso ao sistema. #}
+  <a href="/admin/producao/excel?etapa=a_produzir" class="btn btn-sm btn-success"
+     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Veículos com cliente, garagem e kit definidos, disponíveis pra bipar. Some daqui
     sozinho na primeira bipagem, quando passa pra Em Produção.
@@ -186,6 +255,11 @@
   <summary>
     <h2>Em Produção <span class="etapa-sub">(Consat — acompanha a bipagem)</span> <span class="badge badge-warning">{{ resumo.em_producao }} kit{{ 's' if resumo.em_producao != 1 }}</span></h2>
   </summary>
+  {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
+     de campo sem dar acesso ao sistema. #}
+  <a href="/admin/producao/excel?etapa=em_producao" class="btn btn-sm btn-success"
+     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
@@ -238,6 +312,11 @@
   <summary>
     <h2>Produzido <span class="badge badge-success">{{ resumo.produzido }} kit{{ 's' if resumo.produzido != 1 }}</span></h2>
   </summary>
+  {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
+     de campo sem dar acesso ao sistema. #}
+  <a href="/admin/producao/excel?etapa=produzido" class="btn btn-sm btn-success"
+     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
   </p>
@@ -335,6 +414,11 @@
   <summary>
     <h2>Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
   </summary>
+  {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
+     de campo sem dar acesso ao sistema. #}
+  <a href="/admin/producao/excel?etapa=transito" class="btn btn-sm btn-success"
+     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+
   {% if transito %}
   <div style="overflow-x:auto;">
   <table>

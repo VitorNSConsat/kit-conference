@@ -132,6 +132,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "codigo_caixa" not in colunas_scan_session_items
         or "backup_registro" not in tabelas
         or "login_config" not in tabelas
+        or "remessa" not in tabelas
     )
     if not pendente:
         return None
@@ -467,6 +468,29 @@ def init_db():
             CREATE TABLE IF NOT EXISTS estoque_config (
                 chave TEXT PRIMARY KEY,
                 valor TEXT NOT NULL
+            );
+
+            -- Remessa: o lote de envio combinado com o cliente ("mandar 90").
+            -- Uma aberta por vez; todo kit que entra em transito entra nela.
+            CREATE TABLE IF NOT EXISTS remessa (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                cliente TEXT DEFAULT '',
+                alvo INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'aberta',
+                observacao TEXT DEFAULT '',
+                criada_em TEXT NOT NULL,
+                fechada_em TEXT,
+                criada_por INTEGER REFERENCES users(id)
+            );
+
+            -- Um kit entra em UMA remessa so (kit_id unico): voltar o estagio
+            -- e reenviar nao pode contar duas vezes no mesmo alvo.
+            CREATE TABLE IF NOT EXISTS remessa_kit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                remessa_id INTEGER NOT NULL REFERENCES remessa(id) ON DELETE CASCADE,
+                kit_id TEXT NOT NULL UNIQUE,
+                entrou_em TEXT NOT NULL
             );
 
             -- Tempo parado ate o login cair sozinho (0 = desligado).

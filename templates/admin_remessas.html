@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Remessas{% endblock %}
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>📦 Remessas</h1>
+  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+</div>
+
+{% if request.query_params.get('ok') == 'aberta' %}
+<div class="alert alert-success">✅ Remessa aberta. A partir de agora, todo kit que for pra
+  Em Trânsito entra nela.</div>
+{% elif request.query_params.get('ok') == 'alvo' %}
+<div class="alert alert-success">
+  ✅ Quantidade atualizada.
+  {% if request.query_params.get('fechada') %}Como o alvo já estava alcançado, a remessa foi
+  <strong>fechada</strong>.{% endif %}
+</div>
+{% elif request.query_params.get('ok') == 'fechada' %}
+<div class="alert alert-success">✅ Remessa fechada.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+<p style="color:#666;font-size:13px;">
+  O envio não é kit a kit — é por lote fechado (“mandar 90”). Cada kit que entra em
+  <strong>Em Trânsito</strong> entra na remessa aberta, porque é aí que ele sai do galpão.
+  Ao bater a quantidade, a remessa fecha e a próxima abre sozinha, do zero.
+</p>
+
+<!-- ── Aberta agora ────────────────────────────────────────────────────── -->
+{% if aberta %}
+<div class="card" style="border-left:4px solid var(--brand);">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="margin:0 0 2px;">{{ aberta.nome }}</h2>
+      <p style="color:#666;font-size:13px;margin:0;">
+        {% if aberta.cliente %}<span style="color:{{ cor_do_cliente(aberta.cliente) }};font-weight:700;">{{ aberta.cliente }}</span>
+        {% else %}Todos os clientes{% endif %}
+        · aberta em {{ aberta.criada_em[:16] }}
+      </p>
+    </div>
+    <a href="/admin/producao/remessas/{{ aberta.id }}/excel" class="btn btn-success">📊 Baixar Excel</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;">
+    <div style="font-size:34px;font-weight:800;color:var(--brand);line-height:1;">{{ aberta.rotulo }}</div>
+    <div style="flex:1;min-width:240px;">
+      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ aberta.percentual }}%;"></div></div>
+      <div style="font-size:12px;color:#7a8794;margin-top:4px;">
+        {% if aberta.completa %}✅ Alvo alcançado.
+        {% else %}Faltam <strong>{{ aberta.faltam }}</strong> kit(s).{% endif %}
+      </div>
+    </div>
+    {% if pode('remessas_gerenciar') %}
+    <form method="post" action="/admin/producao/remessas/{{ aberta.id }}/alvo"
+          style="display:flex;gap:6px;align-items:flex-end;">
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:11px;">Quantidade</label>
+        <input type="number" name="alvo" min="1" value="{{ aberta.alvo }}" style="width:110px;margin:0;">
+      </div>
+      <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
+    </form>
+    <form method="post" action="/admin/producao/remessas/{{ aberta.id }}/fechar"
+          onsubmit="return confirm('Fechar esta remessa em {{ aberta.rotulo }}? Ela vai pro histórico e nenhum kit novo entra nela.')">
+      <button type="submit" class="btn btn-sm btn-warning">🔒 Fechar agora</button>
+    </form>
+    {% endif %}
+  </div>
+  <p style="font-size:12.5px;color:#7a8794;margin:12px 0 0;">
+    Mudar a quantidade vale <strong>a partir de agora</strong> — o que já entrou continua
+    contado. Se a nova quantidade já tiver sido alcançada, a remessa fecha na hora.
+  </p>
+</div>
+{% else %}
+<div class="alert alert-danger">
+  ⚠️ <strong>Nenhuma remessa aberta.</strong> Enquanto não houver uma, os kits que forem pra
+  Em Trânsito não entram em contagem nenhuma — e não dá pra recuperar depois.
+</div>
+{% endif %}
+
+<!-- ── Abrir uma nova ──────────────────────────────────────────────────── -->
+{% if pode('remessas_gerenciar') %}
+<div class="card">
+  <h2>Abrir remessa</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Se já houver uma aberta, ela é fechada antes — duas abertas ao mesmo tempo tornariam
+    ambíguo em qual o kit deve entrar.
+  </p>
+  <form method="post" action="/admin/producao/remessas/abrir"
+        style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Nome <span style="color:#888;font-weight:400;">(opcional)</span></label>
+      <input type="text" name="nome" placeholder="ex: Remessa Outubro" style="width:220px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Quantidade *</label>
+      <input type="number" name="alvo" min="1" required placeholder="90" style="width:120px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;min-width:220px;">
+      <label>Cliente <span style="color:#888;font-weight:400;">(opcional)</span></label>
+      <select name="cliente" style="margin:0;">
+        <option value="">— todos os clientes —</option>
+        {% for c in clientes_cadastrados %}
+        <option value="{{ c.nome }}">{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">📦 Abrir</button>
+  </form>
+  <p style="font-size:12.5px;color:#7a8794;margin:12px 0 0;">
+    Com <strong>cliente definido</strong>, só kit daquele cliente entra na conta — é o que
+    permite ter “REDEMOB 45/90” sem que o kit de outro cliente empurre o número.
+  </p>
+</div>
+{% endif %}
+
+<!-- ── Histórico ───────────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Histórico ({{ remessas | length }})</h2>
+  {% if remessas %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Remessa</th><th>Cliente</th><th>Enviados</th><th>Situação</th>
+        <th>Aberta em</th><th>Fechada em</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in remessas %}
+      <tr>
+        <td><strong>{{ r.nome }}</strong></td>
+        <td>
+          {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
+          {% else %}<span style="color:#aaa;">todos</span>{% endif %}
+        </td>
+        <td style="white-space:nowrap;font-weight:700;">{{ r.rotulo }}</td>
+        <td>
+          {% if r.status == 'aberta' %}<span class="badge badge-info">Aberta</span>
+          {% else %}<span class="badge badge-success">Fechada</span>{% endif %}
+          {% if r.observacao %}
+          <div style="font-size:11px;color:#999;">{{ r.observacao }}</div>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;font-size:12px;">{{ r.criada_em[:16] }}</td>
+        <td style="white-space:nowrap;font-size:12px;">{{ r.fechada_em[:16] if r.fechada_em else '—' }}</td>
+        <td><a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;font-size:14px;">Nenhuma remessa ainda.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -542,7 +542,11 @@ def _buscar_estagio(conn, kit_id: str) -> str | None:
 def marcar_transito(kit_ids: list[str]) -> int:
     """Move em lote de 'produzido' para 'transito'. Ignora silenciosamente
     kit_id que não esteja em 'produzido' (evita corrida: alguém marcou duas
-    vezes, ou o kit já foi movido por outra aba)."""
+    vezes, ou o kit já foi movido por outra aba).
+
+    É AQUI que o kit entra na remessa aberta: sair do galpão é o que "enviar"
+    significa. Depender de alguém apontar depois faria a remessa nascer
+    desatualizada — e a conta do cliente é justamente o que não pode errar."""
     if not kit_ids:
         return 0
     agora = now_brt()
@@ -553,7 +557,18 @@ def marcar_transito(kit_ids: list[str]) -> int:
             f"WHERE kit_id IN ({placeholders}) AND status_producao = 'produzido'",
             [agora, *kit_ids]
         )
-        return cur.rowcount
+        movidos = cur.rowcount
+        # Só os que REALMENTE mudaram de estágio agora entram na remessa.
+        movidos_ids = [r["kit_id"] for r in conn.execute(
+            f"SELECT kit_id FROM kit_record WHERE kit_id IN ({placeholders}) "
+            "AND status_producao = 'transito' AND transito_em = ?",
+            [*kit_ids, agora]).fetchall()]
+    # Fora do `with`: registrar_kits abre a própria conexão, e aninhar duas
+    # trava o SQLite.
+    if movidos_ids:
+        import app.remessas as _remessas
+        _remessas.registrar_kits(movidos_ids)
+    return movidos
 
 
 def marcar_cliente_instalando(kit_id: str) -> bool:

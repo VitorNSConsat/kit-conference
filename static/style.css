@@ -891,6 +891,17 @@ a.marca-cliente:hover { text-decoration: underline; }
 /* Dentro da janela quem rola é o corpo; a lista não precisa de teto próprio. */
 .modal-corpo .lista-suspensa { max-height: none; border: 0; padding: 0; background: none; }
 
+/* ── Barra da remessa ─────────────────────────────────────────────────────
+   O "45/90" em forma de barra: o número diz quanto, a barra diz quão perto —
+   e é a segunda que se lê de longe, passando pela tela. */
+.remessa-trilho {
+    height: 12px; background: #e8edf3; border-radius: 99px; overflow: hidden;
+}
+.remessa-barra {
+    height: 100%; border-radius: 99px; background: var(--brand);
+    transition: width .3s ease; min-width: 2px;
+}
+
 /* ── Etapas da Produção como listas que abrem ─────────────────────────────
    Fechadas, os cinco estágios da esteira cabem numa tela só e o número de
    cada um fica à vista; a lista de veículos só aparece quando se pede. */

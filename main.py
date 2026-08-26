@@ -43,6 +43,7 @@ import app.datas as datas_mod
 import app.filtros as filtros_mod
 import app.backup as backup_mod
 import app.inatividade as inatividade_mod
+import app.remessas as remessas_mod
 
 load_dotenv()
 
@@ -3787,8 +3788,165 @@ async def admin_producao(request: Request):
         # aparecer pra alguém repor antes de despachar.
         "faltando_item": sessions_mod.kits_incompletos(),
         "tv_config": producao_mod.get_tv_config(),
+        # A remessa em andamento: quanto já saiu do galpão contra a
+        # quantidade combinada com o cliente.
+        "remessa": remessas_mod.aberta(),
+        "clientes_cadastrados": clientes_mod.listar(),
         "ok": request.query_params.get("ok", ""),
     })
+
+
+# ── Remessas (o lote de envio: "mandar 90") ───────────────────────────────────
+# Ficam sob /admin/producao de propósito: a permissão de tela da Produção já
+# vale pra elas, sem precisar de uma chave nova só pra ver a mesma esteira.
+
+@app.get("/admin/producao/remessas", response_class=HTMLResponse)
+@require_login
+async def admin_remessas(request: Request):
+    return render(request, "admin_remessas.html", {
+        "remessas": remessas_mod.listar(),
+        "aberta": remessas_mod.aberta(),
+        "clientes_cadastrados": clientes_mod.listar(),
+        "voltar_para": _voltar_para(request, "/admin/producao"),
+    })
+
+
+@app.post("/admin/producao/remessas/abrir")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_abrir(request: Request):
+    form = await request.form()
+    user = get_current_user(request)
+    try:
+        remessas_mod.abrir(str(form.get("nome", "")), form.get("alvo", ""),
+                           str(form.get("cliente", "")), user["id"] if user else None)
+    except ValueError as e:
+        return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/producao/remessas?ok=aberta", status_code=302)
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/alvo")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_alvo(request: Request, remessa_id: int):
+    """Muda a quantidade no meio do caminho — o "0/90 → 80/80"."""
+    form = await request.form()
+    voltar = str(form.get("voltar", "")) or "/admin/producao/remessas"
+    try:
+        r = remessas_mod.definir_alvo(remessa_id, form.get("alvo", ""))
+    except ValueError as e:
+        return RedirectResponse(voltar + "?erro=" + quote(str(e)), status_code=302)
+    fechou = "&fechada=1" if r and r["status"] == "fechada" else ""
+    return RedirectResponse(f"{voltar}?ok=alvo{fechou}", status_code=302)
+
+
+def _planilha_kits(titulo: str, subtitulo: str, linhas: list[dict],
+                   colunas: list[tuple]) -> bytes:
+    """Uma planilha de acompanhamento, do mesmo jeito nas três telas.
+
+    Existe pra as três não divergirem: quem exporta Produção, Trânsito e a
+    Remessa espera a mesma cara e as mesmas colunas — e três montagens
+    separadas vão ficando diferentes commit a commit."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = titulo[:31]
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+
+    ws.cell(1, 1, titulo).font = Font(bold=True, size=14, color=azul)
+    ws.cell(2, 1, subtitulo).font = Font(size=10, color="7A8794")
+    ws.cell(3, 1, f"Gerado em {now_brt()}").font = Font(size=9, color="9AA7B4")
+
+    cab = 5
+    for i, (rotulo, _chave, _larg) in enumerate(colunas, 1):
+        c = ws.cell(cab, i, rotulo)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for n, linha in enumerate(linhas):
+        r = cab + 1 + n
+        for i, (_rotulo, chave, _larg) in enumerate(colunas, 1):
+            ws.cell(r, i, linha.get(chave) or "")
+        if n % 2 == 0:
+            for i in range(1, len(colunas) + 1):
+                ws.cell(r, i).fill = PatternFill("solid", fgColor=cinza)
+    for i, (_rotulo, _chave, larg) in enumerate(colunas, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = larg
+    ws.freeze_panes = ws.cell(cab + 1, 1)
+
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# Colunas do acompanhamento — as mesmas nas três planilhas.
+_COLS_ACOMP = [
+    ("Veículo", "veiculo", 16), ("Cliente", "cliente", 24), ("Garagem", "garagem", 20),
+    ("Kit", "kit_nome", 30), ("Modelo", "modelo", 26),
+    ("Nota fiscal", "nota_fiscal", 16), ("Data da NF", "nota_fiscal_data", 14),
+    ("Operador", "operador_nome", 22),
+    ("Montado em", "finalizado_em", 20), ("Em trânsito desde", "transito_em", 20),
+]
+
+# Etapas que ainda não viraram kit fechado: sem NF, sem datas de esteira.
+_COLS_FILA = [
+    ("Veículo", "veiculo", 16), ("Cliente", "cliente", 24), ("Garagem", "garagem", 20),
+    ("Kit", "kit_nome", 30), ("Modelo", "modelo", 26),
+    ("Operador", "operador_nome", 22), ("Começou em", "iniciado_em", 20),
+]
+
+
+@app.get("/admin/producao/excel")
+@require_login
+async def admin_producao_excel(request: Request, etapa: str = "transito"):
+    """Acompanhamento de uma etapa da esteira em Excel — é o que se manda
+    pro cliente ou pro time de campo sem dar acesso ao sistema."""
+    from fastapi.responses import Response as _Resp
+    # Cada etapa exporta as colunas que ela REALMENTE tem: "a produzir" e
+    # "em produção" não têm nota fiscal nem data de trânsito, e colunas
+    # sempre vazias fazem quem recebe a planilha achar que faltou dado.
+    etapas = {
+        "produzido": ("Produzido", producao_mod.listar_produzido, _COLS_ACOMP),
+        "transito": ("Em trânsito", producao_mod.listar_transito, _COLS_ACOMP),
+        "em_producao": ("Em produção", producao_mod.listar_em_producao, _COLS_FILA),
+        "a_produzir": ("A produzir", producao_mod.listar_a_produzir, _COLS_FILA),
+    }
+    rotulo, fonte, colunas = etapas.get(etapa, etapas["transito"])
+    linhas = fonte()
+    corpo = _planilha_kits(rotulo, f"{len(linhas)} kit(s) nesta etapa", linhas, colunas)
+    nome = f"producao-{etapa}-{now_brt()[:10]}.xlsx"
+    return _Resp(content=corpo,
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+@app.get("/admin/producao/remessas/{remessa_id}/excel")
+@require_login
+async def admin_remessa_excel(request: Request, remessa_id: int):
+    from fastapi.responses import Response as _Resp
+    r = remessas_mod.listar_uma(remessa_id)
+    if not r:
+        return PlainTextResponse("Remessa não encontrada", status_code=404)
+    linhas = remessas_mod.kits_da_remessa(remessa_id)
+    sub = (f"{r['rotulo']} enviados"
+           + (f" · cliente {r['cliente']}" if r["cliente"] else " · todos os clientes")
+           + (" · FECHADA em " + (r["fechada_em"] or "")[:16] if r["status"] == "fechada"
+              else " · em andamento"))
+    colunas = [("Entrou na remessa", "entrou_em", 20)] + _COLS_ACOMP
+    corpo = _planilha_kits(r["nome"], sub, linhas, colunas)
+    nome = f"{r['nome'].replace(' ', '-').lower()}-{now_brt()[:10]}.xlsx"
+    return _Resp(content=corpo,
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/fechar")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_fechar(request: Request, remessa_id: int):
+    form = await request.form()
+    remessas_mod.fechar(remessa_id, motivo=str(form.get("motivo", "")).strip() or "fechada à mão")
+    return RedirectResponse("/admin/producao/remessas?ok=fechada", status_code=302)
 
 
 @app.post("/admin/producao/tv-config")
