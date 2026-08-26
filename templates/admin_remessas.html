@@ -19,64 +19,210 @@
 {% elif request.query_params.get('ok') == 'fechada' %}
 <div class="alert alert-success">✅ Remessa fechada.</div>
 {% endif %}
+{% if request.query_params.get('ok') == 'add' %}
+<div class="alert alert-success">
+  ✅ <strong>{{ request.query_params.get('n') }}</strong> veículo(s) acrescentado(s) à remessa.
+  {% if request.query_params.get('fechada') %}Com isso ela bateu o alvo, <strong>fechou</strong>
+  e a próxima já abriu.{% endif %}
+</div>
+{% elif request.query_params.get('ok') == 'removido' %}
+<div class="alert alert-success">✅ Veículo tirado da remessa.</div>
+{% endif %}
+{% if request.query_params.get('ja') %}
+<div class="alert alert-danger">
+  ⚠️ {{ request.query_params.get('ja') }} veículo(s) já estavam em outra remessa e foram
+  ignorados — cada kit entra em um lote só.
+</div>
+{% endif %}
+{% if request.query_params.get('outro_cliente') %}
+<div class="alert alert-danger">
+  ⚠️ {{ request.query_params.get('outro_cliente') }} veículo(s) não entraram: esta remessa é
+  de <strong>{{ request.query_params.get('cliente') }}</strong> e eles são de outro cliente.
+</div>
+{% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <p style="color:#666;font-size:13px;">
-  O envio não é kit a kit — é por lote fechado (“mandar 90”). Cada kit que entra em
-  <strong>Em Trânsito</strong> entra na remessa aberta, porque é aí que ele sai do galpão.
-  Ao bater a quantidade, a remessa fecha e a próxima abre sozinha, do zero.
+  O envio não é kit a kit — é por lote fechado (“mandar 90”). O operador
+  <strong>escolhe a remessa no começo da bipagem</strong> e o kit entra nela ao ser
+  finalizado. Ao bater a quantidade, a remessa fecha e a próxima abre sozinha, do zero.
+  Aqui dá pra <strong>acrescentar à mão</strong> os veículos que já se passaram.
 </p>
 
-<!-- ── Aberta agora ────────────────────────────────────────────────────── -->
-{% if aberta %}
-<div class="card" style="border-left:4px solid var(--brand);">
+<!-- ── Abertas agora ───────────────────────────────────────────────────── -->
+{% if abertas %}
+{% for r in abertas %}
+<div class="card" style="border-left:4px solid {{ 'var(--brand)' if alvo and r.id == alvo.id else '#dfe6ee' }};">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
     <div>
-      <h2 style="margin:0 0 2px;">{{ aberta.nome }}</h2>
+      <h2 style="margin:0 0 2px;">{{ r.nome }}</h2>
       <p style="color:#666;font-size:13px;margin:0;">
-        {% if aberta.cliente %}<span style="color:{{ cor_do_cliente(aberta.cliente) }};font-weight:700;">{{ aberta.cliente }}</span>
+        {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
         {% else %}Todos os clientes{% endif %}
-        · aberta em {{ aberta.criada_em[:16] }}
+        · aberta em {{ r.criada_em[:16] }}
       </p>
     </div>
-    <a href="/admin/producao/remessas/{{ aberta.id }}/excel" class="btn btn-success">📊 Baixar Excel</a>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a>
+      {% if pode('remessas_gerenciar') and not (alvo and r.id == alvo.id) %}
+      <a href="/admin/producao/remessas?remessa_id={{ r.id }}" class="btn btn-sm btn-primary">
+        ➕ Acrescentar veículos
+      </a>
+      {% endif %}
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;">
-    <div style="font-size:34px;font-weight:800;color:var(--brand);line-height:1;">{{ aberta.rotulo }}</div>
+    <div style="font-size:34px;font-weight:800;color:var(--brand);line-height:1;">{{ r.rotulo }}</div>
     <div style="flex:1;min-width:240px;">
-      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ aberta.percentual }}%;"></div></div>
+      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
       <div style="font-size:12px;color:#7a8794;margin-top:4px;">
-        {% if aberta.completa %}✅ Alvo alcançado.
-        {% else %}Faltam <strong>{{ aberta.faltam }}</strong> kit(s).{% endif %}
+        {% if r.completa %}✅ Alvo alcançado.
+        {% else %}Faltam <strong>{{ r.faltam }}</strong> kit(s).{% endif %}
       </div>
     </div>
     {% if pode('remessas_gerenciar') %}
-    <form method="post" action="/admin/producao/remessas/{{ aberta.id }}/alvo"
+    <form method="post" action="/admin/producao/remessas/{{ r.id }}/alvo"
           style="display:flex;gap:6px;align-items:flex-end;">
       <div class="form-group" style="margin:0;">
         <label style="font-size:11px;">Quantidade</label>
-        <input type="number" name="alvo" min="1" value="{{ aberta.alvo }}" style="width:110px;margin:0;">
+        <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:110px;margin:0;">
       </div>
       <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
     </form>
-    <form method="post" action="/admin/producao/remessas/{{ aberta.id }}/fechar"
-          onsubmit="return confirm('Fechar esta remessa em {{ aberta.rotulo }}? Ela vai pro histórico e nenhum kit novo entra nela.')">
+    <form method="post" action="/admin/producao/remessas/{{ r.id }}/fechar"
+          onsubmit="return confirm('Fechar {{ r.nome }} em {{ r.rotulo }}? Ela vai pro histórico e nenhum kit novo entra nela.')">
       <button type="submit" class="btn btn-sm btn-warning">🔒 Fechar agora</button>
     </form>
     {% endif %}
   </div>
-  <p style="font-size:12.5px;color:#7a8794;margin:12px 0 0;">
-    Mudar a quantidade vale <strong>a partir de agora</strong> — o que já entrou continua
-    contado. Se a nova quantidade já tiver sido alcançada, a remessa fecha na hora.
-  </p>
 </div>
+{% endfor %}
 {% else %}
 <div class="alert alert-danger">
-  ⚠️ <strong>Nenhuma remessa aberta.</strong> Enquanto não houver uma, os kits que forem pra
-  Em Trânsito não entram em contagem nenhuma — e não dá pra recuperar depois.
+  ⚠️ <strong>Nenhuma remessa aberta.</strong> Enquanto não houver uma, os kits montados não
+  entram em contagem nenhuma — e só dá pra acertar depois acrescentando à mão, aqui.
 </div>
+{% endif %}
+
+<!-- ── Montar a remessa à mão ──────────────────────────────────────────── -->
+{% if alvo and pode('remessas_gerenciar') %}
+<div class="card">
+  <h2>➕ Acrescentar veículos a <span style="color:var(--brand);">{{ alvo.nome }}</span></h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Para os veículos que <strong>já se passaram</strong>: montados antes desta remessa
+    existir, ou enquanto nenhuma estava aberta. A lista traz só quem
+    <strong>não está em remessa nenhuma</strong> — cada kit entra em um lote só.
+  </p>
+
+  <form method="get" action="/admin/producao/remessas" class="busca-form"
+        data-busca-viva="#bloco-candidatos">
+    <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
+    <input type="text" name="busca" value="{{ busca }}"
+           placeholder="🔍 Buscar veículo, cliente ou kit...">
+    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+    {% if busca %}
+    <a href="/admin/producao/remessas?remessa_id={{ alvo.id }}" class="btn btn-sm btn-secondary">✕ Limpar</a>
+    {% endif %}
+  </form>
+
+  <div id="bloco-candidatos">
+  {% if candidatos %}
+  <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/adicionar">
+    <input type="hidden" name="busca" value="{{ busca }}">
+    <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:34px;">
+            <input type="checkbox" onclick="marcarTodosCandidatos(this)" style="width:auto;margin:0;"
+                   title="Marcar todos os desta lista">
+          </th>
+          <th>Veículo</th><th>Cliente</th><th>Kit</th><th>Etapa</th><th>Montado em</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for k in candidatos %}
+        <tr class="filtro-item">
+          <td><input type="checkbox" name="kit_id" value="{{ k.kit_id }}" style="width:auto;margin:0;"></td>
+          <td><strong>{{ k.veiculo or '—' }}</strong></td>
+          <td>
+            {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:13px;">{{ k.kit_nome }}</td>
+          <td style="white-space:nowrap;font-size:12px;">
+            {{ (k.status_producao or '').replace('_', ' ') }}
+          </td>
+          <td style="white-space:nowrap;font-size:12px;color:#888;">
+            {{ k.finalizado_em[:16] if k.finalizado_em else '—' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:12px;">
+      ➕ Acrescentar os marcados
+    </button>
+    {% if alvo.cliente %}
+    <p style="font-size:12.5px;color:#7a8794;margin:10px 0 0;">
+      Esta remessa é de <strong>{{ alvo.cliente }}</strong>: veículo de outro cliente é
+      recusado, do mesmo jeito que na contagem automática.
+    </p>
+    {% endif %}
+  </form>
+  {% else %}
+  <p style="color:#888;font-size:14px;">
+    {% if busca %}Nenhum veículo fora de remessa bate com “{{ busca }}”.
+    {% else %}Todos os kits já estão em alguma remessa.{% endif %}
+  </p>
+  {% endif %}
+  </div>
+
+  <!-- O que já está nesta remessa, com como desfazer -->
+  <h3 style="font-size:15px;margin:20px 0 6px;">Nesta remessa ({{ kits_do_alvo | length }})</h3>
+  {% if kits_do_alvo %}
+  <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
+  <table>
+    <thead><tr><th>Veículo</th><th>Cliente</th><th>Entrou em</th><th></th></tr></thead>
+    <tbody>
+      {% for k in kits_do_alvo %}
+      <tr>
+        <td><strong>{{ k.veiculo or '—' }}</strong></td>
+        <td>
+          {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="white-space:nowrap;font-size:12px;color:#888;">{{ k.entrou_em[:16] }}</td>
+        <td>
+          <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/remover"
+                onsubmit="return confirm('Tirar o veículo {{ k.veiculo }} desta remessa?')">
+            <input type="hidden" name="kit_id" value="{{ k.kit_id }}">
+            <button type="submit" class="btn btn-sm btn-warning">✂️ Tirar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;font-size:14px;">Nenhum veículo ainda.</p>
+  {% endif %}
+</div>
+<script>
+function marcarTodosCandidatos(fonte) {
+    // Só o que está VISÍVEL: com a busca ativa, marcar tudo incluiria linhas
+    // filtradas que o operador não está vendo.
+    document.querySelectorAll('#bloco-candidatos tr.filtro-item').forEach(function (tr) {
+        if (tr.style.display === 'none') return;
+        const c = tr.querySelector('input[name="kit_id"]');
+        if (c) c.checked = fonte.checked;
+    });
+}
+</script>
 {% endif %}
 
 <!-- ── Abrir uma nova ──────────────────────────────────────────────────── -->
@@ -84,8 +230,9 @@
 <div class="card">
   <h2>Abrir remessa</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">
-    Se já houver uma aberta, ela é fechada antes — duas abertas ao mesmo tempo tornariam
-    ambíguo em qual o kit deve entrar.
+    Pode haver <strong>mais de uma aberta</strong> ao mesmo tempo — duas frentes de
+    trabalho, dois clientes. Quem diz em qual o kit entra é o operador, no começo da
+    bipagem.
   </p>
   <form method="post" action="/admin/producao/remessas/abrir"
         style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">

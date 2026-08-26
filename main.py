@@ -3889,13 +3889,60 @@ async def admin_producao(request: Request):
 
 @app.get("/admin/producao/remessas", response_class=HTMLResponse)
 @require_login
-async def admin_remessas(request: Request):
+async def admin_remessas(request: Request, busca: str = "", remessa_id: int = 0):
+    """`remessa_id` diz qual remessa está sendo montada à mão — sem ele, com
+    várias abertas, não dá pra saber pra qual a lista de candidatos aponta."""
+    abertas = remessas_mod.listar_abertas()
+    alvo = remessas_mod.listar_uma(remessa_id) if remessa_id else (abertas[0] if abertas else None)
     return render(request, "admin_remessas.html", {
         "remessas": remessas_mod.listar(),
-        "aberta": remessas_mod.aberta(),
+        "abertas": abertas,
+        "alvo": alvo if (alvo and alvo["status"] == "aberta") else None,
+        "candidatos": remessas_mod.candidatos(busca) if abertas else [],
+        "kits_do_alvo": remessas_mod.kits_da_remessa(alvo["id"]) if alvo else [],
+        "busca": busca,
         "clientes_cadastrados": clientes_mod.listar(),
         "voltar_para": _voltar_para(request, "/admin/producao"),
     })
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/adicionar")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_adicionar(request: Request, remessa_id: int):
+    """Acrescenta à mão os kits que já passaram — os montados antes da
+    remessa existir, ou enquanto nenhuma estava aberta."""
+    form = await request.form()
+    kit_ids = form.getlist("kit_id")
+    busca = str(form.get("busca", ""))
+    volta = f"/admin/producao/remessas?remessa_id={remessa_id}" + (
+        "&busca=" + quote(busca) if busca else "")
+    if not kit_ids:
+        return RedirectResponse(volta + "&erro=" + quote(
+            "Selecione ao menos um veículo para acrescentar."), status_code=302)
+    try:
+        r = remessas_mod.adicionar_kits(remessa_id, kit_ids)
+    except ValueError as e:
+        return RedirectResponse(volta + "&erro=" + quote(str(e)), status_code=302)
+    partes = [f"ok=add&n={r['entraram']}"]
+    if r["ja_em_outra"]:
+        partes.append(f"ja={r['ja_em_outra']}")
+    if r["cliente_errado"]:
+        partes.append(f"outro_cliente={r['cliente_errado']}&cliente={quote(r['cliente'])}")
+    if r["fechou"]:
+        partes.append("fechada=1")
+    return RedirectResponse(volta + "&" + "&".join(partes), status_code=302)
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/remover")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_remover(request: Request, remessa_id: int):
+    form = await request.form()
+    volta = f"/admin/producao/remessas?remessa_id={remessa_id}"
+    try:
+        remessas_mod.remover_kit(remessa_id, str(form.get("kit_id", "")))
+    except ValueError as e:
+        return RedirectResponse(volta + "&erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse(volta + "&ok=removido", status_code=302)
 
 
 @app.post("/admin/producao/remessas/abrir")

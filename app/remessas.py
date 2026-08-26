@@ -202,6 +202,89 @@ def registrar_kits(kit_ids: list[str]) -> int:
     return entraram
 
 
+def candidatos(busca: str = "", limite: int = 300) -> list[dict]:
+    """Kits que ainda não estão em remessa nenhuma.
+
+    Existe pros kits que "já se passaram": os montados antes de a remessa
+    existir, e os que saíram enquanto nenhuma estava aberta. Sem isto, o único
+    jeito de acertar o lote seria refazer a bipagem."""
+    termo = (busca or "").strip()
+    sql = """
+        SELECT kr.kit_id, kr.veiculo, kr.garagem, kr.modelo, kr.status_producao,
+               kr.finalizado_em, kr.transito_em, kt.nome AS kit_nome, kt.cliente
+        FROM kit_record kr
+        JOIN kit_template kt ON kt.id = kr.kit_template_id
+        WHERE kr.status = 'ativo' AND kt.tipo = 'kit'
+          AND NOT EXISTS (SELECT 1 FROM remessa_kit rk WHERE rk.kit_id = kr.kit_id)
+    """
+    params: list = []
+    if termo:
+        sql += (" AND (sem_acento(kr.veiculo) LIKE sem_acento(?) "
+                "   OR sem_acento(kt.cliente) LIKE sem_acento(?) "
+                "   OR sem_acento(kt.nome) LIKE sem_acento(?))")
+        params += [f"%{termo}%"] * 3
+    sql += " ORDER BY kr.finalizado_em DESC LIMIT ?"
+    params.append(limite)
+    with db() as conn:
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+
+def adicionar_kits(remessa_id: int, kit_ids: list[str]) -> dict:
+    """Coloca à mão vários kits numa remessa ABERTA.
+
+    Diferente de vincular_kit(), que trata um kit por vez vindo da bipagem:
+    aqui a conta de "bateu o alvo" é feita UMA vez, no fim. Kit a kit, a
+    remessa fecharia no meio da lista e o resto da seleção seria recusado
+    sem o operador entender por quê."""
+    r = listar_uma(remessa_id)
+    if not r:
+        raise ValueError("Remessa não encontrada.")
+    if r["status"] != "aberta":
+        raise ValueError(f"A remessa {r['nome']} está fechada. "
+                         "Só dá pra acrescentar kit em remessa aberta.")
+    entraram, ja_em_outra, cliente_errado = 0, 0, 0
+    with db() as conn:
+        for kit_id in [k for k in kit_ids if k]:
+            if conn.execute("SELECT 1 FROM remessa_kit WHERE kit_id = ?", (kit_id,)).fetchone():
+                ja_em_outra += 1
+                continue
+            if r["cliente"]:
+                dono = conn.execute(
+                    "SELECT kt.cliente FROM kit_record kr "
+                    "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+                    "WHERE kr.kit_id = ?", (kit_id,)).fetchone()
+                if not dono or (dono["cliente"] or "") != r["cliente"]:
+                    cliente_errado += 1
+                    continue
+            conn.execute(
+                "INSERT INTO remessa_kit (remessa_id, kit_id, entrou_em) VALUES (?, ?, ?)",
+                (r["id"], kit_id, now_brt()))
+            entraram += 1
+    fechou = False
+    if entraram:
+        atual = listar_uma(r["id"])
+        if atual and atual["completa"]:
+            _fechar_e_seguir(r, "alvo alcançado ao acrescentar kits à mão")
+            fechou = True
+    return {"entraram": entraram, "ja_em_outra": ja_em_outra,
+            "cliente_errado": cliente_errado, "fechou": fechou,
+            "cliente": r["cliente"]}
+
+
+def remover_kit(remessa_id: int, kit_id: str) -> bool:
+    """Tira um kit da remessa — só de remessa ABERTA.
+
+    Remessa fechada é histórico: mudar a conta de um lote já encerrado faria
+    o número que foi passado pro cliente deixar de bater com o registro."""
+    r = listar_uma(remessa_id)
+    if not r or r["status"] != "aberta":
+        raise ValueError("Só dá pra tirar kit de uma remessa aberta.")
+    with db() as conn:
+        cur = conn.execute("DELETE FROM remessa_kit WHERE remessa_id = ? AND kit_id = ?",
+                           (remessa_id, kit_id))
+    return cur.rowcount > 0
+
+
 def listar_uma(remessa_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute("SELECT * FROM remessa WHERE id = ?", (remessa_id,)).fetchone()
