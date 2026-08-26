@@ -1174,23 +1174,36 @@ def frase_nao_encontrado(tipo: str) -> str:
 
 
 def historico_mudancas_do_kit(kit_id: str) -> list[dict]:
-    """Resumo curto do que mudou no kit DEPOIS de finalizado: item que saiu
-    (pra onde) e item que entrou (de onde), com data e motivo.
+    """Resumo curto do que mudou no kit DEPOIS de finalizado.
+
+    São três coisas diferentes, e a tela precisa distinguir:
+      • SAIU     — a peça foi movida pra outro veículo, ou retirada;
+      • ENTROU   — chegou uma peça depois da montagem;
+      • CORRIGIDO— a peça é a mesma, o número dela é que estava errado.
+
+    A correção não tem linha própria (ela ALTERA a linha existente), por isso
+    vem da coluna `correcao` em vez de status/data. Sem ela aqui, corrigir um
+    código não deixava rastro nenhum no veículo — o número mudava e ninguém
+    sabia quando nem por quê.
 
     É o "teve alteração ou não" que a janela do veículo mostra — sem isso, um
     kit sem a peça e um kit que nunca teve a peça são indistinguíveis."""
     with db() as conn:
         rows = conn.execute("""
             SELECT si.codigo_barra, si.bipado_em, si.status, si.observacao,
+                   si.correcao, COALESCE(si.pos_montagem, 0) AS pos_montagem,
                    it.nome AS tipo,
-                   kr.finalizado_em
+                   kr.finalizado_em,
+                   u.nome AS corrigido_por_nome
             FROM kit_record kr
             JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
             JOIN item_tipo it ON it.id = si.item_tipo_id
+            LEFT JOIN users u ON u.id = si.corrigido_por
             WHERE kr.kit_id = ?
               AND """ + SQL_TEM_PATRIMONIO + """
               AND (si.status IN ('movido', 'retirado')
                    OR COALESCE(si.pos_montagem, 0) = 1
+                   OR si.correcao IS NOT NULL
                    OR si.bipado_em > kr.finalizado_em)
             ORDER BY si.bipado_em DESC, si.id DESC
         """, (kit_id,)).fetchall()
@@ -1198,8 +1211,26 @@ def historico_mudancas_do_kit(kit_id: str) -> list[dict]:
     for r in rows:
         d = dict(r)
         d["saiu"] = d["status"] in ("movido", "retirado")
-        mudancas.append(d)
+        # Uma linha pode ter as duas coisas (veio de outro veículo E teve o
+        # número corrigido depois). Vira DUAS entradas: são dois fatos, com
+        # datas e motivos diferentes, e juntá-los esconderia um deles.
+        if d["saiu"] or _entrou_depois(d):
+            mudancas.append({**d, "acao": "saiu" if d["saiu"] else "entrou",
+                             "texto": d["observacao"]})
+        if d["correcao"]:
+            mudancas.append({**d, "acao": "corrigido", "saiu": False,
+                             "texto": d["correcao"]})
     return mudancas
+
+
+def _entrou_depois(d: dict) -> bool:
+    """A linha é uma peça que CHEGOU depois da montagem?
+
+    Linha que só foi corrigida não conta aqui: ela já existia desde a
+    bipagem, e listá-la como "entrou" inventaria um movimento que não houve."""
+    return bool(d.get("pos_montagem")) or bool(
+        d.get("bipado_em") and d.get("finalizado_em")
+        and d["bipado_em"] > d["finalizado_em"])
 
 
 def conferencia_com_modelo(kit_id: str) -> list[dict]:

@@ -1548,9 +1548,13 @@ async def admin_patrimonio_corrigir(request: Request, codigo_barra: str):
     voltar = str(form.get("voltar", ""))
     try:
         # Motivo obrigatório também aqui: renomear patrimônio é mudança de
-        # identidade do item, e sem o porquê o histórico não se explica.
-        items_mod._validar_motivo(str(form.get("motivo", "")))
-        r = items_mod.corrigir_patrimonio(codigo_barra, novo_codigo, novo_serial)
+        # identidade do item, e sem o porquê o histórico não se explica. E
+        # agora ele é GRAVADO, não só exigido — vira a entrada de "Alterações
+        # depois da montagem" do veículo.
+        motivo = items_mod._validar_motivo(str(form.get("motivo", "")))
+        user = get_current_user(request)
+        r = items_mod.corrigir_patrimonio(codigo_barra, novo_codigo, novo_serial,
+                                          motivo, user["id"] if user else None)
     except ValueError as e:
         return RedirectResponse(
             _destino_apos_acao(request, voltar, codigo_barra, str(e), erro=True),

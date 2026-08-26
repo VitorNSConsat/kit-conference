@@ -630,7 +630,8 @@ def retirar_do_kit(codigo_barra: str, motivo: str, user_id: int | None = None) -
 
 
 def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
-                        novo_serial: str | None = None) -> dict:
+                        novo_serial: str | None = None, motivo: str = "",
+                        user_id: int | None = None) -> dict:
     """Correção CADASTRAL de um patrimônio, válida em qualquer estágio —
     inclusive com o veículo já no cliente e finalizado.
 
@@ -643,7 +644,12 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
     transação — scan_session_items referencia o patrimônio por texto, então
     renomear só o cadastro deixaria o histórico órfão. O histórico não é
     apagado nem recriado: as mesmas linhas passam a apontar pro código
-    novo, preservando data, operador, sessão e kit de cada passagem."""
+    novo, preservando data, operador, sessão e kit de cada passagem.
+
+    O QUE mudou e POR QUE fica gravado na linha (coluna `correcao`), e é daí
+    que sai a entrada em "Alterações depois da montagem". Antes o motivo era
+    exigido, validado e jogado fora: aparecia só na auditoria, e o veículo não
+    tinha memória de que o número dele tinha sido trocado à mão."""
     codigo_atual = (codigo_atual or "").strip()
     novo_codigo = (novo_codigo or "").strip()
     if not codigo_atual:
@@ -704,6 +710,7 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
 
         codigo_final = novo_codigo if renomeou else codigo_atual
         seriais = 0
+        serial_limpo = (novo_serial or "").strip() or None
         if novo_serial is not None:
             # Corrige o serial da bipagem MAIS RECENTE deste patrimônio: é a
             # que descreve onde ele está agora. As anteriores continuam com
@@ -715,8 +722,30 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
             if ultima:
                 conn.execute(
                     "UPDATE scan_session_items SET serial_number = ? WHERE id = ?",
-                    ((novo_serial or "").strip() or None, ultima["id"]))
+                    (serial_limpo, ultima["id"]))
                 seriais = 1
+
+        # Registra a correção na bipagem MAIS RECENTE — a que diz onde a peça
+        # está agora. As passagens antigas não são reescritas: o kit de dois
+        # meses atrás não foi corrigido, só herdou o número novo.
+        if renomeou or seriais:
+            partes = []
+            if renomeou:
+                partes.append(f"Código corrigido de {codigo_atual} para {codigo_final}")
+            if seriais:
+                partes.append("Nº de série corrigido para "
+                              + (serial_limpo or "(vazio)"))
+            carimbo = now_brt()
+            nota = " · ".join(partes) + f" em {carimbo}"
+            if (motivo or "").strip():
+                nota += f" — {motivo.strip()}"
+            alvo = conn.execute(
+                "SELECT id FROM scan_session_items WHERE codigo_barra = ? "
+                "ORDER BY bipado_em DESC, id DESC LIMIT 1", (codigo_final,)).fetchone()
+            if alvo:
+                conn.execute(
+                    "UPDATE scan_session_items SET correcao = ?, corrigido_por = ? WHERE id = ?",
+                    (nota, user_id, alvo["id"]))
 
     return {"codigo": codigo_final, "renomeou": renomeou, "seriais_atualizados": seriais}
 

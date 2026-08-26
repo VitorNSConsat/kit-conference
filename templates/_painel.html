@@ -209,12 +209,22 @@
       {% if mudancas %}
       <div class="vp-itens">
         {% for m in mudancas %}
+        {# Três coisas diferentes, com rótulos diferentes: a peça saiu, a
+           peça chegou, ou o NÚMERO dela foi corrigido (a peça é a mesma). #}
         <div class="vp-item">
           <div>
-            <div class="vp-tipo">{{ '➡️ saiu' if m.saiu else '⬅️ entrou' }} · {{ m.tipo }}</div>
-            <div class="vp-codigo">{{ m.codigo_barra }} · {{ m.bipado_em[:16] if m.bipado_em else '' }}</div>
-            {% if m.observacao %}
-            <div class="vp-codigo" style="font-family:inherit;">{{ m.observacao }}</div>
+            <div class="vp-tipo">
+              {% if m.acao == 'corrigido' %}✏️ corrigido
+              {% elif m.acao == 'saiu' %}➡️ saiu
+              {% else %}⬅️ entrou{% endif %} · {{ m.tipo }}
+            </div>
+            <div class="vp-codigo">
+              {{ m.codigo_barra }}
+              {%- if m.acao == 'corrigido' and m.corrigido_por_nome %} · por {{ m.corrigido_por_nome }}{% endif %}
+              {%- if m.acao != 'corrigido' %} · {{ m.bipado_em[:16] if m.bipado_em else '' }}{% endif %}
+            </div>
+            {% if m.texto %}
+            <div class="vp-codigo" style="font-family:inherit;">{{ m.texto }}</div>
             {% endif %}
           </div>
         </div>

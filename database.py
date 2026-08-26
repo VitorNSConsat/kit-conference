@@ -134,6 +134,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "login_config" not in tabelas
         or "remessa" not in tabelas
         or "remessa_id" not in colunas_scan_session
+        or "correcao" not in colunas_scan_session_items
     )
     if not pendente:
         return None
@@ -641,6 +642,13 @@ def init_db():
             # finalizado — antes o vinculo so acontecia no despacho, e quem
             # montava nao tinha como dizer em que lote aquele kit ia.
             "ALTER TABLE scan_session ADD COLUMN remessa_id INTEGER REFERENCES remessa(id)",
+            # O que a ULTIMA correcao manual mudou nesta linha (codigo e/ou
+            # serial), com data e motivo. Coluna propria, e nao pos_montagem
+            # nem observacao: pos_montagem muda a conta do que o kit "devia
+            # ter" (corrigir um numero nao tira peca do veiculo), e observacao
+            # ja guarda de onde a peca veio quando foi movida.
+            "ALTER TABLE scan_session_items ADD COLUMN correcao TEXT",
+            "ALTER TABLE scan_session_items ADD COLUMN corrigido_por INTEGER REFERENCES users(id)",
         ]:
             try:
                 conn.execute(stmt)
