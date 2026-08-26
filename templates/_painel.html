@@ -34,14 +34,15 @@
       {# Cliente e garagem saem coloridos, com a MESMA cor — a garagem
          pertence ao cliente, e cores diferentes fariam parecer que não. Cor
          só, sem sublinhado: destaque não pode passar por link clicável. #}
+      {% set cor = cor_do_cliente(v.cliente) %}
       <div class="pat-campo">
         <span>Cliente</span>
-        <strong class="pat-marca" style="color:{{ cor_cliente }};">{{ v.cliente or '—' }}</strong>
+        <strong class="pat-marca" style="color:{{ cor }};">{{ v.cliente or '—' }}</strong>
       </div>
       <div class="pat-campo">
         <span>Garagem</span>
         {% if v.garagem %}
-        <strong class="pat-marca" style="color:{{ cor_cliente }};">{{ v.garagem }}</strong>
+        <strong class="pat-marca" style="color:{{ cor }};">{{ v.garagem }}</strong>
         {% else %}
         <strong><em class="pat-vazio-campo">não informada</em></strong>
         {% endif %}

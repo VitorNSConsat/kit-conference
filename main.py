@@ -401,7 +401,12 @@ def render(request: Request, template: str, ctx: dict = {}):
                                              "alertas_estoque": alertas_estoque,
                                              "alertas_total": banner["total"],
                                              "alerta_cfg": banner["cfg"],
-                                             "pode": pode, "telas": permissoes_mod.TELAS, **ctx})
+                                             "pode": pode, "telas": permissoes_mod.TELAS,
+                                             # Cor por cliente, à mão de qualquer tela: a
+                                             # mesma frota tem que ter a mesma cor na lista,
+                                             # na janela e em qualquer lugar novo.
+                                             "cor_do_cliente": clientes_mod.cor_do_cliente,
+                                             **ctx})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -4619,9 +4624,6 @@ def _painel_context(request: Request, veiculo_id: int | None = None,
         # um estágio e a lista atrás dela dizer outro.
         "localizacao": (producao_mod.localizacao_dos_veiculos().get(v["id"])
                         if v else None),
-        # A garagem herda a cor do cliente: são o mesmo mundo, e cor por
-        # cliente deixa o operador reconhecer a frota antes de ler o nome.
-        "cor_cliente": clientes_mod.cor_do_cliente(v["cliente"] if v else ""),
         "codigo_barra": codigo_barra,
         "item_sel": item_sel,
         "conferencia": sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else [],

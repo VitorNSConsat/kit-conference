@@ -133,9 +133,10 @@
   <div class="lista-suspensa" id="lista-clientes">
     {% for c in clientes_cadastrados %}
     {% set gars = garagens_por_cliente.get(c.nome) or [] %}
+    {% set cor = cor_do_cliente(c.nome) %}
     <details>
       <summary>
-        <span class="ls-nome">{{ c.nome }}</span>
+        <span class="ls-nome" style="color:{{ cor }};">{{ c.nome }}</span>
         <span class="ls-contagem">{{ gars | sum(attribute='veiculos') }} veíc.
           · {{ gars | length }} gar.</span>
       </summary>
@@ -144,9 +145,9 @@
         <div class="ls-links">
           {% for g in gars %}
           {% if g.id %}
-          <a href="/admin/garagens/{{ g.id }}">🏭 {{ g.nome }} <em>{{ g.veiculos }}</em></a>
+          <a href="/admin/garagens/{{ g.id }}" style="color:{{ cor }};">🏭 {{ g.nome }} <em>{{ g.veiculos }}</em></a>
           {% else %}
-          <span class="ls-sem-link">{{ g.nome }} <em>{{ g.veiculos }}</em></span>
+          <span class="ls-sem-link" style="color:{{ cor }};">{{ g.nome }} <em>{{ g.veiculos }}</em></span>
           {% endif %}
           {% endfor %}
         </div>
@@ -196,9 +197,12 @@
   <div class="lista-suspensa" id="lista-garagens">
     {% for g in garagens_cadastradas %}
     {% set clis = clientes_por_garagem.get(g.nome | upper) or [] %}
+    {# Garagem de um cliente só herda a cor dele. Com dois ou mais, fica
+       neutra: colorir seria eleger um por acaso. #}
     <details>
       <summary>
-        <span class="ls-nome">{{ g.nome }}</span>
+        <span class="ls-nome"
+              {%- if clis | length == 1 %} style="color:{{ cor_do_cliente(clis[0].nome) }};"{% endif %}>{{ g.nome }}</span>
         <span class="ls-contagem">{{ clis | sum(attribute='veiculos') }} veíc.
           · {{ clis | length }} cli.</span>
       </summary>
@@ -207,9 +211,9 @@
         <div class="ls-links">
           {% for c in clis %}
           {% if c.id %}
-          <a href="/admin/clientes/{{ c.id }}">🏢 {{ c.nome }} <em>{{ c.veiculos }}</em></a>
+          <a href="/admin/clientes/{{ c.id }}" style="color:{{ cor_do_cliente(c.nome) }};">🏢 {{ c.nome }} <em>{{ c.veiculos }}</em></a>
           {% else %}
-          <span class="ls-sem-link">{{ c.nome }} <em>{{ c.veiculos }}</em></span>
+          <span class="ls-sem-link" style="color:{{ cor_do_cliente(c.nome) }};">{{ c.nome }} <em>{{ c.veiculos }}</em></span>
           {% endif %}
           {% endfor %}
         </div>
@@ -419,16 +423,22 @@
                 title="Itens, pendências e alterações deste veículo">{{ v.numero }}</button>
       </td>
       {# Cliente e garagem também são atalhos: daqui se chega no panorama de
-         cada um sem precisar rolar até os cards do topo. #}
+         cada um sem precisar rolar até os cards do topo. Os dois saem na cor
+         DO CLIENTE desta linha — a garagem pertence a ele, e a mesma frota
+         tem a mesma cor aqui e na janela do veículo. #}
+      {% set cor = cor_do_cliente(v.cliente) %}
       <td>
         {% if id_cliente.get(v.cliente) %}
-        <a href="/admin/clientes/{{ id_cliente[v.cliente] }}">{{ v.cliente }}</a>
-        {% else %}{{ v.cliente }}{% endif %}
+        <a href="/admin/clientes/{{ id_cliente[v.cliente] }}"
+           class="marca-cliente" style="color:{{ cor }};">{{ v.cliente }}</a>
+        {% else %}<span class="marca-cliente" style="color:{{ cor }};">{{ v.cliente }}</span>{% endif %}
       </td>
       <td>
         {% if v.garagem and id_garagem.get(v.garagem) %}
-        <a href="/admin/garagens/{{ id_garagem[v.garagem] }}">{{ v.garagem }}</a>
-        {% else %}{{ v.garagem or '—' }}{% endif %}
+        <a href="/admin/garagens/{{ id_garagem[v.garagem] }}"
+           class="marca-cliente" style="color:{{ cor }};">{{ v.garagem }}</a>
+        {% elif v.garagem %}<span class="marca-cliente" style="color:{{ cor }};">{{ v.garagem }}</span>
+        {% else %}—{% endif %}
       </td>
       <td>
         {% if v.modelo %}{{ v.modelo }}
@@ -528,8 +538,8 @@
       {% for v in veiculos_inativos %}
       <tr style="opacity:0.55;">
         <td><strong>{{ v.numero }}</strong></td>
-        <td>{{ v.cliente }}</td>
-        <td>{{ v.garagem or '—' }}</td>
+        <td style="color:{{ cor_do_cliente(v.cliente) }};font-weight:600;">{{ v.cliente }}</td>
+        <td style="color:{{ cor_do_cliente(v.cliente) }};font-weight:600;">{{ v.garagem or '—' }}</td>
         <td>
           <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Reativar</a>
         </td>

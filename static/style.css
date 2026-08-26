@@ -751,6 +751,12 @@ tr:hover td { background: var(--surface-alt); }
    cursor de mão: cor aqui é identidade, não link — e um "link" que não abre
    nada faz o operador clicar e desconfiar da tela. */
 .pat-marca { text-decoration: none; cursor: default; }
+/* Cliente e garagem na lista: mesma cor da janela, e aqui SÃO links (abrem o
+   panorama). Sem o risco embaixo o tempo todo — uma coluna inteira sublinhada
+   vira ruído; o sublinhado volta no hover, que é quando a pergunta "isso
+   clica?" aparece. */
+.marca-cliente { font-weight: 700; text-decoration: none; }
+a.marca-cliente:hover { text-decoration: underline; }
 .pat-atalhos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 .pat-acao {

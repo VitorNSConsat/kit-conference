@@ -593,11 +593,27 @@
       número em dois clientes é o mesmo ônibus. Clicando no número vai direto pros
       itens e patrimônios dele.</li>
     <li><span class="campo">Cliente</span> e <span class="campo">Garagem</span> — escolhidos do
-      cadastro, não digitados livremente.</li>
+      cadastro, não digitados livremente. Os dois aparecem <strong>coloridos</strong>, e a
+      <strong>garagem usa a cor do cliente dela</strong> — a mesma frota tem a mesma cor na
+      lista, nas listas suspensas de Clientes e Garagens e na janela do veículo, então dá
+      pra reconhecer de quem é o veículo antes de ler o nome. É cor, não link.</li>
     <li><span class="campo">Modelo (kit)</span> — qual kit este veículo usa. Sem modelo, o
       veículo não aparece em bipagem nenhuma.</li>
     <li><span class="campo">Localização atual</span> — onde ele está no fluxo (a produzir,
       em produção, produzido, em trânsito, no cliente). É calculada, não digitada.</li>
+  </ul>
+  <div class="nota">
+    <strong>De onde vem a cor de cada cliente.</strong> Ninguém escolhe: ela sai do cadastro
+    do cliente e é sempre a mesma pra ele, inclusive depois de reiniciar o servidor ou de
+    criar outros clientes. Clientes criados em sequência recebem cores
+    <strong>bem distantes entre si</strong> de propósito — duas frotas de cores parecidas
+    seriam pior do que cor nenhuma. Tons de vermelho ficam de fora: nesta interface vermelho
+    quer dizer problema, e um cliente vermelho pareceria um alerta.
+    <br>Uma garagem que atende <strong>mais de um cliente</strong> fica sem cor na lista de
+    Garagens — ali colorir seria eleger um cliente por acaso. Na linha do veículo ela sempre
+    tem cor, porque ali o cliente é um só.
+  </div>
+  <ul>
   </ul>
 
   <p>

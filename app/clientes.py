@@ -3,30 +3,64 @@ import sqlite3
 
 from database import db, now_brt
 
-# Cores fortes o bastante pra ler sobre fundo claro e diferentes entre si.
-# Não são "bonitas por acaso": o operador reconhece o cliente pela cor antes
-# de ler o nome, então duas próximas demais atrapalhariam mais do que ajudam.
-_CORES = (
-    "#1f6feb", "#b8860b", "#0f766e", "#9333ea", "#c2410c",
-    "#0369a1", "#15803d", "#be123c", "#7c3aed", "#a16207",
-)
+# ── Cor de cada cliente ──────────────────────────────────────────────────
+# Matiz calculada, não uma lista de cores fixa: com dez cores prontas, dois
+# clientes caírem na mesma é questão de tempo — e duas frotas da mesma cor é
+# pior do que cor nenhuma.
+#
+# A posição no círculo vem do ID do cadastro multiplicado pelo ângulo áureo
+# (137,5°), que é a forma clássica de espalhar N pontos num círculo sem
+# aglomerar: clientes criados em sequência caem BEM longe um do outro, em vez
+# de vizinhos de 2° que o olho não separa. Como o id nunca muda, a cor do
+# cliente também não — nem quando outro cliente é criado ou apagado.
+_ANGULO_OURO = 137.508
+_SATURACAO, _LUMINOSIDADE = 72, 38   # fixos: toda matiz sai legível no branco
+# 0°–24° e 336°–360° são o vermelho dos avisos. Nesta interface vermelho quer
+# dizer problema; um cliente vermelho pareceria um alerta.
+_MATIZ_INICIAL, _MATIZ_FAIXA = 24, 312
+_CINZA_SEM_CLIENTE = "#8a97a4"
+
+_ids_por_nome: dict[str, int] = {}
+
+
+def _posicao(chave: str) -> int:
+    """O id do cliente no cadastro — a "vez" dele na roda de cores.
+
+    Em cache porque isto é chamado uma vez por LINHA de lista (centenas), e
+    uma consulta por linha seria a diferença entre abrir na hora e travar.
+    Nome que não está no cadastro (cliente apagado que ficou no veículo) cai
+    no hash do nome: cor estável do mesmo jeito, sem depender de id."""
+    if chave not in _ids_por_nome:
+        _recarregar_ids()
+    pos = _ids_por_nome.get(chave)
+    if pos is not None:
+        return pos
+    return int(hashlib.md5(chave.encode("utf-8")).hexdigest()[:8], 16)
+
+
+def _recarregar_ids() -> None:
+    global _ids_por_nome
+    try:
+        with db() as conn:
+            _ids_por_nome = {
+                (r["nome"] or "").strip().upper(): r["id"]
+                for r in conn.execute("SELECT id, nome FROM clientes").fetchall()
+            }
+    except Exception:
+        _ids_por_nome = {}
 
 
 def cor_do_cliente(nome: str) -> str:
     """Sempre a MESMA cor pro mesmo cliente, sem guardar nada no banco.
 
-    Vem de um hash estável do nome (md5, não `hash()` — o hash de string do
-    Python é aleatório por processo, e a cor mudaria a cada reinício do
-    servidor). Cliente novo já nasce com cor; ninguém precisa escolher.
-
-    A garagem usa a cor do CLIENTE dela, de propósito: as duas são texto
-    livre e parecidas na tela, e cores diferentes fariam parecer que são
-    coisas de mundos separados."""
+    Cliente novo já nasce com cor; ninguém escolhe nada. A garagem usa a cor
+    do CLIENTE dela: as duas são texto livre e parecidas na tela, e cores
+    diferentes fariam parecer mundos separados."""
     chave = (nome or "").strip().upper()
     if not chave:
-        return "#8a97a4"          # cinza: sem cliente, sem identidade
-    n = int(hashlib.md5(chave.encode("utf-8")).hexdigest()[:8], 16)
-    return _CORES[n % len(_CORES)]
+        return _CINZA_SEM_CLIENTE     # sem cliente, sem identidade
+    matiz = _MATIZ_INICIAL + int(_posicao(chave) * _ANGULO_OURO) % _MATIZ_FAIXA
+    return f"hsl({matiz}, {_SATURACAO}%, {_LUMINOSIDADE}%)"
 
 
 def listar() -> list[dict]:
@@ -100,6 +134,7 @@ def panorama(nome: str) -> dict | None:
 def deletar(cliente_id: int):
     with db() as conn:
         conn.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+    _recarregar_ids()   # o cache de cores não pode ficar com quem não existe mais
 
 
 def criar(nome: str) -> int | None:
@@ -112,6 +147,8 @@ def criar(nome: str) -> int | None:
                 "INSERT INTO clientes (nome, criado_em) VALUES (?, ?)",
                 (nome, now_brt())
             )
-            return cur.lastrowid
+            novo = cur.lastrowid
+        _recarregar_ids()   # cliente novo já sai colorido na primeira tela
+        return novo
     except sqlite3.IntegrityError:
         return None
