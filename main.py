@@ -985,6 +985,9 @@ async def home(request: Request):
         "templates_kit": [t for t in templates_ativos if t.get("tipo", "kit") == "kit"],
         "templates_pedido": [t for t in templates_ativos if t.get("tipo") == "pedido"],
         "sessoes_em_andamento": sessoes_em_andamento,
+        # A remessa lembrada da última escolha — o operador só troca quando
+        # precisa; do contrário segue no mesmo lote kit após kit.
+        "remessa_atual": remessas_mod.listar_uma(_remessa_escolhida(request) or 0),
     })
 
 
@@ -992,8 +995,69 @@ async def home(request: Request):
 @require_login
 async def session_start(request: Request, kit_template_id: int = Form(...)):
     user = get_current_user(request)
-    sessao_id = sessions_mod.start_session(kit_template_id, user["id"])
+    sessao_id = sessions_mod.start_session(kit_template_id, user["id"],
+                                           _remessa_escolhida(request))
     return RedirectResponse(f"/session/{sessao_id}/destino", status_code=302)
+
+
+# ── Escolher a remessa no começo da bipagem ───────────────────────────────────
+
+def _remessa_escolhida(request: Request) -> int | None:
+    """A remessa que este operador escolheu por último, se ainda estiver
+    aberta.
+
+    Fica na sessão de login de propósito: quem monta trinta kits seguidos
+    escolhe uma vez e segue. Remessa que fechou (bateu o alvo) sai sozinha da
+    escolha, senão o kit seguinte entraria num lote já encerrado."""
+    rid = request.session.get("remessa_id")
+    if not rid:
+        return None
+    r = remessas_mod.listar_uma(int(rid))
+    if not r or r["status"] != "aberta":
+        request.session.pop("remessa_id", None)
+        return None
+    return r["id"]
+
+
+@app.get("/session/remessa", response_class=HTMLResponse)
+@require_login
+async def session_remessa_escolher(request: Request, sessao_id: int = 0):
+    """Janela de escolha: as remessas abertas e o formulário de criar uma."""
+    return render(request, "_remessa_escolher.html", {
+        "abertas": remessas_mod.listar_abertas(),
+        "escolhida": _remessa_escolhida(request),
+        "clientes_cadastrados": clientes_mod.listar(),
+        "sessao_id": sessao_id,
+    })
+
+
+@app.post("/session/remessa")
+@require_login
+async def session_remessa_definir(request: Request):
+    form = await request.form()
+    sessao_id = int(form.get("sessao_id") or 0)
+    escolha = str(form.get("remessa_id", "")).strip()
+    user = get_current_user(request)
+
+    if escolha == "nova":
+        if not permissoes_mod.tem_permissao(user, "remessas_gerenciar"):
+            return RedirectResponse("/?erro=" + quote(
+                "Seu usuário não pode criar remessa. Escolha uma da lista."), status_code=302)
+        try:
+            r = remessas_mod.abrir(str(form.get("nome", "")), form.get("alvo", ""),
+                                   str(form.get("cliente", "")), user["id"] if user else None)
+        except ValueError as e:
+            destino = f"/session/{sessao_id}" if sessao_id else "/"
+            return RedirectResponse(destino + "?erro=" + quote(str(e)), status_code=302)
+        rid = r["id"]
+    else:
+        rid = int(escolha) if escolha.isdigit() else None
+
+    request.session["remessa_id"] = rid
+    if sessao_id:
+        sessions_mod.definir_remessa(sessao_id, rid)
+        return RedirectResponse(f"/session/{sessao_id}?ok=remessa", status_code=302)
+    return RedirectResponse("/?ok=remessa", status_code=302)
 
 
 # ── Admin: Tipos de Item ──────────────────────────────────────────────────────
@@ -2013,6 +2077,23 @@ async def session_page(request: Request, sessao_id: int):
         "itens": itens,
         "contagem": contagem,
         "itens_por_operador": itens_por_operador,
+        "remessa_atual": remessas_mod.listar_uma(session.get("remessa_id") or 0),
+    })
+
+
+@app.get("/session/{sessao_id}/remessa", response_class=HTMLResponse)
+@require_login
+async def session_remessa_pagina(request: Request, sessao_id: int):
+    """Trocar a remessa no meio da bipagem. Página curta em vez de janela: a
+    tela de bipagem não usa a janela única do sistema."""
+    session = sessions_mod.get_session(sessao_id)
+    if not session or session["status"] != "em_andamento":
+        return RedirectResponse("/", status_code=302)
+    return render(request, "remessa_pagina.html", {
+        "abertas": remessas_mod.listar_abertas(),
+        "escolhida": session.get("remessa_id"),
+        "clientes_cadastrados": clientes_mod.listar(),
+        "sessao_id": sessao_id,
     })
 
 
@@ -2346,6 +2427,12 @@ async def session_finalize(request: Request, sessao_id: int):
         # um item do template fazia todo kit antigo aparecer com aquele item
         # "sobrando", como se estivesse errado.
         sessions_mod.gravar_itens_exigidos(conn, kit_id, session["kit_template_id"])
+
+    # Fora do `with`: vincular_kit abre a própria conexão, e aninhar duas
+    # trava o SQLite. O kit entra na remessa escolhida lá no começo — é o que
+    # faz o contador andar enquanto o galpão monta, e não só no despacho.
+    if session.get("remessa_id"):
+        remessas_mod.vincular_kit(kit_id, session["remessa_id"])
 
     if session.get("kit_tipo") == "pedido":
         templates_mod.marcar_concluido(session["kit_template_id"])
@@ -3788,9 +3875,9 @@ async def admin_producao(request: Request):
         # aparecer pra alguém repor antes de despachar.
         "faltando_item": sessions_mod.kits_incompletos(),
         "tv_config": producao_mod.get_tv_config(),
-        # A remessa em andamento: quanto já saiu do galpão contra a
-        # quantidade combinada com o cliente.
-        "remessa": remessas_mod.aberta(),
+        # TODAS as remessas abertas: agora pode haver mais de uma (duas
+        # frentes de trabalho), e mostrar só a última esconderia a outra.
+        "remessas_abertas": remessas_mod.listar_abertas(),
         "clientes_cadastrados": clientes_mod.listar(),
         "ok": request.query_params.get("ok", ""),
     })

@@ -891,6 +891,22 @@ a.marca-cliente:hover { text-decoration: underline; }
 /* Dentro da janela quem rola é o corpo; a lista não precisa de teto próprio. */
 .modal-corpo .lista-suspensa { max-height: none; border: 0; padding: 0; background: none; }
 
+/* ── Escolher remessa (janela do começo da bipagem) ───────────────────────
+   Linha inteira clicável, não só o bolinha do rádio: quem está de luva no
+   galpão erra o alvo de 14px. */
+.rem-opcao {
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    padding: 10px 12px; border: 1px solid #e6ecf2; border-radius: 10px;
+    background: #fff;
+}
+.rem-opcao:hover { background: #f7f9fb; }
+.rem-opcao-sel { background: #eef4fb; border-color: #bcd4ee; }
+.rem-trilho {
+    display: block; height: 6px; background: #e8edf3; border-radius: 99px;
+    overflow: hidden; margin-top: 5px;
+}
+.rem-barra { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+
 /* ── Barra da remessa ─────────────────────────────────────────────────────
    O "45/90" em forma de barra: o número diz quanto, a barra diz quão perto —
    e é a segunda que se lê de longe, passando pela tela. */

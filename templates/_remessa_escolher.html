@@ -1,0 +1,71 @@
+{# Janela "escolher remessa", aberta no começo da bipagem e pelo botão de
+   trocar. Fragmento: não estende base.html, é injetado por fetch na janela
+   única do sistema. #}
+<div class="pat-painel">
+  <p class="pat-ajuda" style="margin-top:0;">
+    O kit que você montar agora entra na remessa escolhida aqui — e a escolha
+    <strong>vale pros próximos kits</strong>, até você trocar. Quem monta trinta
+    seguidos escolhe uma vez.
+  </p>
+
+  {% if abertas %}
+  <form method="post" action="/session/remessa">
+    <input type="hidden" name="sessao_id" value="{{ sessao_id }}">
+    <div class="vp-itens">
+      {% for r in abertas %}
+      <label class="rem-opcao {{ 'rem-opcao-sel' if escolhida == r.id }}">
+        <input type="radio" name="remessa_id" value="{{ r.id }}"
+               {{ 'checked' if escolhida == r.id }} style="width:auto;margin:0;">
+        <span style="flex:1;">
+          <strong>{{ r.nome }}</strong>
+          <span style="font-size:12px;color:#7a8794;">
+            · {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
+              {%- else %}todos os clientes{% endif %}
+          </span>
+          <span class="rem-trilho"><span class="rem-barra" style="width:{{ r.percentual }}%;"></span></span>
+        </span>
+        <strong style="color:var(--brand);white-space:nowrap;">{{ r.rotulo }}</strong>
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:12px;">
+      ✔️ Usar esta remessa
+    </button>
+  </form>
+  {% else %}
+  <div class="alert alert-danger">
+    ⚠️ <strong>Nenhuma remessa aberta.</strong> Crie uma abaixo pra o kit entrar em
+    alguma contagem — sem isso ele é montado normalmente, mas fica de fora do lote.
+  </div>
+  {% endif %}
+
+  {% if pode('remessas_gerenciar') %}
+  <details class="pat-acao" {{ 'open' if not abertas }}>
+    <summary>➕ Criar uma remessa agora</summary>
+    <p class="pat-ajuda">
+      Sem sair da bipagem. A nova já fica escolhida pro kit que você vai montar.
+    </p>
+    <form method="post" action="/session/remessa">
+      <input type="hidden" name="sessao_id" value="{{ sessao_id }}">
+      <input type="hidden" name="remessa_id" value="nova">
+      <label>Nome <span class="pat-ajuda">— opcional</span></label>
+      <input type="text" name="nome" placeholder="ex: Remessa Outubro">
+      <label>Quantidade *</label>
+      <input type="number" name="alvo" min="1" required placeholder="90">
+      <label>Cliente <span class="pat-ajuda">— opcional</span></label>
+      <select name="cliente">
+        <option value="">— todos os clientes —</option>
+        {% for c in clientes_cadastrados %}
+        <option value="{{ c.nome }}">{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-success">📦 Criar e usar</button>
+    </form>
+  </details>
+  {% else %}
+  <p class="pat-ajuda">
+    Criar remessa exige a permissão <em>Abrir remessa e mudar a quantidade do envio</em>.
+    Fale com um administrador.
+  </p>
+  {% endif %}
+</div>

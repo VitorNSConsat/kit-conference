@@ -6,8 +6,15 @@ quanto faltava era contar a lista de Em Trânsito na mão, todo dia.
 
 Como funciona:
 
-  • Uma remessa ABERTA por vez. Todo kit que entra em Em Trânsito entra nela —
-    é o momento em que o kit sai do galpão, que é o que "enviar" quer dizer.
+  • O operador ESCOLHE a remessa no começo da bipagem, e o kit entra nela
+    quando é finalizado. A escolha fica guardada e vale pros próximos kits,
+    até alguém trocar — quem monta trinta kits seguidos não escolhe trinta
+    vezes.
+  • Por isso pode haver VÁRIAS remessas abertas ao mesmo tempo: duas frentes
+    de trabalho, dois clientes, dois lotes. Quem decide qual é o operador.
+  • Kit montado SEM remessa escolhida ainda entra na conta quando vai pra Em
+    Trânsito, desde que só exista uma aberta — é a rede de segurança pros
+    kits que começaram antes de alguém escolher.
   • O ALVO pode mudar a qualquer momento (0/90 → 45/90 → 80/80). Mudar não
     mexe no que já foi contado: os kits continuam onde estão, só a meta muda.
   • Ao bater o alvo, a remessa FECHA e outra abre no lugar, do zero. É isso
@@ -24,13 +31,31 @@ from database import db, now_brt
 ALVO_MIN, ALVO_MAX = 1, 100000
 
 
-def aberta() -> dict | None:
-    """A remessa que está recebendo kits agora. None = nenhuma aberta."""
+def listar_abertas() -> list[dict]:
+    """Todas as remessas abertas — é a lista que o operador escolhe no começo
+    da bipagem."""
     with db() as conn:
-        row = conn.execute(
-            "SELECT * FROM remessa WHERE status = 'aberta' "
-            "ORDER BY id DESC LIMIT 1").fetchone()
-    return _com_contagem(dict(row)) if row else None
+        rows = conn.execute(
+            "SELECT * FROM remessa WHERE status = 'aberta' ORDER BY id DESC").fetchall()
+    return [_com_contagem(dict(r)) for r in rows]
+
+
+def aberta() -> dict | None:
+    """A remessa aberta mais recente. Serve pra tela mostrar "a atual" quando
+    não há escolha feita — não é mais "a única", porque agora pode haver
+    várias."""
+    abertas = listar_abertas()
+    return abertas[0] if abertas else None
+
+
+def unica_aberta() -> dict | None:
+    """A remessa aberta SÓ quando não há dúvida (existe exatamente uma).
+
+    Usada pela rede de segurança do trânsito: com duas abertas, escolher uma
+    seria chutar em qual lote o kit do cliente entra — e errar isso é pior do
+    que não contar."""
+    abertas = listar_abertas()
+    return abertas[0] if len(abertas) == 1 else None
 
 
 def _com_contagem(r: dict) -> dict:
@@ -48,13 +73,14 @@ def _com_contagem(r: dict) -> dict:
 
 
 def abrir(nome: str, alvo, cliente: str = "", user_id: int | None = None) -> dict:
-    """Abre uma remessa. Se já existe uma aberta, ela é fechada antes — duas
-    abertas ao mesmo tempo tornariam ambíguo em qual o kit deve entrar."""
+    """Abre uma remessa — sem fechar as outras.
+
+    Fechar a anterior era a regra quando só uma podia existir. Agora quem diz
+    em qual lote o kit entra é o operador, na bipagem, então duas frentes de
+    trabalho ao mesmo tempo deixaram de ser ambíguas e passaram a ser o caso
+    normal."""
     alvo = _validar_alvo(alvo)
     nome = (nome or "").strip() or _proximo_nome()
-    atual = aberta()
-    if atual:
-        fechar(atual["id"], motivo="substituída por uma remessa nova")
     with db() as conn:
         rid = conn.execute(
             "INSERT INTO remessa (nome, cliente, alvo, status, criada_em, criada_por) "
@@ -113,17 +139,43 @@ def fechar(remessa_id: int, motivo: str = "") -> None:
             (now_brt(), motivo, remessa_id))
 
 
+def vincular_kit(kit_id: str, remessa_id: int | None) -> bool:
+    """Coloca UM kit na remessa escolhida no começo da bipagem.
+
+    É o caminho principal desde que a escolha passou pra bipagem: o kit entra
+    na remessa no momento em que fica pronto, não quando é despachado. Assim o
+    contador anda enquanto o galpão monta — que é o que "organizar os kits até
+    fechar a quantidade" quer dizer."""
+    if not kit_id or not remessa_id:
+        return False
+    r = listar_uma(int(remessa_id))
+    if not r or r["status"] != "aberta":
+        return False
+    with db() as conn:
+        if conn.execute("SELECT 1 FROM remessa_kit WHERE kit_id = ?", (kit_id,)).fetchone():
+            return False
+        conn.execute(
+            "INSERT INTO remessa_kit (remessa_id, kit_id, entrou_em) VALUES (?, ?, ?)",
+            (r["id"], kit_id, now_brt()))
+    atual = listar_uma(r["id"])
+    if atual and atual["completa"]:
+        _fechar_e_seguir(r, "alvo alcançado")
+    return True
+
+
 def registrar_kits(kit_ids: list[str]) -> int:
-    """Coloca na remessa aberta os kits que acabaram de ir pra Em Trânsito.
+    """Rede de segurança: kit que chega em Em Trânsito SEM remessa entra na
+    aberta, desde que exista só uma.
 
-    Chamado pela própria transição de estágio: se dependesse de alguém
-    lembrar de apontar, a remessa nasceria desatualizada. Kit que já está em
-    alguma remessa é ignorado — voltar e reenviar não conta duas vezes.
+    Antes este era o caminho principal. Virou reserva quando a escolha passou
+    pra bipagem — serve pros kits montados antes disso e pra quem finalizou
+    sem escolher. Com DUAS remessas abertas não faz nada: escolher uma seria
+    chutar em qual lote o kit do cliente entra.
 
-    Quando o alvo é atingido, fecha a remessa e abre a próxima com a MESMA
-    meta e o mesmo cliente, pra a operação não parar esperando alguém criar.
+    Kit que já está em alguma remessa é ignorado — voltar e reenviar não conta
+    duas vezes.
     """
-    r = aberta()
+    r = unica_aberta()
     if not r or not kit_ids:
         return 0
     entraram = 0

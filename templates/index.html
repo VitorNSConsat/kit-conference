@@ -31,6 +31,41 @@
 {% endif %}
 
 <h1>Nova Sessão de Bipagem</h1>
+
+{% if request.query_params.get('ok') == 'remessa' %}
+<div class="alert alert-success" style="max-width:500px;">✅ Remessa escolhida.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger" style="max-width:500px;">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+{# Escolher a remessa ANTES de bipar: é aqui que se decide em que lote o kit
+   vai entrar. A escolha fica lembrada, então no segundo kit basta seguir. #}
+<div class="card" style="max-width:500px;border-left:4px solid var(--brand);">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div class="pat-rotulo">Remessa deste kit</div>
+      {% if remessa_atual %}
+      <div style="font-size:16px;font-weight:800;color:var(--brand);">
+        📦 {{ remessa_atual.nome }} <span style="font-size:14px;">{{ remessa_atual.rotulo }}</span>
+      </div>
+      <div style="font-size:12px;color:#7a8794;">
+        {% if remessa_atual.cliente %}<span style="color:{{ cor_do_cliente(remessa_atual.cliente) }};font-weight:700;">{{ remessa_atual.cliente }}</span>
+        {%- else %}todos os clientes{% endif %}
+        · faltam {{ remessa_atual.faltam }}
+      </div>
+      {% else %}
+      <div style="font-size:14px;color:#c0392b;font-weight:700;">Nenhuma escolhida</div>
+      <div style="font-size:12px;color:#7a8794;">O kit vai ficar fora da contagem do lote.</div>
+      {% endif %}
+    </div>
+    <button type="button" class="btn btn-sm {{ 'btn-secondary' if remessa_atual else 'btn-primary' }}"
+            onclick="abrirJanelaPainel('/session/remessa', '📦 Remessa', 'escolha o lote deste kit')">
+      {{ '🔄 Trocar' if remessa_atual else '📦 Escolher remessa' }}
+    </button>
+  </div>
+</div>
+
 <div class="card" style="max-width: 500px;">
     {% if templates_kit or templates_pedido %}
     <form method="post" action="/session/start">

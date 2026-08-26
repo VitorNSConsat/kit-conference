@@ -133,6 +133,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "backup_registro" not in tabelas
         or "login_config" not in tabelas
         or "remessa" not in tabelas
+        or "remessa_id" not in colunas_scan_session
     )
     if not pendente:
         return None
@@ -636,6 +637,10 @@ def init_db():
             # linha 'aguardando_patrimonio' — entao, depois de montado, nao
             # havia como saber de que lote a peca daquele veiculo tinha saido.
             "ALTER TABLE scan_session_items ADD COLUMN codigo_caixa TEXT",
+            # Remessa escolhida no comeco da bipagem. O kit entra nela ao ser
+            # finalizado — antes o vinculo so acontecia no despacho, e quem
+            # montava nao tinha como dizer em que lote aquele kit ia.
+            "ALTER TABLE scan_session ADD COLUMN remessa_id INTEGER REFERENCES remessa(id)",
         ]:
             try:
                 conn.execute(stmt)

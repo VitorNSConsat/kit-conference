@@ -697,10 +697,42 @@
     esse número mora — antes ele ficava num papel, e a única forma de saber quanto faltava
     era contar a lista de Em Trânsito na mão, todo dia.
   </p>
+  <h4>Escolher a remessa é o primeiro passo da bipagem</h4>
+  <p style="font-size:14px;">
+    Na tela de <strong>Nova Sessão de Bipagem</strong>, antes de escolher o kit, aparece
+    <span class="campo">📦 Remessa deste kit</span>. Clicando em
+    <strong>Escolher remessa</strong>, abre a janela com as remessas abertas — e, se não
+    houver nenhuma (ou a certa não existir), dá pra <strong>criar uma ali mesmo</strong>,
+    sem sair da tela.
+  </p>
   <ul>
-    <li><strong>Uma remessa aberta por vez.</strong> Todo kit que entra em
-      <strong>Em Trânsito</strong> entra nela automaticamente — sair do galpão é o que
-      “enviar” quer dizer. Ninguém precisa apontar nada.</li>
+    <li><strong>A escolha fica lembrada.</strong> No segundo kit, no terceiro e nos
+      seguintes, basta seguir: o botão vira <span class="campo">🔄 Trocar</span> e só é
+      usado quando o lote muda de verdade. Quem monta trinta kits seguidos escolhe uma vez.</li>
+    <li><strong>Dá pra trocar no meio.</strong> A remessa fica à vista no cabeçalho da
+      bipagem; clicando nela, abre a página de troca e o kit passa pro outro lote. Como o
+      vínculo só acontece ao finalizar, trocar no meio não deixa rastro errado.</li>
+    <li><strong>O kit entra na remessa quando é finalizado</strong> — não no despacho.
+      É o que faz o contador andar enquanto o galpão monta, que é o sentido de “organizar
+      os kits até fechar a quantidade”.</li>
+    <li><strong>Remessa que fechou sai da escolha sozinha</strong>: o kit seguinte não
+      entra num lote já encerrado.</li>
+  </ul>
+  <div class="nota">
+    Criar remessa exige a permissão <em>Abrir remessa e mudar a quantidade do envio</em>.
+    Quem não tem continua <strong>escolhendo</strong> entre as abertas — montar não depende
+    de poder criar lote.
+  </div>
+
+  <h4>O resto das regras</h4>
+  <ul>
+    <li><strong>Pode haver várias remessas abertas ao mesmo tempo</strong> — duas frentes
+      de trabalho, dois clientes, dois lotes. Quem decide qual é o operador, na bipagem.
+      Todas aparecem no topo da Produção, cada uma com seu contador.</li>
+    <li><strong>Rede de segurança:</strong> kit finalizado <em>sem</em> remessa escolhida
+      ainda entra na conta quando vai pra <strong>Em Trânsito</strong> — mas só se existir
+      <strong>uma única</strong> remessa aberta. Com duas, o sistema não escolhe por você:
+      chutar em qual lote o kit do cliente entra é pior do que não contar.</li>
     <li><strong>O contador aparece no topo da Produção</strong>: <em>0/90 → 45/90 → 80/80</em>,
       com barra e quantos faltam.</li>
     <li><strong>A quantidade muda a qualquer momento.</strong> Mudar não mexe no que já foi
@@ -717,9 +749,9 @@
   <div class="nota">
     <strong>Kit não conta duas vezes.</strong> Remarcar como Em Trânsito, ou voltar o
     estágio e mandar de novo, não soma de novo na remessa — cada kit entra em uma remessa
-    só. E <strong>sem remessa aberta, nada é contado</strong>: os kits vão pra trânsito
-    normalmente, mas ficam de fora da conta, e não dá pra recuperar depois. A tela avisa
-    quando não há nenhuma aberta.
+    só. E <strong>sem remessa nenhuma, nada é contado</strong>: o kit é montado e enviado
+    normalmente, mas fica de fora do lote, e não dá pra recuperar depois. A tela inicial da
+    bipagem e a Produção avisam quando não há nenhuma aberta.
   </div>
   <div class="nota">
     Abrir e mudar a quantidade exige a permissão <em>Abrir remessa e mudar a quantidade do

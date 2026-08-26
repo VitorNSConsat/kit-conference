@@ -26,6 +26,12 @@
             Cliente: {{ session.cliente }} &nbsp;|&nbsp;
             Operador: {{ session.operador_nome }} &nbsp;|&nbsp;
             🚚 {{ session.veiculo }} · {{ session.garagem }}{% if session.modelo %} ({{ session.modelo }}){% endif %} &nbsp;|&nbsp;
+            {# Em que lote este kit vai entrar quando for finalizado. Fica à
+               vista o tempo todo: descobrir que era a remessa errada depois
+               de finalizar custa uma correção à mão. #}
+            📦 <a href="/session/{{ session.id }}/remessa" style="color:#1a3a5c;font-weight:700;"
+                  title="Trocar a remessa deste kit">{% if remessa_atual %}{{ remessa_atual.nome }} {{ remessa_atual.rotulo }}{% else %}sem remessa{% endif %}</a>
+            &nbsp;|&nbsp;
             <span id="ws-status">⏳ Conectando...</span>
         </span>
     </div>

@@ -79,61 +79,62 @@
 <div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}
 
-<!-- ── Remessa em andamento ────────────────────────────────────────────── -->
-{# O lote combinado com o cliente ("mandar 90"). Fica no topo da esteira
-   porque é a pergunta do dia de quem despacha: quanto já saiu e quanto falta. #}
+<!-- ── Remessas em andamento ───────────────────────────────────────────── -->
+{# Os lotes combinados com o cliente ("mandar 90"). Ficam no topo da esteira
+   porque é a pergunta do dia de quem despacha: quanto já entrou e quanto
+   falta. Pode haver mais de um aberto — duas frentes de trabalho. #}
 <div class="card" style="border-left:4px solid var(--brand);">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
     <div>
-      <h2 style="margin:0 0 2px;">📦 Remessa em andamento</h2>
-      {% if remessa %}
+      <h2 style="margin:0 0 2px;">📦 Remessas em andamento</h2>
       <p style="color:#666;font-size:13px;margin:0;">
-        <strong>{{ remessa.nome }}</strong>
-        {%- if remessa.cliente %} · <span style="color:{{ cor_do_cliente(remessa.cliente) }};font-weight:700;">{{ remessa.cliente }}</span>
-        {%- else %} · todos os clientes{% endif %}
-        · aberta em {{ remessa.criada_em[:16] }}
+        O operador escolhe a remessa no começo da bipagem, e o kit entra nela ao ser
+        finalizado.
       </p>
-      {% else %}
-      <p style="color:#e67e22;font-size:13px;margin:0;">
-        Nenhuma remessa aberta — os kits que forem pra trânsito não entram em contagem nenhuma.
-      </p>
-      {% endif %}
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      {% if remessa %}
-      <a href="/admin/producao/remessas/{{ remessa.id }}/excel" class="btn btn-sm btn-success">📊 Excel desta remessa</a>
-      {% endif %}
-      <a href="/admin/producao/remessas" class="btn btn-sm btn-primary">📦 Remessas</a>
-    </div>
+    <a href="/admin/producao/remessas" class="btn btn-sm btn-primary">📦 Ver todas</a>
   </div>
 
-  {% if remessa %}
-  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;">
-    <div style="font-size:30px;font-weight:800;color:var(--brand);line-height:1;">
-      {{ remessa.rotulo }}
-    </div>
-    <div style="flex:1;min-width:220px;">
-      <div class="remessa-trilho">
-        <div class="remessa-barra" style="width:{{ remessa.percentual }}%;"></div>
+  {% if remessas_abertas %}
+  {% for r in remessas_abertas %}
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;
+              padding-top:{{ '14px' if not loop.first else '0' }};
+              border-top:{{ '1px solid var(--border)' if not loop.first else 'none' }};">
+    <div style="min-width:150px;">
+      <div style="font-size:14px;font-weight:800;color:var(--brand);">{{ r.nome }}</div>
+      <div style="font-size:12px;color:#7a8794;">
+        {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
+        {%- else %}todos os clientes{% endif %}
       </div>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:var(--brand);line-height:1;">{{ r.rotulo }}</div>
+    <div style="flex:1;min-width:200px;">
+      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
       <div style="font-size:12px;color:#7a8794;margin-top:4px;">
-        {% if remessa.completa %}✅ Alvo alcançado — a remessa fecha e a próxima abre sozinha.
-        {% else %}Faltam <strong>{{ remessa.faltam }}</strong> kit(s) pra fechar.{% endif %}
+        {% if r.completa %}✅ Alvo alcançado — fecha e a próxima abre sozinha.
+        {% else %}Faltam <strong>{{ r.faltam }}</strong> kit(s).{% endif %}
       </div>
     </div>
+    <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a>
     {% if pode('remessas_gerenciar') %}
-    <form method="post" action="/admin/producao/remessas/{{ remessa.id }}/alvo"
+    <form method="post" action="/admin/producao/remessas/{{ r.id }}/alvo"
           style="display:flex;gap:6px;align-items:flex-end;">
       <input type="hidden" name="voltar" value="/admin/producao">
       <div class="form-group" style="margin:0;">
-        <label style="font-size:11px;">Quantidade da remessa</label>
-        <input type="number" name="alvo" min="1" value="{{ remessa.alvo }}"
-               style="width:110px;margin:0;">
+        <label style="font-size:11px;">Quantidade</label>
+        <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:100px;margin:0;">
       </div>
-      <button type="submit" class="btn btn-sm btn-success" title="Vale a partir de agora; o que já entrou continua contado">💾</button>
+      <button type="submit" class="btn btn-sm btn-success"
+              title="Vale a partir de agora; o que já entrou continua contado">💾</button>
     </form>
     {% endif %}
   </div>
+  {% endfor %}
+  {% else %}
+  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
+    ⚠️ Nenhuma remessa aberta — os kits montados agora não entram em contagem nenhuma.
+    Abra uma em <strong>📦 Ver todas</strong> ou no começo da bipagem.
+  </p>
   {% endif %}
 </div>
 

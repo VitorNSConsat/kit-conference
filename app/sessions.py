@@ -69,18 +69,29 @@ def deletar_kit_record(kit_id: str):
             conn.execute("DELETE FROM scan_session WHERE id = ?", (sessao[0],))
 
 
-def start_session(kit_template_id: int, operador_id: int) -> int:
+def start_session(kit_template_id: int, operador_id: int,
+                  remessa_id: int | None = None) -> int:
+    """`remessa_id` é o lote escolhido no começo da bipagem: o kit entra nele
+    quando for finalizado."""
     template = templates_mod.buscar_template(kit_template_id)
     if not template:
         raise ValueError("Template não encontrado.")
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id, iniciado_em) "
-            "VALUES (?, ?, ?, ?)",
-            (kit_template_id, template["versao"], operador_id, now_brt())
+            "INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id, "
+            "iniciado_em, remessa_id) VALUES (?, ?, ?, ?, ?)",
+            (kit_template_id, template["versao"], operador_id, now_brt(), remessa_id)
         )
         sessao_id = cur.lastrowid
     return sessao_id
+
+
+def definir_remessa(sessao_id: int, remessa_id: int | None) -> None:
+    """Troca a remessa de uma bipagem em andamento — o operador percebeu no
+    meio que escolheu o lote errado."""
+    with db() as conn:
+        conn.execute("UPDATE scan_session SET remessa_id = ? WHERE id = ? "
+                     "AND status = 'em_andamento'", (remessa_id, sessao_id))
 
 
 def definir_destino(sessao_id: int, veiculo_id: int | None, veiculo: str,
