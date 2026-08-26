@@ -331,14 +331,14 @@
     <table>
       <thead><tr>
         <th style="width:32px;"><input type="checkbox" id="chk-todos-produzido"
-              onchange="marcarTodosProduzido(this)" title="Marcar todos"></th>
+              onchange="marcarTodos(this, 'produzido')" title="Marcar todos"></th>
         <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Nota Fiscal</th>
       </tr></thead>
       <tbody>
       {% for k in produzido %}
       <tr>
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
-                   class="chk-produzido" onchange="atualizarSelecaoProduzido()"
+                   class="chk-produzido" onchange="atualizarSelecao('produzido')"
                    data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
         <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
                title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
@@ -358,13 +358,14 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     {% if pode('producao_mover_estagio') %}
-    <button type="submit" form="form-transito" class="btn btn-primary" id="btn-transito-lote" disabled>
+    <button type="submit" form="form-transito" class="btn btn-primary" id="btn-transito-lote"
+            data-lote="produzido" disabled>
       🚚 Marcar selecionados como Em Trânsito (<span class="qtd-sel-produzido">0</span>)
     </button>
     {% endif %}
     {% if pode('producao_nota_fiscal') %}
-    <button type="button" class="btn btn-secondary" id="btn-nota-lote" disabled
-            onclick="abrirNotaLote()">
+    <button type="button" class="btn btn-secondary" id="btn-nota-lote"
+            data-lote="produzido" disabled onclick="abrirNotaLote('produzido')">
       🧾 Atribuir nota aos selecionados (<span class="qtd-sel-produzido">0</span>)
     </button>
     {% endif %}
@@ -382,7 +383,7 @@
   <div style="background:var(--surface);border-radius:12px;padding:24px;max-width:520px;width:100%;">
     <h3 style="margin-top:0;">🧾 Atribuir nota em lote</h3>
     <p style="font-size:13px;color:#666;margin:-6px 0 12px;">
-      A mesma nota e a mesma data vão para <strong><span class="qtd-sel-produzido">0</span></strong>
+      A mesma nota e a mesma data vão para <strong><span id="qtd-nota-lote">0</span></strong>
       veículo(s) selecionado(s):
     </p>
     <div id="lista-nota-lote" style="font-size:13px;background:var(--surface-alt);
@@ -421,12 +422,25 @@
      style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
 
   {% if transito %}
+  {# A nota costuma sair DEPOIS do despacho: o kit já está em trânsito quando
+     o número chega. Sem o lote aqui, era um por um, linha a linha. #}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Em trânsito desde</th><th>Nota Fiscal</th><th></th></tr></thead>
+    <thead><tr>
+      {% if pode('producao_nota_fiscal') %}
+      <th style="width:32px;"><input type="checkbox" id="chk-todos-transito"
+            onchange="marcarTodos(this, 'transito')" title="Marcar todos"></th>
+      {% endif %}
+      <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Em trânsito desde</th><th>Nota Fiscal</th><th></th>
+    </tr></thead>
     <tbody>
     {% for k in transito %}
     <tr>
+      {% if pode('producao_nota_fiscal') %}
+      <td><input type="checkbox" value="{{ k.kit_id }}" class="chk-transito"
+                 onchange="atualizarSelecao('transito')"
+                 data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
+      {% endif %}
       <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
@@ -456,6 +470,18 @@
     </tbody>
   </table>
   </div>
+  {% if pode('producao_nota_fiscal') %}
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    <button type="button" class="btn btn-secondary" data-lote="transito" disabled
+            onclick="abrirNotaLote('transito')">
+      🧾 Atribuir nota aos selecionados (<span class="qtd-sel-transito">0</span>)
+    </button>
+    <span style="font-size:12px;color:#888;">
+      A mesma nota e a mesma data pros marcados. Quem já tem nota só é
+      sobrescrito com motivo.
+    </span>
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nada em trânsito no momento.</p>
   {% endif %}
@@ -550,31 +576,37 @@ function cancelarNotaFiscal(btn) {
 // pertencem ao form de trânsito; para a nota, os mesmos ids são copiados
 // como campos ocultos no envio — assim é impossível uma ação agir sobre
 // veículos diferentes da outra.
-function selecionadosProduzido() {
+function selecionadosProduzido() {   // atalho: o form de trânsito usa esta
     return [...document.querySelectorAll('.chk-produzido:checked')];
 }
 
-function atualizarSelecaoProduzido() {
-    const sel = selecionadosProduzido();
-    document.querySelectorAll('.qtd-sel-produzido').forEach(e => { e.textContent = sel.length; });
-    ['btn-transito-lote', 'btn-nota-lote'].forEach(id => {
-        const b = document.getElementById(id);
-        if (b) b.disabled = sel.length === 0;
+// As funcoes de selecao recebem a ETAPA ('produzido', 'transito'): a mesma
+// mecanica serve as duas listas, e o modal de nota e UM so. Duplicar o bloco
+// por etapa daria duas versoes pra desencontrar no proximo ajuste.
+function selecionados(etapa) {
+    return [...document.querySelectorAll('.chk-' + etapa + ':checked')];
+}
+
+function atualizarSelecao(etapa) {
+    const sel = selecionados(etapa);
+    document.querySelectorAll('.qtd-sel-' + etapa).forEach(e => { e.textContent = sel.length; });
+    document.querySelectorAll('[data-lote="' + etapa + '"]').forEach(b => {
+        b.disabled = sel.length === 0;
     });
-    const todos = document.getElementById('chk-todos-produzido');
+    const todos = document.getElementById('chk-todos-' + etapa);
     if (todos) {
-        const total = document.querySelectorAll('.chk-produzido').length;
+        const total = document.querySelectorAll('.chk-' + etapa).length;
         todos.checked = sel.length > 0 && sel.length === total;
     }
 }
 
-function marcarTodosProduzido(chefe) {
-    document.querySelectorAll('.chk-produzido').forEach(c => { c.checked = chefe.checked; });
-    atualizarSelecaoProduzido();
+function marcarTodos(chefe, etapa) {
+    document.querySelectorAll('.chk-' + etapa).forEach(c => { c.checked = chefe.checked; });
+    atualizarSelecao(etapa);
 }
 
-function abrirNotaLote() {
-    const sel = selecionadosProduzido();
+function abrirNotaLote(etapa) {
+    const sel = selecionados(etapa);
     if (!sel.length) return;
     const form = document.getElementById('form-nota-lote');
     form.querySelectorAll('input[name="kit_ids"]').forEach(e => e.remove());
@@ -585,6 +617,7 @@ function abrirNotaLote() {
     });
     document.getElementById('lista-nota-lote').textContent =
         sel.map(c => c.dataset.veiculo).join(' · ');
+    document.getElementById('qtd-nota-lote').textContent = sel.length;
     document.getElementById('modal-nota-lote').style.display = 'flex';
 }
 
