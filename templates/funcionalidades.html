@@ -51,8 +51,9 @@
     <a href="#relatorios">11. Relatórios</a>
     <a href="#usuarios">12. Usuários e Auditoria</a>
     <a href="#rede">13. Rede</a>
-    <a href="#avisos">14. Avisos e erros</a>
-    <a href="#regras">15. Regras que nunca mudam</a>
+    <a href="#backup">14. Backup do banco</a>
+    <a href="#avisos">15. Avisos e erros</a>
+    <a href="#regras">16. Regras que nunca mudam</a>
   </div>
 </div>
 
@@ -788,8 +789,79 @@
 </div>
 
 <!-- 14 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="backup">
+  <h2>14. 💾 Backup do banco</h2>
+  <p>
+    Todo o sistema mora num arquivo só — kits, bipagens, estoque, veículos,
+    auditoria. Perder esse arquivo é perder tudo, e é por isso que a cópia não pode
+    depender de alguém lembrar.
+  </p>
+
+  <h3>Como funciona</h3>
+  <ul>
+    <li>O <strong>próprio sistema</strong> faz a cópia de tempos em tempos, enquanto está
+      no ar. Não existe tarefa agendada do Windows no meio — nada pra configurar fora
+      daqui, nada pra alguém desligar sem querer.</li>
+    <li>A conta é <strong>“quanto tempo passou desde a última cópia”</strong>, nunca “que
+      horas são”. Um servidor que passou o fim de semana desligado faz o backup assim que
+      volta, em vez de pular a vez e esperar a próxima janela.</li>
+    <li>A cópia vai pra <strong>duas pastas</strong>: a padrão, ao lado do banco, e a
+      segunda que você configurar (OneDrive, Drive, HD externo, pasta de rede). Backup no
+      mesmo disco do banco protege contra engano humano; contra disco queimado, não
+      protege nada.</li>
+    <li>As mais antigas <strong>somem sozinhas</strong> quando passam do limite que você
+      escolheu — nas duas pastas.</li>
+  </ul>
+
+  <h3>O que você configura</h3>
+  <ul>
+    <li><span class="campo">Backup automático ligado</span> — desligado, só sai cópia no
+      botão.</li>
+    <li><span class="campo">A cada quantas horas</span> — 24 é uma vez por dia.</li>
+    <li><span class="campo">Quantas cópias manter</span> — com backup diário, 30 dá um mês
+      de histórico.</li>
+    <li><span class="campo">Segunda pasta</span> — ao salvar, o sistema
+      <strong>grava um arquivo de teste nela</strong> e recusa o caminho se não conseguir.
+      Pasta de rede desconectada e caminho digitado errado são a causa mais comum de
+      “tinha backup e não tinha”.</li>
+  </ul>
+  <div class="nota">
+    <span class="campo">💾 Fazer backup agora</span> gera a cópia na hora. Use antes de
+    mexer no banco por fora, antes de uma atualização — e logo depois de configurar a
+    segunda pasta, pra ver o ✅ na lista e ter certeza de que ela grava mesmo.
+  </div>
+
+  <h3>Além dessa rotina</h3>
+  <p>
+    O sistema também copia o banco <strong>sozinho, antes de qualquer mudança de
+    estrutura</strong> (quando sai uma versão que mexe em tabela). Essas aparecem na
+    lista como <em>🔧 Antes de migração</em>. Se essa cópia falhar, o sistema
+    <strong>não sobe</strong> — é melhor ficar fora do ar do que alterar o banco de
+    produção sem rede de segurança.
+  </p>
+
+  <h3>Se precisar voltar o banco</h3>
+  <p>
+    A restauração é <strong>manual de propósito</strong>: é a única operação que apaga o
+    trabalho de todo mundo desde a data da cópia, e isso não pode acontecer com um clique
+    errado. Pare o sistema, troque o arquivo do banco pelo <code>.bak</code> da data
+    desejada (renomeando), e suba de novo — os passos exatos estão na própria tela.
+  </p>
+  <div class="cuidado">
+    <strong>Tudo que foi bipado depois da data da cópia se perde.</strong> Antes de
+    restaurar, faça um backup do banco atual: se a cópia escolhida não era a certa, dá pra
+    voltar atrás.
+  </div>
+  <div class="nota">
+    A tela é visível pra quem tem <em>💾 Backup</em>; configurar e disparar a cópia exige
+    <em>Configurar a rotina de backup</em>. Quem não tem a segunda continua enxergando
+    quando foi a última cópia — saber se o sistema está protegido não é privilégio.
+  </div>
+</div>
+
+<!-- 15 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="avisos">
-  <h2>14. Avisos e erros — o que significam</h2>
+  <h2>15. Avisos e erros — o que significam</h2>
   <div class="table-scroll">
   <table>
     <thead>
@@ -888,7 +960,7 @@
 
 <!-- 15 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="regras">
-  <h2>15. Regras que nunca mudam</h2>
+  <h2>16. Regras que nunca mudam</h2>
   <ul>
     <li><strong>Estoque nunca trava o operador em campo.</strong> Desconto automático durante
       a bipagem sempre passa, mesmo negativando o saldo. Quem bloqueia por falta de

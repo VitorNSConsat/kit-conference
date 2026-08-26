@@ -41,6 +41,7 @@ import app.permissoes as permissoes_mod
 import app.paginacao as paginacao_mod
 import app.datas as datas_mod
 import app.filtros as filtros_mod
+import app.backup as backup_mod
 
 load_dotenv()
 
@@ -305,6 +306,38 @@ def startup():
         print(f"[KIT] HTTP  (alternativo): {app.state.url_http}")
     else:
         print(f"[KIT] HTTP: {url_local}")
+
+
+# ── Backup automático ────────────────────────────────────────────────────
+# Um laço próprio, dentro do servidor, em vez de tarefa agendada do Windows:
+# o sistema já roda como serviço nesta máquina, e uma tarefa a mais seria
+# outra coisa pra configurar (e pra alguém desligar sem querer).
+_BACKUP_CHECAGEM_SEG = 600       # olha de 10 em 10 minutos
+_BACKUP_ESPERA_INICIAL_SEG = 60  # deixa o sistema subir antes da primeira
+
+
+async def _laco_backup():
+    import asyncio
+    await asyncio.sleep(_BACKUP_ESPERA_INICIAL_SEG)
+    while True:
+        try:
+            if backup_mod.precisa_agora():
+                # to_thread porque a cópia é bloqueante: no laço direto, ela
+                # seguraria a bipagem de todo mundo enquanto durasse.
+                r = await asyncio.to_thread(backup_mod.criar_backup, "automatico")
+                print(f"[KIT] Backup automatico: {r['caminho']}"
+                      + (f" — {r['erro']}" if r["erro"] else ""))
+        except Exception as e:
+            # Backup que falha não pode derrubar o sistema nem parar o laço:
+            # a próxima volta tenta de novo, e a tela mostra a data velha.
+            print(f"[KIT] Backup automatico falhou: {e}")
+        await asyncio.sleep(_BACKUP_CHECAGEM_SEG)
+
+
+@app.on_event("startup")
+async def startup_backup():
+    import asyncio
+    app.state.tarefa_backup = asyncio.create_task(_laco_backup())
 
 
 def _parse_itens_form(form) -> list[dict]:
@@ -578,6 +611,59 @@ async def admin_usuario_senha(request: Request, user_id: int):
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
     return RedirectResponse("/admin/usuarios?ok=senha", status_code=302)
+
+
+# ── Backup do banco ───────────────────────────────────────────────────────────
+
+@app.get("/admin/backup", response_class=HTMLResponse)
+@require_login
+async def admin_backup(request: Request):
+    cfg = backup_mod.get_config()
+    previsto = backup_mod.proximo_previsto()
+    return render(request, "admin_backup.html", {
+        "cfg": cfg,
+        "copias": backup_mod.listar(),
+        "ultimo": backup_mod.ultimo(),
+        "pasta_padrao": backup_mod.pasta_padrao(),
+        "previsto": previsto.strftime("%d/%m/%Y %H:%M") if previsto else "",
+        "atrasado": backup_mod.precisa_agora(),
+        "intervalo_min": backup_mod.INTERVALO_MIN,
+        "intervalo_max": backup_mod.INTERVALO_MAX,
+        "manter_max": backup_mod.MANTER_MAX,
+    })
+
+
+@app.post("/admin/backup/config")
+@require_permission("backup_configurar")
+async def admin_backup_config(request: Request):
+    form = await request.form()
+    try:
+        backup_mod.salvar_config({
+            "ativo": "1" if form.get("ativo") else "0",
+            "intervalo_horas": form.get("intervalo_horas", "24"),
+            "manter": form.get("manter", "30"),
+            "pasta_extra": form.get("pasta_extra", ""),
+        })
+    except ValueError as e:
+        return RedirectResponse("/admin/backup?erro=" + quote(str(e)), status_code=302)
+    return RedirectResponse("/admin/backup?ok=config", status_code=302)
+
+
+@app.post("/admin/backup/agora")
+@require_permission("backup_configurar")
+async def admin_backup_agora(request: Request):
+    """Backup na hora — é o que prova que a configuração está de pé (a pasta
+    extra grava mesmo?) sem esperar o intervalo virar."""
+    import asyncio
+    user = get_current_user(request)
+    try:
+        r = await asyncio.to_thread(backup_mod.criar_backup, "manual",
+                                    user["id"] if user else None)
+    except Exception as e:
+        return RedirectResponse("/admin/backup?erro=" + quote(str(e)), status_code=302)
+    if r["erro"]:
+        return RedirectResponse("/admin/backup?erro=" + quote(r["erro"]), status_code=302)
+    return RedirectResponse("/admin/backup?ok=feito&n=" + quote(r["arquivo"]), status_code=302)
 
 
 # ── Auditoria (só admin) ──────────────────────────────────────────────────────

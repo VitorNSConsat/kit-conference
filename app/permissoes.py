@@ -31,6 +31,7 @@ TELAS = (
     ("ver_relatorios",     "📊 Relatórios",         "/reports",         ("/reports",)),
     ("ver_rede",           "🌐 Rede",               "/rede",            ("/rede",)),
     ("ver_funcionalidades", "📖 Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
+    ("ver_backup",         "💾 Backup",             "/admin/backup",    ("/admin/backup",)),
 )
 
 # Chave -> rótulo exibido na tela de gestão de usuários.
@@ -46,6 +47,7 @@ PERMISSOES_ACOES = {
     "pedidos_criar_editar": "Criar/editar Pedidos",
     "itens_apagar": "Apagar itens do catálogo",
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
+    "backup_configurar": "Configurar a rotina de backup e fazer cópia na hora",
 }
 
 PERMISSOES = {**PERMISSOES_TELAS, **PERMISSOES_ACOES}

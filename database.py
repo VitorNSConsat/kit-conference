@@ -128,6 +128,8 @@ def _backup_antes_de_migrar() -> str | None:
         or "observacao" not in colunas_kit_record
         or "modelo_trocado_em" not in colunas_kit_record
         or "verificacao_corte" not in colunas_kit_record
+        or "pos_montagem" not in colunas_scan_session_items
+        or "backup_registro" not in tabelas
     )
     if not pendente:
         return None
@@ -143,7 +145,7 @@ def _backup_antes_de_migrar() -> str | None:
 
 
 def init_db():
-    _backup_antes_de_migrar()
+    copia_da_migracao = _backup_antes_de_migrar()
     with db() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
@@ -465,6 +467,28 @@ def init_db():
                 valor TEXT NOT NULL
             );
 
+            -- Rotina de backup: de quanto em quanto tempo, quantas copias
+            -- guardar e a segunda pasta (OneDrive, HD externo, rede).
+            CREATE TABLE IF NOT EXISTS backup_config (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
+            );
+
+            -- Uma linha por copia feita. Serve pra tela ("qual foi a ultima?")
+            -- e pro laco automatico, que decide pela data da ultima em vez de
+            -- por horario fixo — servidor desligado nao perde a janela.
+            CREATE TABLE IF NOT EXISTS backup_registro (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                criado_em TEXT NOT NULL,
+                arquivo TEXT NOT NULL,
+                caminho TEXT NOT NULL,
+                caminho_extra TEXT DEFAULT '',
+                tamanho INTEGER DEFAULT 0,
+                motivo TEXT DEFAULT 'manual',
+                erro TEXT DEFAULT '',
+                criado_por INTEGER REFERENCES users(id)
+            );
+
             -- Fila de impressao das etiquetas "Em Andamento" (kit ainda sendo
             -- bipado, nao existe kit_record ainda) — separada de print_queue
             -- (que exige kit_id NOT NULL referenciando um kit ja finalizado)
@@ -735,3 +759,35 @@ def init_db():
                 "UPDATE veiculos SET modelo = '' WHERE modelo IS NULL")
         except Exception as e:
             print(f"[KIT] backfill de modelo pulado: {e}")
+
+    # A cópia de migração só pode ser registrada AQUI: quando ela foi feita, a
+    # tabela de registro talvez nem existisse ainda. Sem isso, a cópia mais
+    # importante de todas (a que antecede uma mudança de estrutura) não
+    # apareceria na tela de backup.
+    if copia_da_migracao:
+        try:
+            import shutil as _sh
+            # Import adiado de propósito: app.backup importa deste módulo, e no
+            # topo isso seria import circular.
+            from app.backup import get_config as _cfg_backup
+            nome = os.path.basename(copia_da_migracao)
+            extra = ""
+            pasta_extra = _cfg_backup()["pasta_extra"]
+            if pasta_extra:
+                # A cópia de migração é a mais valiosa de todas; deixá-la só no
+                # disco do servidor é justamente o buraco que a segunda pasta
+                # existe pra fechar.
+                try:
+                    os.makedirs(pasta_extra, exist_ok=True)
+                    extra = os.path.join(pasta_extra, nome)
+                    _sh.copy2(copia_da_migracao, extra)
+                except OSError:
+                    extra = ""
+            with db() as conn:
+                conn.execute(
+                    "INSERT INTO backup_registro (criado_em, arquivo, caminho, "
+                    "caminho_extra, tamanho, motivo) VALUES (?, ?, ?, ?, ?, 'migracao')",
+                    (now_brt(), nome, copia_da_migracao, extra,
+                     os.path.getsize(copia_da_migracao)))
+        except Exception as e:
+            print(f"[KIT] registro do backup de migracao pulado: {e}")

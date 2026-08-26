@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Backup do banco{% endblock %}
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+  <h1>💾 Backup do banco</h1>
+  {% if pode('backup_configurar') %}
+  <form method="post" action="/admin/backup/agora">
+    <button type="submit" class="btn btn-primary"
+            title="Faz a cópia agora, sem esperar o intervalo — é o teste de que a pasta extra grava mesmo">
+      💾 Fazer backup agora
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if request.query_params.get('ok') == 'feito' %}
+<div class="alert alert-success">✅ Cópia criada: <code>{{ request.query_params.get('n') }}</code></div>
+{% elif request.query_params.get('ok') == 'config' %}
+<div class="alert alert-success">✅ Configuração salva.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+<!-- ── Como está agora ─────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Situação</h2>
+  {% if ultimo %}
+  <p style="font-size:15px;margin:0 0 4px;">
+    Última cópia: <strong>{{ ultimo.criado_em[:16] }}</strong>
+    <span style="color:#888;font-size:13px;">({{ (ultimo.tamanho / 1048576) | round(2) }} MB)</span>
+  </p>
+  {% else %}
+  <p style="font-size:15px;margin:0 0 4px;color:#c0392b;">
+    <strong>Nenhuma cópia ainda.</strong> A primeira sai em até 10 minutos com a rotina
+    ligada — ou agora, no botão acima.
+  </p>
+  {% endif %}
+  {% if cfg.ativo %}
+  <p style="color:#666;font-size:13px;margin:0;">
+    Rotina <strong style="color:#27ae60;">ligada</strong>: uma cópia a cada
+    <strong>{{ cfg.intervalo_horas }}h</strong>, guardando as
+    <strong>{{ cfg.manter }}</strong> mais recentes.
+    {% if atrasado %}
+    <br>⏳ Já passou da hora — a próxima verificação (a cada 10 min) faz a cópia.
+    {% elif previsto %}
+    <br>Próxima prevista para <strong>{{ previsto }}</strong>.
+    {% endif %}
+  </p>
+  {% else %}
+  <p style="color:#e67e22;font-size:13px;margin:0;">
+    ⚠️ Rotina <strong>desligada</strong> — só sai cópia quando alguém clicar no botão.
+  </p>
+  {% endif %}
+
+  <div style="margin-top:12px;font-size:13px;color:#555;">
+    <div>📁 <strong>Pasta padrão:</strong> <code>{{ pasta_padrao }}</code></div>
+    <div style="margin-top:4px;">
+      🗂️ <strong>Segunda pasta:</strong>
+      {% if cfg.pasta_extra %}<code>{{ cfg.pasta_extra }}</code>
+      {% else %}<span style="color:#e67e22;">não configurada — as cópias estão só no disco do servidor</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Configuração ────────────────────────────────────────────────────── -->
+{% if pode('backup_configurar') %}
+<div class="card">
+  <h2>Configuração</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    A cópia acontece <strong>enquanto o sistema está no ar</strong> — não depende de tarefa
+    agendada do Windows. A conta é sempre “quanto tempo passou desde a última”, então um
+    servidor que ficou desligado faz o backup assim que volta, em vez de pular a vez.
+  </p>
+  <form method="post" action="/admin/backup/config"
+        style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:6px;">
+      <input type="checkbox" name="ativo" value="1" {{ 'checked' if cfg.ativo }}
+             style="width:auto;margin:0;">
+      Backup automático ligado
+    </label>
+    <div class="form-group" style="margin:0;">
+      <label>A cada quantas horas</label>
+      <input type="number" name="intervalo_horas" min="{{ intervalo_min }}" max="{{ intervalo_max }}"
+             value="{{ cfg.intervalo_horas }}" style="width:130px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label title="As mais antigas são apagadas sozinhas">Quantas cópias manter</label>
+      <input type="number" name="manter" min="1" max="{{ manter_max }}"
+             value="{{ cfg.manter }}" style="width:130px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:320px;">
+      <label>Segunda pasta (OneDrive, Drive, HD externo, pasta de rede)</label>
+      <input type="text" name="pasta_extra" value="{{ cfg.pasta_extra }}" style="margin:0;"
+             placeholder="ex: C:\Users\Vitor\OneDrive\Backups Kit">
+    </div>
+    <button type="submit" class="btn btn-success">💾 Salvar</button>
+  </form>
+  <p style="color:#666;font-size:12.5px;margin:12px 0 0;">
+    Ao salvar, o sistema <strong>testa a segunda pasta gravando um arquivo nela</strong> e
+    recusa o caminho se não conseguir. Pasta de rede desconectada e caminho digitado errado
+    são a causa mais comum de “tinha backup e não tinha”.
+  </p>
+</div>
+{% endif %}
+
+<!-- ── Cópias ──────────────────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Cópias ({{ copias | length }})</h2>
+  {% if copias %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Quando</th>
+        <th>Arquivo</th>
+        <th>Motivo</th>
+        <th>Tamanho</th>
+        <th>Segunda pasta</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in copias %}
+      <tr>
+        <td style="white-space:nowrap;">{{ c.criado_em[:16] }}</td>
+        <td>
+          <code style="font-size:12px;">{{ c.arquivo }}</code>
+          {% if not c.existe %}
+          <div style="font-size:11px;color:#c0392b;">⚠️ não está mais na pasta</div>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;">
+          {{ c.motivo_texto }}
+          {% if c.criado_por_nome %}
+          <div style="font-size:11px;color:#999;">{{ c.criado_por_nome }}</div>
+          {% endif %}
+        </td>
+        <td style="white-space:nowrap;">{{ c.tamanho_mb }} MB</td>
+        <td>
+          {% if c.erro %}<span style="color:#c0392b;font-size:12px;">⚠️ {{ c.erro }}</span>
+          {% elif c.caminho_extra %}<span style="color:#27ae60;">✅</span>
+          {% else %}<span style="color:#bbb;">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p style="color:#888;font-size:14px;">Nenhuma cópia registrada ainda.</p>
+  {% endif %}
+</div>
+
+<!-- ── Como usar uma cópia ─────────────────────────────────────────────── -->
+<div class="card">
+  <h2>Se precisar voltar o banco</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    A restauração é de propósito <strong>manual</strong>: é a única operação do sistema que
+    apaga o trabalho de todo mundo desde a data da cópia, e isso não pode acontecer com um
+    clique errado. São três passos:
+  </p>
+  <ol style="font-size:14px;line-height:1.8;">
+    <li><strong>Pare o sistema</strong> (feche o servidor). Com ele no ar, o arquivo está
+      em uso e a troca não vale.</li>
+    <li>Na pasta <code>{{ pasta_padrao }}</code>, copie o <code>.bak</code> da data que você
+      quer, <strong>renomeie para o nome do banco</strong> e coloque no lugar do arquivo
+      atual — guardando o atual antes, com outro nome.</li>
+    <li><strong>Suba o sistema de novo.</strong> Ele abre exatamente como estava naquele
+      dia e hora.</li>
+  </ol>
+  <div class="alert alert-danger" style="font-size:13px;">
+    ⚠️ Tudo que foi bipado <strong>depois</strong> da data da cópia se perde. Antes de
+    restaurar, faça um backup do banco atual (botão lá em cima) — assim dá pra voltar atrás
+    se a cópia escolhida não era a certa.
+  </div>
+</div>
+
+{% endblock %}
