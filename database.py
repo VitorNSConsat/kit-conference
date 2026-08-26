@@ -99,6 +99,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_veiculos = {r["name"] for r in conn.execute("PRAGMA table_info(veiculos)").fetchall()}
         colunas_scan_session_items = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session_items)").fetchall()}
         colunas_estoque_movimentos = {r["name"] for r in conn.execute("PRAGMA table_info(estoque_movimentos)").fetchall()}
+        colunas_remessa_kit = {r["name"] for r in conn.execute("PRAGMA table_info(remessa_kit)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -135,6 +136,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "remessa" not in tabelas
         or "remessa_id" not in colunas_scan_session
         or "correcao" not in colunas_scan_session_items
+        or ("remessa_kit" in tabelas and "veiculo_id" not in colunas_remessa_kit)
     )
     if not pendente:
         return None
@@ -486,12 +488,19 @@ def init_db():
                 criada_por INTEGER REFERENCES users(id)
             );
 
-            -- Um kit entra em UMA remessa so (kit_id unico): voltar o estagio
-            -- e reenviar nao pode contar duas vezes no mesmo alvo.
+            -- Um item da remessa: o VEICULO e, quando ja existe, o kit dele.
+            -- kit_id aceita NULL porque veiculo "a produzir" e "em producao"
+            -- ainda nao tem kit_record — e quem organiza o envio precisa
+            -- fechar o lote antes de o galpao montar. Ao finalizar a bipagem,
+            -- esta mesma linha ganha o kit_id, em vez de nascer outra.
+            -- Cada um dos dois e unico: um kit e um veiculo entram em uma
+            -- remessa so (o veiculo, por indice parcial criado adiante).
             CREATE TABLE IF NOT EXISTS remessa_kit (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 remessa_id INTEGER NOT NULL REFERENCES remessa(id) ON DELETE CASCADE,
-                kit_id TEXT NOT NULL UNIQUE,
+                kit_id TEXT UNIQUE,
+                veiculo_id INTEGER REFERENCES veiculos(id),
+                adicionado_por INTEGER REFERENCES users(id),
                 entrou_em TEXT NOT NULL
             );
 
@@ -649,6 +658,16 @@ def init_db():
             # ja guarda de onde a peca veio quando foi movida.
             "ALTER TABLE scan_session_items ADD COLUMN correcao TEXT",
             "ALTER TABLE scan_session_items ADD COLUMN corrigido_por INTEGER REFERENCES users(id)",
+            # A remessa passa a guardar o VEICULO, nao so o kit pronto. Kit a
+            # produzir e kit em producao ainda nao tem kit_record — sem isto,
+            # so dava pra montar o lote depois de finalizar a bipagem, que e
+            # tarde pra quem organiza o envio. Ao finalizar, a linha do
+            # veiculo ganha o kit_id em vez de nascer outra.
+            "ALTER TABLE remessa_kit ADD COLUMN veiculo_id INTEGER REFERENCES veiculos(id)",
+            "ALTER TABLE remessa_kit ADD COLUMN adicionado_por INTEGER REFERENCES users(id)",
+            # Arquivar em vez de apagar: remessa fechada e historico, e apagar
+            # o lote nao pode levar junto a memoria de o que foi enviado.
+            "ALTER TABLE remessa ADD COLUMN arquivada_em TEXT",
         ]:
             try:
                 conn.execute(stmt)
@@ -814,6 +833,45 @@ def init_db():
     # tabela de registro talvez nem existisse ainda. Sem isso, a cópia mais
     # importante de todas (a que antecede uma mudança de estrutura) não
     # apareceria na tela de backup.
+    with db() as conn:
+        # Banco antigo tem kit_id NOT NULL, e SQLite nao solta NOT NULL por
+        # ALTER: a tabela e reconstruida preservando linha por linha. Roda uma
+        # vez so — depois a coluna ja aceita nulo e a condicao para de bater.
+        try:
+            cols = {r["name"]: r for r in conn.execute(
+                "PRAGMA table_info(remessa_kit)").fetchall()}
+            if cols and cols.get("kit_id") and cols["kit_id"]["notnull"]:
+                conn.execute("ALTER TABLE remessa_kit RENAME TO remessa_kit_old")
+                conn.execute("""
+                    CREATE TABLE remessa_kit (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        remessa_id INTEGER NOT NULL REFERENCES remessa(id) ON DELETE CASCADE,
+                        kit_id TEXT UNIQUE,
+                        veiculo_id INTEGER REFERENCES veiculos(id),
+                        adicionado_por INTEGER REFERENCES users(id),
+                        entrou_em TEXT NOT NULL
+                    )
+                """)
+                antigas = set(cols)
+                extras = [c for c in ("veiculo_id", "adicionado_por") if c in antigas]
+                campos = ["id", "remessa_id", "kit_id", "entrou_em"] + extras
+                lista = ", ".join(campos)
+                conn.execute(f"INSERT INTO remessa_kit ({lista}) "
+                             f"SELECT {lista} FROM remessa_kit_old")
+                conn.execute("DROP TABLE remessa_kit_old")
+                print("[KIT] remessa_kit reconstruida: kit_id agora aceita nulo")
+        except Exception as e:
+            print(f"[KIT] reconstrucao de remessa_kit pulada: {e}")
+
+        # Um veiculo em UMA remessa so. Indice PARCIAL porque a coluna e nova
+        # e as linhas antigas (so kit_id) tem veiculo_id nulo — sem o WHERE,
+        # varios nulos colidiriam entre si.
+        try:
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_remessa_veiculo "
+                         "ON remessa_kit(veiculo_id) WHERE veiculo_id IS NOT NULL")
+        except Exception as e:
+            print(f"[KIT] indice de remessa/veiculo pulado: {e}")
+
     if copia_da_migracao:
         try:
             import shutil as _sh

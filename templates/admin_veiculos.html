@@ -379,7 +379,38 @@
       <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
          style="{{ '' if tem_filtro else 'display:none;' }}">✕ Limpar</a>
     </div>
+    {# Período de IMPORTAÇÃO: "quem entrou no sistema entre tal e tal dia".
+       Um dia só = as duas datas iguais. É o filtro que transforma uma
+       importação inteira num lote de trabalho. #}
+    <div class="filtros-linha">
+      <span class="filtros-rotulo">📅 Importado</span>
+      <label style="font-size:12px;color:#7a8794;">de</label>
+      <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
+             onchange="this.form.submit()">
+      <label style="font-size:12px;color:#7a8794;">até</label>
+      <input type="date" name="imp_fim" value="{{ imp_fim }}" style="width:160px;margin:0;"
+             onchange="this.form.submit()">
+      <input type="hidden" name="ordem" value="{{ ordem }}">
+      {% if imp_ini or imp_fim %}
+      <span style="font-size:12px;color:#7a8794;">
+        {{ pag_veiculos.total }} veículo(s) neste período —
+        dá pra levar todos pra uma remessa em
+        <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">📦 Remessas</a>.
+      </span>
+      {% endif %}
+    </div>
   </form>
+
+  {# Base pra o link de ordenar não perder os filtros ativos. #}
+  {%- set qs_base -%}
+    {% if busca %}busca={{ busca | urlencode }}&{% endif %}
+    {%- for c in filtro_cliente %}cliente={{ c | urlencode }}&{% endfor -%}
+    {%- for g in filtro_garagem %}garagem={{ g | urlencode }}&{% endfor -%}
+    {%- for m in filtro_modelo %}modelo={{ m | urlencode }}&{% endfor -%}
+    {%- for s in filtro_situacao %}situacao={{ s | urlencode }}&{% endfor -%}
+    {%- if imp_ini %}imp_ini={{ imp_ini }}&{% endif -%}
+    {%- if imp_fim %}imp_fim={{ imp_fim }}&{% endif -%}
+  {%- endset %}
 
   <div id="bloco-veiculos">
   {% if busca %}
@@ -409,6 +440,16 @@
         <th>Garagem</th>
         <th>Modelo (kit)</th>
         <th>Localização atual</th>
+        {# Data de IMPORTAÇÃO — quando o veículo entrou no sistema. Clicar no
+           título ordena; é o gesto que o operador já espera de uma coluna de
+           data, e evita mais um controle na barra de filtros. #}
+        <th style="white-space:nowrap;">
+          <a href="?{{ qs_base }}ordem={{ 'importado_asc' if ordem == 'importado_desc' else 'importado_desc' }}"
+             style="color:inherit;text-decoration:none;" title="Ordenar pela data de importação">
+            Importado em
+            {%- if ordem == 'importado_desc' %} ▼{% elif ordem == 'importado_asc' %} ▲{% endif %}
+          </a>
+        </th>
         <th>Kits enviados</th>
         <th>Último envio</th>
         <th></th>
@@ -480,6 +521,13 @@
         {% else %}
         <span style="color:#aaa;font-size:12px;" title="Falta cliente, garagem ou kit no cadastro">— não configurado</span>
         {% endif %}
+      </td>
+      {# Data e hora em que o veículo entrou no sistema. Vem do cadastro
+         (criado_em) e não muda quando alguém edita o veículo depois. #}
+      <td style="white-space:nowrap;font-size:12px;color:#7a8794;">
+        {% if v.criado_em %}{{ v.criado_em[8:10] }}/{{ v.criado_em[5:7] }}/{{ v.criado_em[:4] }}
+        <span style="color:#aab4be;">{{ v.criado_em[11:16] }}</span>
+        {% else %}—{% endif %}
       </td>
       <td>
         {% if v.total_kits > 0 %}

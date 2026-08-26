@@ -3899,40 +3899,132 @@ async def admin_producao(request: Request):
 
 @app.get("/admin/producao/remessas", response_class=HTMLResponse)
 @require_login
-async def admin_remessas(request: Request, busca: str = "", remessa_id: int = 0):
-    """`remessa_id` diz qual remessa está sendo montada à mão — sem ele, com
-    várias abertas, não dá pra saber pra qual a lista de candidatos aponta."""
+async def admin_remessas(request: Request, busca: str = "", remessa_id: int = 0,
+                         etapa: list = Query(default=[]),
+                         imp_ini: str = "", imp_fim: str = "",
+                         arquivadas: int = 0):
+    """`remessa_id` diz qual remessa esta sendo montada a mao — sem ele, com
+    varias abertas, nao da pra saber pra qual a lista de candidatos aponta."""
     abertas = remessas_mod.listar_abertas()
     alvo = remessas_mod.listar_uma(remessa_id) if remessa_id else (abertas[0] if abertas else None)
+    alvo = alvo if (alvo and alvo["status"] == "aberta") else None
     return render(request, "admin_remessas.html", {
-        "remessas": remessas_mod.listar(),
+        "remessas": remessas_mod.listar(incluir_arquivadas=bool(arquivadas)),
         "abertas": abertas,
-        "alvo": alvo if (alvo and alvo["status"] == "aberta") else None,
-        "candidatos": remessas_mod.candidatos(busca) if abertas else [],
+        "alvo": alvo,
+        # Candidatos de TODAS as etapas — o lote pode ser montado antes de o
+        # galpao comecar a bipar.
+        "candidatos": (remessas_mod.candidatos(busca, list(etapa), imp_ini, imp_fim)
+                       if abertas else []),
         "kits_do_alvo": remessas_mod.kits_da_remessa(alvo["id"]) if alvo else [],
+        "etapas": remessas_mod.ETAPAS,
+        "filtro_etapa": list(etapa),
         "busca": busca,
+        "imp_ini": imp_ini,
+        "imp_fim": imp_fim,
+        "arquivadas": bool(arquivadas),
         "clientes_cadastrados": clientes_mod.listar(),
         "voltar_para": _voltar_para(request, "/admin/producao"),
     })
 
 
+def _volta_remessa(remessa_id: int, extra: str = "") -> str:
+    base = f"/admin/producao/remessas?remessa_id={remessa_id}"
+    return base + ("&" + extra if extra else "")
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/editar")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_editar(request: Request, remessa_id: int):
+    """Corrige nome, quantidade e cliente — em QUALQUER status. Nada aqui
+    toca em producao, bipagem, patrimonio ou estoque."""
+    form = await request.form()
+    try:
+        remessas_mod.editar(remessa_id, str(form.get("nome", "")),
+                            form.get("alvo", ""), form.get("cliente"))
+    except ValueError as e:
+        return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
+                                status_code=302)
+    return RedirectResponse(_volta_remessa(remessa_id, "ok=editada"), status_code=302)
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/reabrir")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_reabrir(request: Request, remessa_id: int):
+    try:
+        remessas_mod.reabrir(remessa_id)
+    except ValueError as e:
+        return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
+                                status_code=302)
+    return RedirectResponse(_volta_remessa(remessa_id, "ok=reaberta"), status_code=302)
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/arquivar")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_arquivar(request: Request, remessa_id: int):
+    """Tira do caminho SEM apagar: o historico do envio continua inteiro."""
+    form = await request.form()
+    try:
+        remessas_mod.arquivar(remessa_id, str(form.get("motivo", "")))
+    except ValueError as e:
+        return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)),
+                                status_code=302)
+    return RedirectResponse("/admin/producao/remessas?ok=arquivada", status_code=302)
+
+
+@app.post("/admin/producao/remessas/{remessa_id}/excluir")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_excluir(request: Request, remessa_id: int):
+    """So apaga remessa VAZIA. Com itens, recusa e manda arquivar — apagar
+    levaria junto o registro de que aqueles kits foram enviados."""
+    try:
+        r = remessas_mod.excluir(remessa_id)
+    except ValueError as e:
+        return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)),
+                                status_code=302)
+    return RedirectResponse("/admin/producao/remessas?ok=excluida&n=" + quote(r["nome"]),
+                            status_code=302)
+
+
+@app.post("/admin/producao/remessas/transferir")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_transferir(request: Request):
+    """Move um veiculo de uma remessa pra outra numa operacao so — sem passar
+    por "tirar de uma" e "por na outra", onde da pra esquecer o segundo passo."""
+    form = await request.form()
+    destino = int(form.get("destino_id") or 0)
+    origem = int(form.get("remessa_id") or 0)
+    try:
+        remessas_mod.transferir(str(form.get("ref", "")), destino,
+                                (get_current_user(request) or {}).get("id"))
+    except ValueError as e:
+        return RedirectResponse(_volta_remessa(origem, "erro=" + quote(str(e))),
+                                status_code=302)
+    return RedirectResponse(_volta_remessa(destino, "ok=transferido"), status_code=302)
+
+
 @app.post("/admin/producao/remessas/{remessa_id}/adicionar")
 @require_permission("remessas_gerenciar")
 async def admin_remessa_adicionar(request: Request, remessa_id: int):
-    """Acrescenta à mão os kits que já passaram — os montados antes da
-    remessa existir, ou enquanto nenhuma estava aberta."""
+    """Acrescenta a mao os veiculos selecionados — de qualquer etapa."""
     form = await request.form()
-    kit_ids = form.getlist("kit_id")
-    busca = str(form.get("busca", ""))
-    volta = f"/admin/producao/remessas?remessa_id={remessa_id}" + (
-        "&busca=" + quote(busca) if busca else "")
-    if not kit_ids:
-        return RedirectResponse(volta + "&erro=" + quote(
-            "Selecione ao menos um veículo para acrescentar."), status_code=302)
+    refs = [r for r in form.getlist("ref") if str(r).strip()]
+    # Compatibilidade com o formulario antigo, que mandava kit_id puro.
+    refs += ["kit:" + k for k in form.getlist("kit_id") if str(k).strip()]
+    filtros = "&".join(
+        f"{c}={quote(str(form.get(c, '')))}" for c in ("busca", "imp_ini", "imp_fim")
+        if str(form.get(c, "")).strip())
+    if not refs:
+        return RedirectResponse(
+            _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(
+                "Selecione ao menos um veiculo para acrescentar.")), status_code=302)
     try:
-        r = remessas_mod.adicionar_kits(remessa_id, kit_ids)
+        r = remessas_mod.adicionar_itens(remessa_id, refs,
+                                         (get_current_user(request) or {}).get("id"))
     except ValueError as e:
-        return RedirectResponse(volta + "&erro=" + quote(str(e)), status_code=302)
+        return RedirectResponse(
+            _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(str(e))),
+            status_code=302)
     partes = [f"ok=add&n={r['entraram']}"]
     if r["ja_em_outra"]:
         partes.append(f"ja={r['ja_em_outra']}")
@@ -3940,19 +4032,22 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
         partes.append(f"outro_cliente={r['cliente_errado']}&cliente={quote(r['cliente'])}")
     if r["fechou"]:
         partes.append("fechada=1")
-    return RedirectResponse(volta + "&" + "&".join(partes), status_code=302)
+    return RedirectResponse(
+        _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "&".join(partes)),
+        status_code=302)
 
 
 @app.post("/admin/producao/remessas/{remessa_id}/remover")
 @require_permission("remessas_gerenciar")
 async def admin_remessa_remover(request: Request, remessa_id: int):
     form = await request.form()
-    volta = f"/admin/producao/remessas?remessa_id={remessa_id}"
+    ref = str(form.get("ref", "")) or ("kit:" + str(form.get("kit_id", "")))
     try:
-        remessas_mod.remover_kit(remessa_id, str(form.get("kit_id", "")))
+        remessas_mod.remover_item(remessa_id, ref)
     except ValueError as e:
-        return RedirectResponse(volta + "&erro=" + quote(str(e)), status_code=302)
-    return RedirectResponse(volta + "&ok=removido", status_code=302)
+        return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
+                                status_code=302)
+    return RedirectResponse(_volta_remessa(remessa_id, "ok=removido"), status_code=302)
 
 
 @app.post("/admin/producao/remessas/abrir")
@@ -4669,7 +4764,9 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                             busca: str = "", modelo: list[str] | None = None,
                             situacao: list[str] | None = None,
-                            garagem: list[str] | None = None) -> dict:
+                            garagem: list[str] | None = None,
+                            imp_ini: str = "", imp_fim: str = "",
+                            ordem: str = "") -> dict:
     # Os filtros são LISTAS: dá pra ver duas garagens (ou três situações) ao
     # mesmo tempo. Vazio = sem filtro, como antes.
     cliente = [c for c in (cliente or []) if c]
@@ -4766,6 +4863,24 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                       if v["id"] in ids_patrimonio and v["id"] not in ids_texto]
         veiculos = por_texto + extras
 
+    # Data de IMPORTAÇÃO: quando o veículo entrou no sistema. Vem de
+    # veiculos.criado_em — o campo já existia e já estava preenchido em todos,
+    # então não há campo novo nem migração. Comparação pelos 10 primeiros
+    # caracteres ("2026-08-25"), que é o formato gravado: assim "de 25 até 25"
+    # pega o dia inteiro sem precisar somar hora.
+    if imp_ini:
+        veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] >= imp_ini]
+    if imp_fim:
+        veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] <= imp_fim]
+
+    # Ordenação: o padrão continua cliente+número (é como o operador procura).
+    # "importado_desc" responde "o que entrou por último?", que é a pergunta
+    # de quem acabou de importar uma planilha.
+    if ordem == "importado_desc":
+        veiculos = sorted(veiculos, key=lambda v: (v.get("criado_em") or ""), reverse=True)
+    elif ordem == "importado_asc":
+        veiculos = sorted(veiculos, key=lambda v: (v.get("criado_em") or ""))
+
     # A lista de inativos segue um cliente só (é uma lista de apoio); com
     # vários filtrados, mostra todos e deixa o filtro pra lista principal.
     veiculos_inativos = veiculos_mod.listar(
@@ -4801,8 +4916,14 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         "filtro_modelo": modelo,
         "filtro_situacao": situacao,
         "filtro_garagem": garagem,
+        # Levados de volta pra tela: sem isso o formulário voltava em branco
+        # e o operador não sabia por que a lista estava curta.
+        "imp_ini": imp_ini,
+        "imp_fim": imp_fim,
+        "ordem": ordem,
         "total_geral": total_geral,
-        "tem_filtro": bool(cliente or garagem or modelo or situacao or busca),
+        "tem_filtro": bool(cliente or garagem or modelo or situacao or busca
+                              or imp_ini or imp_fim or ordem),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(
             cliente[0] if len(cliente) == 1 else None),
@@ -4832,9 +4953,11 @@ async def admin_veiculos(request: Request, pagina: int = 1, busca: str = "",
                          cliente: list[str] = Query(default=[]),
                          modelo: list[str] = Query(default=[]),
                          situacao: list[str] = Query(default=[]),
-                         garagem: list[str] = Query(default=[])):
+                         garagem: list[str] = Query(default=[]),
+                         imp_ini: str = "", imp_fim: str = "", ordem: str = ""):
     return render(request, "admin_veiculos.html",
-                  _admin_veiculos_context(cliente, pagina, busca, modelo, situacao, garagem))
+                  _admin_veiculos_context(cliente, pagina, busca, modelo, situacao,
+                                          garagem, imp_ini, imp_fim, ordem))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)

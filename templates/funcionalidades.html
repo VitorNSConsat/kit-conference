@@ -658,7 +658,30 @@
       veículo não aparece em bipagem nenhuma.</li>
     <li><span class="campo">Localização atual</span> — onde ele está no fluxo (a produzir,
       em produção, produzido, em trânsito, no cliente). É calculada, não digitada.</li>
+    <li><span class="campo">Importado em</span> — data e hora em que o veículo
+      <strong>entrou no sistema</strong>. É a data de cadastro/importação, não de produção
+      nem de envio, e <strong>não muda</strong> quando alguém edita o veículo depois.
+      Clicando no título da coluna, a lista ordena por ela (mais recentes primeiro, e o
+      contrário no segundo clique).</li>
   </ul>
+  <h3>📅 Filtrar por data de importação</h3>
+  <p>
+    Na barra de filtros, <span class="campo">📅 Importado de / até</span> mostra os
+    veículos que entraram no sistema naquele intervalo. <strong>Um dia só</strong> é pôr a
+    mesma data nos dois campos; deixar só o “de” mostra tudo daquela data em diante.
+  </p>
+  <p>
+    Serve pra achar rapidamente o que acabou de ser importado — e, principalmente, pra
+    tratar uma importação como um lote: com o período filtrado, a tela oferece o atalho
+    <strong>📦 Remessas</strong> já com o mesmo período, onde dá pra marcar todos e
+    acrescentá-los à remessa de uma vez.
+  </p>
+  <div class="nota">
+    A data vem do próprio cadastro do veículo, que já gravava esse momento desde sempre —
+    não é campo novo. Por isso os veículos antigos também aparecem com a data certa, sem
+    precisar recadastrar nada.
+  </div>
+
   <div class="nota">
     <strong>De onde vem a cor de cada cliente.</strong> Ninguém escolhe: ela sai do cadastro
     do cliente e é sempre a mesma pra ele, inclusive depois de reiniciar o servidor ou de
@@ -818,6 +841,75 @@
     <strong>Só em remessa aberta.</strong> Remessa fechada é histórico: mudar a conta de um
     lote já encerrado faria o número que foi passado pro cliente deixar de bater com o
     registro — e com a planilha que já foi enviada.
+  </div>
+
+  <h4>🛠️ Montar a remessa antes de bipar</h4>
+  <p>
+    A remessa não depende de o kit existir. Em <strong>📦 Remessas</strong>, a lista de
+    candidatos traz veículo de <strong>qualquer etapa</strong>:
+  </p>
+  <ul>
+    <li><span class="campo">A produzir</span> — ainda nem foi bipado;</li>
+    <li><span class="campo">Em produção</span> — bipagem em andamento;</li>
+    <li><span class="campo">Produzido</span>, <span class="campo">Em trânsito</span> e
+      <span class="campo">No cliente</span> — kit já montado.</li>
+  </ul>
+  <p>
+    O veículo entra no lote <strong>pelo número dele</strong>, e quando a bipagem termina
+    <strong>a mesma linha ganha o kit</strong> — não nasce outra, e o contador não conta o
+    mesmo veículo duas vezes. É o que permite fechar o lote com o cliente antes de o galpão
+    começar a montar.
+  </p>
+  <div class="nota">
+    <strong>Um veículo entra em uma remessa só.</strong> Vale pelos dois lados: pelo kit e
+    pelo veículo. Marcar um que já está em outro lote não duplica — ele é ignorado e a tela
+    diz quantos foram. Pra mudar de lote, use <strong>🔀 Transferir</strong>.
+  </div>
+
+  <h4>📅 Usar a data de importação pra montar o lote</h4>
+  <p>
+    Quando uma importação inteira é um lote operacional (“os 37 que entraram no dia 25”),
+    filtre por <span class="campo">Importado de / até</span>, marque o cabeçalho pra
+    <strong>selecionar todos os visíveis</strong> e acrescente de uma vez. O
+    “marcar todos” marca <strong>só o que está na lista filtrada</strong> — nunca o que
+    ficou de fora do filtro.
+  </p>
+
+  <h4>✏️ Corrigir depois: editar, transferir, reabrir</h4>
+  <ul>
+    <li><strong>Editar</strong> nome, quantidade e cliente — em <strong>qualquer</strong>
+      status, inclusive de remessa fechada. Corrigir dado administrativo não mexe em
+      produção, bipagem, patrimônio nem estoque.</li>
+    <li><strong>Transferir</strong> um veículo de uma remessa pra outra num passo só. Tirar de
+      uma e pôr na outra em dois movimentos deixaria o veículo fora de qualquer lote no
+      meio — e dá pra esquecer o segundo passo.</li>
+    <li><strong>Reabrir</strong> uma remessa fechada ou arquivada, pra poder acrescentar e
+      tirar veículos dela de novo.</li>
+    <li><strong>Tirar</strong> um veículo — só de remessa <em>aberta</em>. Fechada é
+      histórico: mudar a conta de um lote encerrado faria o número passado ao cliente
+      deixar de bater com o registro. Reabra antes.</li>
+  </ul>
+  <div class="cuidado">
+    <strong>Trocar o cliente da remessa</strong> é recusado quando ela já tem veículo de
+    outro dono — o lote ficaria incoerente. Tire os de fora primeiro, ou deixe a remessa
+    sem cliente.
+  </div>
+
+  <h4>🗄️ Arquivar x excluir</h4>
+  <ul>
+    <li><span class="campo">🗄️ Arquivar</span> tira a remessa das listas do dia a dia
+      <strong>sem apagar nada</strong>: os veículos continuam sabendo em que lote foram, e a
+      planilha daquele envio continua existindo. É o caminho normal pra lote velho.</li>
+    <li><span class="campo">🗑️ Excluir</span> só funciona em remessa <strong>vazia</strong>.
+      Com veículos dentro, o sistema recusa, diz quantos são e quantos já foram enviados, e
+      manda arquivar.</li>
+    <li>Em nenhum dos dois casos se apaga produção, bipagem, patrimônio, estoque ou
+      movimentação. A remessa é uma organização por cima desses registros, nunca a dona
+      deles.</li>
+  </ul>
+  <div class="nota">
+    Arquivada não conta como aberta: não aparece na escolha da bipagem e não recebe kit.
+    Pra ver as arquivadas no histórico, use <span class="campo">🗄️ Mostrar arquivadas</span>.
   </div>
 
   <h4>➕ Acrescentar veículos que já se passaram</h4>
