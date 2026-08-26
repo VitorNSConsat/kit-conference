@@ -42,6 +42,7 @@ import app.paginacao as paginacao_mod
 import app.datas as datas_mod
 import app.filtros as filtros_mod
 import app.backup as backup_mod
+import app.inatividade as inatividade_mod
 
 load_dotenv()
 
@@ -118,6 +119,43 @@ def _primeira_tela(user: dict) -> str | None:
         if permissoes_mod.tem_permissao(user, chave):
             return destino
     return None
+
+
+class _InatividadeMiddleware(BaseHTTPMiddleware):
+    """Derruba o login parado há tempo demais.
+
+    É o que impede o caso real: o operador sai da estação com o login aberto,
+    o próximo senta e bipa no usuário de quem saiu — e o histórico do kit
+    passa a responder o nome errado pra sempre.
+
+    O relógio é renovado por QUALQUER uso: navegar aqui e, na bipagem,
+    cada código lido (o WebSocket toca o mesmo relógio). Estático fica de
+    fora — imagem carregando sozinha não é alguém trabalhando."""
+
+    _IGNORAR = ("/static/", "/login", "/logout", "/ping")
+
+    async def dispatch(self, request: Request, call_next):
+        caminho = request.url.path
+        if any(caminho.startswith(p) for p in self._IGNORAR):
+            return await call_next(request)
+        sid = request.session.get("sid", "")
+        if sid:
+            limite = inatividade_mod.limite_segundos()
+            if limite and inatividade_mod.expirou(sid, limite):
+                inatividade_mod.esquecer(sid)
+                inatividade_mod._limpar_esquecidas(limite)
+                request.session.clear()
+                # Pedaço de tela pedido por fetch (janela do veículo, prévias)
+                # não pode receber a página de login inteira dentro do modal —
+                # aí o operador veria um login desenhado dentro da janela.
+                if request.headers.get("X-Requested-With") == "fetch":
+                    return HTMLResponse(
+                        "<div class='alert alert-danger'>🔒 Sessão encerrada por "
+                        "inatividade. <a href='/login'>Entrar de novo</a></div>",
+                        status_code=401)
+                return RedirectResponse("/login?expirado=1", status_code=302)
+            inatividade_mod.tocar(sid)
+        return await call_next(request)
 
 
 class _AuditoriaMiddleware(BaseHTTPMiddleware):
@@ -245,6 +283,10 @@ if not _SECRET_KEY:
 # ficar por dentro dela — assim o 403 dele também é registrado.
 app.add_middleware(_PaginaPermitidaMiddleware)
 app.add_middleware(_AuditoriaMiddleware)
+# Depois da auditoria (fica por fora dela) e antes do SessionMiddleware (fica
+# por dentro dele, então enxerga a sessão): sessão expirada tem que cair antes
+# de a rota rodar, não depois.
+app.add_middleware(_InatividadeMiddleware)
 app.add_middleware(
     SessionMiddleware,
     secret_key=_SECRET_KEY,
@@ -508,6 +550,11 @@ async def login_post(request: Request):
         # troca de identidade (fixação de sessão).
         request.session.clear()
         request.session["user_id"] = row["id"]
+        # sid = "esta aba, a partir de agora". É por ele que o relógio de
+        # inatividade sabe de quem está contando o tempo.
+        import uuid as _uuid
+        request.session["sid"] = _uuid.uuid4().hex
+        inatividade_mod.tocar(request.session["sid"])
         return RedirectResponse(next_url, status_code=302)
 
     _login_falhou(chave)
@@ -516,6 +563,7 @@ async def login_post(request: Request):
 
 @app.get("/logout")
 async def logout(request: Request):
+    inatividade_mod.esquecer(request.session.get("sid", ""))
     request.session.clear()
     return RedirectResponse("/login", status_code=302)
 
@@ -534,7 +582,19 @@ async def admin_usuarios(request: Request, pagina: int = 1, busca: str = ""):
         "permissoes": permissoes_mod.PERMISSOES,
         "grupos": permissoes_mod.GRUPOS,
         "negadas_por_usuario": negadas_por_usuario,
+        "inatividade": inatividade_mod.get_config(),
+        "inatividade_max": inatividade_mod.MINUTOS_MAX,
     })
+
+
+@app.post("/admin/usuarios/inatividade")
+@require_admin
+async def admin_usuarios_inatividade(request: Request):
+    """Quanto tempo parado até o login cair. É admin-only de propósito: mexe
+    em quem consegue ficar dentro do sistema."""
+    form = await request.form()
+    minutos = inatividade_mod.salvar_config(form.get("minutos", "0"))
+    return RedirectResponse(f"/admin/usuarios?ok=inatividade&m={minutos}", status_code=302)
 
 
 @app.post("/admin/usuarios")
@@ -2121,6 +2181,7 @@ async def admin_sessao_cancelar(request: Request, sessao_id: int):
 async def ws_session(websocket: WebSocket, sessao_id: int):
     session_data = websocket.scope.get("session", {})
     user_id = session_data.get("user_id")
+    sid = session_data.get("sid", "")
     await websocket.accept()
     if not user_id:
         await websocket.close(code=1008)
@@ -2131,6 +2192,10 @@ async def ws_session(websocket: WebSocket, sessao_id: int):
             data = data.strip()
             if not data:
                 continue
+            # Bipar É usar o sistema: sem isto, quem passasse vinte minutos
+            # só lendo códigos seria deslogado por "inatividade" no meio do
+            # kit — o WebSocket não passa pelo middleware HTTP.
+            inatividade_mod.tocar(sid)
             try:
                 msg = json.loads(data)
                 if not isinstance(msg, dict):

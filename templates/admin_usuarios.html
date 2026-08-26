@@ -19,10 +19,48 @@
 <div class="alert alert-success">✅ Permissões atualizadas.</div>
 {% elif request.query_params.get('ok') == 'nome' %}
 <div class="alert alert-success">✅ Nome alterado. O login continua o mesmo.</div>
+{% elif request.query_params.get('ok') == 'inatividade' %}
+<div class="alert alert-success">
+  {% if request.query_params.get('m') == '0' %}✅ Encerramento por inatividade
+  <strong>desligado</strong> — o login só cai ao sair ou depois de 12h.
+  {% else %}✅ O login passa a cair depois de
+  <strong>{{ request.query_params.get('m') }} minuto(s)</strong> parado.{% endif %}
+</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
 {% endif %}
+
+<div class="card">
+  <h2>🔒 Encerrar login parado</h2>
+  <p style="color:#666;font-size:13px;margin-top:0;">
+    Depois de um tempo <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa
+    precisa entrar de novo. É o que evita o caso de sempre: alguém sai da estação com o
+    login aberto, o próximo senta e bipa no usuário de quem saiu — e o histórico do kit
+    passa a responder o nome errado, sem ninguém perceber.
+  </p>
+  <form method="post" action="/admin/usuarios/inatividade"
+        style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+      <label>Minutos parado até cair <span style="color:#888;font-weight:400;">(0 = desligado)</span></label>
+      <input type="number" name="minutos" min="0" max="{{ inatividade_max }}"
+             value="{{ inatividade.minutos }}" style="width:160px;margin:0;">
+    </div>
+    <button type="submit" class="btn btn-success">💾 Salvar</button>
+    <span style="font-size:13px;color:{{ '#27ae60' if inatividade.ativo else '#e67e22' }};">
+      {% if inatividade.ativo %}Ligado: cai depois de {{ inatividade.minutos }} min parado.
+      {% else %}Desligado — o login só cai ao sair ou no fim das 12h do cookie.{% endif %}
+    </span>
+  </form>
+  <div class="alert" style="background:#f7f9fb;border:1px solid var(--border);color:#55606c;
+              font-size:12.5px;margin:14px 0 0;">
+    <strong>O que conta como uso:</strong> abrir telas, salvar, filtrar — e
+    <strong>cada código bipado</strong>. Quem está montando kit não é deslogado no meio, mesmo
+    passando meia hora só na bipagem. O tempo só corre com o sistema realmente parado.
+    <br><strong>Reiniciar o servidor não desloga ninguém</strong> — o relógio recomeça do zero
+    pra quem já estava dentro.
+  </div>
+</div>
 
 <div class="alert" style="background:#eef4fb;border:1px solid #d3e2f3;color:#2c4a6b;">
   <strong>Como funcionam os perfis:</strong> administrador tem acesso total sempre,

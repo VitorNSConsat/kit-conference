@@ -131,6 +131,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "pos_montagem" not in colunas_scan_session_items
         or "codigo_caixa" not in colunas_scan_session_items
         or "backup_registro" not in tabelas
+        or "login_config" not in tabelas
     )
     if not pendente:
         return None
@@ -464,6 +465,12 @@ def init_db():
             -- quais telas, por quanto tempo, com que cor). Separada da
             -- producao_config so pra cada tela mexer no que e dela.
             CREATE TABLE IF NOT EXISTS estoque_config (
+                chave TEXT PRIMARY KEY,
+                valor TEXT NOT NULL
+            );
+
+            -- Tempo parado ate o login cair sozinho (0 = desligado).
+            CREATE TABLE IF NOT EXISTS login_config (
                 chave TEXT PRIMARY KEY,
                 valor TEXT NOT NULL
             );

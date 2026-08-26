@@ -814,6 +814,30 @@
     {% endfor %}
   </ul>
   {% endfor %}
+  <h3>🔒 Encerrar login parado (inatividade)</h3>
+  <p>
+    Configurável em <strong>Usuários</strong>, só por administrador: depois de X minutos
+    <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa precisa entrar de novo.
+    <span class="campo">0 = desligado</span>.
+  </p>
+  <p>
+    O motivo não é burocracia: alguém sai da estação com o login aberto, o próximo senta e
+    bipa no usuário de quem saiu — e o histórico do kit passa a responder o nome errado
+    para sempre, sem ninguém perceber.
+  </p>
+  <ul>
+    <li><strong>O que conta como uso:</strong> abrir telas, salvar, filtrar — e
+      <strong>cada código bipado</strong>. Quem está montando kit não é deslogado no meio,
+      mesmo passando meia hora só na bipagem.</li>
+    <li><strong>Reiniciar o servidor não desloga ninguém</strong>: o relógio recomeça do
+      zero pra quem já estava dentro. Derrubar o galpão a cada atualização seria um
+      prejuízo diário pra evitar um caso de borda.</li>
+    <li>Quando cai, a tela de login <strong>diz o motivo</strong> e lembra de conferir se é
+      o usuário certo — sem isso o operador só via a tela de login do nada e achava que o
+      sistema tinha caído.</li>
+    <li>Independente disso, o acesso <strong>sempre</strong> expira em 12 horas (uma
+      jornada), mesmo com a regra desligada.</li>
+  </ul>
   <div class="nota">
     Desmarcar uma <strong>tela</strong> faz duas coisas: some com ela do menu e fecha as
     rotas dela — inclusive as ações e exportações de dentro. Quem tentar entrar pelo
