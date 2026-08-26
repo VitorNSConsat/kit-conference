@@ -1216,12 +1216,27 @@ def conferencia_com_modelo(kit_id: str) -> list[dict]:
 
 
 def itens_do_kit(kit_id: str) -> list[dict]:
-    """Os patrimônios que estão neste kit agora — com tipo, série e quando
-    entraram. É a lista que a janela do veículo mostra."""
+    """O que está neste kit agora, na ordem em que o operador procura.
+
+    Duas regras, e as duas existem pelo mesmo motivo — quem abre esta lista
+    está atrás de UM item pra mexer nele:
+
+    1. **Patrimônio primeiro.** É o único que tem ação (mover, corrigir); item
+       de quantidade está ali só como informação. Misturado no meio de vinte
+       parafusos, o item que interessa some da tela.
+
+    2. **Item de quantidade sai unificado**, uma linha por tipo, com o total.
+       Cada bipagem de estoque grava uma linha, e a troca de modelo de kit
+       pronto grava uma por unidade — então "Parafuso" aparecia oito vezes,
+       idênticas e sem nada pra fazer com elas. Patrimônio NUNCA é unificado:
+       cada unidade tem código próprio e é justamente o que se quer clicar.
+    """
     with db() as conn:
         rows = conn.execute("""
             SELECT si.codigo_barra, si.serial_number, si.bipado_em, si.observacao,
-                   it.nome AS tipo, COALESCE(it.controle_externo, 0) AS e_patrimonio
+                   COALESCE(si.quantidade, 1) AS quantidade,
+                   it.nome AS tipo, COALESCE(it.controle_externo, 0) AS e_patrimonio,
+                   COALESCE(it.unidade, 'un') AS unidade
             FROM kit_record kr
             JOIN scan_session_items si ON si.sessao_id = kr.sessao_id
             JOIN item_tipo it ON it.id = si.item_tipo_id
@@ -1229,7 +1244,41 @@ def itens_do_kit(kit_id: str) -> list[dict]:
               AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
             ORDER BY it.nome, si.codigo_barra
         """, (kit_id,)).fetchall()
-    return [dict(r) for r in rows]
+
+    patrimonios, por_tipo = [], {}
+    for r in rows:
+        d = dict(r)
+        d["linhas"] = 1
+        if d["e_patrimonio"]:
+            patrimonios.append(d)
+            continue
+        alvo = por_tipo.get(d["tipo"])
+        if alvo is None:
+            por_tipo[d["tipo"]] = d
+        else:
+            alvo["quantidade"] += d["quantidade"]
+            alvo["linhas"] += 1
+            # Somadas, as linhas deixam de ter um código só — a tela mostra o
+            # total, não um dos códigos, que seria escolher um por acaso.
+            alvo["codigo_barra"] = ""
+            alvo["serial_number"] = None
+
+    for d in por_tipo.values():
+        d["quantidade_texto"] = _qtd_texto(d["quantidade"], d["unidade"])
+
+    patrimonios.sort(key=lambda d: (d["tipo"], d["codigo_barra"] or ""))
+    quantidade = sorted(por_tipo.values(), key=lambda d: d["tipo"])
+    return patrimonios + quantidade
+
+
+def _qtd_texto(valor, unidade: str) -> str:
+    """"8 un", "2,5 m", "5 m" — vírgula decimal e sem o ",0" pendurado."""
+    try:
+        n = float(valor or 0)
+    except (TypeError, ValueError):
+        n = 0.0
+    inteiro = f"{n:.0f}" if abs(n - round(n)) < 0.001 else f"{n:.2f}".rstrip("0").rstrip(".")
+    return f"{inteiro.replace('.', ',')} {unidade or 'un'}"
 
 
 def veiculos_com_kit_incompleto() -> dict:

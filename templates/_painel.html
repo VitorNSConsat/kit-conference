@@ -27,16 +27,54 @@
   <div class="pat-onde pat-full">
     <div class="pat-rotulo">Veículo</div>
     <div class="pat-veic">🚗 {{ v.numero }}</div>
-    <div class="pat-sub">
-      {{ v.cliente }}{% if v.garagem %} · {{ v.garagem }}{% endif %}
-      {%- if v.modelo %} · modelo {{ v.modelo }}{% else %} · <strong>sem modelo</strong>{% endif %}
+    {# Um campo por linha, com rótulo. Numa frase corrida ("REDEMOB · MB ·
+       modelo Volvo…") o operador tinha que adivinhar qual pedaço era garagem
+       e qual era modelo — os dois são texto livre e parecem iguais. #}
+    <div class="pat-campos">
+      {# Cliente e garagem saem coloridos, com a MESMA cor — a garagem
+         pertence ao cliente, e cores diferentes fariam parecer que não. Cor
+         só, sem sublinhado: destaque não pode passar por link clicável. #}
+      <div class="pat-campo">
+        <span>Cliente</span>
+        <strong class="pat-marca" style="color:{{ cor_cliente }};">{{ v.cliente or '—' }}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Garagem</span>
+        {% if v.garagem %}
+        <strong class="pat-marca" style="color:{{ cor_cliente }};">{{ v.garagem }}</strong>
+        {% else %}
+        <strong><em class="pat-vazio-campo">não informada</em></strong>
+        {% endif %}
+      </div>
+      <div class="pat-campo">
+        <span>Modelo do kit</span>
+        <strong>{% if v.modelo %}{{ v.modelo }}{% else %}<em class="pat-vazio-campo">sem modelo — não aparece em bipagem</em>{% endif %}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Localização</span>
+        {# Mesmo texto (e mesma explicação do vazio) da coluna Localização em
+           Veículos e Clientes — a janela não pode dizer uma coisa e a lista
+           atrás dela dizer outra. #}
+        <strong>{% if localizacao %}<span style="color:{{ localizacao.cor }};">{{ localizacao.texto }}</span>
+                {%- else %}<em class="pat-vazio-campo"
+                    title="Falta cliente, garagem ou kit no cadastro">— não configurado</em>{% endif %}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Situação</span>
+        <strong>{{ '🔒 Ocupado' if kit else '✅ Disponível' }}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Cadastrado em</span>
+        <strong>{{ v.criado_em[:10] if v.criado_em else '—' }}</strong>
+      </div>
+      {% if kit %}
+      <div class="pat-campo"><span>Kit montado</span><strong>{{ kit.kit_nome }}</strong></div>
+      <div class="pat-campo">
+        <span>Montado em</span>
+        <strong>{{ kit.finalizado_em[:16] if kit.finalizado_em else '—' }}</strong>
+      </div>
+      {% endif %}
     </div>
-    {% if kit %}
-    <div class="pat-sub">
-      kit {{ kit.kit_nome }} · {{ (kit.status_producao or '').replace('_', ' ') }}
-      {%- if kit.finalizado_em %} · montado em {{ kit.finalizado_em[:16] }}{% endif %}
-    </div>
-    {% endif %}
     <div class="pat-atalhos">
       {% if kit %}<a href="/kit/{{ kit.kit_id }}" target="_blank" class="btn btn-sm btn-secondary">Abrir kit ↗</a>{% endif %}
       <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Cadastro do veículo →</a>
@@ -190,12 +228,26 @@
     <details class="pat-acao" {{ 'open' if not item_sel }}>
       <summary>🏷️ Itens deste kit ({{ itens | length }})</summary>
       {% if itens %}
+      {# Patrimônio em cima (é o que tem ação), item de quantidade embaixo e
+         unificado por tipo — a ordem e a soma vêm de itens_do_kit(). #}
       <div class="vp-itens">
         {% for i in itens %}
+        {% if not i.e_patrimonio and (loop.first or itens[loop.index0 - 1].e_patrimonio) %}
+        <div class="vp-divisor">Itens por quantidade — sem código individual</div>
+        {% endif %}
         <div class="vp-item {{ 'vp-item-sel' if item_sel and i.codigo_barra == codigo_barra }}">
           <div>
-            <div class="vp-tipo">{{ i.tipo }}</div>
-            <div class="vp-codigo">{{ i.codigo_barra }}{% if i.serial_number %} · série {{ i.serial_number }}{% endif %}</div>
+            <div class="vp-tipo">
+              {{ i.tipo }}
+              {%- if not i.e_patrimonio %}
+              <span class="vp-qtd">{{ i.quantidade_texto }}</span>
+              {%- endif %}
+            </div>
+            <div class="vp-codigo">
+              {%- if i.codigo_barra %}{{ i.codigo_barra }}{% if i.serial_number %} · série {{ i.serial_number }}{% endif %}
+              {%- else %}{{ i.linhas }} {{ 'bipagens somadas' if i.linhas > 1 else 'bipagem somada' }}
+              {%- endif %}
+            </div>
           </div>
           {% if i.e_patrimonio %}
           {# Foca o item SEM sair da janela do veículo: trocar pro painel curto

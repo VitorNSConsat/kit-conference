@@ -734,6 +734,23 @@ tr:hover td { background: var(--surface-alt); }
 }
 .pat-veic { font-size: 18px; font-weight: 800; color: var(--brand); margin-top: 2px; }
 .pat-sub { font-size: 12px; color: #667382; margin-top: 3px; }
+/* Ficha do veículo: rótulo em cima, valor embaixo, um campo por célula.
+   Em frase corrida ("REDEMOB · MB · modelo Volvo…") não dava pra saber qual
+   pedaço era garagem e qual era modelo — os dois são texto livre. */
+.pat-campos {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 16px; margin-top: 12px;
+}
+.pat-campo span {
+    display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .8px;
+    color: #8a97a4;
+}
+.pat-campo strong { font-size: 13.5px; color: #33404d; font-weight: 700; }
+.pat-vazio-campo { color: #b0803a; font-weight: 500; font-size: 12.5px; }
+/* Cliente e garagem em destaque, na cor do cliente. Sem sublinhado e sem
+   cursor de mão: cor aqui é identidade, não link — e um "link" que não abre
+   nada faz o operador clicar e desconfiar da tela. */
+.pat-marca { text-decoration: none; cursor: default; }
 .pat-atalhos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 .pat-acao {
@@ -776,6 +793,17 @@ tr:hover td { background: var(--surface-alt); }
     padding: 8px 10px; background: #f7fafc; border-radius: 8px;
 }
 .vp-tipo { font-size: 13px; font-weight: 700; color: #33404d; }
+/* Total do item de quantidade, que na lista vem unificado num só. */
+.vp-qtd {
+    display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 20px;
+    background: #e8edf3; color: #5b6875; font-size: 11px; font-weight: 700;
+}
+/* Onde acaba o que tem ação (patrimônio) e começa o que é só informação. */
+.vp-divisor {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+    color: #9aa7b4; margin: 8px 0 2px; padding-top: 8px;
+    border-top: 1px dashed #dfe6ee;
+}
 .vp-codigo { font-size: 12px; color: #7a8794; font-family: monospace; }
 /* O item aberto fica marcado na lista: sem isso, com o painel unificado,
    nao dava pra saber qual dos itens esta "em foco". */

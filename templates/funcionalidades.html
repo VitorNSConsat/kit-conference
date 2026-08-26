@@ -357,8 +357,15 @@
   </ul>
   <p>Em qualquer uma das duas, a leitura é sempre a mesma, de cima pra baixo:</p>
   <ul>
-    <li><strong>O veículo</strong> — cliente, garagem, kit e situação, com
-      <em>“CVC não encontrado”</em> dentro do próprio card quando falta alguma coisa.</li>
+    <li><strong>O veículo</strong> — a ficha em campos separados e rotulados:
+      <em>Cliente, Garagem, Modelo do kit, Localização, Situação, Cadastrado em, Kit
+      montado, Montado em</em>. Numa frase corrida não dava pra saber qual pedaço era
+      garagem e qual era modelo — os dois são texto livre e parecem iguais.
+      <strong>Cliente e garagem saem coloridos</strong>, e a garagem usa <strong>a cor do
+      cliente dela</strong>: cada cliente tem a sua, sempre a mesma, e dá pra reconhecer a
+      frota antes de ler o nome. É cor, não link — não abre nada. E o
+      <em>“CVC não encontrado”</em> aparece dentro do próprio card quando falta alguma
+      coisa.</li>
     <li><strong>Item em foco</strong>, <strong>logo abaixo do veículo</strong> — o item e as
       ações dele (🔀 mover, ✏️ corrigir). É a leitura natural: “este veículo, este item
       dele”; no fim da página, ninguém achava a ação.</li>
@@ -367,6 +374,17 @@
     <li><strong>🏷️ Itens deste kit</strong> e <strong>➕ Adicionar item</strong> — só na
       janela do veículo. Clicar na ⚙️ de um item da lista coloca ele em foco
       <strong>sem fechar a janela</strong>: você continua com o kit e o “adicionar” à mão.</li>
+  </ul>
+  <p>A lista de itens é montada pra quem está atrás de <strong>um</strong> item pra mexer:</p>
+  <ul>
+    <li><strong>Patrimônio vem primeiro</strong> — é o único que tem ação (mover, corrigir).
+      Misturado no meio de vinte parafusos, o item que interessa sumia da tela.</li>
+    <li><strong>Item de quantidade sai unificado</strong>, uma linha por tipo, com o total
+      (<em>“Parafuso M6 — 8 un”</em>) e quantas bipagens foram somadas. Cada bipagem de
+      estoque grava uma linha, então o mesmo parafuso aparecia oito vezes, idêntico e sem
+      nada pra fazer com ele.</li>
+    <li><strong>Patrimônio nunca é unificado</strong>: cada unidade tem código próprio e é
+      justamente o que se quer clicar.</li>
   </ul>
   <div class="nota">
     Como a janela do veículo já traz os itens do kit, o antigo atalho “Lista completa” saiu:

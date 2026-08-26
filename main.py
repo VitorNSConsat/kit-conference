@@ -4615,6 +4615,13 @@ def _painel_context(request: Request, veiculo_id: int | None = None,
         "v": v,
         "kit": kit,
         "modo": modo,
+        # A MESMA localização da lista de veículos — a janela não pode dizer
+        # um estágio e a lista atrás dela dizer outro.
+        "localizacao": (producao_mod.localizacao_dos_veiculos().get(v["id"])
+                        if v else None),
+        # A garagem herda a cor do cliente: são o mesmo mundo, e cor por
+        # cliente deixa o operador reconhecer a frota antes de ler o nome.
+        "cor_cliente": clientes_mod.cor_do_cliente(v["cliente"] if v else ""),
         "codigo_barra": codigo_barra,
         "item_sel": item_sel,
         "conferencia": sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else [],

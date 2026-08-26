@@ -1,6 +1,32 @@
+import hashlib
 import sqlite3
 
 from database import db, now_brt
+
+# Cores fortes o bastante pra ler sobre fundo claro e diferentes entre si.
+# Não são "bonitas por acaso": o operador reconhece o cliente pela cor antes
+# de ler o nome, então duas próximas demais atrapalhariam mais do que ajudam.
+_CORES = (
+    "#1f6feb", "#b8860b", "#0f766e", "#9333ea", "#c2410c",
+    "#0369a1", "#15803d", "#be123c", "#7c3aed", "#a16207",
+)
+
+
+def cor_do_cliente(nome: str) -> str:
+    """Sempre a MESMA cor pro mesmo cliente, sem guardar nada no banco.
+
+    Vem de um hash estável do nome (md5, não `hash()` — o hash de string do
+    Python é aleatório por processo, e a cor mudaria a cada reinício do
+    servidor). Cliente novo já nasce com cor; ninguém precisa escolher.
+
+    A garagem usa a cor do CLIENTE dela, de propósito: as duas são texto
+    livre e parecidas na tela, e cores diferentes fariam parecer que são
+    coisas de mundos separados."""
+    chave = (nome or "").strip().upper()
+    if not chave:
+        return "#8a97a4"          # cinza: sem cliente, sem identidade
+    n = int(hashlib.md5(chave.encode("utf-8")).hexdigest()[:8], 16)
+    return _CORES[n % len(_CORES)]
 
 
 def listar() -> list[dict]:
