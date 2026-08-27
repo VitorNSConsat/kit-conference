@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Conferência da Importação{% endblock %}
+{% block content %}
+{#  A planilha inteira do jeito que ela chegou, uma linha por vez, com o que
+    cada uma virou. O placar antigo ("12 novos, 3 atualizados") continua
+    existindo no topo — só que agora dá pra clicar nele e VER quem são. #}
+<div style="display:flex;justify-content:space-between;align-items:center;
+            margin-bottom:16px;gap:12px;flex-wrap:wrap;">
+  <h1 style="margin:0;">Conferência da Importação</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/veiculos/importacoes" class="btn btn-secondary">🕘 Importações anteriores</a>
+    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+  </div>
+</div>
+
+<div class="card">
+  <p style="margin:0 0 4px;color:#555;font-size:13px;">
+    {% if imp.arquivo %}📄 <strong>{{ imp.arquivo }}</strong> — {% endif %}
+    importada em {{ imp.criada_em }}{% if imp.autor %} por {{ imp.autor }}{% endif %}.
+  </p>
+  <p style="margin:0 0 12px;color:#555;font-size:13px;">
+    A importação <strong>já foi feita</strong> — esta tela é a conferência do que
+    ela mudou, não uma prévia. Clique em um número pra ver só aquelas linhas.
+  </p>
+
+  {# Resumo. Cada bloco é um filtro: é o caminho natural depois de bater o
+     olho no placar e querer ver "quais foram os 3 alterados?". #}
+  <div class="conf-resumo">
+    <a href="?{{ 'busca=' ~ busca if busca }}"
+       class="conf-bloco{{ ' conf-ativo' if not situacao and not so_avisos }}">
+      <span class="conf-n">{{ contagens.total }}</span>
+      <span class="conf-r">Linhas na planilha</span>
+    </a>
+    {% for chave, texto, sinal in situacoes %}
+    <a href="?situacao={{ chave }}{{ '&busca=' ~ busca if busca }}"
+       class="conf-bloco conf-{{ chave }}{{ ' conf-ativo' if situacao == chave }}">
+      <span class="conf-n">{{ contagens[chave] }}</span>
+      <span class="conf-r">{{ sinal }} {{ texto }}</span>
+    </a>
+    {% endfor %}
+    {% if contagens.avisos %}
+    <a href="?avisos=1{{ '&busca=' ~ busca if busca }}"
+       class="conf-bloco conf-aviso{{ ' conf-ativo' if so_avisos }}">
+      <span class="conf-n">{{ contagens.avisos }}</span>
+      <span class="conf-r">⚠️ Com aviso</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="conf-legenda">
+    <span>🟢 <strong>Novo</strong>: não existia e foi cadastrado.</span>
+    <span>🔵 <strong>Já existente</strong>: a planilha não mudou nada nele.</span>
+    <span>🟡 <strong>Alterado</strong>: já existia e algum campo mudou.</span>
+    <span>🔴 <strong>Erro</strong>: a linha não foi aproveitada.</span>
+    <span>⚠️ <strong>Aviso</strong>: entrou, mas tem algo pra conferir.</span>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="filtros" style="margin-bottom:12px;">
+    {% if situacao %}<input type="hidden" name="situacao" value="{{ situacao }}">{% endif %}
+    {% if so_avisos %}<input type="hidden" name="avisos" value="1">{% endif %}
+    <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Número do veículo, cliente, garagem ou modelo"
+           style="flex:1;min-width:240px;">
+    <button type="submit" class="btn btn-primary">Buscar</button>
+    {% if busca or situacao or so_avisos %}
+    <a href="/admin/veiculos/import/{{ imp.id }}" class="btn btn-secondary">Limpar</a>
+    {% endif %}
+  </form>
+
+  {% if linhas %}
+  <div class="table-scroll">
+    <table class="tabela-conferencia">
+      <thead>
+        <tr>
+          <th style="width:60px;">Linha</th>
+          <th>Situação</th>
+          <th>Veículo</th>
+          <th>Cliente</th>
+          <th>Garagem</th>
+          <th>Modelo</th>
+          <th>O que mudou</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in linhas %}
+        <tr class="conf-linha conf-{{ l.situacao }}">
+          <td>{{ l.linha }}</td>
+          <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ l.sinal }} {{ l.situacao_texto }}</span></td>
+          <td>
+            {% if l.veiculo_id %}
+            <a href="/admin/veiculos/{{ l.veiculo_id }}"><strong>{{ l.numero }}</strong></a>
+            {% else %}<strong>{{ l.numero or '—' }}</strong>{% endif %}
+          </td>
+          {# Cada campo mostra o ANTES riscado e o DEPOIS ao lado. Ver só o
+             valor final não responde "o que essa planilha mexeu aqui?". #}
+          {% for campo in ['cliente', 'garagem', 'modelo'] %}
+          {% set antes = l[campo ~ '_antes'] or '' %}
+          {% set depois = l[campo ~ '_depois'] or '' %}
+          <td>
+            {% if l.situacao == 'alterado' and antes != depois %}
+            <span class="conf-antes">{{ antes or '(vazio)' }}</span>
+            <span class="conf-seta">→</span>
+            <strong class="conf-depois">{{ depois or '(vazio)' }}</strong>
+            {% else %}{{ depois or antes or '—' }}{% endif %}
+          </td>
+          {% endfor %}
+          <td>
+            {% if l.erro %}<span class="conf-erro-texto">{{ l.erro }}</span>
+            {% elif l.resumo %}{{ l.resumo }}
+            {% elif l.situacao == 'igual' %}<span style="color:#888;">Nada</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#888;margin:0;">
+    Nenhuma linha com esse filtro.
+    {% if busca %}A busca vale sobre a importação inteira, não só sobre o que está na tela.{% endif %}
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

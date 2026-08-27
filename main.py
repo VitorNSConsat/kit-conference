@@ -43,6 +43,7 @@ import app.datas as datas_mod
 import app.filtros as filtros_mod
 import app.backup as backup_mod
 import app.inatividade as inatividade_mod
+import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 
 load_dotenv()
@@ -5084,8 +5085,51 @@ async def admin_veiculos_import_post(request: Request):
         file_bytes = await _ler_upload(arquivo)
     except ValueError as e:
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
+    user = request.state.user
     resultado = veiculos_mod.importar_excel(file_bytes)
-    return render(request, "admin_veiculos_import.html", {"resultado": resultado})
+    # Grava a conferência e MANDA PRA ELA. Antes o resultado morria na resposta
+    # do POST: um F5 e ninguém mais sabia o que a planilha tinha feito.
+    imp_id = importacoes_mod.registrar(
+        resultado, getattr(arquivo, "filename", "") or "", user["id"])
+    return RedirectResponse(f"/admin/veiculos/import/{imp_id}", status_code=302)
+
+
+def _conferencia_context(request: Request, importacao_id: int) -> dict | None:
+    imp = importacoes_mod.uma(importacao_id)
+    if not imp:
+        return None
+    situacao = (request.query_params.get("situacao") or "").strip()
+    busca = (request.query_params.get("busca") or "").strip()
+    so_avisos = request.query_params.get("avisos") == "1"
+    return {
+        "imp": imp,
+        "contagens": importacoes_mod.contagens(importacao_id),
+        "linhas": importacoes_mod.itens(importacao_id, situacao, busca, so_avisos),
+        "situacao": situacao,
+        "busca": busca,
+        "so_avisos": so_avisos,
+        "situacoes": importacoes_mod.SITUACOES,
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
+    }
+
+
+@app.get("/admin/veiculos/importacoes", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_importacoes(request: Request):
+    return render(request, "admin_veiculos_importacoes.html", {
+        "importacoes": importacoes_mod.listar(),
+        "voltar_para": _voltar_para(request, "/admin/veiculos"),
+    })
+
+
+@app.get("/admin/veiculos/import/{importacao_id:int}", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_conferencia(request: Request, importacao_id: int):
+    ctx = _conferencia_context(request, importacao_id)
+    if ctx is None:
+        return RedirectResponse("/admin/veiculos/importacoes?erro=nao_encontrada",
+                                status_code=302)
+    return render(request, "admin_veiculos_conferencia.html", ctx)
 
 
 def _painel_context(request: Request, veiculo_id: int | None = None,
@@ -5225,6 +5269,9 @@ async def admin_veiculo_detalhe(request: Request, veiculo_id: int):
         "ocupado": veiculos_mod.esta_ocupado(veiculo_id),
         "kits_para_vincular": veiculos_mod.kits_para_vincular(veiculo_id),
         "modelos": veiculos_mod.modelos_disponiveis(),
+        # Toda vez que uma planilha tocou neste veículo. É o que responde
+        # "quem mudou a garagem dele?" sem abrir importação por importação.
+        "importacoes": importacoes_mod.do_veiculo(veiculo_id),
         "ok": request.query_params.get("ok", ""),
     })
 

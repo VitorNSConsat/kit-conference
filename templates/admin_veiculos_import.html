@@ -3,45 +3,11 @@
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
   <h1>Importar Veículos</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
-
-{% if resultado is defined %}
-<div class="card">
-  <h2>Resultado da importação</h2>
-  <p>✅ <strong>{{ resultado.inseridos }}</strong> veículos novos inseridos</p>
-  {% if resultado.atualizados %}
-  <p>🔄 <strong>{{ resultado.atualizados }}</strong> já existiam e tiveram o cadastro
-     atualizado pela planilha (cliente, garagem e/ou modelo)</p>
-  {% endif %}
-  <p>⏭️ <strong>{{ resultado.ignorados }}</strong> sem alteração (já cadastrados ou linha vazia)</p>
-  {% if resultado.modelos_ajustados %}
-  <div style="background:#eaf4fd;border:1px solid #b8daf5;border-radius:6px;
-              padding:10px 12px;margin-top:10px;">
-    <p style="margin:0 0 6px;">
-      🔎 <strong>{{ resultado.modelos_ajustados | length }}</strong> modelo(s) da planilha
-      não batiam letra por letra e foram casados com o kit <strong>mais próximo</strong> —
-      confira se o casamento está certo:
-    </p>
-    <ul style="margin:0;padding-left:20px;">
-      {% for a in resultado.modelos_ajustados %}
-      <li>"{{ a.de }}" → <strong>{{ a.para }}</strong></li>
-      {% endfor %}
-    </ul>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/veiculos/importacoes" class="btn btn-secondary">🕘 Importações anteriores</a>
+    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
   </div>
-  {% endif %}
-  {% if resultado.inativos %}
-  <p>🚫 <strong>{{ resultado.inativos }}</strong> já existem mas estão desativados —
-     reative em <a href="/admin/veiculos">Veículos e Clientes</a> se precisar usá-los</p>
-  {% endif %}
-  {% if resultado.erros %}
-  <div style="color:#e74c3c;margin-top:8px;">
-    {% for e in resultado.erros %}<p>⚠️ {{ e }}</p>{% endfor %}
-  </div>
-  {% endif %}
-  <a href="/admin/veiculos" class="btn btn-primary" style="margin-top:12px;">Ver lista</a>
 </div>
-{% endif %}
 
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -78,6 +44,11 @@
       <input type="file" name="arquivo" accept=".xlsx" required>
     </div>
     <button type="submit" class="btn btn-success">📥 Importar</button>
+    <p style="color:#555;font-size:13px;margin:12px 0 0;">
+      Ao terminar, o sistema abre a <strong>conferência</strong>: a planilha inteira
+      linha a linha, dizendo o que cada uma virou (novo, já existente, alterado ou
+      erro) e, nos alterados, o valor <strong>antes e depois</strong> de cada campo.
+    </p>
   </form>
 </div>
 {% endblock %}

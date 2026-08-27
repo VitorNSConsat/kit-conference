@@ -352,7 +352,13 @@ def importar_excel(file_bytes: bytes) -> dict:
     certo mesmo.
 
     A coluna Garagem é opcional — planilhas antigas, sem ela, continuam
-    funcionando."""
+    funcionando.
+
+    Além dos contadores, devolve `itens`: UMA entrada por linha da planilha,
+    com o que ela virou (novo / igual / alterado / erro) e o valor de cada
+    campo ANTES e DEPOIS. Não é uma segunda validação — é o registro do que
+    esta mesma função já decidiu, que é o que a tela de conferência mostra.
+    Nenhuma regra muda por causa disso."""
     import openpyxl, io, sqlite3
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     ws = wb.active
@@ -362,12 +368,26 @@ def importar_excel(file_bytes: bytes) -> dict:
         col_cli = next(i for i, h in enumerate(headers) if "cliente" in h)
     except StopIteration:
         return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "inativos": 0,
-                "modelos_ajustados": [],
+                "modelos_ajustados": [], "itens": [],
                 "erros": ["Cabeçalhos não encontrados. Use 'Número do Veículo' e 'Cliente'."]}
     col_gar = next((i for i, h in enumerate(headers) if "garagem" in h), None)
     col_mod = next((i for i, h in enumerate(headers) if "modelo" in h or "kit" in h), None)
 
     modelos = modelos_disponiveis()
+    itens: list[dict] = []
+
+    def anota(linha, numero, situacao, veiculo_id=None, antes=None,
+              depois=None, erro=""):
+        antes = antes or {}
+        depois = depois or {}
+        itens.append({
+            "linha": linha, "numero": numero, "situacao": situacao,
+            "veiculo_id": veiculo_id, "erro": erro,
+            "cliente_antes": antes.get("cliente", ""), "cliente_depois": depois.get("cliente", ""),
+            "garagem_antes": antes.get("garagem", ""), "garagem_depois": depois.get("garagem", ""),
+            "modelo_antes": antes.get("modelo", ""), "modelo_depois": depois.get("modelo", ""),
+        })
+
     inseridos = atualizados = ignorados = inativos = 0
     modelos_ajustados: list[dict] = []
     ajustes_vistos: set[str] = set()
@@ -376,6 +396,8 @@ def importar_excel(file_bytes: bytes) -> dict:
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), 2):
             if len(row) <= max(col_num, col_cli):
                 ignorados += 1
+                anota(row_idx, "", "erro",
+                      erro="Linha incompleta — faltam colunas obrigatórias.")
                 continue
             numero = str(row[col_num] or "").strip()
             cliente = str(row[col_cli] or "").strip()
@@ -386,25 +408,40 @@ def importar_excel(file_bytes: bytes) -> dict:
             if col_mod is not None and len(row) > col_mod:
                 modelo_digitado = str(row[col_mod] or "").strip()
             if not numero or not cliente:
+                # Linha em branco no fim da planilha não é erro de ninguém —
+                # só é reportada quando tem ALGUMA coisa preenchida.
                 ignorados += 1
+                if numero or cliente or garagem or modelo_digitado:
+                    falta = "número do veículo" if not numero else "cliente"
+                    anota(row_idx, numero, "erro",
+                          erro="Linha ignorada — sem %s." % falta)
                 continue
 
             # Casa com o kit existente mais próximo. Não casou = erro na
             # tela e a linha segue SEM tocar no modelo — melhor nenhum
             # modelo (a tela avisa) do que um modelo que não abre kit.
             modelo = ""
+            aviso = ""
             if modelo_digitado:
                 modelo = casar_modelo(modelo_digitado, modelos) or ""
                 if not modelo:
+                    aviso = (f"Modelo \"{modelo_digitado}\" não é parecido com "
+                             "nenhum kit existente — o veículo foi importado sem "
+                             "alterar o modelo.")
                     erros.append(
                         f"Linha {row_idx}: modelo \"{modelo_digitado}\" não é "
                         f"parecido com nenhum kit existente — o veículo {numero} "
                         "foi importado sem alterar o modelo.")
                 elif (" ".join(modelo.split()).lower()
-                        != " ".join(modelo_digitado.split()).lower()
-                        and modelo_digitado not in ajustes_vistos):
-                    ajustes_vistos.add(modelo_digitado)
-                    modelos_ajustados.append({"de": modelo_digitado, "para": modelo})
+                        != " ".join(modelo_digitado.split()).lower()):
+                    # O casamento aproximado vira aviso DA LINHA, e não só um
+                    # resumo no rodapé: "de/para" numa lista solta não diz em
+                    # qual veículo o palpite foi dado.
+                    aviso = (f"Modelo \"{modelo_digitado}\" foi casado com o kit "
+                             f"mais próximo: \"{modelo}\" — confira se é esse mesmo.")
+                    if modelo_digitado not in ajustes_vistos:
+                        ajustes_vistos.add(modelo_digitado)
+                        modelos_ajustados.append({"de": modelo_digitado, "para": modelo})
 
             # Cliente e garagem são criados na MESMA conexão/transação —
             # chamar clientes.criar()/garagens.criar() aqui abriria uma
@@ -438,18 +475,25 @@ def importar_excel(file_bytes: bytes) -> dict:
 
             if existe:
                 # Célula preenchida sobrescreve; vazia preserva o cadastro.
+                antes = {"cliente": existe["cliente"] or "",
+                         "garagem": existe["garagem"] or "",
+                         "modelo": existe["modelo"] or ""}
+                depois = dict(antes)
                 mudou = False
                 if cliente and cliente != (existe["cliente"] or ""):
                     conn.execute("UPDATE veiculos SET cliente=? WHERE id=?",
                                  (cliente, existe["id"]))
+                    depois["cliente"] = cliente
                     mudou = True
                 if garagem and garagem.upper() != (existe["garagem"] or "").strip().upper():
                     conn.execute("UPDATE veiculos SET garagem=? WHERE id=?",
                                  (garagem, existe["id"]))
+                    depois["garagem"] = garagem
                     mudou = True
                 if modelo and modelo != (existe["modelo"] or "").strip():
                     conn.execute("UPDATE veiculos SET modelo=? WHERE id=?",
                                  (modelo, existe["id"]))
+                    depois["modelo"] = modelo
                     mudou = True
                 if mudou:
                     atualizados += 1
@@ -457,16 +501,27 @@ def importar_excel(file_bytes: bytes) -> dict:
                     inativos += 1
                 else:
                     ignorados += 1
+                # "inativo" não é uma quarta cor na tela: o cadastro não mudou,
+                # então a linha é "já existente" — o aviso é que ele está
+                # desativado, que é outra coisa.
+                anota(row_idx, numero, "alterado" if mudou else "igual",
+                      existe["id"], antes, depois,
+                      aviso or ("" if existe["ativo"] else
+                                "Veículo já cadastrado, mas está desativado."))
             else:
-                conn.execute(
+                vid = conn.execute(
                     "INSERT INTO veiculos (numero, cliente, garagem, modelo, criado_em) "
                     "VALUES (?, ?, ?, ?, ?)",
                     (numero, cliente, garagem, modelo, now_brt())
-                )
+                ).lastrowid
                 inseridos += 1
+                anota(row_idx, numero, "novo", vid, {},
+                      {"cliente": cliente, "garagem": garagem, "modelo": modelo},
+                      aviso)
     return {"inseridos": inseridos, "atualizados": atualizados,
             "ignorados": ignorados, "inativos": inativos,
-            "modelos_ajustados": modelos_ajustados, "erros": erros}
+            "modelos_ajustados": modelos_ajustados, "erros": erros,
+            "itens": itens}
 
 
 def historico_kits(veiculo_id: int) -> list[dict]:

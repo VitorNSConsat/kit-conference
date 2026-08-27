@@ -721,6 +721,57 @@
     <li>A importação <strong>não cria</strong> modelos novos — trabalha só sobre os que existem.</li>
   </ul>
 
+  <h3>🔎 Conferência da importação</h3>
+  <p>
+    Terminada a importação, o sistema abre a <strong>conferência</strong>: a planilha
+    inteira, <strong>linha por linha</strong>, dizendo o que cada uma virou. Antes o
+    resultado era só um placar (“12 novos, 3 atualizados”) que sumia no primeiro F5 —
+    quem subia 200 linhas não tinha como saber <em>quais</em> foram os 3.
+  </p>
+  <ul>
+    <li>🟢 <span class="campo">Novo</span> — o veículo não existia e foi cadastrado.</li>
+    <li>🔵 <span class="campo">Já existente</span> — já estava no sistema e a planilha
+      <strong>não mudou nada</strong> nele.</li>
+    <li>🟡 <span class="campo">Alterado</span> — já existia e algum campo mudou. A linha
+      mostra o valor <strong>antes riscado e o depois ao lado</strong>, campo a campo.</li>
+    <li>🔴 <span class="campo">Erro</span> — a linha <strong>não foi aproveitada</strong>
+      (sem número do veículo, sem cliente, ou faltando colunas), com o motivo escrito.</li>
+    <li>⚠️ <span class="campo">Aviso</span> — a linha <strong>entrou</strong>, mas tem algo
+      pra conferir. O caso comum é o modelo digitado não bater com nenhum kit: o veículo é
+      cadastrado e o modelo fica como estava.</li>
+  </ul>
+  <div class="nota">
+    <strong>Aviso não é erro.</strong> São contas separadas de propósito: um veículo que
+    foi criado com sucesso não pode ser contado como erro, senão a soma das cores não
+    fecharia com o número de linhas da planilha.
+  </div>
+  <p>
+    Os números do topo <strong>são filtros</strong>: clicar em “Alterados” deixa só os
+    amarelos na lista. A <strong>busca</strong> por número de veículo, cliente, garagem ou
+    modelo vale sobre a <strong>importação inteira</strong> — não só sobre o que está na
+    tela — pra ninguém procurar um veículo e ele estar escondido atrás de um filtro.
+    O número do veículo é um link direto pro cadastro dele.
+  </p>
+
+  <h3>🕘 Importações anteriores</h3>
+  <p>
+    A pergunta quase nunca aparece no dia do upload; ela aparece semanas depois —
+    “esse veículo mudou de garagem, foi planilha?”. Por isso toda importação fica
+    guardada em <span class="campo">🕘 Importações</span>, com data, arquivo, quem
+    subiu e o placar; de lá dá pra reabrir a conferência de qualquer uma.
+  </p>
+  <p>
+    E dentro de cada veículo existe o bloco <strong>📥 Importações de planilha</strong>:
+    todas as vezes que uma planilha passou por ele e o que mudou em cada uma — sem
+    precisar abrir importação por importação procurando.
+  </p>
+  <div class="cuidado">
+    A conferência é o <strong>registro do que já foi feito</strong>, não uma prévia: quando
+    a tela abre, a importação <strong>já foi aplicada</strong> no cadastro. Ela existe pra
+    conferir e corrigir depois — corrigindo a planilha e subindo de novo, ou editando o
+    veículo na mão.
+  </div>
+
   <h3>Liberar veículo</h3>
   <p>
     Um veículo fica bloqueado pra nova bipagem assim que tem qualquer kit, em qualquer

@@ -1058,3 +1058,73 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
 /* O estilo do menu de abas mora em static/style.css, carregado no <head> —
    aqui no rodapé ele só seria aplicado depois da página inteira, fazendo
    as abas piscarem sem estilo. */
+
+/* ===== Conferência da importação de veículos =====
+   A cor faz o trabalho que o texto sozinho não faz: numa planilha de 200
+   linhas, ninguém lê "situação" linha por linha — bate o olho e vê onde estão
+   os amarelos. Por isso a mesma cor aparece no placar, na etiqueta e na
+   borda da linha. */
+.conf-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.conf-bloco {
+    flex: 1 1 130px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-left: 4px solid #bbb;
+    border-radius: 6px;
+    background: #fafafa;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.conf-bloco:hover { background: #f0f0f0; }
+.conf-bloco.conf-ativo { background: #eef4ff; border-color: #6f9be0; }
+.conf-n { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; }
+.conf-r { display: block; font-size: 12px; color: #555; margin-top: 2px; }
+.conf-bloco.conf-novo      { border-left-color: #27ae60; }
+.conf-bloco.conf-igual     { border-left-color: #3498db; }
+.conf-bloco.conf-alterado  { border-left-color: #e6a700; }
+.conf-bloco.conf-erro      { border-left-color: #e74c3c; }
+.conf-bloco.conf-aviso     { border-left-color: #d35400; }
+
+.conf-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    font-size: 12px;
+    color: #666;
+}
+
+.tabela-conferencia { width: 100%; }
+.tabela-conferencia td, .tabela-conferencia th { vertical-align: middle; }
+.tabela-conferencia tr.conf-linha td:first-child { border-left: 4px solid transparent; }
+tr.conf-novo     td:first-child { border-left-color: #27ae60 !important; }
+tr.conf-igual    td:first-child { border-left-color: #3498db !important; }
+tr.conf-alterado td:first-child { border-left-color: #e6a700 !important; }
+tr.conf-erro     td:first-child { border-left-color: #e74c3c !important; }
+tr.conf-alterado { background: #fffaef; }
+tr.conf-erro     { background: #fdefee; }
+
+.conf-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    background: #eee;
+}
+.conf-tag-novo     { background: #e4f6ea; color: #1e7a45; }
+.conf-tag-igual    { background: #e8f2fb; color: #1f6398; }
+.conf-tag-alterado { background: #fdf3d9; color: #8a6100; }
+.conf-tag-erro     { background: #fbe4e2; color: #a02a1c; }
+
+/* Antes riscado, depois em negrito: a mudança se lê sem precisar comparar
+   duas telas. */
+.conf-antes  { color: #999; text-decoration: line-through; }
+.conf-seta   { color: #999; margin: 0 2px; }
+.conf-depois { color: #8a6100; }
+.conf-erro-texto { color: #a02a1c; font-size: 12px; }

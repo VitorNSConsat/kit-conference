@@ -133,6 +133,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "codigo_caixa" not in colunas_scan_session_items
         or "backup_registro" not in tabelas
         or "login_config" not in tabelas
+        or "importacao" not in tabelas
         or "remessa" not in tabelas
         or "remessa_id" not in colunas_scan_session
         or "correcao" not in colunas_scan_session_items
@@ -502,6 +503,39 @@ def init_db():
                 veiculo_id INTEGER REFERENCES veiculos(id),
                 adicionado_por INTEGER REFERENCES users(id),
                 entrou_em TEXT NOT NULL
+            );
+
+            -- Uma importacao de planilha de veiculos: o resumo do que
+            -- aconteceu. A auditoria ja registra o POST, mas so isso — nao
+            -- guarda o que cada linha virou, que e justamente o que o
+            -- operador precisa conferir depois.
+            CREATE TABLE IF NOT EXISTS importacao (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                arquivo TEXT DEFAULT '',
+                criada_em TEXT NOT NULL,
+                criada_por INTEGER REFERENCES users(id),
+                total INTEGER DEFAULT 0,
+                novos INTEGER DEFAULT 0,
+                iguais INTEGER DEFAULT 0,
+                alterados INTEGER DEFAULT 0,
+                erros INTEGER DEFAULT 0,
+                avisos INTEGER DEFAULT 0
+            );
+
+            -- Linha a linha, com o ANTES e o DEPOIS de cada campo. E o que
+            -- deixa responder "por que este veiculo mudou de garagem?" meses
+            -- depois, sem depender da planilha original.
+            CREATE TABLE IF NOT EXISTS importacao_item (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                importacao_id INTEGER NOT NULL REFERENCES importacao(id) ON DELETE CASCADE,
+                linha INTEGER,
+                numero TEXT,
+                situacao TEXT NOT NULL,
+                veiculo_id INTEGER REFERENCES veiculos(id),
+                cliente_antes TEXT, cliente_depois TEXT,
+                garagem_antes TEXT, garagem_depois TEXT,
+                modelo_antes TEXT,  modelo_depois TEXT,
+                erro TEXT DEFAULT ''
             );
 
             -- Tempo parado ate o login cair sozinho (0 = desligado).

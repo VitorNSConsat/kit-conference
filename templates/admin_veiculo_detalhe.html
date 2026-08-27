@@ -319,4 +319,45 @@ function prepararVinculo(form) {
     return true;
 }
 </script>
+
+{#  O cadastro mostra como o veículo ESTÁ. Isto mostra como ele CHEGOU aqui:
+    cada planilha que passou por ele e o que ela mexeu. #}
+{% if importacoes %}
+<div class="card">
+  <h2>📥 Importações de planilha</h2>
+  <p style="color:#555;font-size:13px;margin:0 0 10px;">
+    Cada vez que uma planilha passou por este veículo, e o que ela mudou.
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Quando</th><th>Arquivo</th><th>Quem</th><th>Situação</th><th>O que mudou</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for i in importacoes %}
+        <tr>
+          <td>{{ i.criada_em }}</td>
+          <td>{{ i.arquivo or '—' }}</td>
+          <td>{{ i.autor or '—' }}</td>
+          <td><span class="conf-tag conf-tag-{{ i.situacao }}">{{ i.sinal }} {{ i.situacao_texto }}</span></td>
+          <td>
+            {% if i.mudancas %}
+              {% for m in i.mudancas %}
+              <div>{{ m.campo }}:
+                {% if m.antes %}<span class="conf-antes">{{ m.antes }}</span>
+                <span class="conf-seta">→</span>{% endif %}
+                <strong class="conf-depois">{{ m.depois or '(vazio)' }}</strong>
+              </div>
+              {% endfor %}
+            {% else %}<span style="color:#888;">Nada</span>{% endif %}
+            {% if i.erro %}<div class="conf-erro-texto">{{ i.erro }}</div>{% endif %}
+          </td>
+          <td><a href="/admin/veiculos/import/{{ i.importacao_id }}" class="btn btn-secondary btn-sm">Ver planilha</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

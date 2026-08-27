@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Importações de Veículos{% endblock %}
+{% block content %}
+{#  O histórico existe porque a pergunta quase nunca aparece no dia do upload —
+    ela aparece semanas depois ("esse veículo mudou de garagem, foi planilha?").
+    Sem esta lista, a única resposta era a memória de quem importou. #}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <h1 style="margin:0;">Importações de Veículos</h1>
+  <div style="display:flex;gap:8px;">
+    <a href="/admin/veiculos/import" class="btn btn-success">📥 Importar planilha</a>
+    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if importacoes %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Quando</th>
+          <th>Arquivo</th>
+          <th>Quem</th>
+          <th>Linhas</th>
+          <th>🟢 Novos</th>
+          <th>🔵 Já existentes</th>
+          <th>🟡 Alterados</th>
+          <th>🔴 Erros</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in importacoes %}
+        <tr>
+          <td>{{ i.criada_em }}</td>
+          <td>{{ i.arquivo or '—' }}</td>
+          <td>{{ i.autor or '—' }}</td>
+          <td>{{ i.total }}</td>
+          <td>{{ i.novos }}</td>
+          <td>{{ i.iguais }}</td>
+          <td>{{ i.alterados }}</td>
+          <td>{{ i.erros }}</td>
+          <td><a href="/admin/veiculos/import/{{ i.id }}" class="btn btn-secondary btn-sm">Conferir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="color:#888;margin:0;">
+    Nenhuma planilha importada ainda. As importações feitas daqui pra frente ficam
+    registradas aqui, linha a linha.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}
