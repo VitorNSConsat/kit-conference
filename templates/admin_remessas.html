@@ -64,230 +64,250 @@
 </p>
 
 <!-- ── Abertas agora ───────────────────────────────────────────────────── -->
+{# Uma remessa aberta por vez na tela: com quatro ou cinco em andamento, a
+   página virava um rolo e o operador perdia de vista qual estava montando.
+   Clicar numa fechada recarrega a página com ELA aberta — a exclusividade
+   vem do servidor, que é quem sabe os dados de quem está aberta. #}
 {% for r in abertas %}
-<div class="card" style="border-left:4px solid {{ 'var(--brand)' if alvo and r.id == alvo.id else '#dfe6ee' }};">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-    <div>
-      <h2 style="margin:0 0 2px;">{{ r.nome }}</h2>
-      <p style="color:#666;font-size:13px;margin:0;">
-        {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
-        {% else %}Todos os clientes{% endif %}
-        · aberta em {{ r.criada_em[:16] }}
-      </p>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+{% set atual = alvo and r.id == alvo.id %}
+<details class="card rem-item" {{ 'open' if atual }}
+         {% if not atual %}ontoggle="if (this.open) location = '/admin/producao/remessas?remessa_id={{ r.id }}';"{% endif %}
+         style="border-left:4px solid {{ 'var(--brand)' if atual else '#dfe6ee' }};">
+  <summary class="rem-resumo">
+    <span class="rem-resumo-nome">
+      {{ r.nome }}
+      <span style="font-size:12px;font-weight:400;color:#7a8794;">
+        {% if r.cliente %}· <span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
+        {% else %}· todos os clientes{% endif %}
+      </span>
+    </span>
+    <span class="rem-resumo-barra">
+      <span class="remessa-trilho"><span class="remessa-barra" style="width:{{ r.percentual }}%;"></span></span>
+    </span>
+    <strong class="rem-resumo-conta">{{ r.rotulo }}</strong>
+    <span class="rem-resumo-falta">
+      {% if r.completa %}✅ completa{% else %}faltam {{ r.faltam }}{% endif %}
+    </span>
+  </summary>
+
+  <div class="rem-corpo">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+      <p style="color:#666;font-size:13px;margin:0;">Aberta em {{ r.criada_em[:16] }}</p>
       <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a>
-      {% if pode('remessas_gerenciar') and not (alvo and r.id == alvo.id) %}
-      <a href="/admin/producao/remessas?remessa_id={{ r.id }}" class="btn btn-sm btn-primary">
-        ➕ Montar esta
-      </a>
+    </div>
+
+    {% if pode('remessas_gerenciar') %}
+    <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px;">
+      {# Editar nome, quantidade e cliente de uma vez: são os três dados da
+         remessa, e três formulários separados dariam três recarregamentos. #}
+      <form method="post" action="/admin/producao/remessas/{{ r.id }}/editar"
+            style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:11px;">Nome</label>
+          <input type="text" name="nome" value="{{ r.nome }}" style="width:170px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:11px;">Quantidade</label>
+          <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:100px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:11px;">Cliente</label>
+          <select name="cliente" style="width:170px;margin:0;">
+            <option value="">— todos —</option>
+            {% for c in clientes_cadastrados %}
+            <option value="{{ c.nome }}" {{ 'selected' if r.cliente == c.nome }}>{{ c.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
+      </form>
+      <form method="post" action="/admin/producao/remessas/{{ r.id }}/fechar"
+            onsubmit="return confirm('Fechar {{ r.nome }} em {{ r.rotulo }}? Ela vai pro histórico — mas dá pra reabrir depois.')">
+        <button type="submit" class="btn btn-sm btn-warning">🔒 Fechar</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- ── Montar a remessa (dentro da que está aberta) ─────────────────────── -->
+    {% if atual and pode('remessas_gerenciar') %}
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
+      <h3 style="font-size:15px;margin:0 0 6px;">➕ Acrescentar veículos</h3>
+      <p style="color:#666;font-size:13px;margin-top:0;">
+        Veículos de <strong>qualquer etapa</strong> — inclusive os que ainda nem foram bipados.
+        A lista traz só quem <strong>não está em remessa nenhuma</strong>: cada veículo entra em
+        um lote só.
+      </p>
+
+      <div class="busca-bloco">
+        <form method="get" action="/admin/producao/remessas" class="busca-form" style="margin:0;">
+          <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
+          {% for e in filtro_etapa %}<input type="hidden" name="etapa" value="{{ e }}">{% endfor %}
+          <input type="hidden" name="imp_ini" value="{{ imp_ini }}">
+          <input type="hidden" name="imp_fim" value="{{ imp_fim }}">
+          <input type="text" name="busca" value="{{ busca }}"
+                 placeholder="🔍 Buscar veículo, cliente, kit ou modelo...">
+          <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+        </form>
+
+        <form method="get" action="/admin/producao/remessas"
+              style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:10px 0 0;">
+          <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
+          <input type="hidden" name="busca" value="{{ busca }}">
+          <div style="min-width:230px;">
+            <label style="font-size:12px;color:#555;">Etapa</label>
+            {{ f.multi('etapa', 'Etapa', etapas, filtro_etapa, 'todas') }}
+          </div>
+          {# Filtrar por DATA DE IMPORTAÇÃO é o que transforma "a planilha do dia
+             25" num lote: filtra, marca todos, adiciona. #}
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;color:#555;">Importado de</label>
+            <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
+                   onchange="this.form.submit()">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;color:#555;">até</label>
+            <input type="date" name="imp_fim" value="{{ imp_fim }}" style="width:160px;margin:0;"
+                   onchange="this.form.submit()">
+          </div>
+          {% if busca or filtro_etapa or imp_ini or imp_fim %}
+          <a href="/admin/producao/remessas?remessa_id={{ alvo.id }}"
+             class="btn btn-sm btn-warning">✕ Limpar filtros</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <div id="bloco-candidatos">
+      {% if candidatos %}
+      <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/adicionar">
+        <input type="hidden" name="busca" value="{{ busca }}">
+        <input type="hidden" name="imp_ini" value="{{ imp_ini }}">
+        <input type="hidden" name="imp_fim" value="{{ imp_fim }}">
+        <div style="overflow-x:auto;max-height:440px;overflow-y:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:34px;">
+                <input type="checkbox" onclick="marcarTodosCandidatos(this)" style="width:auto;margin:0;"
+                       title="Marcar todos os desta lista">
+              </th>
+              <th>Veículo</th><th>Cliente</th><th>Kit</th><th>Etapa</th><th>Importado em</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k in candidatos %}
+            <tr class="filtro-item">
+              <td><input type="checkbox" name="ref" value="{{ k.ref }}" style="width:auto;margin:0;"></td>
+              <td><strong>{{ k.veiculo or '—' }}</strong></td>
+              <td>
+                {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td style="font-size:13px;">{{ k.kit_nome or '—' }}</td>
+              <td style="white-space:nowrap;">
+                <span class="badge-etapa badge-etapa-{{ k.etapa }}">
+                  {{ dict(etapas).get(k.etapa, k.etapa) }}
+                </span>
+              </td>
+              <td style="white-space:nowrap;font-size:12px;color:#888;">
+                {% if k.importado_em %}{{ k.importado_em[8:10] }}/{{ k.importado_em[5:7] }}
+                {{ k.importado_em[11:16] }}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:12px;">
+          ➕ Acrescentar selecionados a {{ alvo.nome }}
+        </button>
+        <span style="font-size:12px;color:#888;margin-left:8px;">
+          {{ candidatos | length }} veículo(s) na lista.
+        </span>
+      </form>
+      {% else %}
+      <p style="color:#888;font-size:14px;">
+        Nenhum veículo livre com esses filtros — ou todos já estão em alguma remessa.
+      </p>
+      {% endif %}
+      </div>
+
+      <!-- ── O que já está nesta remessa ──────────────────────────────────── -->
+      <h3 style="font-size:15px;margin:20px 0 6px;">Nesta remessa ({{ kits_do_alvo | length }})</h3>
+      {% if kits_do_alvo %}
+      {# Um formulário só pra seleção, com DUAS ações. Separar em dois obrigaria
+         a remarcar tudo quando o operador mudasse de ideia entre mover e tirar. #}
+      <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/selecionados"
+            id="form-selecionados" onsubmit="return confirmarLote(event)">
+        <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:34px;">
+                <input type="checkbox" onclick="marcarTodosNaRemessa(this)" style="width:auto;margin:0;"
+                       title="Marcar todos">
+              </th>
+              <th>Veículo</th><th>Cliente</th><th>Etapa</th><th>Entrou em</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k in kits_do_alvo %}
+            <tr>
+              <td>
+                <input type="checkbox" name="ref" value="{{ k.ref }}" class="sel-remessa"
+                       onchange="atualizarBarraLote()" style="width:auto;margin:0;">
+              </td>
+              <td><strong>{{ k.veiculo or '—' }}</strong></td>
+              <td>
+                {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td><span class="badge-etapa badge-etapa-{{ k.etapa }}">{{ k.etapa_texto }}</span></td>
+              <td style="white-space:nowrap;font-size:12px;color:#888;">{{ k.entrou_em[:16] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+
+        {# A barra de ações só aparece com algo marcado: parada e vazia, ela
+           ocupava espaço e sugeria um botão que não fazia nada. #}
+        <div id="barra-lote" class="rem-barra-lote" style="display:none;">
+          <strong><span id="conta-lote">0</span> selecionado(s)</strong>
+          {% if abertas | length > 1 %}
+          <span style="display:flex;gap:6px;align-items:center;">
+            <select name="destino_id" style="margin:0;width:auto;">
+              {% for outra in abertas if outra.id != alvo.id %}
+              <option value="{{ outra.id }}">{{ outra.nome }} ({{ outra.rotulo }})</option>
+              {% endfor %}
+            </select>
+            <button type="submit" name="acao" value="transferir" class="btn btn-sm btn-primary"
+                    title="Move numa operação só — tirar de uma e pôr na outra em dois passos deixa o veículo fora de qualquer lote no meio">
+              🔀 Transferir
+            </button>
+          </span>
+          {% endif %}
+          <button type="submit" name="acao" value="tirar" class="btn btn-sm btn-danger">
+            ✕ Tirar da remessa
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="limparSelecaoLote()">
+            Limpar seleção
+          </button>
+        </div>
+      </form>
+      {% else %}
+      <p style="color:#888;font-size:14px;">Nenhum veículo nesta remessa ainda.</p>
       {% endif %}
     </div>
-  </div>
-  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;">
-    <div style="font-size:34px;font-weight:800;color:var(--brand);line-height:1;">{{ r.rotulo }}</div>
-    <div style="flex:1;min-width:240px;">
-      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
-      <div style="font-size:12px;color:#7a8794;margin-top:4px;">
-        {% if r.completa %}✅ Alvo alcançado.
-        {% else %}Faltam <strong>{{ r.faltam }}</strong> veículo(s).{% endif %}
-      </div>
-    </div>
-    {% if pode('remessas_gerenciar') %}
-    {# Editar nome, quantidade e cliente de uma vez: são os três dados da
-       remessa, e três formulários separados dariam três recarregamentos. #}
-    <form method="post" action="/admin/producao/remessas/{{ r.id }}/editar"
-          style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:11px;">Nome</label>
-        <input type="text" name="nome" value="{{ r.nome }}" style="width:170px;margin:0;">
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:11px;">Quantidade</label>
-        <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:100px;margin:0;">
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:11px;">Cliente</label>
-        <select name="cliente" style="width:170px;margin:0;">
-          <option value="">— todos —</option>
-          {% for c in clientes_cadastrados %}
-          <option value="{{ c.nome }}" {{ 'selected' if r.cliente == c.nome }}>{{ c.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
-    </form>
-    <form method="post" action="/admin/producao/remessas/{{ r.id }}/fechar"
-          onsubmit="return confirm('Fechar {{ r.nome }} em {{ r.rotulo }}? Ela vai pro histórico — mas dá pra reabrir depois.')">
-      <button type="submit" class="btn btn-sm btn-warning">🔒 Fechar</button>
-    </form>
     {% endif %}
+
   </div>
-</div>
+</details>
 {% else %}
 <div class="alert alert-danger">
   ⚠️ <strong>Nenhuma remessa aberta.</strong> Sem uma aberta, os kits montados não entram em
   contagem nenhuma — e só dá pra acertar depois acrescentando à mão, aqui.
 </div>
 {% endfor %}
-
-<!-- ── Montar a remessa ────────────────────────────────────────────────── -->
-{% if alvo and pode('remessas_gerenciar') %}
-<div class="card">
-  <h2>➕ Acrescentar veículos a <span style="color:var(--brand);">{{ alvo.nome }}</span></h2>
-  <p style="color:#666;font-size:13px;margin-top:0;">
-    Veículos de <strong>qualquer etapa</strong> — inclusive os que ainda nem foram bipados.
-    A lista traz só quem <strong>não está em remessa nenhuma</strong>: cada veículo entra em
-    um lote só.
-  </p>
-
-  <div class="busca-bloco">
-    <form method="get" action="/admin/producao/remessas" class="busca-form" style="margin:0;">
-      <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
-      {% for e in filtro_etapa %}<input type="hidden" name="etapa" value="{{ e }}">{% endfor %}
-      <input type="hidden" name="imp_ini" value="{{ imp_ini }}">
-      <input type="hidden" name="imp_fim" value="{{ imp_fim }}">
-      <input type="text" name="busca" value="{{ busca }}"
-             placeholder="🔍 Buscar veículo, cliente, kit ou modelo...">
-      <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-    </form>
-
-    <form method="get" action="/admin/producao/remessas"
-          style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:10px 0 0;">
-      <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
-      <input type="hidden" name="busca" value="{{ busca }}">
-      <div style="min-width:230px;">
-        <label style="font-size:12px;color:#555;">Etapa</label>
-        {{ f.multi('etapa', 'Etapa', etapas, filtro_etapa, 'todas') }}
-      </div>
-      {# Filtrar por DATA DE IMPORTAÇÃO é o que transforma "a planilha do dia
-         25" num lote: filtra, marca todos, adiciona. #}
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:12px;color:#555;">Importado de</label>
-        <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
-               onchange="this.form.submit()">
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:12px;color:#555;">até</label>
-        <input type="date" name="imp_fim" value="{{ imp_fim }}" style="width:160px;margin:0;"
-               onchange="this.form.submit()">
-      </div>
-      {% if busca or filtro_etapa or imp_ini or imp_fim %}
-      <a href="/admin/producao/remessas?remessa_id={{ alvo.id }}"
-         class="btn btn-sm btn-warning">✕ Limpar filtros</a>
-      {% endif %}
-    </form>
-  </div>
-
-  <div id="bloco-candidatos">
-  {% if candidatos %}
-  <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/adicionar">
-    <input type="hidden" name="busca" value="{{ busca }}">
-    <input type="hidden" name="imp_ini" value="{{ imp_ini }}">
-    <input type="hidden" name="imp_fim" value="{{ imp_fim }}">
-    <div style="overflow-x:auto;max-height:440px;overflow-y:auto;">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:34px;">
-            <input type="checkbox" onclick="marcarTodosCandidatos(this)" style="width:auto;margin:0;"
-                   title="Marcar todos os desta lista">
-          </th>
-          <th>Veículo</th><th>Cliente</th><th>Kit</th><th>Etapa</th><th>Importado em</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for k in candidatos %}
-        <tr class="filtro-item">
-          <td><input type="checkbox" name="ref" value="{{ k.ref }}" style="width:auto;margin:0;"></td>
-          <td><strong>{{ k.veiculo or '—' }}</strong></td>
-          <td>
-            {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
-            {% else %}—{% endif %}
-          </td>
-          <td style="font-size:13px;">{{ k.kit_nome or '—' }}</td>
-          <td style="white-space:nowrap;">
-            <span class="badge-etapa badge-etapa-{{ k.etapa }}">
-              {{ dict(etapas).get(k.etapa, k.etapa) }}
-            </span>
-          </td>
-          <td style="white-space:nowrap;font-size:12px;color:#888;">
-            {% if k.importado_em %}{{ k.importado_em[8:10] }}/{{ k.importado_em[5:7] }}
-            {{ k.importado_em[11:16] }}{% else %}—{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:12px;">
-      ➕ Acrescentar selecionados a {{ alvo.nome }}
-    </button>
-    <span style="font-size:12px;color:#888;margin-left:8px;">
-      {{ candidatos | length }} veículo(s) na lista.
-    </span>
-  </form>
-  {% else %}
-  <p style="color:#888;font-size:14px;">
-    Nenhum veículo livre com esses filtros — ou todos já estão em alguma remessa.
-  </p>
-  {% endif %}
-  </div>
-
-  <!-- ── O que já está nesta remessa ──────────────────────────────────── -->
-  <h3 style="font-size:15px;margin:20px 0 6px;">Nesta remessa ({{ kits_do_alvo | length }})</h3>
-  {% if kits_do_alvo %}
-  <div style="overflow-x:auto;">
-  <table>
-    <thead>
-      <tr><th>Veículo</th><th>Cliente</th><th>Etapa</th><th>Entrou em</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for k in kits_do_alvo %}
-      <tr>
-        <td><strong>{{ k.veiculo or '—' }}</strong></td>
-        <td>
-          {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
-          {% else %}—{% endif %}
-        </td>
-        <td><span class="badge-etapa badge-etapa-{{ k.etapa }}">{{ k.etapa_texto }}</span></td>
-        <td style="white-space:nowrap;font-size:12px;color:#888;">{{ k.entrou_em[:16] }}</td>
-        <td>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-            {# Transferir num passo só: tirar de uma e pôr na outra em dois
-               movimentos deixa o veículo fora de qualquer lote no meio. #}
-            {% if abertas | length > 1 %}
-            <form method="post" action="/admin/producao/remessas/transferir"
-                  style="display:flex;gap:4px;align-items:center;">
-              <input type="hidden" name="ref" value="{{ k.ref }}">
-              <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
-              <select name="destino_id" style="margin:0;width:auto;font-size:12px;padding:3px 6px;">
-                {% for outra in abertas if outra.id != alvo.id %}
-                <option value="{{ outra.id }}">{{ outra.nome }}</option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="btn btn-sm btn-secondary" title="Mover para outra remessa">
-                🔀 Transferir
-              </button>
-            </form>
-            {% endif %}
-            <form method="post" action="/admin/producao/remessas/{{ alvo.id }}/remover"
-                  onsubmit="return confirm('Tirar {{ k.veiculo }} de {{ alvo.nome }}?');">
-              <input type="hidden" name="ref" value="{{ k.ref }}">
-              <button type="submit" class="btn btn-sm btn-danger">✕ Tirar</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% else %}
-  <p style="color:#888;font-size:14px;">Nenhum veículo nesta remessa ainda.</p>
-  {% endif %}
-</div>
-{% endif %}
 
 <!-- ── Abrir uma nova ──────────────────────────────────────────────────── -->
 {% if pode('remessas_gerenciar') %}
@@ -403,5 +423,47 @@ function marcarTodosCandidatos(fonte) {
         if (c) c.checked = fonte.checked;
     });
 }
+
+// ── Seleção múltipla dentro da remessa aberta ─────────────────────────────
+function _selecionadosNaRemessa() {
+    return Array.from(document.querySelectorAll('.sel-remessa:checked'));
+}
+function atualizarBarraLote() {
+    const barra = document.getElementById('barra-lote');
+    if (!barra) return;
+    const n = _selecionadosNaRemessa().length;
+    document.getElementById('conta-lote').textContent = n;
+    // A barra só existe quando há o que fazer: parada e vazia, ela ocupava
+    // espaço e sugeria um botão que não fazia nada.
+    barra.style.display = n ? 'flex' : 'none';
+}
+function marcarTodosNaRemessa(fonte) {
+    document.querySelectorAll('.sel-remessa').forEach(function (c) {
+        c.checked = fonte.checked;
+    });
+    atualizarBarraLote();
+}
+function limparSelecaoLote() {
+    document.querySelectorAll('.sel-remessa').forEach(function (c) { c.checked = false; });
+    const todos = document.querySelector('#form-selecionados thead input[type=checkbox]');
+    if (todos) todos.checked = false;
+    atualizarBarraLote();
+}
+function confirmarLote(ev) {
+    // Tirar apaga o vínculo: pergunta antes. Transferir só muda de lote e o
+    // resultado fica na tela, então não precisa de confirmação.
+    const acao = ev.submitter ? ev.submitter.value : '';
+    const n = _selecionadosNaRemessa().length;
+    if (!n) {
+        alert('Marque ao menos um veículo.');
+        return false;
+    }
+    if (acao === 'tirar') {
+        return confirm('Tirar ' + n + ' veículo(s) desta remessa? Eles voltam pra lista de '
+                     + 'disponíveis e podem ser acrescentados de novo.');
+    }
+    return true;
+}
+document.addEventListener('DOMContentLoaded', atualizarBarraLote);
 </script>
 {% endblock %}

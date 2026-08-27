@@ -4051,6 +4051,41 @@ async def admin_remessa_remover(request: Request, remessa_id: int):
     return RedirectResponse(_volta_remessa(remessa_id, "ok=removido"), status_code=302)
 
 
+@app.post("/admin/producao/remessas/{remessa_id}/selecionados")
+@require_permission("remessas_gerenciar")
+async def admin_remessa_selecionados(request: Request, remessa_id: int):
+    """Um formulário, duas ações: transferir os marcados pra outra remessa ou
+    tirá-los desta.
+
+    Ficam juntos porque a seleção é a mesma — separar em dois formulários
+    obrigaria a remarcar tudo quando o operador mudasse de ideia entre
+    "mover" e "tirar"."""
+    form = await request.form()
+    refs = [r for r in form.getlist("ref") if str(r).strip()]
+    acao = str(form.get("acao", ""))
+    if not refs:
+        return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(
+            "Marque ao menos um veículo.")), status_code=302)
+    try:
+        if acao == "transferir":
+            r = remessas_mod.transferir_varios(
+                refs, int(form.get("destino_id") or 0),
+                (get_current_user(request) or {}).get("id"))
+            destino = r["destino"]["id"] if r.get("destino") else remessa_id
+            extra = f"ok=movidos&n={r['movidos']}"
+            if r["recusados"]:
+                extra += "&recusados=" + quote(" · ".join(r["recusados"][:4]))
+            return RedirectResponse(_volta_remessa(destino, extra), status_code=302)
+        r = remessas_mod.remover_varios(remessa_id, refs)
+        extra = f"ok=tirados&n={r['tirados']}"
+        if r["recusados"]:
+            extra += "&recusados=" + quote(" · ".join(r["recusados"][:4]))
+        return RedirectResponse(_volta_remessa(remessa_id, extra), status_code=302)
+    except ValueError as e:
+        return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
+                                status_code=302)
+
+
 @app.post("/admin/producao/remessas/abrir")
 @require_permission("remessas_gerenciar")
 async def admin_remessa_abrir(request: Request):

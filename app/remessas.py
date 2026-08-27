@@ -605,6 +605,80 @@ def transferir(ref: str, destino_id: int, user_id: int = None) -> dict:
     return {"origem": listar_uma(origem_id), "destino": listar_uma(destino["id"])}
 
 
+def transferir_varios(refs: list, destino_id: int, user_id: int = None) -> dict:
+    """Move VARIOS itens de uma vez pra outra remessa.
+
+    Item a item, o operador que seleciona dez e erra um levaria a operacao
+    inteira pro chao (ou pior: metade movida, metade nao, sem saber qual).
+    Aqui cada um e tentado por conta propria e o resultado diz quantos
+    entraram e por que os outros ficaram — nomeando os veiculos, porque
+    "3 falharam" nao ajuda ninguem a consertar."""
+    destino = listar_uma(int(destino_id or 0))
+    if not destino:
+        raise ValueError("Escolha a remessa de destino.")
+    if destino["status"] != "aberta":
+        raise ValueError(f"A remessa {destino['nome']} esta {_situacao(destino)}. "
+                         "So da pra receber item em remessa aberta.")
+    movidos, recusados = 0, []
+    origens = set()
+    for ref in [r for r in refs if str(r).strip()]:
+        try:
+            with db() as conn:
+                kit_id, veiculo_id = _ler_ref(ref)
+                atual = conn.execute(
+                    "SELECT remessa_id FROM remessa_kit WHERE "
+                    "(kit_id IS NOT NULL AND kit_id = ?) OR "
+                    "(veiculo_id IS NOT NULL AND veiculo_id = ?)",
+                    (kit_id, veiculo_id)).fetchone()
+            if atual:
+                origens.add(atual["remessa_id"])
+            transferir(ref, destino_id, user_id)
+            movidos += 1
+        except ValueError as e:
+            recusados.append(_rotulo_do_ref(ref) + ": " + str(e))
+    return {"movidos": movidos, "recusados": recusados,
+            "destino": listar_uma(destino["id"]),
+            "origens": [listar_uma(o) for o in origens if o]}
+
+
+def remover_varios(remessa_id: int, refs: list) -> dict:
+    """Tira varios itens da remessa de uma vez — o desfazer em lote."""
+    r = listar_uma(remessa_id)
+    if not r:
+        raise ValueError("Remessa nao encontrada.")
+    if r["status"] != "aberta":
+        raise ValueError(f"A remessa {r['nome']} esta {_situacao(r)}. "
+                         "Reabra antes de tirar itens dela.")
+    tirados, recusados = 0, []
+    for ref in [x for x in refs if str(x).strip()]:
+        try:
+            if remover_item(remessa_id, ref):
+                tirados += 1
+            else:
+                recusados.append(_rotulo_do_ref(ref) + ": nao estava nesta remessa")
+        except ValueError as e:
+            recusados.append(_rotulo_do_ref(ref) + ": " + str(e))
+    return {"tirados": tirados, "recusados": recusados}
+
+
+def _rotulo_do_ref(ref: str) -> str:
+    """O NUMERO do veiculo, que e como o operador chama o item — nao o kit_id,
+    que ele nunca viu."""
+    kit_id, veiculo_id = _ler_ref(ref)
+    with db() as conn:
+        if kit_id:
+            row = conn.execute("SELECT veiculo FROM kit_record WHERE kit_id = ?",
+                               (kit_id,)).fetchone()
+            if row and row["veiculo"]:
+                return str(row["veiculo"])
+        if veiculo_id:
+            row = conn.execute("SELECT numero FROM veiculos WHERE id = ?",
+                               (veiculo_id,)).fetchone()
+            if row:
+                return str(row["numero"])
+    return str(ref)
+
+
 def remover_item(remessa_id: int, ref: str) -> bool:
     """Tira um item da remessa — o desfazer de quem acrescentou o errado.
 

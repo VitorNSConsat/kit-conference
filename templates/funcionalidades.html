@@ -868,6 +868,37 @@
     envio</em>. Ver o contador e baixar a planilha não exige — acompanhar não é mexer.
   </div>
 
+  <h4>🗂️ Uma remessa por vez na tela</h4>
+  <p>
+    Em <strong>📦 Remessas</strong>, cada remessa aberta é uma <strong>lista que abre</strong>:
+    fechada, mostra só o essencial — nome, cliente, o contador e a barra. Clicando nela, ela
+    abre e <strong>as outras fecham</strong>. Com quatro ou cinco em andamento, a página
+    virava um rolo e o operador perdia de vista qual estava montando.
+  </p>
+  <p>
+    Tudo o que se faz com aquela remessa fica <strong>dentro dela</strong>: editar nome,
+    quantidade e cliente, fechar, baixar a planilha, acrescentar veículos e mexer nos que já
+    estão lá. Não há dúvida sobre em qual remessa o botão vai agir.
+  </p>
+
+  <h4>☑️ Mexer em vários veículos de uma vez</h4>
+  <p>
+    Na lista <span class="campo">Nesta remessa</span>, cada linha tem uma caixinha — e o
+    cabeçalho marca todas. Com algo marcado, aparece a barra de ações:
+  </p>
+  <ul>
+    <li><span class="campo">🔀 Transferir</span> — escolhe a remessa de destino e move
+      <strong>todos os marcados de uma vez</strong>, numa operação só.</li>
+    <li><span class="campo">✕ Tirar da remessa</span> — tira os marcados; eles voltam pra
+      lista de disponíveis e podem ser acrescentados de novo.</li>
+  </ul>
+  <div class="nota">
+    <strong>Um veículo recusado não derruba os outros.</strong> Cada um é tentado por conta
+    própria: os que puderam ir, vão; os que não puderam aparecem <strong>pelo número do
+    veículo</strong>, com o motivo (“4000: Só REDEMOB é uma remessa de REDEMOB, e este
+    veículo é de VIACAO SUL”). “3 falharam” não ajudaria ninguém a consertar.
+  </div>
+
   <h4>Acrescentar à mão os veículos que já se passaram</h4>
   <p>
     Em <strong>📦 Remessas</strong>, escolhendo uma remessa aberta, aparece
@@ -879,8 +910,9 @@
     <li>É pros kits <strong>montados antes de a remessa existir</strong>, ou enquanto
       nenhuma estava aberta. Sem isso, o único jeito de acertar o lote seria refazer a
       bipagem.</li>
-    <li><span class="campo">✂️ Tirar</span> desfaz: o kit sai da remessa e volta a aparecer
-      na lista de disponíveis. Serve pra quem marcou errado.</li>
+    <li>Desfazer é pela seleção: marque os que entraram errado em
+      <span class="campo">Nesta remessa</span> e use <span class="campo">✕ Tirar da
+      remessa</span>. Eles voltam pra lista de disponíveis.</li>
     <li><strong>Kit que já está em outra remessa é ignorado</strong>, e a tela diz quantos
       foram — cada kit entra em um lote só.</li>
     <li>Numa remessa <strong>de um cliente</strong>, veículo de outro cliente é recusado, do
@@ -931,9 +963,10 @@
     <li><strong>Editar</strong> nome, quantidade e cliente — em <strong>qualquer</strong>
       status, inclusive de remessa fechada. Corrigir dado administrativo não mexe em
       produção, bipagem, patrimônio nem estoque.</li>
-    <li><strong>Transferir</strong> um veículo de uma remessa pra outra num passo só. Tirar de
-      uma e pôr na outra em dois movimentos deixaria o veículo fora de qualquer lote no
-      meio — e dá pra esquecer o segundo passo.</li>
+    <li><strong>Transferir</strong> um veículo — ou <strong>vários marcados</strong> — de uma
+      remessa pra outra num passo só. Tirar de uma e pôr na outra em dois movimentos
+      deixaria o veículo fora de qualquer lote no meio, e dá pra esquecer o segundo
+      passo.</li>
     <li><strong>Reabrir</strong> uma remessa fechada ou arquivada, pra poder acrescentar e
       tirar veículos dela de novo.</li>
     <li><strong>Tirar</strong> um veículo — só de remessa <em>aberta</em>. Fechada é

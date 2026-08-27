@@ -920,6 +920,29 @@ a.marca-cliente:hover { text-decoration: underline; }
 .badge-etapa-transito    { background: #ede6fa; color: #6b3fb5; }
 .badge-etapa-no_cliente  { background: #e4f4f2; color: #0f766e; }
 
+/* ── Remessa como lista que abre ──────────────────────────────────────────
+   Uma aberta por vez: com quatro ou cinco em andamento, a página virava um
+   rolo e o operador perdia de vista qual estava montando. */
+details.rem-item { padding: 0; }
+details.rem-item > summary { cursor: pointer; list-style: none; padding: 16px 22px; }
+details.rem-item > summary::-webkit-details-marker { display: none; }
+details.rem-item > summary::before { content: '▸'; color: #9aa7b4; margin-right: 8px; }
+details.rem-item[open] > summary::before { content: '▾'; }
+details.rem-item > summary:hover { background: #f7f9fb; }
+.rem-resumo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.rem-resumo-nome { font-size: 16px; font-weight: 800; color: var(--brand); flex: 1; min-width: 180px; }
+.rem-resumo-barra { flex: 1; min-width: 120px; max-width: 260px; }
+.rem-resumo-conta { font-size: 20px; color: var(--brand); white-space: nowrap; }
+.rem-resumo-falta { font-size: 12px; color: #7a8794; white-space: nowrap; }
+.rem-corpo { padding: 0 22px 22px; }
+
+/* Barra de ações da seleção múltipla — some quando nada está marcado. */
+.rem-barra-lote {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 12px; padding: 10px 14px;
+    background: #eef4fb; border: 1px solid #bcd4ee; border-radius: 10px;
+}
+
 /* ── Barra da remessa ─────────────────────────────────────────────────────
    O "45/90" em forma de barra: o número diz quanto, a barra diz quão perto —
    e é a segunda que se lê de longe, passando pela tela. */
