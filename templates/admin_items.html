@@ -103,7 +103,7 @@
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
 {% if tipo_com_erro %}
-<div class="alert alert-warning" style="border:1px solid #f0a500;">
+<div class="alert alert-warning" style="border:1px solid var(--warn-text);">
     <strong>{{ ic.svg('alerta', 14) }} Não foi possível excluir "{{ tipo_com_erro.tipo_nome }}"</strong> — ele está em uso:
     <ul style="margin:8px 0 8px 16px; font-size:13px;">
         {% if tipo_com_erro.patrimonios %}
@@ -150,7 +150,7 @@
         <div id="bloco-importar-ajuste" style="display:none;background:var(--surface-alt);
              border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
           <h3 style="font-size:15px;margin:0 0 6px;">Atualizar estoque pela planilha</h3>
-          <p style="color:#666;font-size:13px;margin:0 0 10px;">
+          <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">
             Baixe <strong>Baixar p/ Ajuste</strong>, altere as colunas de quantidade, mínima
             e status de compra, e devolva o arquivo aqui. Célula em branco significa
             <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
@@ -174,7 +174,7 @@
           </form>
         </div>
         {% endif %}
-        <p style="color:#666;font-size:13px;margin-top:4px;">
+        <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">
             Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
             para configurar medida, reutilização, código da caixa e estoque.
             A exportação em Excel traz a relação atual e o histórico completo de movimentações.
@@ -213,7 +213,7 @@
             <strong>{{ tipos | length }}</strong> tipo(s)
             {%- if busca %} para <strong>{{ busca }}</strong>{% endif %}
             {%- if q_situacao or q_min or q_max %} com o filtro de quantidade{% endif %}
-            <span style="color:#888;">(de {{ total_tipos }} no total)</span>
+            <span style="color:var(--text-muted-2);">(de {{ total_tipos }} no total)</span>
         </p>
         {% endif %}
         {% if tipos %}
@@ -232,7 +232,7 @@
             {% set proximo = nivel == 'atencao' or (est and not abaixo
                              and est.quantidade_atual <= est.quantidade_minima * 2) %}
             <tr class="filtro-item">
-                <td style="font-family:monospace;font-size:12px;color:{{ '#555' if est else '#ccc' }};white-space:nowrap;">
+                <td style="font-family:monospace;font-size:12px;color:{{ 'var(--text-muted)' if est else 'var(--text-muted-2)' }};white-space:nowrap;">
                     {{ est.codigo_barra if est else '—' }}
                 </td>
                 <td>
@@ -278,7 +278,7 @@
                     <span class="badge badge-info" style="margin-left:6px;">{{ status_compra_opcoes.get(est.status_compra, est.status_compra) }}</span>
                     {% endif %}
                     {% else %}
-                    <span style="font-size:12px;color:#bbb;">— sem estoque —</span>
+                    <span style="font-size:12px;color:var(--text-muted-2);">— sem estoque —</span>
                     {% endif %}
                 </td>
                 <td style="text-align:center;">
@@ -511,7 +511,7 @@
         <div id="popup-overlay" onclick="fecharPopup()"></div>
 
         {% else %}
-        <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "Novo Item".</p>
+        <p style="color:var(--text-muted-2);">Nenhum tipo cadastrado ainda. Cadastre na aba "Novo Item".</p>
         {% endif %}
         </div>{# /bloco-catalogo #}
     </div>
@@ -521,7 +521,7 @@
 <div id="tab-novo" class="tab-panel" style="display:{{ 'block' if aba == 'novo' else 'none' }};">
     <div class="card">
         <h2>Cadastrar Novo Item</h2>
-        <p style="color:#666;font-size:13px;margin-bottom:16px;">
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
             Cadastre o tipo do item e, se ele tiver controle de quantidade (ex: caixa de
             parafusos, rolo de cabo), já atribua o código de barras e a quantidade em estoque —
             tudo em um só passo.
@@ -547,32 +547,30 @@
                 </div>
             </div>
 
-            <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
-            <div style="background:#f0f8f4;border:1.5px solid var(--ok-text);border-radius:10px;padding:16px;">
-                <p style="font-weight:700;color:var(--text);margin-bottom:4px;">Estoque (opcional)</p>
-                <p style="font-size:12px;color:#888;margin-bottom:14px;">
-                    Preencha se este item tiver <strong>um único código de barras</strong> para o
-                    lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
-                    for um patrimônio individual (cada peça com seu próprio código, cadastrado na
-                    aba "Itens Cadastrados").
-                </p>
+            <hr style="margin:16px 0;border:none;border-top:1px solid var(--border-subtle);">
+            <p style="font-weight:700;color:var(--text);margin-bottom:4px;">Estoque (opcional)</p>
+            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:14px;">
+                Preencha se este item tiver <strong>um único código de barras</strong> para o
+                lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
+                for um patrimônio individual (cada peça com seu próprio código, cadastrado na
+                aba "Itens Cadastrados").
+            </p>
+            <div class="form-group">
+                <label>Código de Barras</label>
+                <input type="text" name="codigo_barra" placeholder="Bipe ou digite">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <div class="form-group">
-                    <label>Código de Barras</label>
-                    <input type="text" name="codigo_barra" placeholder="Bipe ou digite">
+                    <label>Quantidade Inicial</label>
+                    <input type="number" name="quantidade" value="0" min="0"
+                           style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
+                    <div style="font-size:11px;color:var(--text-muted-2);margin-top:2px;">Quanto já existe hoje no estoque</div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                    <div class="form-group">
-                        <label>Quantidade Inicial</label>
-                        <input type="number" name="quantidade" value="0" min="0"
-                               style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
-                        <div style="font-size:11px;color:#999;margin-top:2px;">Quanto já existe hoje no estoque</div>
-                    </div>
-                    <div class="form-group">
-                        <label>Mínimo (alerta)</label>
-                        <input type="number" name="quantidade_minima" value="5" min="0"
-                               style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
-                        <div style="font-size:11px;color:#999;margin-top:2px;">Dispara alerta abaixo desse valor</div>
-                    </div>
+                <div class="form-group">
+                    <label>Mínimo (alerta)</label>
+                    <input type="number" name="quantidade_minima" value="5" min="0"
+                           style="font-size:18px;font-weight:700;text-align:center;padding:12px;">
+                    <div style="font-size:11px;color:var(--text-muted-2);margin-top:2px;">Dispara alerta abaixo desse valor</div>
                 </div>
             </div>
             <button type="submit" class="btn btn-primary" style="margin-top:16px;">Cadastrar</button>
@@ -583,7 +581,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <h2 style="margin:0;">Importar BOM</h2>
         </div>
-        <p style="font-size:12px;color:#555;line-height:1.5;margin:8px 0 12px;">
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 12px;">
             Planilha com colunas <strong>Description</strong> (tipo do item) e
             <strong>Code</strong> (código de barras, opcional).
             Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.
@@ -600,7 +598,7 @@
 <div id="tab-patrimonios" class="tab-panel" style="display:{{ 'block' if aba == 'patrimonios' else 'none' }};">
     <div class="card">
         <h2 style="margin-bottom:4px;">Itens Cadastrados no Sistema</h2>
-        <p style="color:#666;font-size:13px;margin-top:0;margin-bottom:14px;">
+        <p style="color:var(--text-muted);font-size:13px;margin-top:0;margin-bottom:14px;">
             Um item por linha: <strong>que peça é</strong>, <strong>em que veículo
             está</strong> e <strong>como ela chegou lá</strong>. Cada patrimônio nasce
             sozinho na bipagem — esta tela é pra <em>encontrar</em> um e
@@ -632,7 +630,7 @@
                   style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:10px 0 0;">
                 <input type="hidden" name="tab" value="patrimonios">
                 <div style="min-width:220px;">
-                    <label style="font-size:12px;color:#555;">Veículo</label>
+                    <label style="font-size:12px;color:var(--text-muted);">Veículo</label>
                     <select name="veiculo_id" onchange="this.form.submit()" style="margin:0;">
                         <option value="">Todos os veículos</option>
                         {% for v in veiculos_todos %}
@@ -643,7 +641,7 @@
                     </select>
                 </div>
                 <div style="min-width:260px;">
-                    <label style="font-size:12px;color:#555;">Situação</label>
+                    <label style="font-size:12px;color:var(--text-muted);">Situação</label>
                     {{ f.multi('situacao', 'Situação', [
                          ('ok', 'Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
                          ('nunca_bipado', 'Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
@@ -720,14 +718,14 @@
                             <code>{{ item.codigo_barra }}</code> {{ ic.svg('editar', 12) }}
                         </button>
                         {% if item.serial_atual %}
-                        <div style="font-size:11px;color:#999;font-family:monospace;">
+                        <div style="font-size:11px;color:var(--text-muted-2);font-family:monospace;">
                             série {{ item.serial_atual }}
                         </div>
                         {% endif %}
                     </td>
                     <td>
                         {{ item.descricao }}
-                        <div style="font-size:11px;color:#aaa;">
+                        <div style="font-size:11px;color:var(--text-muted-2);">
                             cadastrado em {{ item.criado_em[:10] if item.criado_em else '—' }}
                         </div>
                     </td>
@@ -743,7 +741,7 @@
                            style="text-decoration:none;" title="Abrir o cadastro do veículo">↗</a>
                         {% endif %}
                         {% if item.operador_atual %}
-                        <div style="font-size:11px;color:#999;">bipado por {{ item.operador_atual }}</div>
+                        <div style="font-size:11px;color:var(--text-muted-2);">bipado por {{ item.operador_atual }}</div>
                         {% endif %}
                         {% else %}
                         <span style="color:var(--warn-text);font-size:13px;" title="{{ item.situacao_texto }}">
@@ -772,7 +770,7 @@
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum patrimônio registrado.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted-2);">Nenhum patrimônio registrado.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -800,7 +798,7 @@
     <!-- Gerador de etiqueta avulsa (sem item_tipo/estoque) -->
     <div class="card" style="border:1.5px solid var(--brand-ink);">
         <h2 style="margin-bottom:4px;">Gerar Nova Etiqueta</h2>
-        <p style="font-size:13px;color:#666;margin-top:0;margin-bottom:12px;">
+        <p style="font-size:13px;color:var(--text-muted);margin-top:0;margin-bottom:12px;">
             Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
             etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
             conjunto/componente usados na hora de montar um kit. Todo código gerado aqui
@@ -815,7 +813,7 @@
 
     <div class="card">
         <h2 style="margin-bottom:4px;">Códigos Já Gerados</h2>
-        <p style="color:#666;font-size:13px;margin-top:0;">
+        <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
             Clique no código pra corrigir o texto — o patrimônio que usa esse código é
             atualizado junto. Marque como reciclável os códigos reaproveitados em mais de um
             kit: isso libera o tipo do item pra ser bipado em vários kits ativos ao mesmo
@@ -866,8 +864,8 @@
                             </div>
                         </form>
                     </td>
-                    <td style="font-size:12px;color:#888;">{{ c.criado_em[:16] if c.criado_em else '—' }}</td>
-                    <td style="font-size:12px;color:#888;">{{ c.criado_por_nome or '—' }}</td>
+                    <td style="font-size:12px;color:var(--text-muted-2);">{{ c.criado_em[:16] if c.criado_em else '—' }}</td>
+                    <td style="font-size:12px;color:var(--text-muted-2);">{{ c.criado_por_nome or '—' }}</td>
                     <td>
                         <form method="post" action="/admin/codigos-gerados/{{ c.id }}/toggle-reciclavel">
                             <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if c.reciclavel }}"
@@ -884,7 +882,7 @@
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "Gerar Nova Etiqueta" acima.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:var(--text-muted-2);">Nenhum código gerado ainda. Use "Gerar Nova Etiqueta" acima.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -910,7 +908,7 @@
 <div id="tab-sobressalentes" class="tab-panel" style="display:{{ 'block' if aba == 'sobressalentes' else 'none' }};">
     <div class="card">
         <h2 style="margin-bottom:4px;">Peças Sobressalentes</h2>
-        <p style="color:#666;font-size:13px;margin-top:0;">
+        <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
             Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza.
             Escolha o cliente pra ver o que já foi enviado e registrar um novo envio.
         </p>
@@ -939,7 +937,7 @@
         </form>
 
         {% if sobressalente_cliente %}
-        <div style="background:#f7f7f7;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <div style="background:var(--surface-alt);border-radius:8px;padding:14px;margin-bottom:20px;">
             <h3 style="margin:0 0 10px;font-size:14px;">Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
             {# Várias peças num envio só: antes era um item por vez, e mandar
                cinco peças pro mesmo cliente exigia repetir o formulário
@@ -952,7 +950,7 @@
                         ＋ Adicionar outro item
                     </button>
                     <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Enviar (<span id="qtd-linhas-sobr">1</span>)</button>
-                    <span style="font-size:12px;color:#888;">
+                    <span style="font-size:12px;color:var(--text-muted-2);">
                         Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.
                     </span>
                 </div>
@@ -998,17 +996,17 @@
                 <td><strong>{{ r.tipo_nome }}</strong></td>
                 <td>{{ r.quantidade }}</td>
                 <td>{{ r.operador_nome or '—' }}</td>
-                <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+                <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
             </tr>
             {% endfor %}
             </tbody>
         </table>
         </div>
         {% else %}
-        <p style="color:#888;text-align:center;padding:16px;">Nenhum sobressalente enviado pra {{ sobressalente_cliente }} nesse período.</p>
+        <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhum sobressalente enviado pra {{ sobressalente_cliente }} nesse período.</p>
         {% endif %}
         {% else %}
-        <p style="color:#888;text-align:center;padding:24px;">Selecione um cliente acima pra ver e registrar envios.</p>
+        <p style="color:var(--text-muted-2);text-align:center;padding:24px;">Selecione um cliente acima pra ver e registrar envios.</p>
         {% endif %}
     </div>
 </div>
@@ -1038,21 +1036,21 @@
       <div style="display:flex;gap:14px;flex-wrap:wrap;">
         <div class="form-group" style="margin:0;">
           <label>Perto do mínimo (%)
-            <span style="font-weight:400;color:#888;font-size:11px;">0 = só no mínimo ou abaixo</span>
+            <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">0 = só no mínimo ou abaixo</span>
           </label>
           <input type="number" name="alerta_margem" min="0" max="200"
                  value="{{ alerta_config.alerta_margem }}" style="width:110px;margin:0;">
         </div>
         <div class="form-group" style="margin:0;">
           <label>Itens na faixa
-            <span style="font-weight:400;color:#888;font-size:11px;">0 = todos</span>
+            <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">0 = todos</span>
           </label>
           <input type="number" name="alerta_limite" min="0" max="99"
                  value="{{ alerta_config.alerta_limite }}" style="width:100px;margin:0;">
         </div>
         <div class="form-group" style="margin:0;">
           <label>Some depois de (s)
-            <span style="font-weight:400;color:#888;font-size:11px;">0 = fica até fechar</span>
+            <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">0 = fica até fechar</span>
           </label>
           <input type="number" name="alerta_segundos" min="0" max="600"
                  value="{{ alerta_config.alerta_segundos }}" style="width:120px;margin:0;">
@@ -1092,7 +1090,7 @@ function fecharModalAvisos() {
     document.getElementById('modal-fundo-avisos').classList.remove('aberto');
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModalAvisos(); });
-</script>
+
 // Abre/fecha o bloco de importação de ajuste do estoque.
 // ── Sobressalentes: várias peças num envio só ─────────────────────────────
 // Clona a linha modelo do <template>, então as opções de item vêm prontas do
@@ -1131,8 +1129,7 @@ function abrirImportarAjuste() {
     const b = document.getElementById('bloco-importar-ajuste');
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
 }
-</script>
-<script>
+
 let _popupAberto = null;
 
 function abrirPopup(event, tipoId) {

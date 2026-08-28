@@ -10,7 +10,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
             <h2 style="margin:0;">Criar Kit a partir do BOM</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:#666;">
+            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">
                 Importa Description e Quantity da planilha e cria o template já com todos os itens.
                 Após a criação você pode editar livremente.
             </p>
@@ -49,7 +49,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
             <h2 style="margin:0;">Importar Planilha do Pedido</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:#666;">
+            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">
                 Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
                 <strong>CDT</strong> e <strong>ID Hardware</strong> — uma linha por unidade. O número do
                 pedido é detectado automaticamente: pode vir numa coluna <strong>Pedido</strong> (repetida
@@ -122,7 +122,7 @@
                     {{ c.autonomia_kit }} kit{{ 's' if c.autonomia_kit != 1 }}
                 </span>
                 {% if c.gargalo %}
-                <div style="font-size:10px;color:#999;">trava em: {{ c.gargalo }}</div>
+                <div style="font-size:10px;color:var(--text-muted-2);">trava em: {{ c.gargalo }}</div>
                 {% endif %}
                 {% if c.confianca != 'ok' %}
                 <div style="font-size:10px;color:var(--warn-text);">
@@ -130,7 +130,7 @@
                 </div>
                 {% endif %}
                 {% else %}
-                <span style="color:#bbb;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
                 {% endif %}
             </td>
             {% endif %}
@@ -168,7 +168,7 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="text-align:center;color:#888;">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
+        <tr><td colspan="6" style="text-align:center;color:var(--text-muted-2);">Nenhum {{ label|lower }} cadastrado ainda.</td></tr>
         {% endfor %}
         </tbody>
     </table>
@@ -220,7 +220,7 @@
                     {{ ic.svg('mais', 15) }} Inserir todos os itens
                 </button>
             </div>
-            <p style="font-size:12px;color:#888;margin-bottom:10px;">
+            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:10px;">
                 Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
             </p>
 
@@ -242,16 +242,16 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
+            <p style="color:var(--text-muted-2);font-size:13px;background:var(--surface-alt);padding:12px;border-radius:8px;margin-bottom:12px;">
                 Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
             </p>
             {% endif %}
 
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
                 <strong>Itens selecionados</strong>
-                <span id="contagem-sel-{{ tipo }}" style="font-size:13px;color:#888;"></span>
+                <span id="contagem-sel-{{ tipo }}" style="font-size:13px;color:var(--text-muted-2);"></span>
             </div>
-            <div id="msg-vazio-{{ tipo }}" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;">
+            <div id="msg-vazio-{{ tipo }}" style="color:var(--text-muted-2);font-size:13px;text-align:center;padding:16px;background:var(--surface-alt);border-radius:8px;margin-bottom:12px;">
                 Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
             </div>
             <div id="itens-container-{{ tipo }}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
@@ -306,7 +306,7 @@
 <div id="tab-conjuntos" class="tab-panel" style="display:none;">
     <div class="card">
         <h2 style="margin-top:0;">Conjuntos</h2>
-        <p style="font-size:13px;color:#666;margin-bottom:14px;">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
             Itens com o mesmo código de conjunto são bipados e conferidos juntos — marcar um deles marca
             os outros automaticamente. Desligue "Verifica em conjunto" pra um conjunto específico exigir
             conferência item a item na tela de verificação (exceção, ex: um kit que precisa de checagem manual).
@@ -315,7 +315,7 @@
         {% for t in conjuntos %}
         <details class="conjunto-template-details">
             <summary>
-                <span><strong>{{ t.template_nome }}</strong> <span style="font-weight:400;color:#888;">— {{ t.template_cliente }}</span></span>
+                <span><strong>{{ t.template_nome }}</strong> <span style="font-weight:400;color:var(--text-muted-2);">— {{ t.template_cliente }}</span></span>
                 <span class="conjunto-count-badge">{{ t.conjuntos | length }} conjunto{{ 's' if t.conjuntos | length != 1 else '' }}</span>
             </summary>
             <table style="margin:0;">
@@ -326,7 +326,7 @@
                     {% for c in t.conjuntos %}
                     <tr>
                         <td style="font-family:monospace;">{{ c.componente_codigo }}</td>
-                        <td style="font-size:13px;color:#555;">{{ c.itens }}</td>
+                        <td style="font-size:13px;color:var(--text-muted);">{{ c.itens }}</td>
                         <td>
                             <form method="post"
                                   action="/admin/templates/{{ t.kit_template_id }}/conjunto/verificar-em-conjunto"
@@ -345,7 +345,7 @@
         </details>
         {% endfor %}
         {% else %}
-        <p style="color:#aaa;font-size:13px;">Nenhum conjunto configurado ainda — defina um "Código do Conjunto" nos itens de um kit.</p>
+        <p style="color:var(--text-muted-2);font-size:13px;">Nenhum conjunto configurado ainda — defina um "Código do Conjunto" nos itens de um kit.</p>
         {% endif %}
     </div>
 </div>
@@ -353,7 +353,7 @@
 {% block scripts %}
 <style>
 .conjunto-template-details {
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--border);
     border-radius: 8px;
     margin-bottom: 10px;
     overflow: hidden;
@@ -361,19 +361,19 @@
 .conjunto-template-details summary {
     cursor: pointer;
     padding: 10px 14px;
-    background: #f7f7f7;
+    background: var(--surface-alt);
     font-size: 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 10px;
 }
-.conjunto-template-details[open] summary { border-bottom: 1px solid #e0e0e0; }
+.conjunto-template-details[open] summary { border-bottom: 1px solid var(--border); }
 .conjunto-count-badge {
     font-size: 12px;
     font-weight: 700;
-    color: #555;
-    background: #e8ecf0;
+    color: var(--text-muted);
+    background: var(--surface-hover);
     padding: 3px 10px;
     border-radius: 20px;
     white-space: nowrap;
@@ -415,10 +415,10 @@ function adicionarTipo(tipo, tipoId, tipoNome, tipoUnidade, requerSerial) {
         `<input type="hidden" name="item_tipo_id_${i}" value="${tipoId}">` +
         (requerSerial ? `<input type="hidden" name="requer_serial_${i}" value="1">` : '') +
         `<div class="item-sel-campos">` +
-          `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
+          `<label style="font-size:12px;color:var(--text-muted);">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
           `<input type="number" name="qtd_${i}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
                `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
-          `<label style="font-size:12px;color:#555;">Conjunto</label>` +
+          `<label style="font-size:12px;color:var(--text-muted);">Conjunto</label>` +
           `<input type="text" name="componente_codigo_${i}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${i}" value="1" checked> Obrigatório` +

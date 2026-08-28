@@ -11,12 +11,12 @@
 {% endif %}
 
 <div class="card">
-  <p style="margin-top:0;color:#555;">
+  <p style="margin-top:0;color:var(--text-muted);">
     Esta bipagem está no kit <strong>{{ session.kit_nome }}</strong>
-    <span style="color:#aaa;">(v{{ session.kit_template_versao }})</span>,
+    <span style="color:var(--text-muted-2);">(v{{ session.kit_template_versao }})</span>,
     no veículo <strong>{{ session.veiculo }}</strong> · {{ session.garagem }}.
   </p>
-  <p style="color:#555;margin-bottom:0;">
+  <p style="color:var(--text-muted);margin-bottom:0;">
     Trocar o kit <strong>não apaga bipagem nenhuma</strong>: o que os dois kits têm em
     comum continua contado, e só o que falta no kit novo passa a aparecer pendente.
     É pra corrigir uma bipagem que começou no modelo errado sem precisar rebipar tudo.
@@ -51,7 +51,7 @@
 {% if previa %}
 <div class="card">
   <h2>2. Confira o que muda</h2>
-  <p style="color:#555;margin-top:0;">
+  <p style="color:var(--text-muted);margin-top:0;">
     Das <strong>{{ previa.total_bipado }}</strong> bipagens já feitas,
     <strong style="color:var(--ok-text);">{{ previa.total_aproveitado }}</strong>
     continuam valendo em <strong>{{ previa.novo.nome }}</strong>.
@@ -64,13 +64,13 @@
         {{ ic.svg('check', 13) }} Aproveitado ({{ previa.aproveitados | length }})
       </h3>
       {% if previa.aproveitados %}
-      <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text);">
         {% for a in previa.aproveitados %}
         <li>{{ a.descricao }} — {{ a.quantidade }}/{{ a.exigido }}</li>
         {% endfor %}
       </ul>
       {% else %}
-      <p style="color:#888;font-size:13px;margin:0;">Nada em comum entre os dois kits.</p>
+      <p style="color:var(--text-muted-2);font-size:13px;margin:0;">Nada em comum entre os dois kits.</p>
       {% endif %}
     </div>
 
@@ -79,7 +79,7 @@
         {{ ic.svg('alerta', 13) }} Sobra ({{ previa.excedentes | length }})
       </h3>
       {% if previa.excedentes %}
-      <ul style="margin:0 0 8px;padding-left:18px;font-size:13px;color:#444;">
+      <ul style="margin:0 0 8px;padding-left:18px;font-size:13px;color:var(--text);">
         {% for e in previa.excedentes %}
         <li>
           {{ e.descricao }} — {{ e.quantidade }}
@@ -87,13 +87,13 @@
         </li>
         {% endfor %}
       </ul>
-      <p style="font-size:12px;color:#8a6d3b;background:#fdf6ea;border-radius:4px;padding:6px 8px;margin:0;">
+      <p style="font-size:12px;color:var(--warn-text);background:var(--warn-bg);border-radius:4px;padding:6px 8px;margin:0;">
         Esses itens continuam bipados e vão aparecer no kit. Retire-os da caixa e apague a
         bipagem na lista <em>“Itens bipados”</em> da tela de bipagem — assim o que veio do
         estoque volta pro estoque.
       </p>
       {% else %}
-      <p style="color:#888;font-size:13px;margin:0;">Nenhum item sobrando.</p>
+      <p style="color:var(--text-muted-2);font-size:13px;margin:0;">Nenhum item sobrando.</p>
       {% endif %}
     </div>
 
@@ -102,7 +102,7 @@
         Ainda falta bipar ({{ previa.faltantes | length }})
       </h3>
       {% if previa.faltantes %}
-      <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text);">
         {% for f in previa.faltantes %}
         <li>{{ f.descricao }} — faltam {{ f.faltam }} de {{ f.exigido }}</li>
         {% endfor %}
@@ -125,14 +125,14 @@
     <input type="hidden" name="kit_anterior" value="{{ session.kit_nome }}">
 
     {% if veiculo %}
-    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#444;margin-bottom:10px;">
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text);margin-bottom:10px;">
       <input type="checkbox" name="atualizar_veiculo" value="1" checked style="margin-top:3px;">
       <span>
         Corrigir também o modelo do veículo <strong>{{ veiculo.numero }}</strong> no cadastro
         (hoje: <strong>{{ veiculo.modelo or '— sem modelo —' }}</strong> →
         <strong>{{ previa.novo.nome }}</strong>).
         <br>
-        <span style="color:#888;">
+        <span style="color:var(--text-muted-2);">
           Foi o modelo cadastrado que fez este veículo aparecer no kit errado. Se ele não
           for corrigido, o mesmo erro se repete na próxima bipagem deste veículo. Desmarque
           se o cadastro estava certo e o engano foi só ao escolher o kit.
@@ -142,12 +142,12 @@
     {% endif %}
 
     <div class="form-group">
-      <label>Motivo da troca <span style="font-weight:400;color:#888;font-size:12px;">— fica no histórico de auditoria</span></label>
+      <label>Motivo da troca <span style="font-weight:400;color:var(--text-muted-2);font-size:12px;">— fica no histórico de auditoria</span></label>
       <input type="text" name="motivo" maxlength="200"
              placeholder="ex: bipagem iniciada no kit errado">
     </div>
 
-    <p style="font-size:12px;color:#666;">
+    <p style="font-size:12px;color:var(--text-muted);">
       Se outra pessoa estiver bipando este mesmo kit junto com você, peça pra ela atualizar
       a tela depois da troca — a lista de itens dela só muda ao recarregar.
     </p>

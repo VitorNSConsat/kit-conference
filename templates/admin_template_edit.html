@@ -6,16 +6,16 @@
 {% endblock %}
 {% block content %}
 {% if sessoes_em_andamento %}
-<div class="alert alert-warning" style="border:1px solid #f0a500;">
+<div class="alert alert-warning" style="border:1px solid var(--warn-text);">
     {{ ic.svg('alerta', 14) }} <strong>{{ sessoes_em_andamento | length }} sessão(ões) em andamento</strong> neste template.
     Cancele-as abaixo para poder excluir o template, ou aguarde o operador finalizar.
     <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
         {% for s in sessoes_em_andamento %}
-        <div style="display:flex; align-items:center; gap:10px; background:#fffbe6;
+        <div style="display:flex; align-items:center; gap:10px; background:var(--warn-bg);
                     padding:8px 12px; border-radius:6px; flex-wrap:wrap;">
             <span style="flex:1; font-size:13px;">
                 Operador: <strong>{{ s.operador_nome }}</strong>
-                <span style="color:#888; margin-left:6px; font-size:12px;">
+                <span style="color:var(--text-muted-2); margin-left:6px; font-size:12px;">
                     — iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
                 </span>
             </span>
@@ -64,7 +64,7 @@
             {{ ic.svg('baixar', 14) }} Exportar Excel
         </a>
     </div>
-    <p style="font-size:12px;color:#888;margin:6px 0 12px;">
+    <p style="font-size:12px;color:var(--text-muted-2);margin:6px 0 12px;">
         A ficha de cada aparelho do pedido. D&aacute; pra corrigir aqui mesmo e cadastrar novas
         &agrave; m&atilde;o, sem depender da planilha. N&atilde;o entram na bipagem &mdash;
         &eacute; consulta e confer&ecirc;ncia.
@@ -125,7 +125,7 @@
             {% endif %}
         </tr>
         {% else %}
-        <tr><td colspan="5" style="text-align:center;color:#888;padding:16px;">
+        <tr><td colspan="5" style="text-align:center;color:var(--text-muted-2);padding:16px;">
             Nenhuma unidade ainda &mdash; importe a planilha do pedido ou cadastre abaixo.
         </td></tr>
         {% endfor %}
@@ -142,7 +142,7 @@
             {{ ic.svg('mais', 14) }} Adicionar unidade
         </button>
         <button type="submit" class="btn btn-success" form="form-unidades">{{ ic.svg('check', 14) }} Salvar unidades</button>
-        <span style="font-size:12px;color:#888;">
+        <span style="font-size:12px;color:var(--text-muted-2);">
             Linha nova em branco &eacute; ignorada. Campo vazio significa "sem valor".
         </span>
     </div>
@@ -177,7 +177,7 @@
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
         <h2 style="margin:0;">Consumo &amp; Estoque</h2>
-        <span style="font-size:12px;color:#888;">
+        <span style="font-size:12px;color:var(--text-muted-2);">
             {% if consumo.n_kits %}
             {{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }} montado{{ 's' if consumo.n_kits != 1 }}
             {%- if consumo.primeiro_em %} · {{ consumo.primeiro_em }} a {{ consumo.ultimo_em }}{% endif %}
@@ -261,7 +261,7 @@
                 {% if it.real_medio is not none %}
                 {{ '%g'|format(it.real_medio|round(2)) }} {{ it.unidade }}
                 {% else %}
-                <span style="color:#bbb;">sem dado</span>
+                <span style="color:var(--text-muted-2);">sem dado</span>
                 {% endif %}
             </td>
             <td>
@@ -272,14 +272,14 @@
                 {% elif it.desvio_pct is not none %}
                 <span style="color:var(--ok-text);">bate o plano</span>
                 {% else %}
-                <span style="color:#bbb;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
                 {% endif %}
             </td>
             <td>
                 {% if it.tem_estoque %}
                 <span class="{{ 'estoque-neg' if it.estoque_atual < 0 }}">{{ it.estoque_atual }}</span>
                 {% else %}
-                <span style="color:#bbb;">sem estoque vinculado</span>
+                <span style="color:var(--text-muted-2);">sem estoque vinculado</span>
                 {% endif %}
             </td>
             <td>
@@ -288,7 +288,7 @@
                     {{ it.autonomia }} kit{{ 's' if it.autonomia != 1 }}
                 </span>
                 {% else %}
-                <span style="color:#bbb;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
                 {% endif %}
             </td>
         </tr>
@@ -297,7 +297,7 @@
     </table>
     </div>
 
-    <p style="font-size:11px;color:#999;margin-top:10px;">
+    <p style="font-size:11px;color:var(--text-muted-2);margin-top:10px;">
         O gasto real vem das saídas de estoque ligadas a cada kit finalizado — por isso
         pode passar do planejado quando há substituição de equipamento com defeito no meio
         da bipagem. Itens sem estoque vinculado usam o planejado, que para eles é exato.
@@ -317,8 +317,8 @@
                 {# O veículo aponta pro kit pelo NOME (uma FK apontaria pro
                    template antigo a cada Nova Versão). Renomear desliga
                    todos eles da bipagem sem avisar — daí o alerta. #}
-                <div id="aviso-renomear" style="display:none;font-size:12.5px;color:#8a6d3b;
-                     background:#fdf6ea;border:1px solid #f0d9a8;border-radius:6px;
+                <div id="aviso-renomear" style="display:none;font-size:12.5px;color:var(--warn-text);
+                     background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:6px;
                      padding:8px 10px;margin-top:6px;">
                     {{ ic.svg('alerta', 13) }} <strong>{{ veiculos_vinculados }} veículo(s)</strong> apontam para
                     <strong>{{ template.nome }}</strong>. O vínculo é pelo nome, então renomear
@@ -341,7 +341,7 @@
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
             <h2 style="margin:0;">Adicionar tipos</h2>
         </div>
-        <p style="font-size:12px;color:#888;margin-bottom:10px;">
+        <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:10px;">
             Clique para adicionar um tipo ao kit. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
         </p>
 
@@ -361,18 +361,18 @@
             {% endfor %}
         </div>
         {% else %}
-        <p style="color:#aaa;font-size:13px;background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:12px;">
+        <p style="color:var(--text-muted-2);font-size:13px;background:var(--surface-alt);padding:12px;border-radius:8px;margin-bottom:12px;">
             Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Admin → Itens</a> primeiro.
         </p>
         {% endif %}
 
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
             <strong>Itens do kit</strong>
-            <span id="contagem-sel" style="font-size:13px;color:#888;">
+            <span id="contagem-sel" style="font-size:13px;color:var(--text-muted-2);">
                 ({{ itens | length }} {{ 'item' if itens | length == 1 else 'itens' }})
             </span>
         </div>
-        <div id="msg-vazio" style="color:#aaa;font-size:13px;text-align:center;padding:16px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;{{ '' if not itens else 'display:none;' }}">
+        <div id="msg-vazio" style="color:var(--text-muted-2);font-size:13px;text-align:center;padding:16px;background:var(--surface-alt);border-radius:8px;margin-bottom:12px;{{ '' if not itens else 'display:none;' }}">
             Nenhum item no kit. Clique em um tipo acima para adicionar.
         </div>
         <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
@@ -388,13 +388,13 @@
                 <input type="hidden" name="requer_serial_{{ loop.index0 }}" value="1">
                 {% endif %}
                 <div class="item-sel-campos">
-                    <label style="font-size:12px;color:#555;">{{ 'Qtd (m)' if item.unidade == 'm' else 'Qtd' }}</label>
+                    <label style="font-size:12px;color:var(--text-muted);">{{ 'Qtd (m)' if item.unidade == 'm' else 'Qtd' }}</label>
                     <input type="number" name="qtd_{{ loop.index0 }}"
                            value="{{ item.quantidade_exigida }}"
                            min="{{ '0.01' if item.unidade == 'm' else '1' }}"
                            step="{{ '0.01' if item.unidade == 'm' else '1' }}"
                            style="width:65px;text-align:center;">
-                    <label style="font-size:12px;color:#555;">Conjunto</label>
+                    <label style="font-size:12px;color:var(--text-muted);">Conjunto</label>
                     <input type="text" name="componente_codigo_{{ loop.index0 }}"
                            value="{{ item.componente_codigo or '' }}"
                            placeholder="opcional" style="width:120px;font-size:12px;">
@@ -448,30 +448,30 @@ function avisarRenomear() {
     margin: 14px 0 12px;
 }
 .consumo-chip {
-    border: 1px solid #e0e7ef;
+    border: 1px solid var(--border);
     border-left: 4px solid var(--brand-ink);
     border-radius: 10px;
     padding: 10px 12px;
-    background: #f7f9fc;
+    background: var(--surface-alt);
 }
 .consumo-chip.ok      { border-left-color: var(--ok-text); }
-.consumo-chip.alerta  { border-left-color: var(--warn-text); background: #fff8f0; }
-.consumo-chip.critico { border-left-color: var(--danger-text); background: #fdecea; }
+.consumo-chip.alerta  { border-left-color: var(--warn-text); background: var(--warn-bg); }
+.consumo-chip.critico { border-left-color: var(--danger-text); background: var(--danger-bg); }
 .chip-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1px; color: #8a95a3;
+    letter-spacing: 1px; color: var(--text-muted-2);
 }
 .chip-valor { font-size: 24px; font-weight: 800; color: var(--brand-ink); line-height: 1.15; margin-top: 2px; }
 .consumo-chip.alerta  .chip-valor { color: var(--warn-text); }
 .consumo-chip.critico .chip-valor { color: var(--danger-text); }
-.chip-sub { font-size: 11px; color: #8a95a3; margin-top: 3px; }
+.chip-sub { font-size: 11px; color: var(--text-muted-2); margin-top: 3px; }
 
 .consumo-aviso {
-    background: #eef4fb; border: 1px solid #d3e2f3; color: #2c4a6b;
+    background: var(--brand-soft); border: 1px solid var(--brand-border); color: var(--brand-ink);
     border-radius: 8px; padding: 10px 13px; font-size: 12.5px;
     line-height: 1.45; margin-bottom: 12px;
 }
-.consumo-aviso.alerta { background: #fff8f0; border-color: #f3ddc2; color: #8a5a1e; }
+.consumo-aviso.alerta { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
 
 .tabela-consumo { width: 100%; }
 .tabela-consumo th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
@@ -509,10 +509,10 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
         `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
         (requerSerial ? `<input type="hidden" name="requer_serial_${idx}" value="1">` : '') +
         `<div class="item-sel-campos">` +
-          `<label style="font-size:12px;color:#555;">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
+          `<label style="font-size:12px;color:var(--text-muted);">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
           `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
                `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
-          `<label style="font-size:12px;color:#555;">Conjunto</label>` +
+          `<label style="font-size:12px;color:var(--text-muted);">Conjunto</label>` +
           `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +

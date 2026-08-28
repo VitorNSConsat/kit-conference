@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<p style="color:#666;font-size:13px;margin:-4px 0 16px;">
+<p style="color:var(--text-muted);font-size:13px;margin:-4px 0 16px;">
   Inclui os kits <strong>em montagem agora</strong>, que o relatório de kits não mostra
   (lá só entram os finalizados). O operador listado é sempre <strong>quem abriu</strong> o kit —
   quem responde por ele. Quando outra pessoa finalizou, os dois nomes aparecem.
@@ -60,7 +60,7 @@
         <td>
           {% if r.em_andamento %}
           <span class="badge badge-warning">{{ r.em_andamento }}</span>
-          {% else %}<span style="color:#ccc;">—</span>{% endif %}
+          {% else %}<span style="color:var(--text-muted-2);">—</span>{% endif %}
         </td>
         <td>{{ r.finalizados }}</td>
         <td>
@@ -68,7 +68,7 @@
           <span class="badge badge-info" title="Kits que este operador abriu e outra pessoa finalizou">
             {{ r.em_dupla }}
           </span>
-          {% else %}<span style="color:#ccc;">—</span>{% endif %}
+          {% else %}<span style="color:var(--text-muted-2);">—</span>{% endif %}
         </td>
         <td><strong>{{ r.em_andamento + r.finalizados }}</strong></td>
       </tr>
@@ -83,7 +83,7 @@
 
 <!-- Lista -->
 <div class="card table-scroll" id="bloco-lista-operadores">
-  <p style="color:#888;font-size:13px;margin-bottom:12px;">
+  <p style="color:var(--text-muted-2);font-size:13px;margin-bottom:12px;">
     {{ pg.contagem(pag, "kits") }}
     {%- if busca %} · busca: <strong>{{ busca }}</strong>{% endif %}
   </p>
@@ -102,7 +102,7 @@
     </thead>
     <tbody>
     {% for l in pag.itens %}
-    <tr {% if l.estado == 'em_andamento' %}style="background:#fffbea;"{% endif %}>
+    <tr {% if l.estado == 'em_andamento' %}style="background:var(--warn-bg);"{% endif %}>
       <td style="white-space:nowrap;">
         {% if l.estado == 'em_andamento' %}
         <span class="badge badge-warning">Em montagem</span>
@@ -117,7 +117,7 @@
       </td>
       <td style="font-weight:600;">
         {% if l.veiculo %}<a href="/admin/veiculos?busca={{ l.veiculo | urlencode }}" class="marca-cliente" style="color:{{ cor }};" title="Ver este veículo">{{ l.veiculo }}</a>{% else %}—{% endif %}
-        {% if l.garagem %}<div style="font-size:11px;color:#999;font-weight:400;">{{ l.garagem }}</div>{% endif %}
+        {% if l.garagem %}<div style="font-size:11px;color:var(--text-muted-2);font-weight:400;">{{ l.garagem }}</div>{% endif %}
       </td>
       <td>
         <strong>{{ l.operador_nome }}</strong>
@@ -128,8 +128,8 @@
         {% endif %}
       </td>
       <td>{{ l.itens_bipados }}</td>
-      <td style="white-space:nowrap;font-size:12px;color:#888;">{{ l.comecou_em[:16] if l.comecou_em else '—' }}</td>
-      <td style="white-space:nowrap;font-size:12px;color:#888;">{{ l.finalizado_em[:16] if l.finalizado_em else '—' }}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--text-muted-2);">{{ l.comecou_em[:16] if l.comecou_em else '—' }}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--text-muted-2);">{{ l.finalizado_em[:16] if l.finalizado_em else '—' }}</td>
       <td>
         {% if l.estado == 'em_andamento' %}
         <a href="/session/{{ l.sessao_id }}" class="btn btn-sm btn-warning">{{ ic.svg('seta-direita', 13) }} Continuar</a>
@@ -139,7 +139,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
+    <tr><td colspan="8" style="text-align:center;color:var(--text-muted-2);">Nenhum kit encontrado.</td></tr>
     {% endfor %}
     </tbody>
   </table>

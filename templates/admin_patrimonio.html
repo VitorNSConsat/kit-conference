@@ -17,20 +17,20 @@
 <div class="card">
   <div style="display:flex;gap:24px;flex-wrap:wrap;">
     <div>
-      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Código</div>
+      <div style="font-size:11px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Código</div>
       <div style="font-family:monospace;font-size:18px;font-weight:700;">{{ codigo_barra }}</div>
     </div>
     <div>
-      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Tipo</div>
+      <div style="font-size:11px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Tipo</div>
       <div style="font-size:16px;font-weight:600;">{{ item.descricao if item else '— não cadastrado —' }}</div>
     </div>
     {% if item %}
     <div>
-      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Cadastrado em</div>
+      <div style="font-size:11px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Cadastrado em</div>
       <div style="font-size:16px;">{{ item.criado_em[:16] if item.criado_em else '—' }}</div>
     </div>
     <div>
-      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Bipagens</div>
+      <div style="font-size:11px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Bipagens</div>
       <div style="font-size:16px;font-weight:700;">{{ historico | length }}</div>
     </div>
     {% endif %}
@@ -48,16 +48,16 @@
   <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
     {% if onde_esta %}
     {% set cor = cor_do_cliente(onde_esta.cliente) %}
-    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Onde está agora</div>
+    <div style="font-size:11px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Onde está agora</div>
     <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:baseline;margin-top:4px;">
       <div style="font-size:17px;font-weight:800;color:{{ cor }};">
         {{ ic.svg('veiculos', 16) }} {{ onde_esta.veiculo or '— kit sem veículo —' }}
       </div>
-      <div style="font-size:13px;color:#555;">
+      <div style="font-size:13px;color:var(--text-muted);">
         {{ onde_esta.kit_nome }} · {{ onde_esta.cliente }}
         {%- if onde_esta.garagem %} · {{ onde_esta.garagem }}{% endif %}
       </div>
-      <div style="font-size:12px;color:#888;">
+      <div style="font-size:12px;color:var(--text-muted-2);">
         desde {{ onde_esta.bipado_em[:16] if onde_esta.bipado_em else '—' }}
         {%- if onde_esta.operador_nome %} · por {{ onde_esta.operador_nome }}{% endif %}
       </div>
@@ -71,7 +71,7 @@
       {% endif %}
     </div>
     {% else %}
-    <div style="font-size:13px;color:#888;">
+    <div style="font-size:13px;color:var(--text-muted-2);">
       <strong>Não está em nenhum kit no momento.</strong> Pra colocar num veículo,
       abra o kit dele e use “Atribuir patrimônio”.
     </div>
@@ -84,7 +84,7 @@
      do item, que é o que se digita errado. #}
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Corrigir patrimônio</summary>
-    <p style="color:#666;font-size:13px;margin:8px 0;">
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
       Para corrigir um número digitado errado. Funciona mesmo com o kit já produzido,
       enviado ou no cliente — <strong>a produção não é reaberta</strong> e o veículo
       continua no estágio em que está. O histórico de bipagens não é apagado: as
@@ -99,7 +99,7 @@
         <input type="text" name="novo_codigo" value="{{ codigo_barra }}" style="margin:0;font-family:monospace;">
       </div>
       <div class="form-group" style="margin:0;">
-        <label>Nº de série <span style="font-weight:400;color:#888;font-size:12px;">— da bipagem mais recente</span></label>
+        <label>Nº de série <span style="font-weight:400;color:var(--text-muted-2);font-size:12px;">— da bipagem mais recente</span></label>
         <input type="text" name="novo_serial" value="{{ serial_atual or '' }}" style="margin:0;font-family:monospace;">
       </div>
       <div class="form-group" style="margin:0;flex:1;min-width:240px;">
@@ -119,7 +119,7 @@
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;"
            {{ 'open' if previa_mover }}>
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Mover para outro veículo</summary>
-    <p style="color:#666;font-size:13px;margin:8px 0;">
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
       Para quando o item saiu do kit de um veículo e foi instalado em outro — troca feita
       na hora da instalação, por exemplo. O kit de origem passa a acusar o item faltando
       (e entra na lista de pendências); o de destino recebe. Nada muda de estágio na
@@ -130,7 +130,7 @@
     {% if previa_mover.bloqueio %}
     <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ previa_mover.bloqueio }}</div>
     {% else %}
-    <div class="card" style="background:#f7fafc;margin-bottom:12px;">
+    <div class="card" style="background:var(--surface-alt);margin-bottom:12px;">
       <h3 style="margin:0 0 8px;font-size:14px;">Confira antes de confirmar</h3>
       <p style="font-size:13px;margin:0 0 6px;">
         <strong>Sai de:</strong> {{ previa_mover.origem.veiculo or '— sem veículo —' }}
@@ -142,7 +142,7 @@
       </p>
       <p style="font-size:13px;margin:0 0 6px;"><strong>Motivo:</strong> {{ mover_motivo }}</p>
       {% for a in previa_mover.avisos %}
-      <p style="font-size:12px;color:#b8860b;margin:6px 0 0;">{{ ic.svg('alerta', 12) }} {{ a }}</p>
+      <p style="font-size:12px;color:var(--warn-text);margin:6px 0 0;">{{ ic.svg('alerta', 12) }} {{ a }}</p>
       {% endfor %}
       <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/mover"
             style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
@@ -176,7 +176,7 @@
   {% if pode('patrimonio_atribuir') and onde_esta %}
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;">
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Retirar do kit</summary>
-    <p style="color:#666;font-size:13px;margin:8px 0;">
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
       Para quando o item saiu do kit e <strong>não</strong> foi pra outro veículo — voltou
       pro estoque, quebrou ou sumiu. O kit fica acusando o item faltando, que é a verdade,
       e aparece na lista de pendências até receber outro.
@@ -201,7 +201,7 @@
 <!-- Onde foi bipado -->
 <div class="card">
   <h2 style="margin-bottom:4px;">Onde foi bipado ({{ historico | length }})</h2>
-  <p style="color:#666;font-size:13px;margin-top:0;">
+  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
     Cada vez que este código passou pelo leitor, com o operador que bipou e o destino do kit.
   </p>
   {% if historico %}
@@ -243,7 +243,7 @@
         </td>
         <td>{{ h.garagem or '—' }}</td>
         <td style="font-family:monospace;font-size:12px;">{{ h.serial_number or '—' }}</td>
-        <td style="font-family:monospace;font-size:12px;color:#b8860b;">
+        <td style="font-family:monospace;font-size:12px;color:var(--warn-text);">
           {{- h.codigo_caixa or '—' }}</td>
         <td>
           {% if h.sessao_status == 'em_andamento' %}
@@ -260,7 +260,7 @@
   </table>
   </div>
   {% else %}
-  <p style="color:#888;text-align:center;padding:24px;">
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
     Este patrimônio nunca foi bipado — foi cadastrado manualmente ou por importação e
     ainda não entrou em nenhum kit.
   </p>
@@ -271,7 +271,7 @@
 {% if vizinhos %}
 <div class="card">
   <h2 style="margin-bottom:4px;">Bipado junto (última sessão)</h2>
-  <p style="color:#666;font-size:13px;margin-top:0;">
+  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
     Itens que formaram o <strong>mesmo kit</strong> deste patrimônio na última vez que ele
     foi bipado{% if kit_sessao %} — kit <strong>{{ kit_sessao.kit_nome }}</strong>
     {%- if kit_sessao.veiculo %}, veículo <strong>{{ kit_sessao.veiculo }}</strong>{% endif %}
@@ -286,7 +286,7 @@
     </thead>
     <tbody>
       {% for z in vizinhos %}
-      <tr {% if z.e_o_item %}style="background:#fff8e1;font-weight:700;"{% endif %}>
+      <tr {% if z.e_o_item %}style="background:var(--warn-bg);font-weight:700;"{% endif %}>
         <td style="font-family:monospace;font-size:12px;">
           {% if z.e_o_item %}
           {{ z.codigo_barra }}
@@ -303,7 +303,7 @@
           {% if z.e_o_item %}
           <span style="color:var(--warn-text);font-weight:700;">{{ z.situacao }}</span>
           {% else %}
-          <span style="color:#888;">{{ z.situacao }}</span>
+          <span style="color:var(--text-muted-2);">{{ z.situacao }}</span>
           {% endif %}
         </td>
       </tr>

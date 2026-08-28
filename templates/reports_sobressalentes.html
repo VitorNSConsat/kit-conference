@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<p style="color:#666;font-size:13px;margin-bottom:16px;">
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
   Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza —
   cada envio desconta do estoque na hora e fica registrado aqui.
 </p>
@@ -53,19 +53,19 @@
     <tr>
       <td style="white-space:nowrap;">{{ r.criado_em[:16] }}</td>
       <td><strong>{{ r.tipo_nome }}</strong><br>
-          <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.codigo_barra }}</span>
+          <span style="font-size:11px;color:var(--text-muted-2);font-family:monospace;">{{ r.codigo_barra }}</span>
       </td>
       <td>{{ r.quantidade }}</td>
       <td>{{ r.cliente }}</td>
       <td>{{ r.operador_nome or '—' }}</td>
-      <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+      <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
   {% else %}
-  <p style="color:#888;text-align:center;padding:24px;">
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
     Nenhum sobressalente enviado ainda pra esses filtros.
   </p>
   {% endif %}

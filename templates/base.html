@@ -5,13 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
     <title>{% block title %}Conferência de Kits{% endblock %}</title>
+    <script>
+    /* Aplica o tema salvo ANTES da página pintar — sem isso a tela nasce
+       clara e pisca pro escuro um instante depois, no primeiro paint. */
+    (function () {
+        var tema = localStorage.getItem('cdk_tema') || 'light';
+        document.documentElement.setAttribute('data-theme', tema);
+    })();
+    </script>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="var(--brand-ink)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=36">
+    <link rel="stylesheet" href="/static/style.css?v=37">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -42,8 +50,8 @@
 <div class="ds-sidebar-fundo" id="ds-sidebar-fundo" onclick="toggleNav()"></div>
 <aside class="ds-sidebar" id="ds-sidebar">
   <a href="/" class="ds-brand">
-    <span class="ds-brand-logo"><img src="/static/icon-192.png" alt=""></span>
-    <span>Conferência de Kits</span>
+    <img src="/static/logo.png" alt="Consat" class="ds-brand-logo">
+    <span class="ds-brand-sub">Conferência de Kits</span>
   </a>
   <nav class="ds-nav">
     {% for grupo_nome, chaves_grupo in GRUPOS_MENU %}
@@ -115,6 +123,9 @@
     {% endif %}
   </nav>
   <div class="ds-user">
+    <button type="button" class="ds-theme-toggle" id="ds-theme-toggle" onclick="alternarTemaGlobal()">
+      <span id="ds-theme-icon">{{ ic.svg('lua', 13) }}</span><span id="ds-theme-label">Modo escuro</span>
+    </button>
     <div class="ds-user-btn">
       <span class="ds-avatar">{{ (user.nome or '?')[0] | upper }}</span>
       <span>
@@ -153,6 +164,26 @@ function toggleNav() {
     document.getElementById('ds-sidebar').classList.toggle('aberta');
     document.getElementById('ds-sidebar-fundo').classList.toggle('aberta');
 }
+
+// ── Claro/escuro (mesmo mecanismo dos painéis de TV, agora pro sistema
+// inteiro) — localStorage guarda a escolha, o <script> no <head> aplica
+// antes do primeiro paint pra não piscar claro numa sessão escura.
+const ICONE_SOL = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+const ICONE_LUA = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+function aplicarTemaGlobal(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    const icone = document.getElementById('ds-theme-icon');
+    const rotulo = document.getElementById('ds-theme-label');
+    if (icone) icone.innerHTML = tema === 'dark' ? ICONE_SOL : ICONE_LUA;
+    if (rotulo) rotulo.textContent = tema === 'dark' ? 'Modo claro' : 'Modo escuro';
+}
+function alternarTemaGlobal() {
+    const atual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const novo = atual === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('cdk_tema', novo);
+    aplicarTemaGlobal(novo);
+}
+aplicarTemaGlobal(localStorage.getItem('cdk_tema') || 'light');
 
 // ── Janela com conteúdo vindo do servidor ─────────────────────────────────
 // O painel chega pronto por fetch: a lista de trás continua intacta, e as

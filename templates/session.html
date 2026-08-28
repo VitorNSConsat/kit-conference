@@ -23,7 +23,7 @@
 <div class="session-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
     <div>
         <h1 style="margin-bottom:4px;">{{ session.kit_nome }}</h1>
-        <span style="color:#666; font-size:14px;">
+        <span style="color:var(--text-muted); font-size:14px;">
             Cliente: {{ session.cliente }} &nbsp;|&nbsp;
             Operador: {{ session.operador_nome }} &nbsp;|&nbsp;
             {{ ic.svg('veiculos', 15) }} {{ session.veiculo }} · {{ session.garagem }}{% if session.modelo %} ({{ session.modelo }}){% endif %} &nbsp;|&nbsp;
@@ -57,7 +57,7 @@
 <div class="scan-buffer" id="scan-buffer">Aguardando bipagem...</div>
 
 <!-- Banner patrimônio fixo — aparece quando código da caixa é bipado -->
-<div id="banner-fixo" style="display:none; background:#fff3e0; border:2px solid var(--warn-text);
+<div id="banner-fixo" style="display:none; background:var(--warn-bg); border:2px solid var(--warn-text);
      border-radius:10px; padding:14px 18px; margin-bottom:12px;
      align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <div>
@@ -69,14 +69,14 @@
 </div>
 
 <!-- Banner serial number — aparece quando o item bipado exige serial -->
-<div id="banner-serial" style="display:none; background:#f0eaff; border:2px solid #6c5ce7;
+<div id="banner-serial" style="display:none; background:color-mix(in srgb, #6c5ce7 12%, var(--surface)); border:2px solid #6c5ce7;
      border-radius:10px; padding:14px 18px; margin-bottom:12px;
      align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
     <div>
         <strong style="color:#6c5ce7;">Serial Number</strong>
         — Bipe o serial de:
         <strong id="banner-serial-desc"></strong>
-        <span id="banner-serial-codigo" style="font-size:12px; color:#888; margin-left:6px;"></span>
+        <span id="banner-serial-codigo" style="font-size:12px; color:var(--text-muted-2); margin-left:6px;"></span>
     </div>
     <button onclick="cancelarSerial()" class="btn btn-sm btn-danger">Cancelar</button>
 </div>
@@ -135,7 +135,7 @@
                       or item.componente_codigo or not item.obrigatorio %}
                 <div class="item-tags">
                     {% if item.unidade == 'm' %}<span class="badge" style="background:#0984e3;color:#fff;">m</span>{% endif %}
-                    {% if item.reutilizavel %}<span class="badge" style="background:#e8f0f8;color:var(--brand-ink);" title="Item reutilizável">reutilizável</span>{% endif %}
+                    {% if item.reutilizavel %}<span class="badge" style="background:var(--brand-soft);color:var(--brand-ink);" title="Item reutilizável">reutilizável</span>{% endif %}
                     {% if item.requer_serial %}<span class="badge" style="background:#6c5ce7;color:#fff;">Serial</span>{% endif %}
                     {% if item.componente_codigo %}<span class="badge badge-warning">{{ item.componente_codigo }}</span>{% endif %}
                     {% if not item.obrigatorio %}<span class="badge badge-warning">Opcional</span>{% endif %}
@@ -172,13 +172,13 @@
             </button>
         </div>
         <div class="scan-feed" id="scan-feed">
-            <div class="scan-event" style="color:#888; font-size:13px;">Aguardando bipagens...</div>
+            <div class="scan-event" style="color:var(--text-muted-2); font-size:13px;">Aguardando bipagens...</div>
         </div>
 
         <!-- Itens já bipados, agrupados por quem bipou — permite continuar a
              bipagem de outro operador e ver quem fez o quê -->
         {% if itens_por_operador %}
-        <div style="margin-top:18px; padding-top:14px; border-top:1px solid #eee;">
+        <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--border-subtle);">
             <h2 style="font-size:16px;">Itens Bipados</h2>
             {% for grupo in itens_por_operador %}
             <div style="margin-bottom:12px;">
@@ -187,10 +187,10 @@
                 </div>
                 <div style="display:flex; flex-direction:column; gap:4px;">
                     {% for item in grupo.itens %}
-                    <div style="font-size:13px; color:#555; padding:4px 8px; background:#f7f7f7; border-radius:6px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div style="font-size:13px; color:var(--text-muted); padding:4px 8px; background:var(--surface-alt); border-radius:6px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <span>
                             {{ item.descricao }}
-                            <span style="color:#999; font-family:monospace; font-size:11px;">{{ item.codigo_barra }}</span>
+                            <span style="color:var(--text-muted-2); font-family:monospace; font-size:11px;">{{ item.codigo_barra }}</span>
                         </span>
                         {% if pode('bipagem_excluir_item') %}
                         <form method="post" action="/session/{{ session.id }}/item/{{ item.id }}/remover"
@@ -212,7 +212,7 @@
 <div id="modal-identificar" class="modal-overlay" style="display:none;">
     <div class="modal-box">
         <h2 style="margin-top:0; margin-bottom:8px;">Identificar Patrimônio</h2>
-        <p id="modal-mensagem" style="color:#555; margin-bottom:16px; font-size:14px;"></p>
+        <p id="modal-mensagem" style="color:var(--text-muted); margin-bottom:16px; font-size:14px;"></p>
         <div id="modal-tipos-grid" class="tipos-grid"></div>
         <div style="margin-top:20px; text-align:right;">
             <button onclick="fecharModal()" class="btn btn-danger">Cancelar</button>
@@ -224,8 +224,8 @@
 <div id="modal-componente" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:480px;">
         <h2 style="margin-top:0; margin-bottom:4px;">Conjunto</h2>
-        <p id="comp-codigo" style="font-size:12px;color:#888;font-family:monospace;margin-bottom:4px;"></p>
-        <p style="font-size:13px;color:#555;margin-bottom:14px;">
+        <p id="comp-codigo" style="font-size:12px;color:var(--text-muted-2);font-family:monospace;margin-bottom:4px;"></p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
             Ajuste as quantidades que estão neste conjunto e confirme.
         </p>
         <div id="comp-itens-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
@@ -240,8 +240,8 @@
 <div id="modal-quantidade" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:420px;">
         <h2 id="qtd-titulo" style="margin-top:0; margin-bottom:6px;">Quantidade de Unidades</h2>
-        <p id="qtd-mensagem" style="color:#555; font-size:14px; margin-bottom:4px;"></p>
-        <p id="qtd-info" style="color:#888; font-size:12px; margin-bottom:16px;"></p>
+        <p id="qtd-mensagem" style="color:var(--text-muted); font-size:14px; margin-bottom:4px;"></p>
+        <p id="qtd-info" style="color:var(--text-muted-2); font-size:12px; margin-bottom:16px;"></p>
         <div class="form-group" style="margin-bottom:0;">
             <label id="qtd-label" style="font-weight:600;">Quantas unidades você está adicionando?</label>
             <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
@@ -262,7 +262,7 @@
 <div id="modal-substituicao" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:480px;">
         <h2 style="margin-top:0; margin-bottom:8px; color:var(--warn-text);">Patrimônio em Kit Ativo</h2>
-        <p id="subs-mensagem" style="color:#555; font-size:14px; margin-bottom:16px;"></p>
+        <p id="subs-mensagem" style="color:var(--text-muted); font-size:14px; margin-bottom:16px;"></p>
         <div class="form-group" style="margin-bottom:0;">
             <label style="font-weight:600;">Motivo da substituição *</label>
             <input type="text" id="subs-motivo"
@@ -319,7 +319,7 @@
   <div style="background:#111; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
     <div style="flex:1;">
       <div id="cam-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código de barras</div>
-      <div id="cam-ultimo" style="color:#aaa; font-size:12px; margin-top:2px; font-family:monospace;"></div>
+      <div id="cam-ultimo" style="color:var(--text-muted-2); font-size:12px; margin-top:2px; font-family:monospace;"></div>
     </div>
     <button onclick="fecharScannerCamera()"
             style="background:var(--danger-text); color:#fff; border:none; padding:11px 18px;
@@ -333,7 +333,7 @@
      usada e o app teve que pedir uma foto. Fica FORA do overlay da câmera
      de propósito — nesse cenário o overlay nem chega a abrir. -->
 <div id="cam-diag" style="display:none; position:fixed; left:12px; right:12px; top:12px;
-     background:#fff; color:#222; padding:16px; border-radius:12px; z-index:1200;
+     background:var(--surface); color:var(--text); padding:16px; border-radius:12px; z-index:1200;
      font-size:13px; line-height:1.5; box-shadow:0 8px 28px rgba(0,0,0,.4);
      max-height:85vh; overflow:auto; max-width:560px; margin:0 auto;"></div>
 {% endblock %}
@@ -409,7 +409,7 @@
     align-items: center; justify-content: center;
 }
 .modal-box {
-    background: #fff; border-radius: 8px; padding: 28px;
+    background: var(--surface); border-radius: 8px; padding: 28px;
     min-width: 360px; max-width: 520px; width: 90%;
     box-shadow: 0 8px 32px rgba(0,0,0,0.22);
     max-height: 85vh; overflow-y: auto;
@@ -421,9 +421,9 @@
 }
 .tipo-card {
     padding: 18px 10px;
-    border: 2px solid #ddd;
+    border: 2px solid var(--border);
     border-radius: 8px;
-    background: #fff;
+    background: var(--surface);
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
@@ -433,7 +433,7 @@
 }
 .tipo-card:hover {
     border-color: var(--brand-ink);
-    background: #f0f4f8;
+    background: var(--brand-soft);
 }
 </style>
 <script src="/static/zxing.min.js"></script>

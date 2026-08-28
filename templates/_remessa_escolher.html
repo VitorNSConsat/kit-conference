@@ -19,7 +19,7 @@
                {{ 'checked' if escolhida == r.id }} style="width:auto;margin:0;">
         <span style="flex:1;">
           <strong>{{ r.nome }}</strong>
-          <span style="font-size:12px;color:#7a8794;">
+          <span style="font-size:12px;color:var(--text-muted-2);">
             · {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
               {%- else %}todos os clientes{% endif %}
           </span>

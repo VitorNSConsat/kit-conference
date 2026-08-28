@@ -9,18 +9,18 @@
 /* h4 = exemplo prático dentro de um assunto: menor que o título da seção,
    e destacado à esquerda pra ler como "caso", não como mais um tópico. */
 .doc h4 {
-    margin: 16px 0 4px; font-size: 14px; color: #33404d;
+    margin: 16px 0 4px; font-size: 14px; color: var(--text);
     border-left: 3px solid var(--brand); padding-left: 8px;
 }
 .doc p, .doc li { font-size: 14px; line-height: 1.6; }
 .doc ul { margin: 6px 0 6px 18px; }
-.doc code { background: #eef2f6; padding: 1px 6px; border-radius: 4px;
+.doc code { background: var(--surface-alt); padding: 1px 6px; border-radius: 4px;
             font-family: monospace; font-size: 13px; }
 .doc table { font-size: 13px; }
 .doc .campo { font-weight: 700; }
 .indice { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 16px; }
 .indice a { font-size: 14px; text-decoration: none; }
-.doc .nota { background: #f0f4f8; border-left: 4px solid var(--brand);
+.doc .nota { background: var(--brand-soft); border-left: 4px solid var(--brand);
              border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
 .doc .cuidado { background: var(--warn-bg); border-left: 4px solid var(--warn-text);
                 border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
@@ -29,10 +29,16 @@
 <div class="doc">
 
 <h1 style="margin-bottom:4px;">Funcionalidades do sistema</h1>
-<p style="color:#666;margin-top:0;">
+<p style="color:var(--text-muted);margin-top:0;">
   O que cada tela faz, o que cada campo significa, as regras dos códigos e o que
   o sistema quer dizer com cada aviso. Feito pra ser lido do começo ou consultado
   no ponto que interessa.
+</p>
+<p class="nota">
+  <strong>Modo claro/escuro:</strong> o botão no rodapé do menu lateral ("Modo
+  escuro"/"Modo claro") vale pro sistema inteiro, não só pra um painel. A escolha
+  fica salva no navegador — cada usuário/aparelho guarda a sua. O logo da Consat no
+  topo do menu inverte de cor sozinho conforme o tema.
 </p>
 
 <div class="card">
@@ -73,7 +79,7 @@
       pra aquele veículo, com data, operador e etiqueta.</li>
   </ul>
   <p>O caminho completo de um kit:</p>
-  <p style="font-size:14px;background:#f0f4f8;border-radius:8px;padding:12px 14px;">
+  <p style="font-size:14px;background:var(--brand-soft);border-radius:8px;padding:12px 14px;">
     Cadastrar itens → montar o kit (template) → cadastrar o veículo com o modelo →
     <strong>Kits a produzir</strong> → bipar → etiqueta impressa → <strong>Produzido</strong> →
     verificação → <strong>Em trânsito</strong> → <strong>Cliente</strong> (instalando → concluído).
@@ -293,7 +299,7 @@
     <li><span class="campo">Código de barras</span> — o código que o operador bipa (ou o QR da etiqueta).</li>
     <li><span class="campo">Quantidade atual</span> — saldo. Desce sozinho a cada kit bipado.</li>
     <li><span class="campo">Quantidade mínima</span> — a partir daqui o item entra no alerta
-      de estoque baixo (o quadro na barra lateral, abaixo de Padrão Visual).</li>
+      de estoque baixo (o quadro na barra lateral, visível pra qualquer usuário logado).</li>
     <li><span class="campo">Status de compra</span> — independente do saldo, pra marcar o que
       já foi providenciado:
       {% for chave, rotulo in status_compra_opcoes.items() %}<code>{{ rotulo }}</code>{{ ", " if not loop.last }}{% endfor %},
@@ -313,8 +319,9 @@
   </p>
   <p>
     <strong>Avisos de estoque baixo</strong> (para quem pode editar estoque) controla o
-    quadro de aviso na barra lateral (abaixo de Padrão Visual, visível só pra admin),
-    sem mexer em estoque nenhum:
+    quadro de aviso na barra lateral, sem mexer em estoque nenhum. Fica atrás do botão
+    <strong>Avisos de estoque baixo</strong> no topo da aba Estoque, que abre uma janela
+    central com:
   </p>
   <ul>
     <li><span class="campo">Mostrar o aviso</span> — liga e desliga o quadro.</li>
@@ -1479,7 +1486,7 @@
   </ul>
 </div>
 
-<p style="text-align:center;color:#888;font-size:13px;margin:24px 0;">
+<p style="text-align:center;color:var(--text-muted-2);font-size:13px;margin:24px 0;">
   Alguma tela mudou e esta página não acompanhou? Avise — ela é feita pra bater com o
   sistema, não pra ficar de enfeite.
 </p>

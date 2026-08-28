@@ -52,7 +52,7 @@
     <tr>
       <td style="white-space:nowrap;">{{ r.validado_em[:16] }}</td>
       <td><strong>{{ r.kit_nome }}</strong><br>
-          <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.kit_id[:8].upper() }}</span>
+          <span style="font-size:11px;color:var(--text-muted-2);font-family:monospace;">{{ r.kit_id[:8].upper() }}</span>
       </td>
       {% set cor = cor_do_cliente(r.cliente) %}
       <td style="color:{{ cor }};">{{ r.cliente }}</td>
@@ -61,7 +61,7 @@
       </td>
       <td>{{ r.operador_nome }}</td>
       <td><strong>{{ r.validado_por_nome }}</strong></td>
-      <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
+      <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
       <td>
         <a href="/kit/{{ r.kit_id }}" target="_blank"
            class="btn btn-sm btn-secondary">Ver Kit</a>
@@ -89,7 +89,7 @@
   </div>
   {% endif %}
   {% else %}
-  <p style="color:#888;text-align:center;padding:24px;">
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
     Nenhuma validação encontrada para os filtros selecionados.
   </p>
   {% endif %}

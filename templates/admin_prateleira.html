@@ -19,7 +19,7 @@
 
 <div class="card">
   <h2>Configurar Grade</h2>
-  <p style="color:#666;font-size:13px;margin-bottom:12px;">
+  <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
     Defina o tamanho da prateleira e o nome de cada coluna física.
   </p>
   <form method="post" action="/admin/prateleira/layout">
@@ -37,7 +37,7 @@
       </div>
     </div>
     <div style="margin-top:12px;">
-      <label style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">
         Nome de cada coluna
       </label>
       <div id="nomes-colunas-wrap" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
@@ -56,7 +56,7 @@
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
     <h2 style="margin:0;">Grade</h2>
-    <span style="font-size:12px;color:#888;">
+    <span style="font-size:12px;color:var(--text-muted-2);">
       Clique e arraste sobre a grade pra selecionar uma ou mais células, depois escolha o item.
     </span>
   </div>
@@ -117,7 +117,7 @@
     </div>
   </div>
 
-  <div class="card" id="painel-atribuir" style="display:none;margin-top:14px;background:#f4f7fb;box-shadow:none;border:1px solid #dde3ea;">
+  <div class="card" id="painel-atribuir" style="display:none;margin-top:14px;background:var(--brand-soft);box-shadow:none;border:1px solid var(--brand-border);">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
       <div style="font-size:14px;">
         <strong>Região selecionada:</strong> <span id="regiao-selecionada-label"></span>
@@ -142,7 +142,7 @@
 
 <div class="card">
   <h2 style="margin-bottom:4px;">Área Livre</h2>
-  <p style="color:#666;font-size:13px;margin-bottom:12px;">
+  <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">
     Itens empilhados fora da grade — sem posição de prateleira real (chão, corredor, etc).
   </p>
   <form method="post" action="/admin/prateleira/livre" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
@@ -183,7 +183,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <p style="color:#888;text-align:center;padding:16px;">Nenhum item na área livre.</p>
+  <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhum item na área livre.</p>
   {% endif %}
 </div>
 
@@ -217,17 +217,17 @@
 }
 
 .pcell {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fafafa;
+  background: var(--surface-alt);
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
 }
-.pcell.ocupado { background: #fff; border-color: var(--brand-ink); }
-.pcell-pos { font-size: 10px; color: #999; font-weight: 700; flex-shrink: 0; }
+.pcell.ocupado { background: var(--surface); border-color: var(--brand-ink); }
+.pcell-pos { font-size: 10px; color: var(--text-muted-2); font-weight: 700; flex-shrink: 0; }
 .pcell-selection {
   grid-row: 1; grid-column: 1;
   display: none;
@@ -244,14 +244,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f7f8f9;
+  background: var(--surface-alt);
   border-radius: 6px;
   padding: 4px 6px;
 }
 .pcell-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .pcell-item-info { flex: 1; min-width: 0; }
 .pcell-item-nome { font-size: 11px; font-weight: 700; color: var(--brand-ink); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pcell-item-codigo { font-size: 9px; color: #999; font-family: monospace; }
+.pcell-item-codigo { font-size: 9px; color: var(--text-muted-2); font-family: monospace; }
 .pcell-item-qtd { font-size: 13px; font-weight: 800; flex-shrink: 0; text-align: right; }
 .pcell-item-esgotado-label { display: block; color: var(--danger-text); font-weight: 800; }
 .pcell-item-remover {

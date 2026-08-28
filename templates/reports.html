@@ -75,10 +75,10 @@
                 <a href="/kit/{{ k.kit_id }}" target="_blank"
                    style="font-weight:600; color:var(--brand-ink); text-decoration:none;"
                    title="{{ k.kit_id }}">
-                    {{ k.kit_nome }} <span style="color:#aaa;font-size:11px;">v{{ k.versao }}</span>
+                    {{ k.kit_nome }} <span style="color:var(--text-muted-2);font-size:11px;">v{{ k.versao }}</span>
                 </a>
                 {% if k.observacao %}
-                <div style="font-size:11px;color:#8a6d3b;background:#fdf6ea;border-radius:4px;
+                <div style="font-size:11px;color:var(--warn-text);background:var(--warn-bg);border-radius:4px;
                             padding:3px 6px;margin-top:4px;" title="Observação de uma correção neste kit">
                   {{ k.observacao }}
                 </div>
@@ -94,7 +94,7 @@
               {% elif k.veiculo_exibido %}
                 <span style="color:{{ cor }};font-weight:700;">{{ k.veiculo_exibido }}</span>
               {% else %}
-                <span style="color:#aaa;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
               {% endif %}
             </td>
             <td>{{ k.garagem or '—' }}</td>
@@ -114,7 +114,7 @@
                 {{ ic.svg('check', 13) }} {{ k.num_validacoes }}
               </a>
               {% else %}
-              <span style="color:#ccc;font-size:13px;">Nenhuma</span>
+              <span style="color:var(--text-muted-2);font-size:13px;">Nenhuma</span>
               {% endif %}
             </td>
             <td>
@@ -153,7 +153,7 @@
             </td>
         </tr>
         {% else %}
-        <tr><td colspan="9" style="text-align:center;color:#888;">Nenhum kit encontrado.</td></tr>
+        <tr><td colspan="9" style="text-align:center;color:var(--text-muted-2);">Nenhum kit encontrado.</td></tr>
         {% endfor %}
         </tbody>
     </table>
@@ -179,9 +179,9 @@
 <!-- Modal de reimpressão (com opção de alterar a garagem) -->
 <div id="modal-reimprimir" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
      background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;">
+  <div style="background:var(--surface);border-radius:12px;padding:24px;min-width:320px;max-width:420px;">
     <h3 style="margin-top:0;">Reimprimir Etiqueta</h3>
-    <p style="font-size:13px;color:#666;margin:-8px 0 14px;">
+    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 14px;">
         Confira/altere a garagem antes de reimprimir. Se você mudar o valor, a etiqueta é
         regerada com a garagem nova e o kit fica atualizado nos relatórios.
     </p>

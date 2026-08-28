@@ -46,6 +46,33 @@ a[href^="tel:"], a[href^="sms:"] {
     --shadow-card: 0 1px 2px rgba(16,24,40,.04);
 }
 
+/* Modo escuro — mesmos nomes de variável, valores trocados. Todo componente
+   que já usa var(--surface), var(--text) etc. muda de cara sozinho, sem
+   precisar de uma regra por componente. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:            #15181b;
+    --surface:       #1d2126;
+    --surface-alt:   #22262c;
+    --surface-hover: #282d33;
+    --text:          #edf0f2;
+    --text-muted:    #a7afb9;
+    --text-muted-2:  #767e88;
+    --border:        #2d3238;
+    --border-strong: #3b4148;
+    --border-subtle: #24282e;
+
+    --brand-soft:   #1b333d;
+    --brand-border: #2f5867;
+    --brand-ink:    #cdeaf3;
+
+    --ok-bg:      #12301d; --ok-text:      #3ecf5e; --ok-border: #1e5631;
+    --warn-bg:    #3a2a0c; --warn-text:    #fab219; --warn-border: #5a3f10;
+    --danger-bg:  #3a1613; --danger-text:  #f2867a; --danger-border: #5c231d;
+
+    --shadow-card: 0 1px 3px rgba(0,0,0,.5);
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     background: var(--bg);
@@ -71,22 +98,21 @@ body {
     height: var(--topbar-altura);
     padding: 0 20px;
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
     border-bottom: 1px solid var(--border-subtle);
-    font-weight: 700;
     color: var(--text);
     text-decoration: none;
     flex: 0 0 auto;
 }
 .ds-brand:hover { color: var(--text); }
 .ds-brand-logo {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: #e8f1f4; color: var(--brand);
-    display: grid; place-items: center; flex: 0 0 auto;
+    height: 20px; width: auto; max-width: 160px; object-fit: contain; display: block;
 }
-.ds-brand-logo img { width: 20px; height: 20px; object-fit: contain; }
-.ds-brand span { font-size: 14px; line-height: 1.25; }
+:root[data-theme="dark"] .ds-brand-logo { filter: invert(1); }
+.ds-brand-sub { font-size: 11px; font-weight: 600; color: var(--text-muted); line-height: 1; }
 
 .ds-nav { padding: 14px 12px; overflow-y: auto; flex: 1 1 auto; }
 .ds-nav-group { margin-bottom: 20px; }
@@ -98,11 +124,11 @@ body {
 }
 .ds-nav-item {
     height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px;
-    color: #526067; text-decoration: none; border-radius: 7px; margin: 1px 0;
+    color: var(--text-muted); text-decoration: none; border-radius: 7px; margin: 1px 0;
     font-size: 13.5px; font-weight: 500;
 }
-.ds-nav-item:hover { background: var(--surface-alt); color: #526067; text-decoration: none; }
-.ds-nav-item.ativo { background: #eaf2f5; color: var(--brand); font-weight: 600; }
+.ds-nav-item:hover { background: var(--surface-alt); color: var(--text-muted); text-decoration: none; }
+.ds-nav-item.ativo { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
 .ds-nav-item .ic { width: 17px; height: 17px; flex: 0 0 auto; }
 .ds-nav-count {
     margin-left: auto; font-size: 11px; color: var(--text-muted);
@@ -119,7 +145,7 @@ body {
 }
 .ds-avatar {
     width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
-    display: grid; place-items: center; background: #e5edf0; color: var(--brand);
+    display: grid; place-items: center; background: var(--brand-soft); color: var(--brand);
     font-weight: 700; font-size: 13px;
 }
 .ds-user-nome { font-size: 12.5px; font-weight: 600; color: var(--text); display: block; }
@@ -128,6 +154,18 @@ body {
     display: inline-flex; align-items: center; gap: 4px;
 }
 .ds-user-sair:hover { color: var(--danger-text); }
+
+/* Alternador claro/escuro — mesmo botão-pílula dos painéis de TV
+   (producao_tv.html/prateleira_tv.html), agora também no menu lateral, pra
+   valer pro sistema inteiro e não só pros painéis. */
+.ds-theme-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; height: 30px; margin-bottom: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    color: var(--text-muted); font-size: 12px; font-weight: 600; font-family: inherit;
+    cursor: pointer;
+}
+.ds-theme-toggle:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
 .ds-main { margin-left: var(--sidebar-largura); min-width: 0; flex: 1; }
 .ds-topbar {
@@ -326,7 +364,7 @@ button.ds-kpi:hover { border-color: var(--brand-border); box-shadow: 0 2px 8px r
     display: flex;
     gap: 4px;
     margin-bottom: 18px;
-    border-bottom: 2px solid #e0e7ef;
+    border-bottom: 2px solid var(--border);
     flex-wrap: wrap;
 }
 .tab-btn {
@@ -337,7 +375,7 @@ button.ds-kpi:hover { border-color: var(--brand-border); box-shadow: 0 2px 8px r
     font-size: 14px;
     font-weight: 600;
     font-family: inherit;
-    color: #888;
+    color: var(--text-muted-2);
     cursor: pointer;
     margin-bottom: -2px;
     transition: color .12s, border-color .12s;
@@ -475,8 +513,8 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
 }
 
 .alert { padding: 12px 18px; border-radius: var(--radius-input); margin-bottom: 16px; font-size: 14px; }
-.alert-danger { background: var(--danger-bg); color: var(--danger-text); border: 1px solid #f3c9c2; }
-.alert-success { background: var(--ok-bg); color: var(--ok-text); border: 1px solid #c9e9d6; }
+.alert-danger { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
+.alert-success { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-border); }
 .alert-info { background: var(--brand-soft); color: var(--brand-ink); border: 1px solid var(--brand-border); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -609,7 +647,7 @@ tr:hover td { background: var(--surface-alt); }
 .bip-progresso-topo #bip-progresso-pct { font-size: 20px; }
 .bip-progresso-trilho {
     height: 10px;
-    background: #e3e8ee;
+    background: var(--border);
     border-radius: 99px;
     overflow: hidden;
 }
@@ -795,7 +833,7 @@ tr:hover td { background: var(--surface-alt); }
    isso atrapalharia mais do que ajuda. */
 .campo-duplicado {
     border-color: var(--warn-text) !important;
-    background: #fdf6ea !important;
+    background: var(--warn-bg) !important;
 }
 
 /* ── Painel do patrimônio (dentro da janela) ──────────────────────────────
@@ -823,23 +861,23 @@ tr:hover td { background: var(--surface-alt); }
    pra as duas começarem alinhadas. */
 .pat-coluna > :first-child { margin-top: 0; }
 .pat-vazio {
-    border: 1px dashed #d6dfe8; border-radius: 10px; padding: 12px 14px; margin: 0;
+    border: 1px dashed var(--border-strong); border-radius: 10px; padding: 12px 14px; margin: 0;
 }
 
-.pat-onde { background: #f5f8fb; border-radius: 10px; padding: 12px 14px; }
+.pat-onde { background: var(--surface-alt); border-radius: 10px; padding: 12px 14px; }
 /* Pendência dentro do card do veículo: quem ele é e o que falta nele são a
    mesma informação — separados, o operador lia só a primeira. */
 .pat-falta {
-    background: var(--danger-bg, #fdecea); border-left: 4px solid var(--danger-text);
+    background: var(--danger-bg); border-left: 4px solid var(--danger-text);
     border-radius: 8px; padding: 9px 12px; margin-top: 12px;
-    font-size: 14px; color: #8e2a20;
+    font-size: 14px; color: var(--danger-text);
 }
-.pat-falta-ajuda { font-size: 12px; font-weight: 400; margin-top: 4px; color: #a0554c; }
+.pat-falta-ajuda { font-size: 12px; font-weight: 400; margin-top: 4px; color: var(--danger-text); }
 .pat-rotulo {
-    font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #8a97a4;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted-2);
 }
 .pat-veic { font-size: 18px; font-weight: 800; color: var(--brand); margin-top: 2px; }
-.pat-sub { font-size: 12px; color: #667382; margin-top: 3px; }
+.pat-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 /* Ficha do veículo: rótulo em cima, valor embaixo, um campo por célula.
    Em frase corrida ("REDEMOB · MB · modelo Volvo…") não dava pra saber qual
    pedaço era garagem e qual era modelo — os dois são texto livre. */
@@ -849,10 +887,10 @@ tr:hover td { background: var(--surface-alt); }
 }
 .pat-campo span {
     display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .8px;
-    color: #8a97a4;
+    color: var(--text-muted-2);
 }
-.pat-campo strong { font-size: 13.5px; color: #33404d; font-weight: 700; }
-.pat-vazio-campo { color: #b0803a; font-weight: 500; font-size: 12.5px; }
+.pat-campo strong { font-size: 13.5px; color: var(--text); font-weight: 700; }
+.pat-vazio-campo { color: var(--warn-text); font-weight: 500; font-size: 12.5px; }
 /* Cliente e garagem em destaque, na cor do cliente. Sem sublinhado e sem
    cursor de mão: cor aqui é identidade, não link — e um "link" que não abre
    nada faz o operador clicar e desconfiar da tela. */
@@ -866,19 +904,19 @@ a.marca-cliente:hover { text-decoration: underline; }
 .pat-atalhos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 .pat-acao {
-    border: 1px solid #e6ecf2; border-radius: 10px; margin-top: 10px; padding: 0 14px 2px;
+    border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; padding: 0 14px 2px;
 }
-.pat-acao[open] { padding-bottom: 14px; border-color: #cfdae6; }
+.pat-acao[open] { padding-bottom: 14px; border-color: var(--border-strong); }
 .pat-acao > summary {
-    cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 14px; color: #33404d;
+    cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 14px; color: var(--text);
     list-style: none;
 }
 .pat-acao > summary::-webkit-details-marker { display: none; }
-.pat-acao > summary::before { content: '▸ '; color: #9aa7b4; }
+.pat-acao > summary::before { content: '▸ '; color: var(--text-muted-2); }
 .pat-acao[open] > summary::before { content: '▾ '; }
-.pat-ajuda { font-size: 12px; color: #7a8794; margin: 2px 0 8px; line-height: 1.45; }
+.pat-ajuda { font-size: 12px; color: var(--text-muted-2); margin: 2px 0 8px; line-height: 1.45; }
 .pat-acao label {
-    display: block; font-size: 12px; font-weight: 700; color: #5b6875; margin: 10px 0 4px;
+    display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 10px 0 4px;
 }
 .pat-acao input {
     width: 100%; margin: 0; padding: 9px 10px; font-size: 14px;
@@ -887,11 +925,11 @@ a.marca-cliente:hover { text-decoration: underline; }
 .pat-acao .pat-mono { font-family: monospace; }
 .pat-acao button[type=submit] { margin-top: 12px; }
 .pat-previa {
-    background: #fffdf4; border: 1px solid #f0d9a0; border-radius: 10px;
+    background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 10px;
     padding: 12px 14px; margin-top: 12px; font-size: 13px;
 }
 .pat-previa p { margin: 6px 0 0; }
-.pat-aviso { color: #b8860b; font-size: 12px; }
+.pat-aviso { color: var(--warn-text); font-size: 12px; }
 .pat-linha { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .pat-acao select {
     width: 100%; margin: 0; padding: 9px 10px; font-size: 14px;
@@ -902,26 +940,26 @@ a.marca-cliente:hover { text-decoration: underline; }
 .vp-itens { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 2px; }
 .vp-item {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 8px 10px; background: #f7fafc; border-radius: 8px;
+    padding: 8px 10px; background: var(--surface-alt); border-radius: 8px;
 }
-.vp-tipo { font-size: 13px; font-weight: 700; color: #33404d; }
+.vp-tipo { font-size: 13px; font-weight: 700; color: var(--text); }
 /* Total do item de quantidade, que na lista vem unificado num só. */
 .vp-qtd {
     display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 20px;
-    background: #e8edf3; color: #5b6875; font-size: 11px; font-weight: 700;
+    background: var(--border); color: var(--text-muted); font-size: 11px; font-weight: 700;
 }
 /* Onde acaba o que tem ação (patrimônio) e começa o que é só informação. */
 .vp-divisor {
     font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
-    color: #9aa7b4; margin: 8px 0 2px; padding-top: 8px;
-    border-top: 1px dashed #dfe6ee;
+    color: var(--text-muted-2); margin: 8px 0 2px; padding-top: 8px;
+    border-top: 1px dashed var(--border-strong);
 }
-.vp-codigo { font-size: 12px; color: #7a8794; font-family: monospace; }
+.vp-codigo { font-size: 12px; color: var(--text-muted-2); font-family: monospace; }
 /* O item aberto fica marcado na lista: sem isso, com o painel unificado,
    nao dava pra saber qual dos itens esta "em foco". */
-.vp-item-sel { background: #eaf2fb; box-shadow: inset 0 0 0 1px #bcd4ee; }
+.vp-item-sel { background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border); }
 .pat-foco {
-    background: #eef4fb; border: 1px solid #cfdae6; border-radius: 10px;
+    background: var(--brand-soft); border: 1px solid var(--brand-border); border-radius: 10px;
     padding: 12px 14px;
 }
 .pat-foco-titulo { font-size: 15px; font-weight: 800; color: var(--brand); margin-top: 2px; }
@@ -932,18 +970,18 @@ a.marca-cliente:hover { text-decoration: underline; }
 .multi { position: relative; display: inline-block; }
 .multi-botao {
     display: inline-flex; align-items: center; gap: 8px; height: 34px;
-    background: var(--surface, #fff); border: 1px solid var(--border, #d7dee6);
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-input, 8px); padding: 0 12px;
-    font-size: 13.5px; color: #33404d; cursor: pointer; max-width: 260px;
+    font-size: 13.5px; color: var(--text); cursor: pointer; max-width: 260px;
 }
-.multi-botao:hover { border-color: #b9c6d4; }
+.multi-botao:hover { border-color: var(--border-strong); }
 .multi.marcado > .multi-botao { border-color: var(--brand); color: var(--brand); font-weight: 600; }
 .multi-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.multi-seta { color: #9aa7b4; font-size: 11px; }
+.multi-seta { color: var(--text-muted-2); font-size: 11px; }
 .multi-lista {
     display: none; position: absolute; z-index: 60; top: calc(100% + 4px); left: 0;
     min-width: 240px; max-width: 340px; max-height: 300px; overflow-y: auto;
-    background: #fff; border: 1px solid #dbe3ec; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     box-shadow: 0 10px 28px rgba(0,0,0,.16); padding: 6px;
 }
 .multi.aberto > .multi-lista { display: block; }
@@ -951,9 +989,9 @@ a.marca-cliente:hover { text-decoration: underline; }
     display: flex; align-items: center; gap: 8px;
     padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer;
 }
-.multi-opcao:hover { background: #f3f7fa; }
+.multi-opcao:hover { background: var(--surface-hover); }
 .multi-opcao input { width: auto; margin: 0; }
-.multi-vazio { font-size: 12px; color: #97a3af; margin: 6px 8px; }
+.multi-vazio { font-size: 12px; color: var(--text-muted-2); margin: 6px 8px; }
 
 /* ── Janela central genérica (mesma forma da configuração do item) ────────
    Usada pelos cadastros de apoio de Veículos e Clientes. O --cfg-centro é o
@@ -965,7 +1003,7 @@ a.marca-cliente:hover { text-decoration: underline; }
     --cfg-centro: translate(-50%, -50%);
     transform: var(--cfg-centro);
     z-index: 1001;
-    background: #fff; border: 1px solid #e0e7ef; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     width: min(720px, calc(100vw - 32px));
     max-height: min(88vh, 780px);
     flex-direction: column; overflow: hidden;
@@ -982,16 +1020,16 @@ a.marca-cliente:hover { text-decoration: underline; }
 .modal-fundo.aberto { display: block; }
 .modal-cabecalho {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    padding: 16px 22px; border-bottom: 1px solid #eef2f7; background: #f8fafc;
+    padding: 16px 22px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-alt);
     flex: 0 0 auto;
 }
 .modal-cabecalho strong { color: var(--brand); font-size: 16px; display: block; }
-.modal-sub { font-size: 12px; color: #8a97a4; display: block; margin-top: 2px; }
+.modal-sub { font-size: 12px; color: var(--text-muted-2); display: block; margin-top: 2px; }
 .modal-fechar {
-    background: none; border: 0; cursor: pointer; font-size: 22px; color: #9aa7b4;
+    background: none; border: 0; cursor: pointer; font-size: 22px; color: var(--text-muted-2);
     line-height: 1; padding: 0 4px; border-radius: 6px;
 }
-.modal-fechar:hover { background: #e9eef3; color: #5b6875; }
+.modal-fechar:hover { background: var(--surface-hover); color: var(--text); }
 /* Rola o conteúdo, não a janela — o cabeçalho fica parado. */
 .modal-corpo { padding: 16px 22px 22px; overflow-y: auto; }
 /* Dentro da janela quem rola é o corpo; a lista não precisa de teto próprio. */
@@ -1002,13 +1040,13 @@ a.marca-cliente:hover { text-decoration: underline; }
    galpão erra o alvo de 14px. */
 .rem-opcao {
     display: flex; align-items: center; gap: 10px; cursor: pointer;
-    padding: 10px 12px; border: 1px solid #e6ecf2; border-radius: 10px;
-    background: #fff;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface);
 }
-.rem-opcao:hover { background: #f7f9fb; }
-.rem-opcao-sel { background: #eef4fb; border-color: #bcd4ee; }
+.rem-opcao:hover { background: var(--surface-hover); }
+.rem-opcao-sel { background: var(--brand-soft); border-color: var(--brand-border); }
 .rem-trilho {
-    display: block; height: 6px; background: #e8edf3; border-radius: 99px;
+    display: block; height: 6px; background: var(--border); border-radius: 99px;
     overflow: hidden; margin-top: 5px;
 }
 .rem-barra { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
@@ -1020,11 +1058,11 @@ a.marca-cliente:hover { text-decoration: underline; }
     display: inline-block; padding: 2px 9px; border-radius: 999px;
     font-size: 11.5px; font-weight: 700; white-space: nowrap;
 }
-.badge-etapa-a_produzir  { background: #e7f0fa; color: #2668a8; }
-.badge-etapa-em_producao { background: #fdf0dc; color: var(--warn-text); }
-.badge-etapa-produzido   { background: #e3f5ea; color: #127a45; }
-.badge-etapa-transito    { background: #ede6fa; color: #6b3fb5; }
-.badge-etapa-no_cliente  { background: #e4f4f2; color: #0f766e; }
+.badge-etapa-a_produzir  { background: color-mix(in srgb, #2668a8 15%, var(--surface)); color: #2668a8; }
+.badge-etapa-em_producao { background: var(--warn-bg); color: var(--warn-text); }
+.badge-etapa-produzido   { background: color-mix(in srgb, #127a45 15%, var(--surface)); color: #127a45; }
+.badge-etapa-transito    { background: color-mix(in srgb, #6b3fb5 15%, var(--surface)); color: #6b3fb5; }
+.badge-etapa-no_cliente  { background: color-mix(in srgb, #0f766e 15%, var(--surface)); color: #0f766e; }
 
 /* ── Remessa como lista que abre ──────────────────────────────────────────
    Uma aberta por vez: com quatro ou cinco em andamento, a página virava um
@@ -1032,28 +1070,28 @@ a.marca-cliente:hover { text-decoration: underline; }
 details.rem-item { padding: 0; }
 details.rem-item > summary { cursor: pointer; list-style: none; padding: 16px 22px; }
 details.rem-item > summary::-webkit-details-marker { display: none; }
-details.rem-item > summary::before { content: '▸'; color: #9aa7b4; margin-right: 8px; }
+details.rem-item > summary::before { content: '▸'; color: var(--text-muted-2); margin-right: 8px; }
 details.rem-item[open] > summary::before { content: '▾'; }
-details.rem-item > summary:hover { background: #f7f9fb; }
+details.rem-item > summary:hover { background: var(--surface-hover); }
 .rem-resumo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .rem-resumo-nome { font-size: 16px; font-weight: 800; color: var(--brand); flex: 1; min-width: 180px; }
 .rem-resumo-barra { flex: 1; min-width: 120px; max-width: 260px; }
 .rem-resumo-conta { font-size: 20px; color: var(--brand); white-space: nowrap; }
-.rem-resumo-falta { font-size: 12px; color: #7a8794; white-space: nowrap; }
+.rem-resumo-falta { font-size: 12px; color: var(--text-muted-2); white-space: nowrap; }
 .rem-corpo { padding: 0 22px 22px; }
 
 /* Barra de ações da seleção múltipla — some quando nada está marcado. */
 .rem-barra-lote {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     margin-top: 12px; padding: 10px 14px;
-    background: #eef4fb; border: 1px solid #bcd4ee; border-radius: 10px;
+    background: var(--brand-soft); border: 1px solid var(--brand-border); border-radius: 10px;
 }
 
 /* ── Barra da remessa ─────────────────────────────────────────────────────
    O "45/90" em forma de barra: o número diz quanto, a barra diz quão perto —
    e é a segunda que se lê de longe, passando pela tela. */
 .remessa-trilho {
-    height: 12px; background: #e8edf3; border-radius: 99px; overflow: hidden;
+    height: 12px; background: var(--border); border-radius: 99px; overflow: hidden;
 }
 .remessa-barra {
     height: 100%; border-radius: 99px; background: var(--brand);
@@ -1071,12 +1109,12 @@ details.etapa > summary {
 details.etapa > summary::-webkit-details-marker { display: none; }
 /* Seta desenhada aqui: a nativa muda de forma entre navegadores. */
 details.etapa > summary::before {
-    content: '▸'; color: #8a97a4; font-size: 15px; line-height: 1; flex: 0 0 auto;
+    content: '▸'; color: var(--text-muted-2); font-size: 15px; line-height: 1; flex: 0 0 auto;
 }
 details.etapa[open] > summary::before { content: '▾'; }
 details.etapa > summary h2 { margin: 0; border: 0; padding: 0; }
 details.etapa > summary:hover h2 { color: var(--brand); }
-.etapa-sub { font-weight: 400; color: #888; font-size: 13px; }
+.etapa-sub { font-weight: 400; color: var(--text-muted-2); font-size: 13px; }
 details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
 
 /* ── Janela de configuracao do item (Itens & Estoque) ─────────────────────
@@ -1100,8 +1138,8 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     --cfg-centro: translate(-50%, -50%);
     transform: var(--cfg-centro);
     z-index: 1001;
-    background: #fff;
-    border: 1px solid #e0e7ef;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
     width: min(900px, calc(100vw - 32px));
     max-height: min(88vh, 780px);
@@ -1125,16 +1163,16 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
 
 .config-cabecalho {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-    padding: 16px 22px; border-bottom: 1px solid #eef2f7; background: #f8fafc;
+    padding: 16px 22px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-alt);
     flex: 0 0 auto;
 }
 .config-cabecalho strong { color: var(--brand); font-size: 16px; display: block; }
-.config-sub { font-size: 12px; color: #8a97a4; display: block; margin-top: 2px; }
+.config-sub { font-size: 12px; color: var(--text-muted-2); display: block; margin-top: 2px; }
 .config-fechar {
-    background: none; border: 0; cursor: pointer; font-size: 22px; color: #9aa7b4;
+    background: none; border: 0; cursor: pointer; font-size: 22px; color: var(--text-muted-2);
     line-height: 1; padding: 0 4px; border-radius: 6px;
 }
-.config-fechar:hover { background: #e9eef3; color: #5b6875; }
+.config-fechar:hover { background: var(--surface-hover); color: var(--text); }
 
 /* Rola o CONTEÚDO, não a janela inteira — o cabeçalho fica parado. */
 .config-corpo {
@@ -1143,30 +1181,30 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
     gap: 14px; padding: 16px 22px 22px; overflow-y: auto; align-items: start;
 }
-.cfg-secao { border: 1px solid #e6ecf2; border-radius: 12px; padding: 4px 14px 12px; }
+.cfg-secao { border: 1px solid var(--border); border-radius: 12px; padding: 4px 14px 12px; }
 .cfg-secao > h4 {
     margin: 12px 0 2px; font-size: 11px; text-transform: uppercase;
-    letter-spacing: .8px; color: #8a97a4;
+    letter-spacing: .8px; color: var(--text-muted-2);
 }
-.cfg-estoque { background: #f5faf7; border-color: #cfe7d9; }
+.cfg-estoque { background: color-mix(in srgb, var(--ok-text) 8%, var(--surface)); border-color: var(--ok-border); }
 .cfg-linha {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 10px 0; border-top: 1px solid #edf1f5;
+    padding: 10px 0; border-top: 1px solid var(--border-subtle);
 }
 .cfg-linha-coluna { flex-direction: column; align-items: stretch; gap: 6px; }
 .cfg-linha form { margin: 0; }
-.cfg-rotulo { font-size: 13px; color: #33404d; font-weight: 600; }
+.cfg-rotulo { font-size: 13px; color: var(--text); font-weight: 600; }
 .cfg-ajuda {
-    font-size: 11px; color: #97a3af; display: block; margin-top: 2px; font-weight: 400;
+    font-size: 11px; color: var(--text-muted-2); display: block; margin-top: 2px; font-weight: 400;
     line-height: 1.35;
 }
 .cfg-chave { min-width: 104px; background: var(--surface); border-color: var(--border); color: var(--text-muted); }
 .cfg-chave.ativo { border-color: var(--brand-border); color: var(--brand); font-weight: 600; }
-.cfg-alternador { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
+.cfg-alternador { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
 .cfg-alternador form { display: flex; }
 .cfg-opcao {
     padding: 6px 12px; font-size: 12px; font-weight: 700; border: none; cursor: pointer;
-    background: #f0f0f0; color: #888; white-space: nowrap;
+    background: var(--surface-alt); color: var(--text-muted-2); white-space: nowrap;
 }
 .cfg-opcao-ativa { color: #fff; cursor: default; }
 .cfg-campo-linha { display: flex; gap: 6px; align-items: center; }
@@ -1203,18 +1241,18 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
 .conf-bloco {
     flex: 1 1 130px;
     padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-left: 4px solid #bbb;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border-strong);
     border-radius: 6px;
-    background: #fafafa;
+    background: var(--surface-alt);
     text-decoration: none;
     color: inherit;
     display: block;
 }
-.conf-bloco:hover { background: #f0f0f0; }
-.conf-bloco.conf-ativo { background: #eef4ff; border-color: #6f9be0; }
+.conf-bloco:hover { background: var(--surface-hover); }
+.conf-bloco.conf-ativo { background: var(--brand-soft); border-color: var(--brand); }
 .conf-n { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; }
-.conf-r { display: block; font-size: 12px; color: #555; margin-top: 2px; }
+.conf-r { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .conf-bloco.conf-novo      { border-left-color: var(--ok-text); }
 .conf-bloco.conf-igual     { border-left-color: var(--brand); }
 .conf-bloco.conf-alterado  { border-left-color: #e6a700; }
@@ -1226,7 +1264,7 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     flex-wrap: wrap;
     gap: 4px 16px;
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
 }
 
 .tabela-conferencia { width: 100%; }
@@ -1236,8 +1274,8 @@ tr.conf-novo     td:first-child { border-left-color: var(--ok-text) !important; 
 tr.conf-igual    td:first-child { border-left-color: var(--brand) !important; }
 tr.conf-alterado td:first-child { border-left-color: #e6a700 !important; }
 tr.conf-erro     td:first-child { border-left-color: var(--danger-text) !important; }
-tr.conf-alterado { background: #fffaef; }
-tr.conf-erro     { background: #fdefee; }
+tr.conf-alterado { background: color-mix(in srgb, #e6a700 10%, var(--surface)); }
+tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--surface)); }
 
 .conf-tag {
     display: inline-block;
@@ -1245,16 +1283,16 @@ tr.conf-erro     { background: #fdefee; }
     border-radius: 10px;
     font-size: 12px;
     white-space: nowrap;
-    background: #eee;
+    background: var(--surface-alt);
 }
-.conf-tag-novo     { background: #e4f6ea; color: #1e7a45; }
-.conf-tag-igual    { background: #e8f2fb; color: #1f6398; }
-.conf-tag-alterado { background: #fdf3d9; color: #8a6100; }
-.conf-tag-erro     { background: #fbe4e2; color: #a02a1c; }
+.conf-tag-novo     { background: color-mix(in srgb, #1e7a45 16%, var(--surface)); color: #1e7a45; }
+.conf-tag-igual    { background: color-mix(in srgb, #1f6398 16%, var(--surface)); color: #1f6398; }
+.conf-tag-alterado { background: color-mix(in srgb, #8a6100 16%, var(--surface)); color: #8a6100; }
+.conf-tag-erro     { background: color-mix(in srgb, #a02a1c 16%, var(--surface)); color: #a02a1c; }
 
 /* Antes riscado, depois em negrito: a mudança se lê sem precisar comparar
    duas telas. */
-.conf-antes  { color: #999; text-decoration: line-through; }
-.conf-seta   { color: #999; margin: 0 2px; }
+.conf-antes  { color: var(--text-muted-2); text-decoration: line-through; }
+.conf-seta   { color: var(--text-muted-2); margin: 0 2px; }
 .conf-depois { color: #8a6100; }
 .conf-erro-texto { color: #a02a1c; font-size: 12px; }

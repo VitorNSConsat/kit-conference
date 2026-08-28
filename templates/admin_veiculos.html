@@ -24,10 +24,10 @@
     display: flex; flex-direction: column; gap: 4px;
     max-height: 240px; overflow-y: auto;
     padding: 8px; border: 1px solid var(--border); border-radius: 8px;
-    background: #fafbfc;
+    background: var(--surface-alt);
 }
-.lista-suspensa > details { border-radius: 8px; background: #fff; border: 1px solid #e8edf2; }
-.lista-suspensa > details[open] { border-color: #cfdae6; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+.lista-suspensa > details { border-radius: 8px; background: var(--surface); border: 1px solid var(--border-subtle); }
+.lista-suspensa > details[open] { border-color: var(--brand-border); box-shadow: 0 1px 4px rgba(0,0,0,.05); }
 .lista-suspensa summary {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 7px 10px; cursor: pointer; font-size: 13px; list-style: none;
@@ -35,34 +35,34 @@
 .lista-suspensa summary::-webkit-details-marker { display: none; }
 /* Seta própria: a nativa muda de forma entre navegadores e some no Safari. */
 .lista-suspensa summary::before {
-    content: '▸'; color: #9aa7b4; font-size: 11px; transition: transform .12s ease;
+    content: '▸'; color: var(--text-muted-2); font-size: 11px; transition: transform .12s ease;
 }
 .lista-suspensa > details[open] > summary::before { content: '▾'; }
-.lista-suspensa summary:hover { background: #f3f7fa; border-radius: 8px; }
+.lista-suspensa summary:hover { background: var(--surface-hover); border-radius: 8px; }
 .ls-nome {
     flex: 1; font-weight: 700; color: var(--brand);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ls-contagem { font-size: 11px; color: #97a3af; white-space: nowrap; }
-.ls-conteudo { padding: 2px 10px 10px 24px; border-top: 1px solid #f0f3f6; }
+.ls-contagem { font-size: 11px; color: var(--text-muted-2); white-space: nowrap; }
+.ls-conteudo { padding: 2px 10px 10px 24px; border-top: 1px solid var(--border-subtle); }
 .ls-links { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
 .ls-links a, .ls-sem-link {
     display: inline-flex; align-items: center; gap: 5px;
-    background: #eef2f6; border-radius: 999px; padding: 3px 10px;
+    background: var(--surface-alt); border-radius: 999px; padding: 3px 10px;
     font-size: 12px; text-decoration: none; color: var(--brand); font-weight: 600;
 }
-.ls-links a:hover { background: #dce6f0; }
-.ls-sem-link { color: #8a97a4; font-weight: 400; font-style: italic; }
-.ls-links em { font-style: normal; color: #8a97a4; font-weight: 400; }
-.ls-vazio { font-size: 12px; color: #97a3af; margin: 8px 0; }
+.ls-links a:hover { background: var(--surface-hover); }
+.ls-sem-link { color: var(--text-muted-2); font-weight: 400; font-style: italic; }
+.ls-links em { font-style: normal; color: var(--text-muted-2); font-weight: 400; }
+.ls-vazio { font-size: 12px; color: var(--text-muted-2); margin: 8px 0; }
 .ls-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ls-acoes form { margin: 0; }
-.ls-desde { font-size: 11px; color: #aab4be; }
+.ls-desde { font-size: 11px; color: var(--text-muted-2); }
 .ls-excluir {
-    border: 1px solid #e6b7af; background: #fff; color: #b0392b; cursor: pointer;
+    border: 1px solid var(--danger-border); background: var(--surface); color: var(--danger-text); cursor: pointer;
     font-size: 11px; padding: 4px 9px; border-radius: 6px; margin-left: auto;
 }
-.ls-excluir:hover { background: #f9ecea; }
+.ls-excluir:hover { background: var(--danger-bg); }
 </style>
 <section class="ds-kpis">
   <button type="button" class="ds-kpi" onclick="abrirListaCadastro('clientes')" title="Ver e cadastrar clientes">
@@ -187,7 +187,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <p style="color:#888;text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
+  <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhum cliente cadastrado ainda.</p>
   {% endif %}
   </div>
 </div>
@@ -253,7 +253,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <p style="color:#888;text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
+  <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhuma garagem cadastrada ainda.</p>
   {% endif %}
   </div>
 </div>
@@ -273,7 +273,7 @@
         style="display:flex;flex-direction:column;gap:10px;">
     <div class="form-group" style="margin:0;">
       <label>Número / ID *
-        <span style="font-weight:400;color:#888;font-size:11px;">
+        <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">
           cliente com prefixo cadastrado: digite só o número (ex: 01) e o código completo é montado sozinho
         </span>
       </label>
@@ -393,15 +393,15 @@
        importação inteira num lote de trabalho. #}
     <div class="filtros-linha">
       <span class="filtros-rotulo">{{ ic.svg('calendario', 13) }} Importado</span>
-      <label style="font-size:12px;color:#7a8794;">de</label>
+      <label style="font-size:12px;color:var(--text-muted-2);">de</label>
       <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
              onchange="this.form.submit()">
-      <label style="font-size:12px;color:#7a8794;">até</label>
+      <label style="font-size:12px;color:var(--text-muted-2);">até</label>
       <input type="date" name="imp_fim" value="{{ imp_fim }}" style="width:160px;margin:0;"
              onchange="this.form.submit()">
       <input type="hidden" name="ordem" value="{{ ordem }}">
       {% if imp_ini or imp_fim %}
-      <span style="font-size:12px;color:#7a8794;">
+      <span style="font-size:12px;color:var(--text-muted-2);">
         {{ pag_veiculos.total }} veículo(s) neste período —
         dá pra levar todos pra uma remessa em
         <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">Remessas</a>.
@@ -528,24 +528,24 @@
         {% if loc %}
         <span style="color:{{ loc.cor }};font-weight:700;font-size:12.5px;">{{ loc.texto }}</span>
         {% else %}
-        <span style="color:#aaa;font-size:12px;" title="Falta cliente, garagem ou kit no cadastro">— não configurado</span>
+        <span style="color:var(--text-muted-2);font-size:12px;" title="Falta cliente, garagem ou kit no cadastro">— não configurado</span>
         {% endif %}
       </td>
       {# Data e hora em que o veículo entrou no sistema. Vem do cadastro
          (criado_em) e não muda quando alguém edita o veículo depois. #}
-      <td style="white-space:nowrap;font-size:12px;color:#7a8794;">
+      <td style="white-space:nowrap;font-size:12px;color:var(--text-muted-2);">
         {% if v.criado_em %}{{ v.criado_em[8:10] }}/{{ v.criado_em[5:7] }}/{{ v.criado_em[:4] }}
-        <span style="color:#aab4be;">{{ v.criado_em[11:16] }}</span>
+        <span style="color:var(--text-muted-2);">{{ v.criado_em[11:16] }}</span>
         {% else %}—{% endif %}
       </td>
       <td>
         {% if v.total_kits > 0 %}
           <span style="color:var(--ok-text);font-weight:700;display:inline-flex;align-items:center;gap:4px;">{{ ic.svg('check', 13) }} {{ v.total_kits }}</span>
         {% else %}
-          <span style="color:#aaa;">Nenhum</span>
+          <span style="color:var(--text-muted-2);">Nenhum</span>
         {% endif %}
       </td>
-      <td style="font-size:12px;color:#888;">{{ v.ultimo_kit_em[:10] if v.ultimo_kit_em else '—' }}</td>
+      <td style="font-size:12px;color:var(--text-muted-2);">{{ v.ultimo_kit_em[:10] if v.ultimo_kit_em else '—' }}</td>
       <td>
         <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Ver</a>
       </td>
@@ -559,7 +559,7 @@
     <button type="submit" class="btn btn-sm btn-danger" id="btn-excluir-massa" disabled>
       {{ ic.svg('excluir', 13) }} Excluir selecionados (<span id="qtd-selecionados">0</span>)
     </button>
-    <span style="font-size:12px;color:#888;">
+    <span style="font-size:12px;color:var(--text-muted-2);">
       Marque os veículos acima — ou o quadradinho do topo pra marcar a página inteira.
       {% if filtro_cliente %}Filtro ativo: só veículos de <strong>{{ filtro_cliente | join(', ') }}</strong>.{% else %}
       Pra apagar os veículos de um cliente, filtre por ele primeiro.{% endif %}
@@ -591,15 +591,15 @@
   </div>
   {% endif %}
   {% else %}
-  <p style="color:#888;text-align:center;padding:24px;">
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
     {% if tem_filtro %}Nenhum veículo bate com a busca/filtros.{% else %}Nenhum veículo cadastrado.{% endif %}
   </p>
   {% endif %}
   </div> <!-- /bloco-veiculos -->
 
   {% if veiculos_inativos %}
-  <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e0e0e0;">
-    <p style="font-size:12px;color:#aaa;margin-bottom:8px;">
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+    <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:8px;">
       Inativos ({{ veiculos_inativos | length }})
     </p>
     <div class="table-scroll">

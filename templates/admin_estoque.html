@@ -49,7 +49,7 @@
         {% for item in itens %}
         {% set abaixo = item.quantidade_atual <= item.quantidade_minima %}
         {% set proximo = item.quantidade_atual <= item.quantidade_minima * 2 and not abaixo %}
-        <tr style="{{ 'background:#fff5f5;' if abaixo else ('background:#fffbea;' if proximo else '') }}">
+        <tr style="{{ 'background:var(--danger-bg);' if abaixo else ('background:var(--warn-bg);' if proximo else '') }}">
             <td style="font-size:18px;font-weight:700;
                        color:{{ 'var(--danger-text)' if abaixo else ('var(--warn-text)' if proximo else 'var(--ok-text)') }};">
                 {{ item.quantidade_atual }}
@@ -91,7 +91,7 @@
                 {% elif status_atual %}
                 <span class="badge badge-info">{{ status_compra_opcoes.get(status_atual, status_atual) }}</span>
                 {% else %}
-                <span style="color:#bbb;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
                 {% endif %}
             </td>
             <td>
@@ -105,7 +105,7 @@
                     <button type="submit" class="btn btn-sm btn-success">+ Repor</button>
                 </form>
                 {% else %}
-                <span style="color:#bbb;">—</span>
+                <span style="color:var(--text-muted-2);">—</span>
                 {% endif %}
             </td>
             <td style="white-space:nowrap;">
@@ -130,14 +130,14 @@
         </tbody>
     </table>
     {% else %}
-    <p style="color:#888;text-align:center;padding:24px;">
+    <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
         Nenhum item de estoque cadastrado ainda.
         Cadastre em <a href="/admin/items">Itens &amp; Estoque</a>.
     </p>
     {% endif %}
 </div>
 
-<p style="font-size:13px;color:#888;text-align:center;">
+<p style="font-size:13px;color:var(--text-muted-2);text-align:center;">
     Para cadastrar um novo item ou atribuir estoque a um tipo existente, acesse
     <a href="/admin/items">Itens &amp; Estoque</a>.
 </p>
