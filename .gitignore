@@ -6,6 +6,10 @@
 .env.*
 kit_conference.db
 *.db
+# Companheiros do modo WAL do SQLite: nascem ao lado do banco e somem
+# sozinhos quando o servidor fecha direito. São estado, não código.
+*.db-wal
+*.db-shm
 # Backups automáticos do banco (feitos antes de cada migração de schema):
 # contêm dados reais de produção e NUNCA devem ir para o repositório.
 backups/

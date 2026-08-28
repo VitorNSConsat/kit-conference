@@ -1058,6 +1058,20 @@
     recebe a planilha achar que faltou dado.
   </div>
 
+  <h3>📄 Cada etapa vem por páginas</h3>
+  <p>
+    Com centenas de kits, uma etapa listava tudo de uma vez e a tela demorava a abrir.
+    Agora <strong>cada etapa pagina sozinha</strong>: mudar de página em “Produzido” não
+    mexe em “Em Trânsito”, e o link devolve você para a etapa onde estava. O número no
+    título continua sendo o <strong>total</strong> da etapa, não o da página.
+  </p>
+  <div class="nota">
+    O <strong>marcar todos</strong> marca só o que está <strong>na página aberta</strong> —
+    é o que você está vendo. Pra despachar mais que uma página, marque, envie, e a página
+    seguinte assume o lugar. A planilha da etapa (📊) continua trazendo
+    <strong>tudo</strong>, não só a página.
+  </div>
+
   <h3>A esteira</h3>
   <p>
     Cada estágio é uma lista que <strong>abre e fecha</strong>: fechados, os cinco
@@ -1234,6 +1248,32 @@
     Endereços de acesso ao sistema (HTTPS e HTTP) e os QR codes pra abrir no celular.
     Visível só pra quem tem a permissão <em>Ver a tela Rede</em>.
   </p>
+
+  <h3>⚡ O que faz a tela abrir rápido</h3>
+  <p>
+    Nada disso precisa ser configurado — está ligado sozinho. Está escrito aqui porque
+    explica comportamentos que dá pra notar no dia a dia.
+  </p>
+  <ul>
+    <li><strong>As telas trafegam comprimidas.</strong> A Produção, que é a maior, ia com
+      2,4 MB por carregamento; agora vai com 16 kB. Somando as telas do sistema, é
+      <strong>12× menos dado</strong> passando pela rede — sente-se no tablet do galpão e,
+      principalmente, em quem acessa de fora.</li>
+    <li><strong>O visual e os programas da página ficam guardados no navegador.</strong> Só
+      são baixados de novo quando mudam de verdade: o endereço deles carrega a versão, então
+      atualizar o sistema busca a versão nova sozinho. Não existe “limpar o cache pra ver a
+      mudança”.</li>
+    <li><strong>Quem lê não espera quem grava.</strong> Antes, uma bipagem sendo salva
+      trancava o banco e todas as telas abertas esperavam. Agora as consultas seguem com a
+      versão anterior enquanto a gravação acontece — vários operadores ao mesmo tempo
+      deixaram de disputar.</li>
+  </ul>
+  <div class="nota">
+    Medido com o banco no tamanho que a operação vai ter (3.000 veículos, 2.500 kits,
+    30.000 patrimônios): as telas do dia a dia abrem entre <strong>5 e 180 ms</strong>. A
+    mais pesada é <em>Itens Cadastrados</em>, perto de meio segundo, porque monta a situação
+    de cada patrimônio — é a única que cresce junto com o total de peças já bipadas.
+  </div>
 </div>
 
 <!-- 14 ────────────────────────────────────────────────────────────────── -->

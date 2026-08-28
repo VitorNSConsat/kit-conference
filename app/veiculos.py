@@ -27,6 +27,20 @@ def listar(cliente: str | None = None, ativo: bool = True,
     return [dict(r) for r in rows]
 
 
+def listar_para_escolha(ativo: bool = True) -> list[dict]:
+    """Só número e cliente — o que um <select> de filtro precisa.
+
+    listar() faz um GROUP BY sobre kit_record pra contar kits de cada
+    veículo. Isso é caro e a caixa de seleção joga tudo fora: ela mostra o
+    número e o cliente. Com 3.000 veículos, era um agrupamento inteiro sobre
+    a tabela de kits pra montar uma lista suspensa."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id, numero, cliente FROM veiculos WHERE ativo = ? "
+            "ORDER BY cliente, numero", (1 if ativo else 0,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def buscar(veiculo_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute(

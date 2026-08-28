@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Produção{% endblock %}
 
 {% macro nota_fiscal_form(k, pode_editar) %}
@@ -206,7 +207,7 @@
 {# Cada etapa é uma lista que abre. Fechada, a tela inteira cabe numa olhada:
    os cinco números da esteira sem rolar. O que estava aberto fica guardado no
    navegador, então quem trabalha sempre na mesma etapa não reabre toda vez. #}
-<details class="card etapa" data-etapa="a_produzir">
+<details class="card etapa" data-etapa="a_produzir" id="etapa-a_produzir">
   <summary>
     <h2>Kits a Produzir <span class="etapa-sub">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
   </summary>
@@ -219,12 +220,12 @@
     Veículos com cliente, garagem e kit definidos, disponíveis pra bipar. Some daqui
     sozinho na primeira bipagem, quando passa pra Em Produção.
   </p>
-  {% if a_produzir %}
+  {% if a_produzir.itens %}
   <div style="overflow-x:auto;">
   <table>
     <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th></tr></thead>
     <tbody>
-    {% for v in a_produzir %}
+    {% for v in a_produzir.itens %}
     <tr>
       <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:#1a3a5c;">{{ v.veiculo }}</a></td>
       <td>{{ v.garagem or '—' }}</td>
@@ -243,6 +244,22 @@
     </tbody>
   </table>
   </div>
+
+  {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
+     e a âncora devolve o operador pra etapa onde ele estava. #}
+  {% if a_produzir.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ a_produzir.pagina }} de {{ a_produzir.total_paginas }}
+      · {{ a_produzir.total }} no total</span>
+    {% for p in a_produzir.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_ap={{ p }}#etapa-a_produzir"
+         class="btn btn-sm {{ 'btn-primary' if p == a_produzir.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">
     Nenhum veículo pronto pra produzir. Falta cliente, garagem ou kit no cadastro —
@@ -309,7 +326,7 @@
 </details>
 
 <!-- ── Produzido → selecionar pra Em Trânsito ────────────────────────────── -->
-<details class="card etapa" data-etapa="produzido">
+<details class="card etapa" data-etapa="produzido" id="etapa-produzido">
   <summary>
     <h2>Produzido <span class="badge badge-success">{{ resumo.produzido }} kit{{ 's' if resumo.produzido != 1 }}</span></h2>
   </summary>
@@ -321,7 +338,7 @@
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
   </p>
-  {% if produzido %}
+  {% if produzido.itens %}
   <form id="form-transito" method="post" action="/admin/producao/transito"></form>
   {# Um checkbox só serve às DUAS ações em lote (trânsito e nota): o
      checkbox pertence ao form-transito e o de nota é montado por JS a
@@ -335,7 +352,7 @@
         <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Nota Fiscal</th>
       </tr></thead>
       <tbody>
-      {% for k in produzido %}
+      {% for k in produzido.itens %}
       <tr>
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
                    class="chk-produzido" onchange="atualizarSelecao('produzido')"
@@ -345,7 +362,23 @@
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
         <span class="badge badge-danger" style="margin-left:4px;"
-              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}
+  {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
+     e a âncora devolve o operador pra etapa onde ele estava. #}
+  {% if produzido.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ produzido.pagina }} de {{ produzido.total_paginas }}
+      · {{ produzido.total }} no total</span>
+    {% for p in produzido.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_pr={{ p }}#etapa-produzido"
+         class="btn btn-sm {{ 'btn-primary' if p == produzido.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
         {% endif %}</td>
         <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
@@ -412,7 +445,7 @@
 </div>
 
 <!-- ── Em Trânsito → chegada no cliente ──────────────────────────────────── -->
-<details class="card etapa" data-etapa="transito">
+<details class="card etapa" data-etapa="transito" id="etapa-transito">
   <summary>
     <h2>Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
   </summary>
@@ -421,7 +454,7 @@
   <a href="/admin/producao/excel?etapa=transito" class="btn btn-sm btn-success"
      style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
 
-  {% if transito %}
+  {% if transito.itens %}
   {# A nota costuma sair DEPOIS do despacho: o kit já está em trânsito quando
      o número chega. Sem o lote aqui, era um por um, linha a linha. #}
   <div style="overflow-x:auto;">
@@ -434,7 +467,7 @@
       <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Em trânsito desde</th><th>Nota Fiscal</th><th></th>
     </tr></thead>
     <tbody>
-    {% for k in transito %}
+    {% for k in transito.itens %}
     <tr>
       {% if pode('producao_nota_fiscal') %}
       <td><input type="checkbox" value="{{ k.kit_id }}" class="chk-transito"
@@ -445,7 +478,23 @@
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}
+  {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
+     e a âncora devolve o operador pra etapa onde ele estava. #}
+  {% if transito.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ transito.pagina }} de {{ transito.total_paginas }}
+      · {{ transito.total }} no total</span>
+    {% for p in transito.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_tr={{ p }}#etapa-transito"
+         class="btn btn-sm {{ 'btn-primary' if p == transito.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>

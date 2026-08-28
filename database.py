@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
@@ -46,6 +47,24 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
+    # WAL: quem LÊ não espera quem ESCREVE. No modo padrão do SQLite, uma
+    # gravação tranca o banco inteiro — com o galpão inteiro na mesma rede,
+    # uma bipagem sendo salva fazia todas as telas abertas esperarem. Em WAL
+    # as leituras seguem na versão anterior enquanto a escrita acontece.
+    # É por banco e fica gravado no arquivo; repetir o PRAGMA é barato.
+    # synchronous=NORMAL é o par recomendado do WAL: em vez de esperar o
+    # disco a cada commit, espera nos pontos de checkpoint. Perde-se, no
+    # pior caso (queda de energia no milissegundo errado), a última
+    # transação — e existe backup automático justamente pra isso.
+    if path != ":memory:":
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+    # 32 MB de cache por conexão (o valor negativo é em kB). O padrão são
+    # 2 MB, que não seguram nem um banco pequeno: a cada consulta grande as
+    # páginas eram jogadas fora e lidas do disco de novo. Como a conexão
+    # agora é reaproveitada pela thread, esse cache sobrevive de uma tela
+    # pra outra — antes, abrir conexão nova a cada consulta jogava fora.
+    conn.execute("PRAGMA cache_size = -32000")
     # sem_acento() deixa a busca por texto acontecer DENTRO do SQL sem
     # perder a tolerância a acento e maiúscula ("veiculo" acha "veículo").
     # Sem isso, filtrar em Python obrigaria a carregar tudo antes de
@@ -63,17 +82,62 @@ def _sem_acento(valor) -> str:
     )
 
 
+# ── Uma conexão por thread, reaproveitada ─────────────────────────────────
+# Abrir um arquivo SQLite custa ~3,5 ms nesta máquina (o antivírus inspeciona
+# cada abertura). Uma tela que faz 30 consultas gastava 100 ms só ABRINDO
+# arquivo, antes de consultar qualquer coisa. Reaproveitando a conexão da
+# thread, esse custo acontece uma vez por thread e não uma vez por consulta.
+#
+# Por thread, e não global, porque uma conexão SQLite não é segura entre
+# threads — e o servidor atende as rotas síncronas num pool delas.
+_local = threading.local()
+
+
+def _conexao_reaproveitada():
+    caminho = _get_db_path()
+    conn = getattr(_local, "conn", None)
+    # O caminho muda entre testes (DB_PATH no ambiente): conexão de outro
+    # banco não serve, e usá-la faria o teste ler dados do banco errado.
+    if conn is not None and getattr(_local, "caminho", None) == caminho:
+        return conn
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    conn = get_connection()
+    _local.conn = conn
+    _local.caminho = caminho
+    return conn
+
+
 @contextmanager
 def db():
-    conn = get_connection()
+    """A conexão da thread, com commit no fim do bloco.
+
+    O `nivel` existe pro caso de um `with db()` dentro de outro: só o mais
+    externo confirma. Sem isso, o bloco de dentro confirmaria pela metade o
+    trabalho do de fora — e uma falha depois deixaria gravado o que devia
+    ter sido desfeito."""
+    conn = _conexao_reaproveitada()
+    _local.nivel = getattr(_local, "nivel", 0) + 1
     try:
         yield conn
-        conn.commit()
+        if _local.nivel == 1:
+            conn.commit()
     except Exception:
-        conn.rollback()
+        if _local.nivel == 1:
+            conn.rollback()
+        # Conexão que deu erro pode ter ficado num estado ruim; a próxima
+        # thread pega uma nova em vez de herdar o problema.
+        _local.conn = None
+        try:
+            conn.close()
+        except Exception:
+            pass
         raise
     finally:
-        conn.close()
+        _local.nivel -= 1
 
 
 def _backup_antes_de_migrar() -> str | None:

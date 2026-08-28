@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from dotenv import load_dotenv
 
 from database import init_db, db, now_brt
@@ -297,7 +298,37 @@ app.add_middleware(
     max_age=12 * 60 * 60,   # 12h — uma jornada; antes eram 14 dias
 )
 app.add_middleware(_MobileGateMiddleware)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Por FORA de todo o resto: comprime a resposta já pronta. As telas de lista
+# são HTML repetitivo (tabela com milhares de linhas), que encolhe ~10x — a
+# Produção sozinha saía com 2,4 MB por carregamento. Numa rede de galpão, com
+# vários tablets pedindo a mesma tela, é a diferença entre a página "abrir" e
+# "ir chegando". minimum_size evita gastar CPU comprimindo resposta curta.
+# compresslevel=6 e nao o 9 que o Starlette usa por padrao: medido aqui,
+# o 9 leva o DOBRO do tempo pra deixar a resposta 1,5% menor.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
+
+
+class _EstaticoComCache(StaticFiles):
+    """Diz ao navegador pra guardar CSS/JS/imagem por um ano.
+
+    Só é seguro porque todo estático é pedido com ?v=NN no endereço: mudou o
+    arquivo, muda a versão, muda o endereço — o navegador busca de novo
+    sozinho. Sem isso, cada troca de tela repetia o download do CSS e do
+    zxing.min.js (o leitor por câmera, que é grande).
+
+    É subclasse do StaticFiles, e não um middleware: middleware roda em TODA
+    requisição do sistema pra ajudar só as de /static.
+    """
+
+    _UM_ANO = 60 * 60 * 24 * 365
+
+    def file_response(self, *args, **kwargs):
+        resposta = super().file_response(*args, **kwargs)
+        resposta.headers["Cache-Control"] = f"public, max-age={self._UM_ANO}, immutable"
+        return resposta
+
+
+app.mount("/static", _EstaticoComCache(directory="static"), name="static")
 jinja = Jinja2Templates(directory="templates")
 
 
@@ -1241,7 +1272,9 @@ def _admin_items_context(sobressalente_cliente: str = "",
             itens_do_veiculo, busca,
             ("codigo_barra", "descricao", "veiculo_atual", "serial_atual", "operador_atual"))
         ctx["pag_itens"] = paginacao_mod.paginar(itens_do_veiculo, patrimonio_pagina)
-        ctx["veiculos_todos"] = veiculos_mod.listar()
+        # Só o que a caixa de seleção usa: listar() contaria os kits de cada
+        # um dos 3.000 veículos pra jogar a contagem fora.
+        ctx["veiculos_todos"] = veiculos_mod.listar_para_escolha()
 
     elif aba == "catalogo":
         tipos = items_mod.listar_tipos()
@@ -3871,11 +3904,19 @@ async def admin_producao(request: Request):
             l["gargalo"] = info.get("gargalo")
         return linhas
 
+    # Cada etapa pagina SOZINHA: abrir a página 3 de "Produzido" não pode
+    # mexer em "Em Trânsito". Sem paginação nenhuma, com 2.500 kits a tela
+    # saía com 2,4 MB e 1.800 linhas de uma vez — no tablet do galpão isso
+    # é meio minuto de espera pra ver os cinco primeiros.
+    pag_ap = max(1, int(request.query_params.get("pag_ap", 1) or 1))
+    pag_pr = max(1, int(request.query_params.get("pag_pr", 1) or 1))
+    pag_tr = max(1, int(request.query_params.get("pag_tr", 1) or 1))
     return render(request, "admin_producao.html", {
-        "a_produzir": _com_autonomia(producao_mod.listar_a_produzir()),
+        "a_produzir": paginacao_mod.paginar(
+            _com_autonomia(producao_mod.listar_a_produzir()), pag_ap),
         "em_producao": _com_autonomia(producao_mod.listar_em_producao()),
-        "produzido": producao_mod.listar_produzido(),
-        "transito": producao_mod.listar_transito(),
+        "produzido": paginacao_mod.paginar(producao_mod.listar_produzido(), pag_pr),
+        "transito": paginacao_mod.paginar(producao_mod.listar_transito(), pag_tr),
         # Card único de Cliente: instalando + concluído na mesma lista. As
         # duas funções antigas seguem existindo (o Painel da TV usa cada
         # coluna separada), então nada foi perdido.
