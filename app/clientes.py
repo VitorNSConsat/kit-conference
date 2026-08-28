@@ -74,9 +74,44 @@ def listar() -> list[dict]:
 def buscar(cliente_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute(
-            "SELECT id, nome, criado_em FROM clientes WHERE id = ?", (cliente_id,)
+            "SELECT id, nome, prefixo, criado_em FROM clientes WHERE id = ?", (cliente_id,)
         ).fetchone()
     return dict(row) if row else None
+
+
+def buscar_prefixo(nome: str) -> str:
+    """Prefixo de numeração cadastrado pra este cliente (vazio se não tiver
+    ou não existir). Comparação sem caixa/espaço, igual ao resto do
+    cadastro de cliente."""
+    nome = (nome or "").strip()
+    if not nome:
+        return ""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT prefixo FROM clientes WHERE UPPER(TRIM(nome)) = UPPER(?)", (nome,)
+        ).fetchone()
+    return (row["prefixo"] or "").strip() if row else ""
+
+
+def formatar_numero(numero: str, prefixo: str) -> str:
+    """Monta PREFIXO-00001 a partir do número cru (ex: "01") — só quando o
+    cliente tem prefixo configurado E o número digitado é só dígitos.
+    Número que já vem formatado (com traço, letra, espaço) não é tocado:
+    é o que permite reimportar uma planilha já no padrão novo sem
+    prefixar de novo, e continuar aceitando número fora do padrão."""
+    numero = (numero or "").strip()
+    prefixo = (prefixo or "").strip()
+    if not prefixo or not numero or not numero.isdigit():
+        return numero
+    return f"{prefixo}-{int(numero):05d}"
+
+
+def atualizar_prefixo(cliente_id: int, prefixo: str) -> None:
+    with db() as conn:
+        conn.execute(
+            "UPDATE clientes SET prefixo = ? WHERE id = ?",
+            ((prefixo or "").strip().upper(), cliente_id)
+        )
 
 
 def panorama(nome: str) -> dict | None:

@@ -5483,6 +5483,8 @@ async def admin_garagem_delete(request: Request, garagem_id: int):
     return RedirectResponse("/admin/veiculos?ok=garagem_excluida", status_code=302)
 
 
+
+
 # ── Cliente e Garagem — páginas de detalhe ────────────────────────────────────
 # Cliente e garagem não têm vínculo próprio no banco: quem liga os dois é o
 # VEÍCULO. Estas telas juntam num lugar só tudo que hoje estava espalhado
@@ -5504,6 +5506,17 @@ async def admin_cliente_detalhe(request: Request, cliente_id: int, ok: str = "",
         "voltar_para": _voltar_para(request, "/admin/veiculos"),
         "ok": ok, "erro": erro,
     })
+
+
+@app.post("/admin/clientes/{cliente_id}/prefixo")
+@require_login
+async def admin_cliente_prefixo(request: Request, cliente_id: int):
+    """Prefixo do número de frota (ex: REDEMOB = 31001) — usado pra montar
+    o número sozinho (PREFIXO-00001) quando cadastro manual ou planilha
+    mandam só o número cru."""
+    form = await request.form()
+    clientes_mod.atualizar_prefixo(cliente_id, str(form.get("prefixo", "")))
+    return RedirectResponse(f"/admin/clientes/{cliente_id}?ok=prefixo", status_code=302)
 
 
 @app.get("/admin/garagens/{garagem_id}", response_class=HTMLResponse)

@@ -699,9 +699,9 @@
   </ul>
 
   <p>
-    <strong>Clientes</strong>, <strong>Garagens</strong> e <strong>Novo Veículo</strong> são
-    botões no topo da tela: cada um abre uma janela no centro, como a configuração do item
-    no Estoque. Assim a primeira tela é a lista de veículos, e não o cadastro de apoio.
+    <strong>Novo Veículo</strong> é o botão no topo da tela; os cartões <strong>Clientes</strong>
+    e <strong>Garagens</strong>, logo acima da lista, também abrem essa mesma janela central ao
+    serem clicados. Assim a primeira tela é a lista de veículos, e não o cadastro de apoio.
   </p>
 
   <h3>Páginas de Cliente e de Garagem</h3>
@@ -714,6 +714,16 @@
     O destino tem que ser uma garagem já cadastrada, e kits já bipados mantêm a garagem
     que valia na hora da montagem.
   </p>
+  <p>
+    <strong>Prefixo do número de frota</strong> (na página do cliente): cada cliente pode ter
+    um prefixo próprio — por exemplo REDEMOB = <code>31001</code>. Com o prefixo cadastrado,
+    tanto no cadastro manual (Novo Veículo) quanto na planilha de importação, digitar só o
+    número cru (<code>01</code>) monta o código completo sozinho
+    (<code>31001-00001</code>, sempre 5 dígitos). Número que já vem formatado — com traço,
+    letra ou espaço — não é mexido, então reimportar uma planilha já no padrão novo não
+    prefixa de novo, e continua valendo digitar o número por extenso pra quem não usa esse
+    padrão. Cliente sem prefixo cadastrado não muda nada.
+  </p>
 
   <h3>Importação por planilha</h3>
   <ul>
@@ -721,6 +731,8 @@
     <li>A coluna <strong>Modelo (Kit)</strong> tem lista dos modelos disponíveis; digitando
       parecido (“mercedes euro 6”), o sistema casa com o modelo existente mais próximo.</li>
     <li>A importação <strong>não cria</strong> modelos novos — trabalha só sobre os que existem.</li>
+    <li>Se o cliente da linha tem <strong>prefixo</strong> cadastrado e o número veio cru
+      (só dígitos), o número final já sai formatado — veja acima.</li>
   </ul>
 
   <h3>Conferência da importação</h3>

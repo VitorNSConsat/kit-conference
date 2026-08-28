@@ -272,8 +272,12 @@
   <form method="post" action="/admin/veiculos"
         style="display:flex;flex-direction:column;gap:10px;">
     <div class="form-group" style="margin:0;">
-      <label>Número / ID *</label>
-      <input type="text" name="numero" placeholder="ex: VH-042" required>
+      <label>Número / ID *
+        <span style="font-weight:400;color:#888;font-size:11px;">
+          cliente com prefixo cadastrado: digite só o número (ex: 01) e o código completo é montado sozinho
+        </span>
+      </label>
+      <input type="text" name="numero" placeholder="ex: VH-042 ou 01" required>
     </div>
     <div class="form-group" style="margin:0;">
       <label>Cliente *</label>

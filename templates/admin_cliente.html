@@ -14,6 +14,9 @@
   <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ qtd }} veículo(s) mudaram de garagem.</div>
   {% endif %}
 {% endif %}
+{% if ok == 'prefixo' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Prefixo salvo.</div>
+{% endif %}
 {% if erro == 'destino' %}
 <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Escolha uma garagem de destino que já esteja cadastrada.</div>
 {% endif %}
@@ -52,10 +55,23 @@
     a produção só lista o que tem cliente, garagem e modelo preenchidos.
   </p>
   {% endif %}
-  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+  <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
     <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}" class="btn btn-sm btn-primary">{{ ic.svg('veiculos', 14) }} Ver veículos deste cliente</a>
     <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&situacao=a_produzir"
        class="btn btn-sm btn-secondary">{{ ic.svg('producao', 14) }} Ver o que falta produzir</a>
+    <form method="post" action="/admin/clientes/{{ cliente.id }}/prefixo"
+          style="display:flex;gap:8px;align-items:flex-end;">
+      <div class="form-group" style="margin:0;">
+        <label>Prefixo do número de frota
+          <span style="font-weight:400;color:#888;font-size:11px;">
+            ex: 31001 — ao cadastrar ou importar só o número (ex: 01), vira 31001-00001 sozinho
+          </span>
+        </label>
+        <input type="text" name="prefixo" value="{{ cliente.prefixo or '' }}"
+               placeholder="ex: 31001" style="width:140px;margin:0;">
+      </div>
+      <button type="submit" class="btn btn-sm btn-secondary">{{ ic.svg('check', 14) }} Salvar prefixo</button>
+    </form>
   </div>
 </div>
 

@@ -1,4 +1,5 @@
 from database import db, now_brt
+import app.clientes as clientes_mod
 
 
 def listar(cliente: str | None = None, ativo: bool = True,
@@ -97,6 +98,10 @@ def numeros_duplicados() -> list[dict]:
 
 
 def criar(numero: str, cliente: str, garagem: str, modelo: str = "") -> int:
+    # Cliente com prefixo cadastrado (ex: REDEMOB = 31001): número cru
+    # ("01") vira PREFIXO-00001 sozinho. Número já formatado ou cliente
+    # sem prefixo passa direto — só se aplica quando faz sentido.
+    numero = clientes_mod.formatar_numero(numero, clientes_mod.buscar_prefixo(cliente))
     ocupado = numero_em_uso(numero)
     if ocupado:
         raise ValueError(
@@ -435,6 +440,17 @@ def importar_excel(file_bytes: bytes) -> dict:
             garagem = ""
             if col_gar is not None and len(row) > col_gar:
                 garagem = str(row[col_gar] or "").strip()
+            if cliente:
+                # Mesma conexão/transação do resto da linha — buscar aqui
+                # em vez de clientes_mod.buscar_prefixo() (que abriria uma
+                # segunda conexão e travaria o banco, igual ao comentário
+                # do cliente/garagem logo abaixo).
+                prefixo_row = conn.execute(
+                    "SELECT prefixo FROM clientes WHERE UPPER(TRIM(nome)) = UPPER(?)",
+                    (cliente,)
+                ).fetchone()
+                if prefixo_row and prefixo_row["prefixo"]:
+                    numero = clientes_mod.formatar_numero(numero, prefixo_row["prefixo"])
             modelo_digitado = ""
             if col_mod is not None and len(row) > col_mod:
                 modelo_digitado = str(row[col_mod] or "").strip()

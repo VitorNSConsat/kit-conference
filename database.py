@@ -766,6 +766,11 @@ def init_db():
             # Arquivar em vez de apagar: remessa fechada e historico, e apagar
             # o lote nao pode levar junto a memoria de o que foi enviado.
             "ALTER TABLE remessa ADD COLUMN arquivada_em TEXT",
+            # Prefixo do numero de frota do CLIENTE (ex: REDEMOB = 31001). So
+            # usado pra montar o numero sozinho (PREFIXO-00001) quando
+            # cadastro manual ou planilha mandam so o numero cru — vazio
+            # deixa o numero digitado como veio, sem mexer.
+            "ALTER TABLE clientes ADD COLUMN prefixo TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(stmt)
