@@ -14,6 +14,16 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  {# Página standalone — não herda static/style.css, então os tokens de cor
+     usados abaixo (var(--ok-text) etc.) precisam existir aqui também, com
+     os MESMOS valores do resto do sistema — sem isso caem silenciosamente
+     na cor herdada. #}
+  :root {
+    --ok-bg: #e9f7ef; --ok-text: #15803d; --ok-border: #bfe3cd;
+    --warn-bg: #fef6e7; --warn-text: #b45309; --warn-border: #f2ddb4;
+    --danger-bg: #fdecea; --danger-text: #b42318; --danger-border: #f4c9c4;
+  }
+
   body {
     font-family: -apple-system, Arial, sans-serif;
     background: #f0f2f5;

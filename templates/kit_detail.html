@@ -9,6 +9,13 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  {# Página standalone (aberta pelo QR sem login) — não herda
+     static/style.css; tokens repetidos aqui com os mesmos valores, senão
+     var(--*) cai silenciosamente na cor herdada. #}
+  :root {
+    --warn-text: #b45309; --danger-text: #b42318; --brand: #246b84;
+  }
+
   /* Alguns navegadores (principalmente Android) detectam números como
      "31001-12345" como telefone e criam um link azul sozinhos, mesmo com
      o meta format-detection. Força a cor de volta pra herdar do elemento. */
