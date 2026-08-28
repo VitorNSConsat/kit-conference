@@ -4667,7 +4667,6 @@ async def admin_estoque_alertas(request: Request):
         "alerta_segundos": form.get("alerta_segundos", ""),
         "alerta_telas": str(form.get("alerta_telas", "")),
         "alerta_cor_critico": str(form.get("alerta_cor_critico", "")),
-        "alerta_cor_atencao": str(form.get("alerta_cor_atencao", "")),
     })
     return RedirectResponse("/admin/items?tab=catalogo&ok=alertas", status_code=302)
 

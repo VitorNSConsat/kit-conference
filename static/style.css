@@ -187,7 +187,7 @@ button.ds-hamburguer {
 }
 .ds-sidebar-alerta-chip {
     display: block; font-size: 11.5px; line-height: 1.3;
-    padding-left: 7px; border-left: 3px solid transparent;
+    padding-left: 7px; border-left: 3px solid var(--alerta-cor);
     overflow-wrap: anywhere;
 }
 .ds-sidebar-alerta-link {

@@ -476,8 +476,9 @@ ALERTA_PADRAO = {
     "alerta_segundos": "0",
     # Em quais telas: todas | estoque (Itens & Estoque) | inicio (só a raiz).
     "alerta_telas": "todas",
+    # Uma cor só — mostrar duas (crítico/atenção) e o quadro só respeitar
+    # a mais grave das duas fazia a segunda cor nunca aparecer na prática.
     "alerta_cor_critico": "#c0392b",
-    "alerta_cor_atencao": "#f0ad4e",
 }
 ALERTA_TELAS = {
     "todas": "Em todas as telas",
@@ -501,9 +502,8 @@ def get_alerta_config() -> dict:
             cfg[chave] = int(ALERTA_PADRAO[chave])
     if cfg["alerta_telas"] not in ALERTA_TELAS:
         cfg["alerta_telas"] = ALERTA_PADRAO["alerta_telas"]
-    for chave in ("alerta_cor_critico", "alerta_cor_atencao"):
-        if not _COR_HEX.match(str(cfg[chave] or "")):
-            cfg[chave] = ALERTA_PADRAO[chave]
+    if not _COR_HEX.match(str(cfg["alerta_cor_critico"] or "")):
+        cfg["alerta_cor_critico"] = ALERTA_PADRAO["alerta_cor_critico"]
     return cfg
 
 

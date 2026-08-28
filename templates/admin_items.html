@@ -13,6 +13,9 @@
 <button type="button" class="btn btn-sm btn-secondary" onclick="abrirImportarAjuste()">
   {{ ic.svg('importar', 14) }} Importar Ajuste
 </button>
+<button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalAvisos()">
+  {{ ic.svg('alerta', 14) }} Avisos de estoque baixo
+</button>
 {% endif %}
 {% if user and user.admin %}
 <form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
@@ -201,66 +204,6 @@
             {% endif %}
         </form>
 
-        {# Configuração do aviso: mora aqui, ao lado do mínimo de cada item,
-           porque é a mesma decisão — o que conta como falta. #}
-        {% if pode('estoque_editar') %}
-        <details style="margin:10px 0 14px;border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
-          <summary style="cursor:pointer;font-weight:600;font-size:14px;">Avisos de estoque baixo</summary>
-          <p style="color:#666;font-size:13px;margin:8px 0;">
-            Controla o quadro de aviso na barra lateral (abaixo de Padrão Visual): quais
-            itens entram, quantos aparecem, em quais telas e por quanto tempo. Não muda
-            estoque nenhum — só o que é mostrado.
-          </p>
-          <form method="post" action="/admin/estoque/alertas"
-                style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;">
-              <input type="checkbox" name="alerta_ativo" style="width:auto;margin:0;"
-                     {{ 'checked' if alerta_config.alerta_ativo }}>
-              Mostrar o aviso
-            </label>
-            <div class="form-group" style="margin:0;">
-              <label>Perto do mínimo (%)
-                <span style="font-weight:400;color:#888;font-size:11px;">0 = só no mínimo ou abaixo</span>
-              </label>
-              <input type="number" name="alerta_margem" min="0" max="200"
-                     value="{{ alerta_config.alerta_margem }}" style="width:110px;margin:0;">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Itens na faixa
-                <span style="font-weight:400;color:#888;font-size:11px;">0 = todos</span>
-              </label>
-              <input type="number" name="alerta_limite" min="0" max="99"
-                     value="{{ alerta_config.alerta_limite }}" style="width:100px;margin:0;">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Some depois de (s)
-                <span style="font-weight:400;color:#888;font-size:11px;">0 = fica até fechar</span>
-              </label>
-              <input type="number" name="alerta_segundos" min="0" max="600"
-                     value="{{ alerta_config.alerta_segundos }}" style="width:120px;margin:0;">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Onde aparece</label>
-              <select name="alerta_telas" style="margin:0;">
-                {% for chave, rotulo in alerta_telas_opcoes.items() %}
-                <option value="{{ chave }}" {{ 'selected' if alerta_config.alerta_telas == chave }}>{{ rotulo }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Cor: no mínimo</label>
-              <input type="color" name="alerta_cor_critico" value="{{ alerta_config.alerta_cor_critico }}"
-                     style="width:56px;height:34px;padding:2px;margin:0;">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Cor: perto</label>
-              <input type="color" name="alerta_cor_atencao" value="{{ alerta_config.alerta_cor_atencao }}"
-                     style="width:56px;height:34px;padding:2px;margin:0;">
-            </div>
-            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar avisos</button>
-          </form>
-        </details>
-        {% endif %}
         {# Daqui pra baixo é o que a busca ao vivo troca: o resumo, a lista
            e as janelas de configuração de cada item. O formulário de busca e
            o painel de avisos ficam de fora, pra não fecharem ao digitar. #}
@@ -1070,9 +1013,86 @@
     </div>
 </div>
 
+{% if pode('estoque_editar') %}
+{# Janela do aviso de estoque baixo — mesmo padrão de Clientes/Garagens em
+   Veículos e Clientes: botão no topo abre um card central, em vez de um
+   painel fixo ocupando espaço na tela o tempo todo. #}
+<div class="modal-lista" id="modal-avisos" role="dialog" aria-modal="true"
+     aria-labelledby="titulo-modal-avisos">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="titulo-modal-avisos">{{ ic.svg('alerta', 16) }} Avisos de estoque baixo</strong>
+      <span class="modal-sub">controla o quadro de aviso na barra lateral, abaixo de Padrão Visual</span>
+    </div>
+    <button type="button" class="modal-fechar" onclick="fecharModalAvisos()"
+            title="Fechar (Esc)">{{ ic.svg('fechar', 18) }}</button>
+  </div>
+  <div class="modal-corpo">
+    <form method="post" action="/admin/estoque/alertas"
+          style="display:flex;flex-direction:column;gap:14px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;">
+        <input type="checkbox" name="alerta_ativo" style="width:auto;margin:0;"
+               {{ 'checked' if alerta_config.alerta_ativo }}>
+        Mostrar o aviso
+      </label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+          <label>Perto do mínimo (%)
+            <span style="font-weight:400;color:#888;font-size:11px;">0 = só no mínimo ou abaixo</span>
+          </label>
+          <input type="number" name="alerta_margem" min="0" max="200"
+                 value="{{ alerta_config.alerta_margem }}" style="width:110px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Itens na faixa
+            <span style="font-weight:400;color:#888;font-size:11px;">0 = todos</span>
+          </label>
+          <input type="number" name="alerta_limite" min="0" max="99"
+                 value="{{ alerta_config.alerta_limite }}" style="width:100px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Some depois de (s)
+            <span style="font-weight:400;color:#888;font-size:11px;">0 = fica até fechar</span>
+          </label>
+          <input type="number" name="alerta_segundos" min="0" max="600"
+                 value="{{ alerta_config.alerta_segundos }}" style="width:120px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Onde aparece</label>
+          <select name="alerta_telas" style="margin:0;">
+            {% for chave, rotulo in alerta_telas_opcoes.items() %}
+            <option value="{{ chave }}" {{ 'selected' if alerta_config.alerta_telas == chave }}>{{ rotulo }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Cor do aviso</label>
+          <input type="color" name="alerta_cor_critico" value="{{ alerta_config.alerta_cor_critico }}"
+                 style="width:56px;height:34px;padding:2px;margin:0;">
+        </div>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar avisos</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="modal-fundo-avisos" class="modal-fundo" onclick="fecharModalAvisos()"></div>
+{% endif %}
+
 {% endblock %}
 {% block scripts %}
 <script>
+function abrirModalAvisos() {
+    document.getElementById('modal-avisos').classList.add('aberto');
+    document.getElementById('modal-fundo-avisos').classList.add('aberto');
+}
+function fecharModalAvisos() {
+    document.getElementById('modal-avisos').classList.remove('aberto');
+    document.getElementById('modal-fundo-avisos').classList.remove('aberto');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModalAvisos(); });
+</script>
 // Abre/fecha o bloco de importação de ajuste do estoque.
 // ── Sobressalentes: várias peças num envio só ─────────────────────────────
 // Clona a linha modelo do <template>, então as opções de item vêm prontas do
