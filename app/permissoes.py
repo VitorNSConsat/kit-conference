@@ -37,27 +37,55 @@ TELAS = (
 # Chave -> rótulo exibido na tela de gestão de usuários.
 PERMISSOES_TELAS = {chave: rotulo for chave, rotulo, _destino, _prefixos in TELAS}
 
-PERMISSOES_ACOES = {
+# Ações por assunto — grupos menores em vez de uma lista única, pra achar
+# mais rápido na tela de usuários (e pra "Veículos" já nascer com a
+# permissão de excluir, em vez de depender só de ser admin).
+PERMISSOES_VEICULOS = {
+    "veiculos_excluir": "Excluir veículos",
+}
+PERMISSOES_ESTOQUE = {
     "estoque_editar": "Repor/corrigir quantidade em Estoque",
+    "itens_apagar": "Apagar itens do catálogo",
+}
+PERMISSOES_PRODUCAO = {
     "producao_nota_fiscal": "Editar Nota Fiscal na Produção",
     "producao_mover_estagio": "Mover kits na esteira (trânsito, cliente, voltar)",
+    "remessas_gerenciar": "Abrir remessa e mudar a quantidade do envio",
+}
+PERMISSOES_PATRIMONIO = {
     "patrimonio_corrigir": "Corrigir patrimônio (código e nº de série)",
     "patrimonio_mover": "Mover patrimônio de um veículo para outro",
     "patrimonio_atribuir": "Atribuir/retirar patrimônio de um kit fechado",
+}
+PERMISSOES_PEDIDOS = {
     "pedidos_criar_editar": "Criar/editar Pedidos",
-    "itens_apagar": "Apagar itens do catálogo",
+}
+PERMISSOES_BIPAGEM = {
     "bipagem_excluir_item": "Excluir bipagem de item específico (kit em aberto)",
+}
+PERMISSOES_SISTEMA = {
     "backup_configurar": "Configurar a rotina de backup e fazer cópia na hora",
-    "remessas_gerenciar": "Abrir remessa e mudar a quantidade do envio",
+}
+
+PERMISSOES_ACOES = {
+    **PERMISSOES_VEICULOS, **PERMISSOES_ESTOQUE, **PERMISSOES_PRODUCAO,
+    **PERMISSOES_PATRIMONIO, **PERMISSOES_PEDIDOS, **PERMISSOES_BIPAGEM,
+    **PERMISSOES_SISTEMA,
 }
 
 PERMISSOES = {**PERMISSOES_TELAS, **PERMISSOES_ACOES}
 
-# Como a tela de usuários agrupa os checkboxes — ver tela x poder fazer são
-# perguntas diferentes e ficavam embaralhadas numa lista só.
+# Como a tela de usuários agrupa os checkboxes — ver tela é uma pergunta,
+# cada assunto de ação é outra, e ficavam todas embaralhadas numa lista só.
 GRUPOS = (
     ("Telas que o usuário enxerga", PERMISSOES_TELAS),
-    ("O que o usuário pode fazer", PERMISSOES_ACOES),
+    ("Veículos", PERMISSOES_VEICULOS),
+    ("Estoque e itens", PERMISSOES_ESTOQUE),
+    ("Produção e remessas", PERMISSOES_PRODUCAO),
+    ("Patrimônio", PERMISSOES_PATRIMONIO),
+    ("Pedidos", PERMISSOES_PEDIDOS),
+    ("Bipagem", PERMISSOES_BIPAGEM),
+    ("Sistema", PERMISSOES_SISTEMA),
 )
 
 # Toda chave nova nasce PERMITIDA pra quem já existe: tem_permissao() nega só

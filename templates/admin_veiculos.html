@@ -438,7 +438,7 @@
   <table id="tabela-veiculos">
     <thead>
       <tr>
-        {% if user and user.admin %}
+        {% if pode('veiculos_excluir') %}
         <th style="width:30px;text-align:center;">
           <input type="checkbox" id="marcar-todos" onchange="marcarTodosVeiculos(this)"
                  title="Marcar todos os veículos desta página">
@@ -467,7 +467,7 @@
     <tbody>
     {% for v in pag_veiculos.itens %}
     <tr class="filtro-item">
-      {% if user and user.admin %}
+      {% if pode('veiculos_excluir') %}
       <td style="text-align:center;">
         <input type="checkbox" name="veiculo_ids" value="{{ v.id }}"
                class="chk-veiculo" onchange="atualizarBotaoExcluir()">
@@ -555,7 +555,7 @@
     </tbody>
   </table>
   </div>
-  {% if user and user.admin %}
+  {% if pode('veiculos_excluir') %}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="submit" class="btn btn-sm btn-danger" id="btn-excluir-massa" disabled>
       {{ ic.svg('excluir', 13) }} Excluir selecionados (<span id="qtd-selecionados">0</span>)

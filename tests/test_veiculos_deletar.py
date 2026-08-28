@@ -31,6 +31,22 @@ def setup_db():
             "INSERT INTO veiculos (id, numero, cliente, garagem, ativo, criado_em) "
             "VALUES (1, 'VH-001', 'Cliente X', 'Garagem X', 1, '2026-01-01')"
         )
+    yield
+    # Banco em memória é compartilhado entre arquivos de teste na mesma
+    # sessão do pytest — sem isso, o próximo arquivo a rodar herdaria os
+    # ids fixos usados aqui (kit_template 1, scan_session 1, users 1...).
+    with db() as conn:
+        conn.executescript("""
+            DELETE FROM importacao_item;
+            DELETE FROM importacao;
+            DELETE FROM remessa_kit;
+            DELETE FROM remessa;
+            DELETE FROM kit_record;
+            DELETE FROM scan_session;
+            DELETE FROM kit_template;
+            DELETE FROM veiculos;
+            DELETE FROM users;
+        """)
 
 
 def test_deletar_veiculo_ainda_nao_produzido_em_remessa_sem_kit():

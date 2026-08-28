@@ -263,7 +263,7 @@
       <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Reativar</button>
     </form>
     {% endif %}
-    {% if user and user.admin %}
+    {% if pode('veiculos_excluir') %}
     <form method="post" action="/admin/veiculos/{{ v.id }}/delete"
           onsubmit="return confirm('Excluir permanentemente o veículo {{ v.numero }}? O histórico de kits vinculados será preservado.')">
       <button type="submit" class="btn btn-danger">{{ ic.svg('excluir', 14) }} Excluir</button>

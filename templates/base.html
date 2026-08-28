@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=34">
+    <link rel="stylesheet" href="/static/style.css?v=35">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -73,11 +73,20 @@
       </a>
       {% endif %}
     </div>
-    {% if grupo_nome == 'Gestão' and user.admin and alertas_estoque and '/session/' not in request.url.path %}
-    {# O que aparece aqui (quais itens, quantos, a cor e por quanto tempo) vem da
-       configuração em Itens & Estoque ("Itens na faixa" já limita alertas_estoque
-       lá na origem) — o quadro só desenha o que chega, não decide nada sozinho. #}
-    <div class="ds-sidebar-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}">
+    {% endif %}
+    {% endfor %}
+    {% if alertas_estoque and '/session/' not in request.url.path %}
+    {# Independe de tela liberada ou de ser admin: é um aviso passivo, não uma
+       ação — quem só bipa e não enxerga Itens & Estoque também precisa saber
+       que tem item no fim. O que aparece aqui (quais itens, quantos, a cor e
+       por quanto tempo) vem da configuração em Itens & Estoque ("Itens na
+       faixa" já limita alertas_estoque lá na origem) — o quadro só desenha o
+       que chega, não decide nada sozinho. #}
+    {% set ns_alerta = namespace(pior=false) %}
+    {% for a in alertas_estoque %}{% if a.nivel in ('zerado', 'critico') %}{% set ns_alerta.pior = true %}{% endif %}{% endfor %}
+    {% set cor_pior = alerta_cfg.alerta_cor_critico if ns_alerta.pior else alerta_cfg.alerta_cor_atencao %}
+    <div class="ds-sidebar-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}"
+         style="--alerta-cor:{{ cor_pior }};">
       <div class="ds-sidebar-alerta-cab">
         {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
         <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
@@ -86,8 +95,9 @@
       <div class="ds-sidebar-alerta-lista">
         {% for a in alertas_estoque %}
         {# A cor por severidade é a mesma configurada em Itens & Estoque →
-           Avisos de estoque baixo — só que aqui vira um traço fino, não mais
-           um fundo cheio, pra caber num quadrinho simples. #}
+           Avisos de estoque baixo — cada item mantém o traço fino dele
+           (a mais grave colore o quadro inteiro; as outras continuam
+           diferenciáveis dentro da lista). #}
         <span class="ds-sidebar-alerta-chip"
               style="border-left-color:{{ alerta_cfg.alerta_cor_critico if a.nivel in ('zerado', 'critico') else alerta_cfg.alerta_cor_atencao }};">
           {{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}
@@ -97,7 +107,9 @@
         <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
         {% endif %}
       </div>
+      {% if pode('ver_itens') %}
       <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="ds-sidebar-alerta-link">Ver Estoque</a>
+      {% endif %}
     </div>
     <script>
     (function () {
@@ -107,8 +119,6 @@
     })();
     </script>
     {% endif %}
-    {% endif %}
-    {% endfor %}
   </nav>
   <div class="ds-user">
     <div class="ds-user-btn">

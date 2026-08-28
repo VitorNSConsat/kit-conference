@@ -413,17 +413,25 @@ def reverter_saidas_sessao(sessao_id: int) -> None:
         )
 
 
-def listar_historico(estoque_id: int, limit: int = 100) -> list:
+def listar_historico(estoque_id: int, limit: int = 100, offset: int = 0) -> list:
     with db() as conn:
         rows = conn.execute(
             "SELECT em.*, u.nome AS operador_nome "
             "FROM estoque_movimentos em "
             "LEFT JOIN users u ON u.id = em.criado_por "
             "WHERE em.estoque_id = ? "
-            "ORDER BY em.criado_em DESC LIMIT ?",
-            (estoque_id, limit)
+            "ORDER BY em.criado_em DESC LIMIT ? OFFSET ?",
+            (estoque_id, limit, offset)
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def contar_historico(estoque_id: int) -> int:
+    with db() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM estoque_movimentos WHERE estoque_id = ?",
+            (estoque_id,)
+        ).fetchone()[0]
 
 
 def listar_historico_completo() -> list:

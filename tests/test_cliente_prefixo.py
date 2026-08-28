@@ -19,6 +19,16 @@ def setup_db():
             DELETE FROM garagens;
             DELETE FROM clientes;
         """)
+    yield
+    # Banco em memória é compartilhado entre arquivos de teste na mesma
+    # sessão do pytest — sem isso, o próximo arquivo a rodar herdaria
+    # clientes/garagens/veículos daqui.
+    with db() as conn:
+        conn.executescript("""
+            DELETE FROM veiculos;
+            DELETE FROM garagens;
+            DELETE FROM clientes;
+        """)
 
 
 # ── formatar_numero: função pura, sem banco ─────────────────────────────────

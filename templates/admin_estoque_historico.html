@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
+{% import "_paginacao.html" as pg %}
 {% block title %}Histórico — {{ est.tipo_nome }}{% endblock %}
 {% block acoes_topo %}
 {# history.back() saía do sistema quando o histórico foi aberto em aba
@@ -29,6 +30,7 @@
 
 <div class="card">
     <h2>Movimentações</h2>
+    {{ pg.contagem(pag_historico, "movimentações") }}
     {% if historico %}
     <table>
         <thead>
@@ -80,6 +82,19 @@
         {% endfor %}
         </tbody>
     </table>
+    {% if pag_historico.total_paginas > 1 %}
+    <div class="paginacao">
+        <span class="paginacao-info">página {{ pag_historico.pagina }} de {{ pag_historico.total_paginas }}</span>
+        {% for p in pag_historico.paginas_visiveis %}
+            {% if p is none %}
+            <span class="paginacao-ellipsis">…</span>
+            {% else %}
+            <a href="/admin/estoque/{{ est.id }}/historico?pagina={{ p }}"
+               class="btn btn-sm {{ 'btn-primary' if p == pag_historico.pagina else 'btn-secondary' }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
     {% else %}
     <p style="color:#888;text-align:center;padding:24px;">Nenhuma movimentação registrada.</p>
     {% endif %}

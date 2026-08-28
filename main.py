@@ -4788,13 +4788,30 @@ async def admin_estoque_status_compra(request: Request, estoque_id: int):
 
 @app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)
 @require_login
-async def admin_estoque_historico(request: Request, estoque_id: int):
+async def admin_estoque_historico(request: Request, estoque_id: int, pagina: int = 1):
     est = estoque_mod.buscar_por_id(estoque_id)
     if not est:
         return RedirectResponse("/admin/estoque", status_code=302)
-    historico = estoque_mod.listar_historico(estoque_id)
+    # Paginado no SQL (LIMIT/OFFSET), não em memória: um item muito
+    # movimentado pode ter milhares de linhas — carregar tudo pra depois
+    # fatiar em Python seria o mesmo desperdício que o LIMIT fixo de antes,
+    # só que sem a página 2 pra compensar.
+    total = estoque_mod.contar_historico(estoque_id)
+    por_pagina = paginacao_mod.POR_PAGINA_PADRAO
+    total_paginas = max(1, -(-total // por_pagina))
+    pagina = max(1, min(pagina, total_paginas))
+    historico = estoque_mod.listar_historico(
+        estoque_id, limit=por_pagina, offset=(pagina - 1) * por_pagina)
+    pag_historico = {
+        "itens": historico, "pagina": pagina, "total_paginas": total_paginas,
+        "total": total,
+        "inicio": (pagina - 1) * por_pagina + 1 if historico else 0,
+        "fim": (pagina - 1) * por_pagina + len(historico),
+        "exibindo": len(historico),
+        "paginas_visiveis": paginacao_mod.janela_paginas(pagina, total_paginas),
+    }
     return render(request, "admin_estoque_historico.html", {
-        "est": est, "historico": historico,
+        "est": est, "historico": historico, "pag_historico": pag_historico,
         # O histórico é aberto pela janela de configuração do item, que vive na
         # aba Estoque — voltar pra /admin/items pelado caía na aba errada.
         "voltar_para": _voltar_para(request, "/admin/items?tab=catalogo"),
@@ -5068,7 +5085,7 @@ async def admin_veiculos_post(request: Request):
 
 
 @app.post("/admin/veiculos/excluir-em-massa")
-@require_admin
+@require_permission("veiculos_excluir")
 async def admin_veiculos_excluir_em_massa(request: Request):
     """Exclui vários veículos de uma vez — a tela deixa marcar alguns ou
     todos os veículos filtrados (ex: todos de um cliente digitado errado).
@@ -5437,7 +5454,7 @@ async def admin_veiculo_reativar(request: Request, veiculo_id: int):
 
 
 @app.post("/admin/veiculos/{veiculo_id}/delete")
-@require_admin
+@require_permission("veiculos_excluir")
 async def admin_veiculo_delete(request: Request, veiculo_id: int):
     veiculos_mod.deletar(veiculo_id)
     return RedirectResponse("/admin/veiculos?ok=excluido", status_code=302)
@@ -5663,13 +5680,13 @@ async def estoque_mobile_ajustar(request: Request, estoque_id: int):
 # ── Reset do banco (apenas admin) ─────────────────────────────────────────────
 
 @app.get("/admin/reset", response_class=HTMLResponse)
-@require_login
+@require_admin
 async def reset_page(request: Request):
     return render(request, "admin_reset.html")
 
 
 @app.post("/admin/reset")
-@require_login
+@require_admin
 async def reset_confirm(request: Request, confirmacao: str = Form("")):
     if confirmacao != "CONFIRMAR":
         return render(request, "admin_reset.html", {"erro": "Digite CONFIRMAR para prosseguir."})
