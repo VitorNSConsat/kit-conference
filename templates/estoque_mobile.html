@@ -14,6 +14,17 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  {# Página standalone — não herda static/style.css, então os tokens de cor
+     usados abaixo (var(--ok-text) etc.) precisam existir aqui também, com
+     os MESMOS valores do resto do sistema. Sem isso, todo var(--*) caía
+     silenciosamente na cor herdada (preto), e verde/vermelho/laranja nunca
+     apareciam de verdade nesta tela. #}
+  :root {
+    --ok-bg: #e9f7ef; --ok-text: #15803d; --ok-border: #bfe3cd;
+    --warn-bg: #fef6e7; --warn-text: #b45309; --warn-border: #f2ddb4;
+    --danger-bg: #fdecea; --danger-text: #b42318; --danger-border: #f4c9c4;
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     background: #f5f2ec;
@@ -67,7 +78,12 @@
   .em-header { text-align: center; padding: 8px 0 16px; }
   .em-nome { font-size: 20px; font-weight: 800; color: #246b84; margin-bottom: 6px; }
   .em-codigo { font-family: monospace; font-size: 12px; color: #7a7468; word-break: break-all; }
-  .em-qty { font-size: 64px; font-weight: 800; line-height: 1; margin: 14px 0 4px; }
+  .em-qty {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 46px; font-weight: 800; line-height: 1;
+    padding: 10px 28px; border-radius: 24px; border: 2px solid;
+    margin: 14px 0 4px;
+  }
   .em-qty-label { font-size: 12px; color: #7a7468; margin-bottom: 4px; }
   .em-min { font-size: 13px; color: #a39c8c; margin-bottom: 4px; }
 
@@ -121,13 +137,13 @@
     padding: 15px;
     font-size: 16px;
     font-weight: 700;
-    border: none;
+    border: 2px solid;
     border-radius: 10px;
     cursor: pointer;
-    color: #fff;
+    background: #fff;
   }
-  .em-submit.add { background: var(--ok-text); }
-  .em-submit.sub { background: var(--danger-text); }
+  .em-submit.add { border-color: var(--ok-text); color: var(--ok-text); }
+  .em-submit.sub { border-color: var(--danger-text); color: var(--danger-text); }
 
   .login-cta {
     background: linear-gradient(135deg, #246b84 0%, #1d586c 100%);
@@ -193,7 +209,9 @@
       {% set abaixo = est.quantidade_atual <= est.quantidade_minima %}
       {% set proximo = est.quantidade_atual <= est.quantidade_minima * 2 and not abaixo %}
       <div class="em-qty-label">Quantidade atual</div>
-      <div class="em-qty" style="color:{{ 'var(--danger-text)' if abaixo else ('var(--warn-text)' if proximo else 'var(--ok-text)') }};">
+      <div class="em-qty" style="color:{{ 'var(--danger-text)' if abaixo else ('var(--warn-text)' if proximo else 'var(--ok-text)') }};
+           border-color:{{ 'var(--danger-border)' if abaixo else ('var(--warn-border)' if proximo else 'var(--ok-border)') }};
+           background:{{ 'var(--danger-bg)' if abaixo else ('var(--warn-bg)' if proximo else 'var(--ok-bg)') }};">
         {{ est.quantidade_atual }}
       </div>
       <div class="em-min">mínimo: {{ est.quantidade_minima }}</div>
