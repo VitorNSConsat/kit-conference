@@ -110,12 +110,13 @@
         <span class="badge badge-success">{{ ic.svg('check', 11) }} Finalizado</span>
         {% endif %}
       </td>
+      {% set cor = cor_do_cliente(l.cliente) %}
       <td>
         {{ l.kit_nome }}
-        <div style="font-size:11px;color:#999;">{{ l.cliente }}</div>
+        <div style="font-size:11px;color:{{ cor }};">{{ l.cliente }}</div>
       </td>
       <td style="font-weight:600;">
-        {% if l.veiculo %}<a href="/admin/veiculos?busca={{ l.veiculo | urlencode }}" style="color:var(--brand-ink);font-weight:600;" title="Ver este veículo">{{ l.veiculo }}</a>{% else %}—{% endif %}
+        {% if l.veiculo %}<a href="/admin/veiculos?busca={{ l.veiculo | urlencode }}" style="color:{{ cor }};font-weight:700;" title="Ver este veículo">{{ l.veiculo }}</a>{% else %}—{% endif %}
         {% if l.garagem %}<div style="font-size:11px;color:#999;font-weight:400;">{{ l.garagem }}</div>{% endif %}
       </td>
       <td>

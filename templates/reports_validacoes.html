@@ -54,9 +54,10 @@
       <td><strong>{{ r.kit_nome }}</strong><br>
           <span style="font-size:11px;color:#888;font-family:monospace;">{{ r.kit_id[:8].upper() }}</span>
       </td>
-      <td>{{ r.cliente }}</td>
+      {% set cor = cor_do_cliente(r.cliente) %}
+      <td style="color:{{ cor }};">{{ r.cliente }}</td>
       <td>
-        {% if r.veiculo %}<a href="/admin/veiculos?busca={{ r.veiculo | urlencode }}" style="color:var(--brand-ink);font-weight:600;" title="Ver este veículo">{{ r.veiculo }}</a>{% else %}—{% endif %}
+        {% if r.veiculo %}<a href="/admin/veiculos?busca={{ r.veiculo | urlencode }}" style="color:{{ cor }};font-weight:700;" title="Ver este veículo">{{ r.veiculo }}</a>{% else %}—{% endif %}
       </td>
       <td>{{ r.operador_nome }}</td>
       <td><strong>{{ r.validado_por_nome }}</strong></td>

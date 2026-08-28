@@ -222,6 +222,7 @@ def listar_itens(veiculo_id: int | None = None, situacao: str = "") -> list:
             SELECT i.*, t.nome AS descricao, u.nome AS criado_por_nome,
                    k.veiculo_id AS veiculo_id_atual,
                    COALESCE(v.numero, k.veiculo) AS veiculo_atual,
+                   v.cliente AS cliente_atual,
                    k.kit_id  AS kit_id_atual,
                    k.garagem AS garagem_atual,
                    k.serial_number AS serial_atual,

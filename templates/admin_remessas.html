@@ -198,7 +198,7 @@
             {% for k in candidatos %}
             <tr class="filtro-item">
               <td><input type="checkbox" name="ref" value="{{ k.ref }}" style="width:auto;margin:0;"></td>
-              <td><strong>{{ k.veiculo or '—' }}</strong></td>
+              <td><strong style="color:{{ cor_do_cliente(k.cliente) }};">{{ k.veiculo or '—' }}</strong></td>
               <td>
                 {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
                 {% else %}—{% endif %}
@@ -257,7 +257,7 @@
                 <input type="checkbox" name="ref" value="{{ k.ref }}" class="sel-remessa"
                        onchange="atualizarBarraLote()" style="width:auto;margin:0;">
               </td>
-              <td><strong>{{ k.veiculo or '—' }}</strong></td>
+              <td><strong style="color:{{ cor_do_cliente(k.cliente) }};">{{ k.veiculo or '—' }}</strong></td>
               <td>
                 {% if k.cliente %}<span style="color:{{ cor_do_cliente(k.cliente) }};font-weight:700;">{{ k.cliente }}</span>
                 {% else %}—{% endif %}

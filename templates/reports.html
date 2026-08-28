@@ -84,14 +84,15 @@
                 </div>
                 {% endif %}
             </td>
-            <td>{{ k.cliente }}</td>
+            {% set cor = cor_do_cliente(k.cliente) %}
+            <td style="color:{{ cor }};font-weight:600;">{{ k.cliente }}</td>
             <td>
               {% if k.v_id %}
-                <a href="/admin/veiculos/{{ k.v_id }}" style="font-weight:700;color:var(--brand-ink);">
+                <a href="/admin/veiculos/{{ k.v_id }}" style="font-weight:700;color:{{ cor }};">
                   {{ k.veiculo_exibido }}
                 </a>
               {% elif k.veiculo_exibido %}
-                {{ k.veiculo_exibido }}
+                <span style="color:{{ cor }};font-weight:700;">{{ k.veiculo_exibido }}</span>
               {% else %}
                 <span style="color:#aaa;">—</span>
               {% endif %}

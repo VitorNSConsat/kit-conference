@@ -225,10 +225,11 @@
     <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th></tr></thead>
     <tbody>
     {% for v in a_produzir.itens %}
+    {% set cor = cor_do_cliente(v.cliente) %}
     <tr>
-      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:var(--brand-ink);">{{ v.veiculo }}</a></td>
+      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:{{ cor }};">{{ v.veiculo }}</a></td>
       <td>{{ v.garagem or '—' }}</td>
-      <td>{{ v.cliente }}</td>
+      <td style="color:{{ cor }};">{{ v.cliente }}</td>
       <td>{{ v.modelo or '—' }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
       <td>
         {% if v.kits_possiveis is not none %}
@@ -283,10 +284,11 @@
     <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
     <tbody>
     {% for s in em_producao %}
+    {% set cor = cor_do_cliente(s.cliente) %}
     <tr>
-      <td>{{ s.veiculo or s.kit_nome }}</td>
+      <td style="color:{{ cor }};font-weight:700;">{{ s.veiculo or s.kit_nome }}</td>
       <td>{{ s.garagem or '—' }}</td>
-      <td>{{ s.cliente }}</td>
+      <td style="color:{{ cor }};">{{ s.cliente }}</td>
       <td>
         {{ s.modelo or s.kit_nome }}
         {% if s.modelo and s.modelo != s.kit_nome %}
@@ -352,11 +354,12 @@
       </tr></thead>
       <tbody>
       {% for k in produzido.itens %}
+      {% set cor = cor_do_cliente(k.cliente) %}
       <tr>
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
                    class="chk-produzido" onchange="atualizarSelecao('produzido')"
                    data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
-        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
+        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
                title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
@@ -380,7 +383,7 @@
 {% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
         {% endif %}</td>
         <td>{{ k.garagem or '—' }}</td>
-        <td>{{ k.cliente }}</td>
+        <td style="color:{{ cor }};">{{ k.cliente }}</td>
         <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] if k.finalizado_em else '—' }}</td>
         <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       </tr>
@@ -467,13 +470,14 @@
     </tr></thead>
     <tbody>
     {% for k in transito.itens %}
+    {% set cor = cor_do_cliente(k.cliente) %}
     <tr>
       {% if pode('producao_nota_fiscal') %}
       <td><input type="checkbox" value="{{ k.kit_id }}" class="chk-transito"
                  onchange="atualizarSelecao('transito')"
                  data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
       {% endif %}
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
@@ -496,7 +500,7 @@
 {% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
-      <td>{{ k.cliente }}</td>
+      <td style="color:{{ cor }};">{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] if k.transito_em else '—' }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td>
@@ -559,15 +563,16 @@
     <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente %}
+    {% set cor = cor_do_cliente(k.cliente) %}
     <tr class="filtro-item">
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
             title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
-      <td>{{ k.cliente }}</td>
+      <td style="color:{{ cor }};">{{ k.cliente }}</td>
       <td>{{ k.modelo or '—' }}</td>
       <td style="font-size:12px;color:#888;">{{ k.chegou_em[:16] if k.chegou_em else '—' }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>

@@ -25,17 +25,18 @@
 
   {# ── 1. O veículo (sempre em cima, largura toda) ──────────────────────── #}
   {% if v %}
+  {# Cliente e garagem saem coloridos, com a MESMA cor — a garagem pertence
+     ao cliente, e cores diferentes fariam parecer que não. O número do
+     veículo usa a cor também, igual em Veículos e Clientes. #}
+  {% set cor = cor_do_cliente(v.cliente) %}
   <div class="pat-onde pat-full">
     <div class="pat-rotulo">Veículo</div>
-    <div class="pat-veic">{{ ic.svg('veiculos', 17) }} {{ v.numero }}</div>
+    <div class="pat-veic" style="color:{{ cor }};">{{ ic.svg('veiculos', 17) }} {{ v.numero }}</div>
     {# Um campo por linha, com rótulo. Numa frase corrida ("REDEMOB · MB ·
        modelo Volvo…") o operador tinha que adivinhar qual pedaço era garagem
        e qual era modelo — os dois são texto livre e parecem iguais. #}
     <div class="pat-campos">
-      {# Cliente e garagem saem coloridos, com a MESMA cor — a garagem
-         pertence ao cliente, e cores diferentes fariam parecer que não. Cor
-         só, sem sublinhado: destaque não pode passar por link clicável. #}
-      {% set cor = cor_do_cliente(v.cliente) %}
+      {# Cor só, sem sublinhado: destaque não pode passar por link clicável. #}
       <div class="pat-campo">
         <span>Cliente</span>
         <strong class="pat-marca" style="color:{{ cor }};">{{ v.cliente or '—' }}</strong>
