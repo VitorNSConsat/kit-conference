@@ -67,6 +67,12 @@
 
   <div id="bloco-conferencia">
   {% if linhas %}
+  {# Mesma cor da etiqueta de situação (novo/igual/alterado/erro) — nesta
+     tela o que importa de relance é O QUE MUDOU, não de quem é o veículo. #}
+  {% set cor_situacao = {
+       'novo': '#1e7a45', 'igual': '#1f6398',
+       'alterado': '#8a6100', 'erro': '#a02a1c',
+  } %}
   <div class="table-scroll">
     <table class="tabela-conferencia">
       <thead>
@@ -85,7 +91,7 @@
         <tr class="conf-linha conf-{{ l.situacao }}">
           <td>{{ l.linha }}</td>
           <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ l.situacao_texto }}</span></td>
-          {% set cor = cor_do_cliente(l.cliente_depois or l.cliente_antes) %}
+          {% set cor = cor_situacao.get(l.situacao, 'var(--text)') %}
           <td>
             {% if l.veiculo_id %}
             <a href="/admin/veiculos/{{ l.veiculo_id }}" class="marca-cliente" style="color:{{ cor }};">{{ l.numero }}</a>
@@ -96,7 +102,7 @@
           {% for campo in ['cliente', 'garagem', 'modelo'] %}
           {% set antes = l[campo ~ '_antes'] or '' %}
           {% set depois = l[campo ~ '_depois'] or '' %}
-          <td>
+          <td {% if campo == 'garagem' %}style="color:{{ cor }};font-weight:600;"{% endif %}>
             {% if l.situacao == 'alterado' and antes != depois %}
             <span class="conf-antes">{{ antes or '(vazio)' }}</span>
             <span class="conf-seta">→</span>
