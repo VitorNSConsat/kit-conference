@@ -116,7 +116,7 @@
         <div style="font-size:11px;color:{{ cor }};">{{ l.cliente }}</div>
       </td>
       <td style="font-weight:600;">
-        {% if l.veiculo %}<a href="/admin/veiculos?busca={{ l.veiculo | urlencode }}" style="color:{{ cor }};font-weight:700;" title="Ver este veículo">{{ l.veiculo }}</a>{% else %}—{% endif %}
+        {% if l.veiculo %}<a href="/admin/veiculos?busca={{ l.veiculo | urlencode }}" class="marca-cliente" style="color:{{ cor }};" title="Ver este veículo">{{ l.veiculo }}</a>{% else %}—{% endif %}
         {% if l.garagem %}<div style="font-size:11px;color:#999;font-weight:400;">{{ l.garagem }}</div>{% endif %}
       </td>
       <td>

@@ -591,6 +591,22 @@ def marcar_cliente_concluido(kit_id: str) -> bool:
         return cur.rowcount > 0
 
 
+def marcar_cliente_concluido_lote(kit_ids: list[str]) -> int:
+    """Mesma regra de marcar_cliente_concluido(), em lote — espelha
+    marcar_transito(): ignora silenciosamente kit_id que não esteja em
+    'cliente_instalando' (já concluído por outra aba, por exemplo)."""
+    if not kit_ids:
+        return 0
+    with db() as conn:
+        placeholders = ",".join("?" * len(kit_ids))
+        cur = conn.execute(
+            f"UPDATE kit_record SET status_producao = 'cliente_concluido', cliente_concluido_em = ? "
+            f"WHERE kit_id IN ({placeholders}) AND status_producao = 'cliente_instalando'",
+            [now_brt(), *kit_ids]
+        )
+        return cur.rowcount
+
+
 def voltar_estagio(kit_id: str) -> bool:
     """Desfaz um clique errado, voltando um estágio e limpando o timestamp
     daquele estágio (ele deixa de valer)."""

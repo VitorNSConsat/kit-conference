@@ -237,7 +237,7 @@
           {% if h.veiculo %}
           {# Fecha a volta patrimônio → veículo: dá pra sair da peça e chegar
              no cadastro do veículo onde ela está, sem buscar de novo. #}
-          <a href="/admin/veiculos?busca={{ h.veiculo | urlencode }}"
+          <a href="/admin/veiculos?busca={{ h.veiculo | urlencode }}" class="marca-cliente"
              style="color:{{ cor }};" title="Ver este veículo em Veículos e Clientes">{{ h.veiculo }}</a>
           {% else %}—{% endif %}
         </td>

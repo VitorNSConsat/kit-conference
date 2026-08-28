@@ -88,7 +88,7 @@
             <td style="color:{{ cor }};font-weight:600;">{{ k.cliente }}</td>
             <td>
               {% if k.v_id %}
-                <a href="/admin/veiculos/{{ k.v_id }}" style="font-weight:700;color:{{ cor }};">
+                <a href="/admin/veiculos/{{ k.v_id }}" class="marca-cliente" style="color:{{ cor }};">
                   {{ k.veiculo_exibido }}
                 </a>
               {% elif k.veiculo_exibido %}

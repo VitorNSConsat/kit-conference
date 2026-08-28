@@ -51,6 +51,8 @@
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Kit marcado como chegando no cliente.</div>
 {% elif request.query_params.get('ok') == 'concluido' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Instalação marcada como concluída.</div>
+{% elif request.query_params.get('ok') == 'concluido_lote' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('n') }} kit(s) marcado(s) como instalação concluída.</div>
 {% elif request.query_params.get('ok') == 'voltou' %}
 <div class="alert alert-success">Kit voltou para o estágio anterior.</div>
 {% elif request.query_params.get('ok') == 'nota_fiscal' %}
@@ -227,7 +229,7 @@
     {% for v in a_produzir.itens %}
     {% set cor = cor_do_cliente(v.cliente) %}
     <tr>
-      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:{{ cor }};">{{ v.veiculo }}</a></td>
+      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" class="marca-cliente" style="color:{{ cor }};">{{ v.veiculo }}</a></td>
       <td>{{ v.garagem or '—' }}</td>
       <td style="color:{{ cor }};">{{ v.cliente }}</td>
       <td>{{ v.modelo or '—' }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
@@ -359,7 +361,7 @@
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
                    class="chk-produzido" onchange="atualizarSelecao('produzido')"
                    data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
-        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
+        <td><a href="/kit/{{ k.kit_id }}" target="_blank" class="marca-cliente" style="color:{{ cor }};"
                title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
@@ -477,7 +479,7 @@
                  onchange="atualizarSelecao('transito')"
                  data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
       {% endif %}
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" class="marca-cliente" style="color:{{ cor }};"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
@@ -555,17 +557,35 @@
     Tudo que já foi entregue, instalando ou concluído. A situação de cada um fica na
     coluna Situação.
   </p>
+  {# Planilha de acompanhamento desta etapa, igual às demais. #}
+  <a href="/admin/producao/excel?etapa=cliente" class="btn btn-sm btn-success"
+     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
   {% if no_cliente %}
   <input type="text" class="busca-box" placeholder="Buscar por veículo, garagem ou cliente..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-cliente tr.filtro-item">
+  <form id="form-cliente-concluido" method="post" action="/admin/producao/cliente-concluido-lote"></form>
   <div style="overflow-x:auto;">
   <table id="tabela-cliente">
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
+    <thead><tr>
+      {% if pode('producao_mover_estagio') %}
+      <th style="width:32px;"><input type="checkbox" id="chk-todos-cliente"
+            onchange="marcarTodos(this, 'cliente')" title="Marcar todos os que ainda podem ser concluídos"></th>
+      {% endif %}
+      <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente %}
     {% set cor = cor_do_cliente(k.cliente) %}
     <tr class="filtro-item">
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:{{ cor }};"
+      {% if pode('producao_mover_estagio') %}
+      <td>
+        {% if k.status_producao != 'cliente_concluido' %}
+        <input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-cliente-concluido"
+               class="chk-cliente" onchange="atualizarSelecao('cliente')"
+               data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;">
+        {% endif %}
+      </td>
+      {% endif %}
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" class="marca-cliente" style="color:{{ cor }};"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
@@ -604,6 +624,15 @@
     </tbody>
   </table>
   </div>
+  {% if pode('producao_mover_estagio') %}
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    <button type="submit" form="form-cliente-concluido" class="btn btn-primary" id="btn-cliente-concluido-lote"
+            data-lote="cliente" disabled>
+      {{ ic.svg('check', 14) }} Marcar selecionados como instalação concluída (<span class="qtd-sel-cliente">0</span>)
+    </button>
+    <span style="font-size:12px;color:#888;">Só entram na seleção os que ainda estão instalando.</span>
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nenhum kit no cliente ainda.</p>
   {% endif %}
@@ -687,7 +716,16 @@ if (formTransitoLote) {
                      + sel.map(c => c.dataset.veiculo).join(', '))) ev.preventDefault();
     });
 }
-atualizarSelecaoProduzido();
+
+const formClienteConcluidoLote = document.getElementById('form-cliente-concluido');
+if (formClienteConcluidoLote) {
+    formClienteConcluidoLote.addEventListener('submit', (ev) => {
+        const sel = selecionados('cliente');
+        if (!sel.length) { ev.preventDefault(); return; }
+        if (!confirm('Marcar ' + sel.length + ' veículo(s) como instalação concluída?\n\n'
+                     + sel.map(c => c.dataset.veiculo).join(', '))) ev.preventDefault();
+    });
+}
 
 // ── Etapas abertas/fechadas ───────────────────────────────────────────────
 // Nascem fechadas (a tela abre mostrando só os números da esteira), mas o

@@ -790,8 +790,8 @@
                     </td>
                     <td>
                         {% if item.veiculo_atual %}
-                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank"
-                           style="font-weight:700;color:{{ cor_do_cliente(item.cliente_atual) }};"
+                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank" class="marca-cliente"
+                           style="color:{{ cor_do_cliente(item.cliente_atual) }};"
                            title="Abrir o kit deste veículo">
                             {{ ic.svg('veiculos', 13) }} {{ item.veiculo_atual }}
                         </a>

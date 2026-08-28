@@ -4233,6 +4233,10 @@ async def admin_producao_excel(request: Request, etapa: str = "transito"):
         "transito": ("Em trânsito", producao_mod.listar_transito, _COLS_ACOMP),
         "em_producao": ("Em produção", producao_mod.listar_em_producao, _COLS_FILA),
         "a_produzir": ("A produzir", producao_mod.listar_a_produzir, _COLS_FILA),
+        # limite=None: a tela mostra só os últimos 30, mas a planilha exporta
+        # tudo que já chegou no cliente — é justamente pra ver o que não
+        # coube na tela que alguém baixa essa aba.
+        "cliente": ("No cliente", lambda: producao_mod.listar_no_cliente(limite=None), _COLS_ACOMP),
     }
     rotulo, fonte, colunas = etapas.get(etapa, etapas["transito"])
     linhas = fonte()
@@ -4333,6 +4337,15 @@ async def admin_producao_cliente_instalando(request: Request, kit_id: str):
 async def admin_producao_cliente_concluido(request: Request, kit_id: str):
     producao_mod.marcar_cliente_concluido(kit_id)
     return RedirectResponse("/admin/producao?ok=concluido", status_code=302)
+
+
+@app.post("/admin/producao/cliente-concluido-lote")
+@require_permission("producao_mover_estagio")
+async def admin_producao_cliente_concluido_lote(request: Request):
+    form = await request.form()
+    kit_ids = form.getlist("kit_ids")
+    n = producao_mod.marcar_cliente_concluido_lote(kit_ids)
+    return RedirectResponse(f"/admin/producao?ok=concluido_lote&n={n}", status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/voltar")
