@@ -85,10 +85,11 @@
         <tr class="conf-linha conf-{{ l.situacao }}">
           <td>{{ l.linha }}</td>
           <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ l.situacao_texto }}</span></td>
+          {% set cor = cor_do_cliente(l.cliente_depois or l.cliente_antes) %}
           <td>
             {% if l.veiculo_id %}
-            <a href="/admin/veiculos/{{ l.veiculo_id }}"><strong>{{ l.numero }}</strong></a>
-            {% else %}<strong>{{ l.numero or '—' }}</strong>{% endif %}
+            <a href="/admin/veiculos/{{ l.veiculo_id }}" class="marca-cliente" style="color:{{ cor }};">{{ l.numero }}</a>
+            {% else %}<strong style="color:{{ cor }};">{{ l.numero or '—' }}</strong>{% endif %}
           </td>
           {# Cada campo mostra o ANTES riscado e o DEPOIS ao lado. Ver só o
              valor final não responde "o que essa planilha mexeu aqui?". #}
