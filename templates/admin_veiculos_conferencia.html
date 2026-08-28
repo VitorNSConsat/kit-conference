@@ -99,10 +99,13 @@
           </td>
           {# Cada campo mostra o ANTES riscado e o DEPOIS ao lado. Ver só o
              valor final não responde "o que essa planilha mexeu aqui?". #}
+          {# Todo texto da linha segue a mesma cor e o mesmo peso da
+             situação — só a comparação antes/depois (linha alterada)
+             mantém o riscado/destaque próprios, que já usam essa cor. #}
           {% for campo in ['cliente', 'garagem', 'modelo'] %}
           {% set antes = l[campo ~ '_antes'] or '' %}
           {% set depois = l[campo ~ '_depois'] or '' %}
-          <td {% if campo == 'garagem' %}style="color:{{ cor }};font-weight:600;"{% endif %}>
+          <td style="color:{{ cor }};font-weight:600;">
             {% if l.situacao == 'alterado' and antes != depois %}
             <span class="conf-antes">{{ antes or '(vazio)' }}</span>
             <span class="conf-seta">→</span>
@@ -110,10 +113,10 @@
             {% else %}{{ depois or antes or '—' }}{% endif %}
           </td>
           {% endfor %}
-          <td>
+          <td style="color:{{ cor }};">
             {% if l.erro %}<span class="conf-erro-texto">{{ l.erro }}</span>
             {% elif l.resumo %}{{ l.resumo }}
-            {% elif l.situacao == 'igual' %}<span style="color:#888;">Nada</span>
+            {% elif l.situacao == 'igual' %}Nada
             {% else %}—{% endif %}
           </td>
         </tr>
