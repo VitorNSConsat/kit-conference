@@ -1,21 +1,18 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Conferência da Importação{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/veiculos/importacoes" class="btn btn-secondary btn-sm">{{ ic.svg('relogio', 15) }} Importações anteriores</a>
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
 {% block content %}
 {#  A planilha inteira do jeito que ela chegou, uma linha por vez, com o que
     cada uma virou. O placar antigo ("12 novos, 3 atualizados") continua
     existindo no topo — só que agora dá pra clicar nele e VER quem são. #}
-<div style="display:flex;justify-content:space-between;align-items:center;
-            margin-bottom:16px;gap:12px;flex-wrap:wrap;">
-  <h1 style="margin:0;">Conferência da Importação</h1>
-  <div style="display:flex;gap:8px;">
-    <a href="/admin/veiculos/importacoes" class="btn btn-secondary">🕘 Importações anteriores</a>
-    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-  </div>
-</div>
-
 <div class="card">
   <p style="margin:0 0 4px;color:#555;font-size:13px;">
-    {% if imp.arquivo %}📄 <strong>{{ imp.arquivo }}</strong> — {% endif %}
+    {% if imp.arquivo %}<strong>{{ imp.arquivo }}</strong> — {% endif %}
     importada em {{ imp.criada_em }}{% if imp.autor %} por {{ imp.autor }}{% endif %}.
   </p>
   <p style="margin:0 0 12px;color:#555;font-size:13px;">
@@ -35,32 +32,32 @@
     <a href="?situacao={{ chave }}{{ '&busca=' ~ busca if busca }}"
        class="conf-bloco conf-{{ chave }}{{ ' conf-ativo' if situacao == chave }}">
       <span class="conf-n">{{ contagens[chave] }}</span>
-      <span class="conf-r">{{ sinal }} {{ texto }}</span>
+      <span class="conf-r">{{ texto }}</span>
     </a>
     {% endfor %}
     {% if contagens.avisos %}
     <a href="?avisos=1{{ '&busca=' ~ busca if busca }}"
        class="conf-bloco conf-aviso{{ ' conf-ativo' if so_avisos }}">
       <span class="conf-n">{{ contagens.avisos }}</span>
-      <span class="conf-r">⚠️ Com aviso</span>
+      <span class="conf-r">Com aviso</span>
     </a>
     {% endif %}
   </div>
 
   <div class="conf-legenda">
-    <span>🟢 <strong>Novo</strong>: não existia e foi cadastrado.</span>
-    <span>🔵 <strong>Já existente</strong>: a planilha não mudou nada nele.</span>
-    <span>🟡 <strong>Alterado</strong>: já existia e algum campo mudou.</span>
-    <span>🔴 <strong>Erro</strong>: a linha não foi aproveitada.</span>
-    <span>⚠️ <strong>Aviso</strong>: entrou, mas tem algo pra conferir.</span>
+    <span><strong>Novo</strong>: não existia e foi cadastrado.</span>
+    <span><strong>Já existente</strong>: a planilha não mudou nada nele.</span>
+    <span><strong>Alterado</strong>: já existia e algum campo mudou.</span>
+    <span><strong>Erro</strong>: a linha não foi aproveitada.</span>
+    <span><strong>Aviso</strong>: entrou, mas tem algo pra conferir.</span>
   </div>
 </div>
 
 <div class="card">
-  <form method="get" class="filtros" style="margin-bottom:12px;">
+  <form method="get" class="filtros" style="margin-bottom:12px;" data-busca-viva="#bloco-conferencia">
     {% if situacao %}<input type="hidden" name="situacao" value="{{ situacao }}">{% endif %}
     {% if so_avisos %}<input type="hidden" name="avisos" value="1">{% endif %}
-    <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Número do veículo, cliente, garagem ou modelo"
+    <input type="text" name="busca" value="{{ busca }}" placeholder="Número do veículo, cliente, garagem ou modelo"
            style="flex:1;min-width:240px;">
     <button type="submit" class="btn btn-primary">Buscar</button>
     {% if busca or situacao or so_avisos %}
@@ -68,6 +65,7 @@
     {% endif %}
   </form>
 
+  <div id="bloco-conferencia">
   {% if linhas %}
   <div class="table-scroll">
     <table class="tabela-conferencia">
@@ -86,7 +84,7 @@
         {% for l in linhas %}
         <tr class="conf-linha conf-{{ l.situacao }}">
           <td>{{ l.linha }}</td>
-          <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ l.sinal }} {{ l.situacao_texto }}</span></td>
+          <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ l.situacao_texto }}</span></td>
           <td>
             {% if l.veiculo_id %}
             <a href="/admin/veiculos/{{ l.veiculo_id }}"><strong>{{ l.numero }}</strong></a>
@@ -122,5 +120,6 @@
     {% if busca %}A busca vale sobre a importação inteira, não só sobre o que está na tela.{% endif %}
   </p>
   {% endif %}
+  </div>
 </div>
 {% endblock %}

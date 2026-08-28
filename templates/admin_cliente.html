@@ -1,21 +1,21 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Cliente {{ cliente.nome }}{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">🏢 {{ cliente.nome }}</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
 
+{% block content %}
 {% if ok.startswith('movidos_') %}
   {% set qtd = ok[8:] %}
   {% if qtd == '0' %}
-  <div class="alert alert-danger">⚠️ Nenhum veículo mudou de garagem — não havia veículo na garagem de origem.</div>
+  <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Nenhum veículo mudou de garagem — não havia veículo na garagem de origem.</div>
   {% else %}
-  <div class="alert alert-success">✅ {{ qtd }} veículo(s) mudaram de garagem.</div>
+  <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ qtd }} veículo(s) mudaram de garagem.</div>
   {% endif %}
 {% endif %}
 {% if erro == 'destino' %}
-<div class="alert alert-danger">⚠️ Escolha uma garagem de destino que já esteja cadastrada.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Escolha uma garagem de destino que já esteja cadastrada.</div>
 {% endif %}
 
 <!-- Resumo -->
@@ -35,11 +35,11 @@
     </div>
     <div>
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem garagem</div>
-      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_garagem else 'inherit' }};">{{ totais.sem_garagem or 0 }}</div>
+      <div style="font-size:18px;font-weight:700;color:{{ 'var(--warn-text)' if totais.sem_garagem else 'inherit' }};">{{ totais.sem_garagem or 0 }}</div>
     </div>
     <div>
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem modelo</div>
-      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
+      <div style="font-size:18px;font-weight:700;color:{{ 'var(--warn-text)' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
     </div>
     <div>
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Kits montados</div>
@@ -47,15 +47,15 @@
     </div>
   </div>
   {% if totais.sem_garagem or totais.sem_modelo %}
-  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
-    ⚠️ Veículo sem garagem ou sem modelo não entra em <strong>Kits a produzir</strong> —
+  <p style="color:var(--warn-text);font-size:13px;margin:12px 0 0;">
+    {{ ic.svg('alerta', 13) }} Veículo sem garagem ou sem modelo não entra em <strong>Kits a produzir</strong> —
     a produção só lista o que tem cliente, garagem e modelo preenchidos.
   </p>
   {% endif %}
   <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos deste cliente</a>
+    <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}" class="btn btn-sm btn-primary">{{ ic.svg('veiculos', 14) }} Ver veículos deste cliente</a>
     <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&situacao=a_produzir"
-       class="btn btn-sm btn-secondary">🛠️ Ver o que falta produzir</a>
+       class="btn btn-sm btn-secondary">{{ ic.svg('producao', 14) }} Ver o que falta produzir</a>
   </div>
 </div>
 
@@ -77,7 +77,7 @@
     <tr>
       <td><strong>{{ g.garagem }}</strong></td>
       <td>{{ g.veiculos }}</td>
-      <td style="color:{{ '#e67e22' if g.sem_modelo else '#888' }};">{{ g.sem_modelo or 0 }}</td>
+      <td style="color:{{ 'var(--warn-text)' if g.sem_modelo else '#888' }};">{{ g.sem_modelo or 0 }}</td>
       <td>
         {# Filtro de garagem, não busca livre: a busca casa por pedaço de
            texto e "GARAGEM 1" traria junto a "GARAGEM 10". #}
@@ -97,7 +97,7 @@
      existe cadastro ligando cliente e garagem, é essa a ação que amarra os
      dois de verdade. #}
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Atribuir garagem aos veículos deste cliente</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">Atribuir garagem aos veículos deste cliente</summary>
     <p style="color:#666;font-size:13px;margin:8px 0;">
       Move de uma vez todos os veículos deste cliente que estão numa garagem para outra.
       Só muda o <strong>cadastro do veículo</strong> — kits já bipados continuam com a

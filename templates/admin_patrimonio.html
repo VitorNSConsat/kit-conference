@@ -1,19 +1,19 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Patrimônio {{ codigo_barra }}{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
 {% block content %}
 {# Destino padrão das ações de patrimônio quando não há "voltar": sem estes
    dois blocos, mover/corrigir/retirar respondiam em silêncio aqui também. #}
 {% if request.query_params.get('ok') %}
-<div class="alert alert-success">✅ {{ request.query_params.get('ok') }}</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('ok') }}</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">🔎 Rastreamento do Patrimônio</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
-
 <div class="card">
   <div style="display:flex;gap:24px;flex-wrap:wrap;">
     <div>
@@ -36,8 +36,8 @@
     {% endif %}
   </div>
   {% if not item %}
-  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
-    ⚠️ Este código não está cadastrado como patrimônio — pode ter sido renomeado ou excluído.
+  <p style="color:var(--warn-text);font-size:13px;margin:12px 0 0;">
+    {{ ic.svg('alerta', 13) }} Este código não está cadastrado como patrimônio — pode ter sido renomeado ou excluído.
     O histórico de bipagem abaixo continua valendo.
   </p>
   {% endif %}
@@ -50,7 +50,7 @@
     <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Onde está agora</div>
     <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:baseline;margin-top:4px;">
       <div style="font-size:17px;font-weight:800;color:var(--brand);">
-        🚗 {{ onde_esta.veiculo or '— kit sem veículo —' }}
+        {{ ic.svg('veiculos', 16) }} {{ onde_esta.veiculo or '— kit sem veículo —' }}
       </div>
       <div style="font-size:13px;color:#555;">
         {{ onde_esta.kit_nome }} · {{ onde_esta.cliente }}
@@ -71,7 +71,7 @@
     </div>
     {% else %}
     <div style="font-size:13px;color:#888;">
-      📍 <strong>Não está em nenhum kit no momento.</strong> Pra colocar num veículo,
+      <strong>Não está em nenhum kit no momento.</strong> Pra colocar num veículo,
       abra o kit dele e use “Atribuir patrimônio”.
     </div>
     {% endif %}
@@ -82,7 +82,7 @@
      já no cliente e finalizado. Não mexe em produção — só na identificação
      do item, que é o que se digita errado. #}
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-    <summary style="cursor:pointer;font-weight:600;font-size:14px;">✏️ Corrigir patrimônio</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">Corrigir patrimônio</summary>
     <p style="color:#666;font-size:13px;margin:8px 0;">
       Para corrigir um número digitado errado. Funciona mesmo com o kit já produzido,
       enviado ou no cliente — <strong>a produção não é reaberta</strong> e o veículo
@@ -106,7 +106,7 @@
         <input type="text" name="motivo" required minlength="5" style="margin:0;"
                placeholder="ex: número digitado errado na bipagem">
       </div>
-      <button type="submit" class="btn btn-success">💾 Salvar correção</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar correção</button>
     </form>
   </details>
   {% endif %}
@@ -117,7 +117,7 @@
      sistema não cobria e obrigava a apagar o item pra seguir. #}
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;"
            {{ 'open' if previa_mover }}>
-    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Mover para outro veículo</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">Mover para outro veículo</summary>
     <p style="color:#666;font-size:13px;margin:8px 0;">
       Para quando o item saiu do kit de um veículo e foi instalado em outro — troca feita
       na hora da instalação, por exemplo. O kit de origem passa a acusar o item faltando
@@ -127,28 +127,28 @@
 
     {% if previa_mover %}
     {% if previa_mover.bloqueio %}
-    <div class="alert alert-danger">⚠️ {{ previa_mover.bloqueio }}</div>
+    <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ previa_mover.bloqueio }}</div>
     {% else %}
     <div class="card" style="background:#f7fafc;margin-bottom:12px;">
       <h3 style="margin:0 0 8px;font-size:14px;">Confira antes de confirmar</h3>
       <p style="font-size:13px;margin:0 0 6px;">
-        <strong>Sai de:</strong> 🚗 {{ previa_mover.origem.veiculo or '— sem veículo —' }}
+        <strong>Sai de:</strong> {{ previa_mover.origem.veiculo or '— sem veículo —' }}
         ({{ previa_mover.origem.kit_nome }} · {{ previa_mover.origem.cliente }})
       </p>
       <p style="font-size:13px;margin:0 0 6px;">
-        <strong>Vai para:</strong> 🚗 {{ previa_mover.destino.veiculo }}
+        <strong>Vai para:</strong> {{ previa_mover.destino.veiculo }}
         ({{ previa_mover.destino.kit_nome }} · {{ previa_mover.destino.cliente }}{% if previa_mover.destino.garagem %} · {{ previa_mover.destino.garagem }}{% endif %})
       </p>
       <p style="font-size:13px;margin:0 0 6px;"><strong>Motivo:</strong> {{ mover_motivo }}</p>
       {% for a in previa_mover.avisos %}
-      <p style="font-size:12px;color:#b8860b;margin:6px 0 0;">⚠️ {{ a }}</p>
+      <p style="font-size:12px;color:#b8860b;margin:6px 0 0;">{{ ic.svg('alerta', 12) }} {{ a }}</p>
       {% endfor %}
       <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/mover"
             style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         <input type="hidden" name="destino" value="{{ mover_destino }}">
         <input type="hidden" name="motivo" value="{{ mover_motivo }}">
         <input type="hidden" name="confirmado" value="1">
-        <button type="submit" class="btn btn-success">✔️ Confirmar a mudança</button>
+        <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Confirmar a mudança</button>
         <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}" class="btn btn-secondary">Cancelar</a>
       </form>
     </div>
@@ -174,7 +174,7 @@
 
   {% if pode('patrimonio_atribuir') and onde_esta %}
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;">
-    <summary style="cursor:pointer;font-weight:600;font-size:14px;">📤 Retirar do kit</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">Retirar do kit</summary>
     <p style="color:#666;font-size:13px;margin:8px 0;">
       Para quando o item saiu do kit e <strong>não</strong> foi pra outro veículo — voltou
       pro estoque, quebrou ou sumiu. O kit fica acusando o item faltando, que é a verdade,
@@ -188,18 +188,18 @@
         <input type="text" name="motivo" required minlength="5" style="margin:0;"
                placeholder="ex: peça com defeito, devolvida ao estoque">
       </div>
-      <button type="submit" class="btn btn-warning">📤 Retirar do kit</button>
+      <button type="submit" class="btn btn-warning">Retirar do kit</button>
     </form>
   </details>
   {% endif %}
 </div>
 
-{% if ok %}<div class="alert alert-success">✅ {{ ok }}</div>{% endif %}
-{% if erro %}<div class="alert alert-danger">⚠️ {{ erro }}</div>{% endif %}
+{% if ok %}<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok }}</div>{% endif %}
+{% if erro %}<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ erro }}</div>{% endif %}
 
 <!-- Onde foi bipado -->
 <div class="card">
-  <h2 style="margin-bottom:4px;">📍 Onde foi bipado ({{ historico | length }})</h2>
+  <h2 style="margin-bottom:4px;">Onde foi bipado ({{ historico | length }})</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">
     Cada vez que este código passou pelo leitor, com o operador que bipou e o destino do kit.
   </p>
@@ -225,7 +225,7 @@
         <td>{{ h.operador_nome or '—' }}</td>
         <td>
           {% if h.kit_id %}
-          <a href="/kit/{{ h.kit_id }}" target="_blank" style="font-weight:600;color:#1a3a5c;">{{ h.kit_nome }}</a>
+          <a href="/kit/{{ h.kit_id }}" target="_blank" style="font-weight:600;color:var(--brand-ink);">{{ h.kit_nome }}</a>
           {% else %}
           {{ h.kit_nome }}
           {% endif %}
@@ -236,7 +236,7 @@
           {# Fecha a volta patrimônio → veículo: dá pra sair da peça e chegar
              no cadastro do veículo onde ela está, sem buscar de novo. #}
           <a href="/admin/veiculos?busca={{ h.veiculo | urlencode }}"
-             style="color:#1a3a5c;" title="Ver este veículo em Veículos e Clientes">{{ h.veiculo }}</a>
+             style="color:var(--brand-ink);" title="Ver este veículo em Veículos e Clientes">{{ h.veiculo }}</a>
           {% else %}—{% endif %}
         </td>
         <td>{{ h.garagem or '—' }}</td>
@@ -268,7 +268,7 @@
 <!-- O que foi bipado junto -->
 {% if vizinhos %}
 <div class="card">
-  <h2 style="margin-bottom:4px;">🔗 Bipado junto (última sessão)</h2>
+  <h2 style="margin-bottom:4px;">Bipado junto (última sessão)</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">
     Itens que formaram o <strong>mesmo kit</strong> deste patrimônio na última vez que ele
     foi bipado{% if kit_sessao %} — kit <strong>{{ kit_sessao.kit_nome }}</strong>
@@ -299,7 +299,7 @@
         <td>{{ z.operador_nome or '—' }}</td>
         <td>
           {% if z.e_o_item %}
-          <span style="color:#e67e22;font-weight:700;">← {{ z.situacao }}</span>
+          <span style="color:var(--warn-text);font-weight:700;">{{ z.situacao }}</span>
           {% else %}
           <span style="color:#888;">{{ z.situacao }}</span>
           {% endif %}

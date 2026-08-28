@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Login — Conferência de Kits{% endblock %}
 {% block content %}
 <div style="max-width: 380px; margin: 60px auto;">
     <div class="card">
-        <h1 style="text-align:center;">📦 Conferência de Kits</h1>
+        <h1 style="text-align:center;">Conferência de Kits</h1>
         {% if request.query_params.get('expirado') %}
         {# Sem esta linha, o operador só via a tela de login do nada e achava
            que o sistema tinha caído. #}
         <div class="alert alert-danger">
-          🔒 Sua sessão foi encerrada por inatividade. Entre de novo —
+          Sua sessão foi encerrada por inatividade. Entre de novo —
           confira se é o <strong>seu</strong> usuário.
         </div>
         {% endif %}

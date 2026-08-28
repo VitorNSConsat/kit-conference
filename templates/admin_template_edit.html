@@ -1,14 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Editar Template — {{ template.nome }}{% endblock %}
+{% import "_icones.html" as ic %}
+{% block title %}Editar {{ 'Pedido' if template.tipo == 'pedido' else 'Kit' }} — {{ template.nome }}{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Voltar</a>
+{% endblock %}
 {% block content %}
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-    <a href="{{ voltar_para }}" class="btn btn-sm btn-primary">← Voltar</a>
-    <h1 style="margin:0;">Editar {{ 'Pedido' if template.tipo == 'pedido' else 'Kit' }}</h1>
-</div>
-
 {% if sessoes_em_andamento %}
 <div class="alert alert-warning" style="border:1px solid #f0a500;">
-    ⚠️ <strong>{{ sessoes_em_andamento | length }} sessão(ões) em andamento</strong> neste template.
+    {{ ic.svg('alerta', 14) }} <strong>{{ sessoes_em_andamento | length }} sessão(ões) em andamento</strong> neste template.
     Cancele-as abaixo para poder excluir o template, ou aguarde o operador finalizar.
     <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
         {% for s in sessoes_em_andamento %}
@@ -20,7 +19,7 @@
                     — iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
                 </span>
             </span>
-            <a href="/session/{{ s.id }}" class="btn btn-sm btn-primary" target="_blank">▶ Ver Sessão</a>
+            <a href="/session/{{ s.id }}" class="btn btn-sm btn-secondary" target="_blank">{{ ic.svg('seta-direita', 13) }} Ver Sessão</a>
             <form method="post" action="/admin/sessoes/{{ s.id }}/cancelar"
                   onsubmit="return confirm('Cancelar a sessão do operador {{ s.operador_nome }}? Os itens bipados serão descartados.')">
                 <button type="submit" class="btn btn-sm btn-danger">Cancelar Sessão</button>
@@ -37,7 +36,7 @@
 
 {% if request.query_params.get('ok') == 'bom' %}
 <div class="alert alert-success">
-    ✅ Kit criado a partir do BOM:
+    {{ ic.svg('check-circulo', 14) }} Kit criado a partir do BOM:
     <strong>{{ request.query_params.get('itens') }} item(ns)</strong> adicionados
     {% if request.query_params.get('tipos', '0') != '0' %}
     · <strong>{{ request.query_params.get('tipos') }} tipo(s) novo(s)</strong> criados automaticamente
@@ -46,7 +45,7 @@
 </div>
 {% elif request.query_params.get('ok') == 'pedido' %}
 <div class="alert alert-success">
-    ✅ Pedido <strong>{{ request.query_params.get('numero') }}</strong> criado com
+    {{ ic.svg('check-circulo', 14) }} Pedido <strong>{{ request.query_params.get('numero') }}</strong> criado com
     <strong>{{ request.query_params.get('unidades') }} unidade(s)</strong> importada(s) — adicione os
     itens (tipos/quantidades) abaixo.
 </div>
@@ -60,9 +59,9 @@
 {% if template.tipo == 'pedido' %}
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <h2 style="margin:0;">&#128241; Unidades do Pedido ({{ unidades | length }})</h2>
+        <h2 style="margin:0;">Unidades do Pedido ({{ unidades | length }})</h2>
         <a href="/admin/templates/{{ template.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">
-            &#128202; Exportar Excel
+            {{ ic.svg('baixar', 14) }} Exportar Excel
         </a>
     </div>
     <p style="font-size:12px;color:#888;margin:6px 0 12px;">
@@ -72,14 +71,14 @@
     </p>
 
     {% if request.query_params.get('ok_unidades') %}
-    <div class="alert alert-success">&#9989; {{ request.query_params.get('ok_unidades') }}</div>
+    <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('ok_unidades') }}</div>
     {% endif %}
 
     {% if pode('pedidos_criar_editar') %}
     <form method="post" action="/admin/templates/{{ template.id }}/unidades" id="form-unidades"></form>
     {% endif %}
 
-    <input type="text" class="busca-box" placeholder="&#128269; Buscar por ID Hardware, ICCID, telefone ou CDT..."
+    <input type="text" class="busca-box" placeholder="Buscar por ID Hardware, ICCID, telefone ou CDT..."
            oninput="filtrarLista(this)" data-filtro-alvo="#tabela-unidades tr.filtro-item">
     <div class="table-scroll" style="max-height:420px;overflow-y:auto;">
     <table id="tabela-unidades">
@@ -140,9 +139,9 @@
     {% if pode('pedidos_criar_editar') %}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;">
         <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaUnidade()">
-            &#65291; Adicionar unidade
+            {{ ic.svg('mais', 14) }} Adicionar unidade
         </button>
-        <button type="submit" class="btn btn-success" form="form-unidades">&#128190; Salvar unidades</button>
+        <button type="submit" class="btn btn-success" form="form-unidades">{{ ic.svg('check', 14) }} Salvar unidades</button>
         <span style="font-size:12px;color:#888;">
             Linha nova em branco &eacute; ignorada. Campo vazio significa "sem valor".
         </span>
@@ -177,7 +176,7 @@
 {% if consumo is defined and consumo and consumo.itens %}
 <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
-        <h2 style="margin:0;">📊 Consumo &amp; Estoque</h2>
+        <h2 style="margin:0;">Consumo &amp; Estoque</h2>
         <span style="font-size:12px;color:#888;">
             {% if consumo.n_kits %}
             {{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }} montado{{ 's' if consumo.n_kits != 1 }}
@@ -230,13 +229,13 @@
 
     {% if consumo.confianca == 'sem_historico' %}
     <div class="consumo-aviso">
-        ℹ️ Ainda não há consumo real registrado para este kit — os números usam o
+        Ainda não há consumo real registrado para este kit — os números usam o
         <strong>planejado do template</strong> como estimativa. Conforme os kits forem
         sendo montados, isso passa a refletir o gasto de verdade automaticamente.
     </div>
     {% elif consumo.confianca == 'amostra_pequena' %}
     <div class="consumo-aviso alerta">
-        ⚠️ Amostra pequena ({{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }}) — a média
+        {{ ic.svg('alerta', 13) }} Amostra pequena ({{ consumo.n_kits }} kit{{ 's' if consumo.n_kits != 1 }}) — a média
         ainda pode variar bastante. Use como indício, não como base de compra.
     </div>
     {% endif %}
@@ -271,7 +270,7 @@
                     {{ '%+.0f'|format(it.desvio_pct) }}%
                 </span>
                 {% elif it.desvio_pct is not none %}
-                <span style="color:#27ae60;">bate o plano</span>
+                <span style="color:var(--ok-text);">bate o plano</span>
                 {% else %}
                 <span style="color:#bbb;">—</span>
                 {% endif %}
@@ -321,7 +320,7 @@
                 <div id="aviso-renomear" style="display:none;font-size:12.5px;color:#8a6d3b;
                      background:#fdf6ea;border:1px solid #f0d9a8;border-radius:6px;
                      padding:8px 10px;margin-top:6px;">
-                    ⚠️ <strong>{{ veiculos_vinculados }} veículo(s)</strong> apontam para
+                    {{ ic.svg('alerta', 13) }} <strong>{{ veiculos_vinculados }} veículo(s)</strong> apontam para
                     <strong>{{ template.nome }}</strong>. O vínculo é pelo nome, então renomear
                     aqui faz esses veículos <strong>sumirem da bipagem</strong> até você
                     atualizar o modelo deles em Veículos e Clientes.
@@ -355,9 +354,9 @@
                     data-serial="{{ '1' if tipo.requer_serial else '0' }}"
                     onclick="adicionarTipoFromCard(this)">
                 {{ tipo.nome }}
-                {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
-                {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
-                {% if tipo.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">🔢 serial</span>{% endif %}
+                {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">m</span>{% endif %}
+                {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">reutilizável</span>{% endif %}
+                {% if tipo.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">serial</span>{% endif %}
             </button>
             {% endfor %}
         </div>
@@ -381,8 +380,8 @@
             <div class="item-sel">
                 <div class="item-sel-nome">
                     {{ item.descricao }}
-                    {% if item.unidade == 'm' %}<span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>{% endif %}
-                    {% if item.requer_serial %}<span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>{% endif %}
+                    {% if item.unidade == 'm' %}<span style="font-size:11px;color:#0984e3;font-weight:400;">m</span>{% endif %}
+                    {% if item.requer_serial %}<span style="font-size:11px;color:#6c5ce7;font-weight:400;">serial</span>{% endif %}
                 </div>
                 <input type="hidden" name="item_tipo_id_{{ loop.index0 }}" value="{{ item.item_tipo_id }}">
                 {% if item.requer_serial %}
@@ -403,14 +402,14 @@
                         <input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
                                {{ 'checked' if item.obrigatorio else '' }}> Obrigatório
                     </label>
-                    <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>
+                    <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">&times;</button>
                 </div>
             </div>
             {% endfor %}
         </div>
 
         <div style="display:flex; gap:10px; margin-top:8px;">
-            <button type="submit" class="btn btn-success">💾 Salvar Alterações</button>
+            <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar Alterações</button>
             <a href="/admin/templates" class="btn btn-danger">Cancelar</a>
         </div>
     </form>
@@ -450,21 +449,21 @@ function avisarRenomear() {
 }
 .consumo-chip {
     border: 1px solid #e0e7ef;
-    border-left: 4px solid #1a3a5c;
+    border-left: 4px solid var(--brand-ink);
     border-radius: 10px;
     padding: 10px 12px;
     background: #f7f9fc;
 }
-.consumo-chip.ok      { border-left-color: #27ae60; }
-.consumo-chip.alerta  { border-left-color: #e67e22; background: #fff8f0; }
-.consumo-chip.critico { border-left-color: #c0392b; background: #fdecea; }
+.consumo-chip.ok      { border-left-color: var(--ok-text); }
+.consumo-chip.alerta  { border-left-color: var(--warn-text); background: #fff8f0; }
+.consumo-chip.critico { border-left-color: var(--danger-text); background: #fdecea; }
 .chip-label {
     font-size: 10px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 1px; color: #8a95a3;
 }
-.chip-valor { font-size: 24px; font-weight: 800; color: #1a3a5c; line-height: 1.15; margin-top: 2px; }
-.consumo-chip.alerta  .chip-valor { color: #e67e22; }
-.consumo-chip.critico .chip-valor { color: #c0392b; }
+.chip-valor { font-size: 24px; font-weight: 800; color: var(--brand-ink); line-height: 1.15; margin-top: 2px; }
+.consumo-chip.alerta  .chip-valor { color: var(--warn-text); }
+.consumo-chip.critico .chip-valor { color: var(--danger-text); }
 .chip-sub { font-size: 11px; color: #8a95a3; margin-top: 3px; }
 
 .consumo-aviso {
@@ -478,47 +477,16 @@ function avisarRenomear() {
 .tabela-consumo th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
 .tabela-consumo td { font-size: 13px; }
 .desvio { font-weight: 800; }
-.desvio.pior   { color: #c0392b; }
-.desvio.melhor { color: #27ae60; }
-.estoque-neg { color: #c0392b; font-weight: 800; }
+.desvio.pior   { color: var(--danger-text); }
+.desvio.melhor { color: var(--ok-text); }
+.estoque-neg { color: var(--danger-text); font-weight: 800; }
 .autonomia { font-weight: 800; }
-.autonomia.ok      { color: #27ae60; }
-.autonomia.alerta  { color: #e67e22; }
-.autonomia.critico { color: #c0392b; }
+.autonomia.ok      { color: var(--ok-text); }
+.autonomia.alerta  { color: var(--warn-text); }
+.autonomia.critico { color: var(--danger-text); }
 
-.tipos-grid-admin {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
-}
-.tipo-card-admin {
-    padding: 14px 8px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    transition: border-color .15s, background .15s;
-    line-height: 1.3;
-    color: #1a3a5c;
-}
-.tipo-card-admin:hover { border-color: #1a3a5c; background: #eef2f7; }
-.tipo-card-admin:active { background: #dce6f0; }
-.item-sel {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: #f4f7fb;
-    border-radius: 8px;
-    border: 1px solid #e0e7ef;
-    flex-wrap: wrap;
-}
-.item-sel-nome { font-weight: 600; font-size: 14px; flex: 1; min-width: 120px; color: #1a3a5c; }
-.item-sel-campos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* .tipos-grid-admin, .tipo-card-admin e .item-sel* agora moram em
+   static/style.css — usados aqui e em admin_templates.html. */
 </style>
 <script>
 let idx = {{ itens | length }};
@@ -535,8 +503,8 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
     div.className = 'item-sel';
     div.innerHTML =
         `<div class="item-sel-nome">${tipoNome}` +
-            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>` : '') +
-            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>` : '') +
+            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">m</span>` : '') +
+            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">serial</span>` : '') +
         `</div>` +
         `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
         (requerSerial ? `<input type="hidden" name="requer_serial_${idx}" value="1">` : '') +
@@ -549,7 +517,7 @@ function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
           `</label>` +
-          `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">✕</button>` +
+          `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">&times;</button>` +
         `</div>`;
     container.appendChild(div);
     idx++;

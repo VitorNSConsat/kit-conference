@@ -26,10 +26,10 @@ criado com sucesso seria contado como "erro" e a conta não fecharia.
 from database import db, now_brt
 
 SITUACOES = (
-    ("novo",     "Novo",         "🟢"),
-    ("igual",    "Já existente", "🔵"),
-    ("alterado", "Alterado",     "🟡"),
-    ("erro",     "Erro",         "🔴"),
+    ("novo",     "Novo",         ""),
+    ("igual",    "Já existente", ""),
+    ("alterado", "Alterado",     ""),
+    ("erro",     "Erro",         ""),
 )
 
 TEXTO = {k: t for k, t, _ in SITUACOES}

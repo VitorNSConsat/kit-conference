@@ -1,26 +1,26 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Backup do banco{% endblock %}
+{% block acoes_topo %}
+{% if pode('backup_configurar') %}
+<form method="post" action="/admin/backup/agora">
+  <button type="submit" class="btn btn-primary btn-sm"
+          title="Faz a cópia agora, sem esperar o intervalo — é o teste de que a pasta extra grava mesmo">
+    {{ ic.svg('backup', 15) }} Fazer backup agora
+  </button>
+</form>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>💾 Backup do banco</h1>
-  {% if pode('backup_configurar') %}
-  <form method="post" action="/admin/backup/agora">
-    <button type="submit" class="btn btn-primary"
-            title="Faz a cópia agora, sem esperar o intervalo — é o teste de que a pasta extra grava mesmo">
-      💾 Fazer backup agora
-    </button>
-  </form>
-  {% endif %}
-</div>
-
 {% if request.query_params.get('ok') == 'feito' %}
-<div class="alert alert-success">✅ Cópia criada: <code>{{ request.query_params.get('n') }}</code></div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Cópia criada: <code>{{ request.query_params.get('n') }}</code></div>
 {% elif request.query_params.get('ok') == 'config' %}
-<div class="alert alert-success">✅ Configuração salva.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Configuração salva.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <!-- ── Como está agora ─────────────────────────────────────────────────── -->
@@ -32,34 +32,34 @@
     <span style="color:#888;font-size:13px;">({{ (ultimo.tamanho / 1048576) | round(2) }} MB)</span>
   </p>
   {% else %}
-  <p style="font-size:15px;margin:0 0 4px;color:#c0392b;">
+  <p style="font-size:15px;margin:0 0 4px;color:var(--danger-text);">
     <strong>Nenhuma cópia ainda.</strong> A primeira sai em até 10 minutos com a rotina
     ligada — ou agora, no botão acima.
   </p>
   {% endif %}
   {% if cfg.ativo %}
   <p style="color:#666;font-size:13px;margin:0;">
-    Rotina <strong style="color:#27ae60;">ligada</strong>: uma cópia a cada
+    Rotina <strong style="color:var(--ok-text);">ligada</strong>: uma cópia a cada
     <strong>{{ cfg.intervalo_horas }}h</strong>, guardando as
     <strong>{{ cfg.manter }}</strong> mais recentes.
     {% if atrasado %}
-    <br>⏳ Já passou da hora — a próxima verificação (a cada 10 min) faz a cópia.
+    <br>Já passou da hora — a próxima verificação (a cada 10 min) faz a cópia.
     {% elif previsto %}
     <br>Próxima prevista para <strong>{{ previsto }}</strong>.
     {% endif %}
   </p>
   {% else %}
-  <p style="color:#e67e22;font-size:13px;margin:0;">
-    ⚠️ Rotina <strong>desligada</strong> — só sai cópia quando alguém clicar no botão.
+  <p style="color:var(--warn-text);font-size:13px;margin:0;">
+    {{ ic.svg('alerta', 13) }} Rotina <strong>desligada</strong> — só sai cópia quando alguém clicar no botão.
   </p>
   {% endif %}
 
   <div style="margin-top:12px;font-size:13px;color:#555;">
-    <div>📁 <strong>Pasta padrão:</strong> <code>{{ pasta_padrao }}</code></div>
+    <div><strong>Pasta padrão:</strong> <code>{{ pasta_padrao }}</code></div>
     <div style="margin-top:4px;">
-      🗂️ <strong>Segunda pasta:</strong>
+      <strong>Segunda pasta:</strong>
       {% if cfg.pasta_extra %}<code>{{ cfg.pasta_extra }}</code>
-      {% else %}<span style="color:#e67e22;">não configurada — as cópias estão só no disco do servidor</span>{% endif %}
+      {% else %}<span style="color:var(--warn-text);">não configurada — as cópias estão só no disco do servidor</span>{% endif %}
     </div>
   </div>
 </div>
@@ -95,7 +95,7 @@
       <input type="text" name="pasta_extra" value="{{ cfg.pasta_extra }}" style="margin:0;"
              placeholder="ex: C:\Users\Vitor\OneDrive\Backups Kit">
     </div>
-    <button type="submit" class="btn btn-success">💾 Salvar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar</button>
   </form>
   <p style="color:#666;font-size:12.5px;margin:12px 0 0;">
     Ao salvar, o sistema <strong>testa a segunda pasta gravando um arquivo nela</strong> e
@@ -127,7 +127,7 @@
         <td>
           <code style="font-size:12px;">{{ c.arquivo }}</code>
           {% if not c.existe %}
-          <div style="font-size:11px;color:#c0392b;">⚠️ não está mais na pasta</div>
+          <div style="font-size:11px;color:var(--danger-text);">{{ ic.svg('alerta', 11) }} não está mais na pasta</div>
           {% endif %}
         </td>
         <td style="white-space:nowrap;">
@@ -138,8 +138,8 @@
         </td>
         <td style="white-space:nowrap;">{{ c.tamanho_mb }} MB</td>
         <td>
-          {% if c.erro %}<span style="color:#c0392b;font-size:12px;">⚠️ {{ c.erro }}</span>
-          {% elif c.caminho_extra %}<span style="color:#27ae60;">✅</span>
+          {% if c.erro %}<span style="color:var(--danger-text);font-size:12px;">{{ ic.svg('alerta', 11) }} {{ c.erro }}</span>
+          {% elif c.caminho_extra %}<span style="color:var(--ok-text);">{{ ic.svg('check', 13) }}</span>
           {% else %}<span style="color:#bbb;">—</span>{% endif %}
         </td>
       </tr>
@@ -170,7 +170,7 @@
       dia e hora.</li>
   </ol>
   <div class="alert alert-danger" style="font-size:13px;">
-    ⚠️ Tudo que foi bipado <strong>depois</strong> da data da cópia se perde. Antes de
+    {{ ic.svg('alerta', 14) }} Tudo que foi bipado <strong>depois</strong> da data da cópia se perde. Antes de
     restaurar, faça um backup do banco atual (botão lá em cima) — assim dá pra voltar atrás
     se a cópia escolhida não era a certa.
   </div>

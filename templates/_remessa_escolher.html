@@ -1,6 +1,7 @@
 {# Janela "escolher remessa", aberta no começo da bipagem e pelo botão de
    trocar. Fragmento: não estende base.html, é injetado por fetch na janela
    única do sistema. #}
+{% import "_icones.html" as ic %}
 <div class="pat-painel">
   <p class="pat-ajuda" style="margin-top:0;">
     O kit que você montar agora entra na remessa escolhida aqui — e a escolha
@@ -29,19 +30,19 @@
       {% endfor %}
     </div>
     <button type="submit" class="btn btn-primary" style="margin-top:12px;">
-      ✔️ Usar esta remessa
+      {{ ic.svg('check', 14) }} Usar esta remessa
     </button>
   </form>
   {% else %}
   <div class="alert alert-danger">
-    ⚠️ <strong>Nenhuma remessa aberta.</strong> Crie uma abaixo pra o kit entrar em
+    {{ ic.svg('alerta', 14) }} <strong>Nenhuma remessa aberta.</strong> Crie uma abaixo pra o kit entrar em
     alguma contagem — sem isso ele é montado normalmente, mas fica de fora do lote.
   </div>
   {% endif %}
 
   {% if pode('remessas_gerenciar') %}
   <details class="pat-acao" {{ 'open' if not abertas }}>
-    <summary>➕ Criar uma remessa agora</summary>
+    <summary>Criar uma remessa agora</summary>
     <p class="pat-ajuda">
       Sem sair da bipagem. A nova já fica escolhida pro kit que você vai montar.
     </p>
@@ -59,7 +60,7 @@
         <option value="{{ c.nome }}">{{ c.nome }}</option>
         {% endfor %}
       </select>
-      <button type="submit" class="btn btn-success">📦 Criar e usar</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('caixa', 14) }} Criar e usar</button>
     </form>
   </details>
   {% else %}

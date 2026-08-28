@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% import "_filtros.html" as f %}
+{% import "_icones.html" as ic %}
 {% block title %}Sobressalentes Enviados{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">📦 Sobressalentes Enviados</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza —
   cada envio desconta do estoque na hora e fica registrado aqui.
@@ -26,9 +27,9 @@
       <label>Cliente</label>
       {{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}
     </div>
-    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
     <a href="/reports/sobressalentes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for c in cliente %}&cliente={{ c|urlencode }}{% endfor %}"
-       class="btn btn-success">📥 Exportar Excel</a>
+       class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
   </form>
 </div>
 

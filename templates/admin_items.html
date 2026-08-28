@@ -1,16 +1,35 @@
 {% extends "base.html" %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
-{% block title %}Itens & Estoque — Conferência de Kits{% endblock %}
+{% import "_icones.html" as ic %}
+{% block title %}Itens & Estoque{% endblock %}
+{% block acoes_topo %}
+{% set aba_topo = tab_ativo or 'catalogo' %}
+{% if aba_topo == 'catalogo' %}
+<a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+{% if pode('estoque_editar') %}
+<a href="/admin/estoque/ajuste-modelo.xlsx" class="btn btn-sm btn-secondary"
+   title="Baixa o estoque atual numa planilha pronta pra editar e devolver">{{ ic.svg('baixar', 14) }} Baixar p/ Ajuste</a>
+<button type="button" class="btn btn-sm btn-secondary" onclick="abrirImportarAjuste()">
+  {{ ic.svg('importar', 14) }} Importar Ajuste
+</button>
+{% endif %}
+{% if user and user.admin %}
+<form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
+      onsubmit="return confirm('Isso vai verificar todos os itens de produção (conjuntos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
+    <button type="submit" class="btn btn-sm btn-secondary">Corrigir Estoque de Produção</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
 {% block content %}
-<h1>📋 Itens &amp; Estoque</h1>
-<p style="color:#666;font-size:13px;margin:-6px 0 16px;">
+<p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">
     Escolha abaixo o que você quer gerenciar: o estoque em si, o cadastro de itens,
     os patrimônios já registrados, as etiquetas avulsas ou as peças sobressalentes.
 </p>
 
 {% if request.query_params.get('ok') == 'item_excluido' %}
-<div class="alert alert-success">✅ Patrimônio excluído do catálogo.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Patrimônio excluído do catálogo.</div>
 {% elif request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Patrimônio cadastrado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'item_criado' %}
@@ -20,7 +39,7 @@
 {% elif request.query_params.get('ok') == 'codigo_atualizado' %}
 <div class="alert alert-success">Código de barras atualizado.</div>
 {% elif request.query_params.get('ok') == 'codigo_renomeado' %}
-<div class="alert alert-success">✏️ Código alterado — o patrimônio que usava o código antigo foi atualizado junto.</div>
+<div class="alert alert-success">Código alterado — o patrimônio que usava o código antigo foi atualizado junto.</div>
 {% elif request.query_params.get('ok') == 'minimo' %}
 <div class="alert alert-success">Quantidade mínima atualizada.</div>
 {% elif request.query_params.get('ok') == 'status_compra' %}
@@ -30,18 +49,18 @@
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
 {% elif request.query_params.get('ok') == 'alertas' %}
-<div class="alert alert-success">🔔 Configuração dos avisos de estoque salva.</div>
+<div class="alert alert-success">Configuração dos avisos de estoque salva.</div>
 {% elif request.query_params.get('ok') == 'sobressalente' %}
 <div class="alert alert-success">
-    📦 {{ request.query_params.get('itens', '1') }} item(ns)
+    {{ ic.svg('caixa', 14) }} {{ request.query_params.get('itens', '1') }} item(ns)
     · {{ request.query_params.get('unidades', '') }} unidade(s)
     registrado(s) e descontado(s) do estoque.
 </div>
 {% elif request.query_params.get('ok') == 'reconciliado_vazio' %}
-<div class="alert alert-success">✅ Nenhuma pendência encontrada — todo conjunto já foi debitado do estoque corretamente.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Nenhuma pendência encontrada — todo conjunto já foi debitado do estoque corretamente.</div>
 {% elif request.query_params.get('ok') == 'reconciliado' %}
 <div class="alert alert-success">
-    🔧 Estoque corrigido: <strong>{{ request.query_params.get('detalhe') }}</strong>
+    Estoque corrigido: <strong>{{ request.query_params.get('detalhe') }}</strong>
 </div>
 {% elif request.query_params.get('importado') %}
 <div class="alert alert-success">
@@ -69,10 +88,10 @@
                                     'codigo_renomeado', 'minimo', 'status_compra', 'reposto',
                                     'quantidade_corrigida', 'alertas', 'sobressalente',
                                     'reconciliado_vazio', 'reconciliado') %}
-<div class="alert alert-success">✅ {{ ok_livre }}</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok_livre }}</div>
 {% endif %}
 {% if request.query_params.get('ok_ajuste') %}
-<div class="alert alert-success">📥 {{ request.query_params.get('ok_ajuste') }}</div>
+<div class="alert alert-success">{{ ic.svg('importar', 14) }} {{ request.query_params.get('ok_ajuste') }}</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
@@ -82,7 +101,7 @@
 {% endif %}
 {% if tipo_com_erro %}
 <div class="alert alert-warning" style="border:1px solid #f0a500;">
-    <strong>⚠️ Não foi possível excluir "{{ tipo_com_erro.tipo_nome }}"</strong> — ele está em uso:
+    <strong>{{ ic.svg('alerta', 14) }} Não foi possível excluir "{{ tipo_com_erro.tipo_nome }}"</strong> — ele está em uso:
     <ul style="margin:8px 0 8px 16px; font-size:13px;">
         {% if tipo_com_erro.patrimonios %}
         <li>{{ tipo_com_erro.patrimonios }} patrimônio(s) cadastrado(s)</li>
@@ -101,7 +120,7 @@
     {% if user and user.admin %}
     <form method="post" action="/admin/tipos/{{ tipo_com_erro.tipo_id }}/delete-force"
           onsubmit="return confirm('Excluir permanentemente o tipo \'{{ tipo_com_erro.tipo_nome }}\' e todos os dados vinculados? Esta ação não pode ser desfeita.')">
-        <button type="submit" class="btn btn-sm btn-danger">🗑 Forçar exclusão total</button>
+        <button type="submit" class="btn btn-sm btn-danger">{{ ic.svg('excluir', 13) }} Forçar exclusão total</button>
     </form>
     {% endif %}
 </div>
@@ -113,41 +132,23 @@
     {# Links de verdade, não troca por JS: cada aba busca no servidor só os
        próprios dados, então mostrar outra aba sem recarregar exibiria um
        painel vazio. #}
-    <a href="/admin/items?tab=catalogo" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo">📦 Estoque</a>
-    <a href="/admin/items?tab=novo" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo">➕ Novo Item</a>
-    <a href="/admin/items?tab=patrimonios" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios">🏷️ Itens Cadastrados</a>
-    <a href="/admin/items?tab=codigos" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos">🖨️ Etiquetas &amp; Códigos</a>
-    <a href="/admin/items?tab=sobressalentes" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes">🚚 Sobressalentes</a>
+    <a href="/admin/items?tab=catalogo" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo">Estoque</a>
+    <a href="/admin/items?tab=novo" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo">Novo Item</a>
+    <a href="/admin/items?tab=patrimonios" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios">Itens Cadastrados</a>
+    <a href="/admin/items?tab=codigos" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos">Etiquetas &amp; Códigos</a>
+    <a href="/admin/items?tab=sobressalentes" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes">Sobressalentes</a>
 </div>
 
 <!-- ── Aba: Catálogo ─────────────────────────────────────────────────────── -->
 <div id="tab-catalogo" class="tab-panel" style="display:{{ 'block' if aba == 'catalogo' else 'none' }};">
     <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <h2 style="margin:0;">Tipos de Item</h2>
-            <div style="display:flex;gap:8px;">
-                <a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">📊 Exportar Excel</a>
-                {% if pode('estoque_editar') %}
-                <a href="/admin/estoque/ajuste-modelo.xlsx" class="btn btn-sm btn-secondary"
-                   title="Baixa o estoque atual numa planilha pronta pra editar e devolver">📄 Baixar p/ Ajuste</a>
-                <button type="button" class="btn btn-sm btn-primary" onclick="abrirImportarAjuste()">
-                  📥 Importar Ajuste
-                </button>
-                {% endif %}
-                {% if user and user.admin %}
-                <form method="post" action="/admin/estoque/reconciliar-producao" style="margin:0;"
-                      onsubmit="return confirm('Isso vai verificar todos os itens de produção (conjuntos e itens de quantidade em lote, como metro/cabo) que ainda não foram descontados corretamente do estoque, e corrigir automaticamente. Pode ser executado quantas vezes precisar — não desconta duas vezes. Continuar?')">
-                    <button type="submit" class="btn btn-sm btn-primary">🔧 Corrigir Estoque de Produção</button>
-                </form>
-                {% endif %}
-            </div>
-        </div>
+        <h2 style="margin:0;">Tipos de Item</h2>
         {% if pode('estoque_editar') %}
         <div id="bloco-importar-ajuste" style="display:none;background:var(--surface-alt);
              border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
-          <h3 style="font-size:15px;margin:0 0 6px;">📥 Atualizar estoque pela planilha</h3>
+          <h3 style="font-size:15px;margin:0 0 6px;">Atualizar estoque pela planilha</h3>
           <p style="color:#666;font-size:13px;margin:0 0 10px;">
-            Baixe <strong>📄 Baixar p/ Ajuste</strong>, altere as colunas de quantidade, mínima
+            Baixe <strong>Baixar p/ Ajuste</strong>, altere as colunas de quantidade, mínima
             e status de compra, e devolva o arquivo aqui. Célula em branco significa
             <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
             Linha sem alteração não gera movimento, então reenviar a mesma planilha não
@@ -165,7 +166,7 @@
               <label>Planilha (.xlsx)</label>
               <input type="file" name="arquivo" accept=".xlsx" required style="margin:0;">
             </div>
-            <button type="submit" class="btn btn-success">📥 Aplicar ajustes</button>
+            <button type="submit" class="btn btn-success">{{ ic.svg('importar', 14) }} Aplicar ajustes</button>
             <button type="button" class="btn btn-secondary" onclick="abrirImportarAjuste()">Cancelar</button>
           </form>
         </div>
@@ -181,13 +182,13 @@
         <form method="get" action="/admin/items" class="busca-form" id="form-filtros-estoque"
               data-busca-viva="#bloco-catalogo">
             <input type="hidden" name="tab" value="catalogo">
-            <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou código...">
+            <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar por nome ou código...">
             {{ f.multi('q_situacao', 'Quantidade', [
-                 ('alerta', '⚠️ No aviso (zerado, no mínimo ou perto)'),
-                 ('zerado', '🚫 Zerado'),
-                 ('critico', '🔴 No mínimo ou abaixo'),
-                 ('atencao', '🟡 Perto do mínimo'),
-                 ('ok', '🟢 Acima do mínimo'),
+                 ('alerta', 'No aviso (zerado, no mínimo ou perto)'),
+                 ('zerado', 'Zerado'),
+                 ('critico', 'No mínimo ou abaixo'),
+                 ('atencao', 'Perto do mínimo'),
+                 ('ok', 'Acima do mínimo'),
                  ('sem_estoque', '— Sem estoque cadastrado'),
                ], q_situacao, 'todas') }}
             <input type="number" name="q_min" value="{{ q_min }}" min="0" placeholder="qtd. de"
@@ -196,7 +197,7 @@
                    style="width:90px;margin:0;" title="Quantidade máxima">
             <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
             {% if busca or q_situacao or q_min or q_max %}
-            <a href="/admin/items?tab=catalogo" class="btn btn-sm btn-secondary">✕ Limpar</a>
+            <a href="/admin/items?tab=catalogo" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>
             {% endif %}
         </form>
 
@@ -204,7 +205,7 @@
            porque é a mesma decisão — o que conta como falta. #}
         {% if pode('estoque_editar') %}
         <details style="margin:10px 0 14px;border:1px solid var(--border);border-radius:10px;padding:10px 14px;">
-          <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔔 Avisos de estoque baixo</summary>
+          <summary style="cursor:pointer;font-weight:600;font-size:14px;">Avisos de estoque baixo</summary>
           <p style="color:#666;font-size:13px;margin:8px 0;">
             Controla a faixa amarela do topo do sistema: quais itens entram, quantos
             aparecem, em quais telas e por quanto tempo. Não muda estoque nenhum — só
@@ -256,7 +257,7 @@
               <input type="color" name="alerta_cor_atencao" value="{{ alerta_config.alerta_cor_atencao }}"
                      style="width:56px;height:34px;padding:2px;margin:0;">
             </div>
-            <button type="submit" class="btn btn-sm btn-success">💾 Salvar avisos</button>
+            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar avisos</button>
           </form>
         </details>
         {% endif %}
@@ -294,17 +295,15 @@
                 <td>
                     <span id="nome-texto-{{ tipo.id }}" style="cursor:pointer;" title="Clique para editar">{{ tipo.nome }}</span>
                     {% if tipo.codigo_fixo %}
-                    <span title="Código da caixa: {{ tipo.codigo_fixo }}"
-                          style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
-                                 padding:1px 6px;border-radius:10px;font-family:monospace;">
-                        📌 caixa
+                    <span title="Código da caixa: {{ tipo.codigo_fixo }}" class="badge badge-warning"
+                          style="margin-left:6px;font-family:monospace;">
+                        caixa
                     </span>
                     {% endif %}
                     {% if tipo.controle_externo %}
                     <span title="Item de patrimônio — aparece na tela de identificar código desconhecido"
-                          style="margin-left:6px;font-size:11px;background:#e67e22;color:#fff;
-                                 padding:1px 6px;border-radius:10px;">
-                        🌐 patrimônio
+                          class="badge badge-warning" style="margin-left:6px;">
+                        patrimônio
                     </span>
                     {% endif %}
                     <form id="nome-form-{{ tipo.id }}" method="post"
@@ -315,21 +314,21 @@
                                    style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
                                    onkeydown="if(event.key==='Enter'){this.form.submit();}
                                               if(event.key==='Escape'){cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}');}">
-                            <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+                            <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">{{ ic.svg('check', 13) }}</button>
                             <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
-                                    onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">✕</button>
+                                    onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">{{ ic.svg('fechar', 13) }}</button>
                         </div>
                     </form>
                 </td>
                 <td>
                     {% if est %}
                     <span style="display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:15px;
-                                 color:#fff;background:{{ '#e74c3c' if abaixo else ('#f0ad4e' if proximo else '#27ae60') }};
+                                 color:{{ 'var(--danger-text)' if abaixo else ('var(--warn-text)' if proximo else 'var(--ok-text)') }};
+                                 background:{{ 'var(--danger-bg)' if abaixo else ('var(--warn-bg)' if proximo else 'var(--ok-bg)') }};
                                  padding:4px 12px;border-radius:20px;">
-                        📦 {{ est.quantidade_atual }}
+                        {{ est.quantidade_atual }}
                     </span>
-                    <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;
-                                 color:#555;background:#e8ecf0;padding:4px 12px;border-radius:20px;margin-left:6px;">
+                    <span class="badge" style="margin-left:6px;">
                         mín. {{ est.quantidade_minima }}
                     </span>
                     {% if est.status_compra %}
@@ -341,9 +340,9 @@
                 </td>
                 <td style="text-align:center;">
                     <button type="button" id="gear-{{ tipo.id }}" class="btn btn-sm btn-primary"
-                            style="font-size:15px;box-shadow:0 1px 4px rgba(0,0,0,.15);"
+                            style="box-shadow:0 1px 4px rgba(0,0,0,.15);"
                             onclick="abrirPopup(event, {{ tipo.id }})" title="Configurações">
-                        ⚙️
+                        {{ ic.svg('editar', 14) }}
                     </button>
                 </td>
                 <td>
@@ -368,9 +367,9 @@
                nome do item e o botão de fechar precisam ficar sempre à vista. #}
             <div class="config-cabecalho">
                 <div>
-                    <strong id="popup-titulo-{{ tipo.id }}">⚙️ {{ tipo.nome }}</strong>
+                    <strong id="popup-titulo-{{ tipo.id }}">{{ tipo.nome }}</strong>
                     <span class="config-sub">
-                        {{ '📏 medido em metros' if tipo.unidade == 'm' else '📦 contado por unidade' }}
+                        {{ 'medido em metros' if tipo.unidade == 'm' else 'contado por unidade' }}
                         {%- if est %} · estoque {{ est.quantidade_atual }} (mín. {{ est.quantidade_minima }})
                         {%- else %} · sem estoque cadastrado{% endif %}
                     </span>
@@ -391,13 +390,13 @@
                         <div class="cfg-alternador">
                             {% if tipo.unidade == 'm' %}
                             <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
-                                <button type="submit" title="Trocar para Unidade" class="cfg-opcao">📦 Unidade</button>
+                                <button type="submit" title="Trocar para Unidade" class="cfg-opcao">Unidade</button>
                             </form>
-                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#0984e3;">📏 Metro</span>
+                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#0984e3;">Metro</span>
                             {% else %}
-                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#00b894;">📦 Unidade</span>
+                            <span class="cfg-opcao cfg-opcao-ativa" style="background:#00b894;">Unidade</span>
                             <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-unidade">
-                                <button type="submit" title="Trocar para Metro" class="cfg-opcao">📏 Metro</button>
+                                <button type="submit" title="Trocar para Metro" class="cfg-opcao">Metro</button>
                             </form>
                             {% endif %}
                         </div>
@@ -408,9 +407,8 @@
                             <span class="cfg-ajuda">pode estar em vários kits ao mesmo tempo</span>
                         </span>
                         <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-reutilizavel">
-                            <button type="submit" class="btn btn-sm cfg-chave"
-                                    style="{% if tipo.reutilizavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                                {{ '♻️ Sim' if tipo.reutilizavel else '— Não' }}
+                            <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if tipo.reutilizavel }}">
+                                {{ 'Sim' if tipo.reutilizavel else '— Não' }}
                             </button>
                         </form>
                     </div>
@@ -420,9 +418,8 @@
                             <span class="cfg-ajuda">cada unidade é rastreada pelo código — é o tipo que aparece ao identificar um código desconhecido</span>
                         </span>
                         <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-controle-externo">
-                            <button type="submit" class="btn btn-sm cfg-chave"
-                                    style="{% if tipo.controle_externo %}background:#e67e22;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                                {{ '🌐 Sim' if tipo.controle_externo else '— Não' }}
+                            <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if tipo.controle_externo }}">
+                                {{ 'Sim' if tipo.controle_externo else '— Não' }}
                             </button>
                         </form>
                     </div>
@@ -432,9 +429,8 @@
                             <span class="cfg-ajuda">depois do patrimônio, pede o número de série</span>
                         </span>
                         <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-requer-serial">
-                            <button type="submit" class="btn btn-sm cfg-chave"
-                                    style="{% if tipo.requer_serial %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                                {{ '🔢 Sim' if tipo.requer_serial else '— Não' }}
+                            <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if tipo.requer_serial }}">
+                                {{ 'Sim' if tipo.requer_serial else '— Não' }}
                             </button>
                         </form>
                     </div>
@@ -447,12 +443,12 @@
                               class="cfg-campo-linha">
                             <input type="text" name="codigo_fixo" value="{{ tipo.codigo_fixo or '' }}"
                                    placeholder="ex: 10ID000700X1" class="cfg-mono">
-                            <button type="submit" class="btn btn-sm btn-success">💾</button>
+                            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }}</button>
                         </form>
                         {% if tipo.codigo_fixo %}
                         <form method="post" action="/admin/tipos/{{ tipo.id }}/set-codigo-fixo">
                             <input type="hidden" name="codigo_fixo" value="">
-                            <button type="submit" class="cfg-remover">✕ Remover código da caixa</button>
+                            <button type="submit" class="cfg-remover">{{ ic.svg('fechar', 11) }} Remover código da caixa</button>
                         </form>
                         {% endif %}
                     </div>
@@ -460,7 +456,7 @@
 
                 <!-- Coluna 2: estoque deste tipo -->
                 <section class="cfg-secao cfg-estoque">
-                    <h4>📦 Estoque</h4>
+                    <h4>Estoque</h4>
                     {% if est %}
                     {% if pode('estoque_editar') %}
                     <div class="cfg-linha cfg-linha-coluna">
@@ -470,7 +466,7 @@
                         <form method="post" action="/admin/estoque/{{ est.id }}/corrigir" class="cfg-campo-linha">
                             <input type="number" name="quantidade_atual" value="{{ est.quantidade_atual }}" min="0"
                                    class="cfg-numero">
-                            <button type="submit" class="btn btn-sm btn-primary">💾 Corrigir</button>
+                            <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('check', 13) }} Corrigir</button>
                         </form>
                     </div>
                     <div class="cfg-linha cfg-linha-coluna">
@@ -480,7 +476,7 @@
                         <form method="post" action="/admin/estoque/{{ est.id }}/minimo" class="cfg-campo-linha">
                             <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
                                    class="cfg-numero">
-                            <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
+                            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar</button>
                         </form>
                     </div>
                     <div class="cfg-linha cfg-linha-coluna">
@@ -516,7 +512,7 @@
                         <form method="post" action="/admin/estoque/{{ est.id }}/codigo" class="cfg-campo-linha">
                             <input type="text" name="codigo_barra" value="{{ est.codigo_barra }}"
                                    class="cfg-mono" required>
-                            <button type="submit" class="btn btn-sm btn-success">💾</button>
+                            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }}</button>
                         </form>
                     </div>
                     {% else %}
@@ -532,9 +528,9 @@
                     {% endif %}
                     <div class="cfg-acoes">
                         <a href="/admin/estoque/{{ est.id }}/etiqueta" target="_blank"
-                           class="btn btn-sm btn-primary">🏷️ Etiqueta</a>
+                           class="btn btn-sm btn-secondary">{{ ic.svg('impressao', 14) }} Etiqueta</a>
                         <a href="/admin/estoque/{{ est.id }}/historico"
-                           class="btn btn-sm btn-primary">📋 Histórico</a>
+                           class="btn btn-sm btn-secondary">{{ ic.svg('relatorios', 14) }} Histórico</a>
                     </div>
                     {% else %}
                     <p class="cfg-ajuda" style="margin:0 0 10px;">
@@ -572,7 +568,7 @@
         <div id="popup-overlay" onclick="fecharPopup()"></div>
 
         {% else %}
-        <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "➕ Novo Item".</p>
+        <p style="color:#888;">Nenhum tipo cadastrado ainda. Cadastre na aba "Novo Item".</p>
         {% endif %}
         </div>{# /bloco-catalogo #}
     </div>
@@ -596,8 +592,8 @@
                 <div class="form-group">
                     <label>Medida</label>
                     <select name="unidade">
-                        <option value="un">📦 Unidade</option>
-                        <option value="m">📏 Metro (m)</option>
+                        <option value="un">Unidade</option>
+                        <option value="m">Metro (m)</option>
                     </select>
                 </div>
                 <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;">
@@ -609,13 +605,13 @@
             </div>
 
             <hr style="margin:16px 0;border:none;border-top:1px solid #eee;">
-            <div style="background:#f0f8f4;border:1.5px solid #27ae60;border-radius:10px;padding:16px;">
-                <p style="font-weight:700;color:#1a3a5c;margin-bottom:4px;">📦 Estoque (opcional)</p>
+            <div style="background:#f0f8f4;border:1.5px solid var(--ok-text);border-radius:10px;padding:16px;">
+                <p style="font-weight:700;color:var(--text);margin-bottom:4px;">Estoque (opcional)</p>
                 <p style="font-size:12px;color:#888;margin-bottom:14px;">
                     Preencha se este item tiver <strong>um único código de barras</strong> para o
                     lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
                     for um patrimônio individual (cada peça com seu próprio código, cadastrado na
-                    aba "🏷️ Itens Cadastrados").
+                    aba "Itens Cadastrados").
                 </p>
                 <div class="form-group">
                     <label>Código de Barras</label>
@@ -642,7 +638,7 @@
 
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <h2 style="margin:0;">📋 Importar BOM</h2>
+            <h2 style="margin:0;">Importar BOM</h2>
         </div>
         <p style="font-size:12px;color:#555;line-height:1.5;margin:8px 0 12px;">
             Planilha com colunas <strong>Description</strong> (tipo do item) e
@@ -668,7 +664,7 @@
             <em>consertar</em> o que ficou errado.
         </p>
         <p class="ajuda-passo">
-            👉 <strong>Clique no código</strong> pra abrir a janela do item: onde ele
+            <strong>Clique no código</strong> pra abrir a janela do item: onde ele
             está, o que mudou depois da montagem, e as ações de
             <strong>mover para outro veículo</strong> e <strong>corrigir o
             código</strong>.
@@ -682,11 +678,11 @@
                 {% if patrimonio_veiculo_id %}<input type="hidden" name="veiculo_id" value="{{ patrimonio_veiculo_id }}">{% endif %}
                 {% for sit in patrimonio_situacao %}<input type="hidden" name="situacao" value="{{ sit }}">{% endfor %}
                 <input type="text" name="busca" value="{{ busca }}"
-                       placeholder="🔍 Buscar código, tipo, veículo, série ou operador...">
+                       placeholder="Buscar código, tipo, veículo, série ou operador...">
                 <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
                 {% if busca %}
                 <a href="/admin/items?tab=patrimonios{{ '&veiculo_id=' + patrimonio_veiculo_id|string if patrimonio_veiculo_id }}{% for sit in patrimonio_situacao %}&situacao={{ sit|urlencode }}{% endfor %}"
-                   class="btn btn-sm btn-secondary">✕ Limpar</a>
+                   class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>
                 {% endif %}
             </form>
             <form method="get" action="/admin/items"
@@ -706,11 +702,11 @@
                 <div style="min-width:260px;">
                     <label style="font-size:12px;color:#555;">Situação</label>
                     {{ f.multi('situacao', 'Situação', [
-                         ('ok', '✅ Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
-                         ('nunca_bipado', '⚪ Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
-                         ('em_bipagem', '🔄 Em bipagem (' ~ resumo_situacoes.get('em_bipagem', 0) ~ ')'),
-                         ('kit_sem_veiculo', '⚠️ Kit sem veículo (' ~ resumo_situacoes.get('kit_sem_veiculo', 0) ~ ')'),
-                         ('kit_removido', '🗑️ Kit excluído (' ~ resumo_situacoes.get('kit_removido', 0) ~ ')'),
+                         ('ok', 'Com veículo (' ~ resumo_situacoes.get('ok', 0) ~ ')'),
+                         ('nunca_bipado', 'Nunca bipado (' ~ resumo_situacoes.get('nunca_bipado', 0) ~ ')'),
+                         ('em_bipagem', 'Em bipagem (' ~ resumo_situacoes.get('em_bipagem', 0) ~ ')'),
+                         ('kit_sem_veiculo', 'Kit sem veículo (' ~ resumo_situacoes.get('kit_sem_veiculo', 0) ~ ')'),
+                         ('kit_removido', 'Kit excluído (' ~ resumo_situacoes.get('kit_removido', 0) ~ ')'),
                        ], patrimonio_situacao, 'todas') }}
                 </div>
                 {% if patrimonio_veiculo_id or patrimonio_situacao %}
@@ -722,7 +718,7 @@
         <!-- Cadastro manual e limpeza saíram do topo: são exceção, e ocupavam
              a primeira tela de quem só veio procurar um item. -->
         <details class="pat-acao" style="margin-bottom:14px;">
-            <summary>➕ Cadastrar um patrimônio à mão</summary>
+            <summary>Cadastrar um patrimônio à mão</summary>
             <p class="pat-ajuda">
                 Só pra peça que ainda não passou por bipagem nenhuma (chegou avulsa, veio
                 de reposição). O normal é o patrimônio nascer sozinho quando é bipado.
@@ -742,7 +738,7 @@
             <form method="post" action="/admin/items/clear" style="margin-top:14px;"
                   onsubmit="return confirm('Apagar TODOS os patrimônios registrados? Esta ação não pode ser desfeita.')">
                 <button type="submit" class="btn btn-sm btn-danger">
-                    🗑️ Apagar todos os patrimônios
+                    {{ ic.svg('excluir', 13) }} Apagar todos os patrimônios
                 </button>
                 <span class="pat-ajuda" style="margin-left:8px;">Não dá pra desfazer.</span>
             </form>
@@ -778,7 +774,7 @@
                         <button type="button" class="btn-codigo"
                                 onclick="abrirPainelPatrimonio('{{ item.codigo_barra | e }}')"
                                 title="Abrir a janela deste item: mover para outro veículo, corrigir o código">
-                            <code>{{ item.codigo_barra }}</code> ⚙️
+                            <code>{{ item.codigo_barra }}</code> {{ ic.svg('editar', 12) }}
                         </button>
                         {% if item.serial_atual %}
                         <div style="font-size:11px;color:#999;font-family:monospace;">
@@ -794,9 +790,9 @@
                     </td>
                     <td>
                         {% if item.veiculo_atual %}
-                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:#1a3a5c;"
+                        <a href="/kit/{{ item.kit_id_atual }}" target="_blank" style="font-weight:600;color:var(--brand-ink);"
                            title="Abrir o kit deste veículo">
-                            🚗 {{ item.veiculo_atual }}
+                            {{ ic.svg('veiculos', 13) }} {{ item.veiculo_atual }}
                         </a>
                         {% if item.veiculo_id_atual %}
                         <a href="/admin/veiculos/{{ item.veiculo_id_atual }}"
@@ -806,11 +802,11 @@
                         <div style="font-size:11px;color:#999;">bipado por {{ item.operador_atual }}</div>
                         {% endif %}
                         {% else %}
-                        <span style="color:#e67e22;font-size:13px;" title="{{ item.situacao_texto }}">
-                            {%- if item.situacao == 'nunca_bipado' %}⚪ nunca bipado
-                            {%- elif item.situacao == 'em_bipagem' %}🔄 em bipagem
-                            {%- elif item.situacao == 'kit_sem_veiculo' %}⚠️ kit sem veículo
-                            {%- elif item.situacao == 'kit_removido' %}🗑️ kit excluído
+                        <span style="color:var(--warn-text);font-size:13px;" title="{{ item.situacao_texto }}">
+                            {%- if item.situacao == 'nunca_bipado' %}nunca bipado
+                            {%- elif item.situacao == 'em_bipagem' %}em bipagem
+                            {%- elif item.situacao == 'kit_sem_veiculo' %}kit sem veículo
+                            {%- elif item.situacao == 'kit_removido' %}kit excluído
                             {%- else %}— em nenhum veículo
                             {%- endif %}
                         </span>
@@ -858,8 +854,8 @@
 <!-- ── Aba: Etiquetas & Códigos ──────────────────────────────────────────── -->
 <div id="tab-codigos" class="tab-panel" style="display:{{ 'block' if aba == 'codigos' else 'none' }};">
     <!-- Gerador de etiqueta avulsa (sem item_tipo/estoque) -->
-    <div class="card" style="border:1.5px solid #1a3a5c;">
-        <h2 style="margin-bottom:4px;">🏷️ Gerar Nova Etiqueta</h2>
+    <div class="card" style="border:1.5px solid var(--brand-ink);">
+        <h2 style="margin-bottom:4px;">Gerar Nova Etiqueta</h2>
         <p style="font-size:13px;color:#666;margin-top:0;margin-bottom:12px;">
             Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
             etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
@@ -869,12 +865,12 @@
         <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
             <input type="text" name="texto" required placeholder="Digite o texto ou código"
                    style="flex:1;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">🖨️ Gerar Etiqueta</button>
+            <button type="submit" class="btn btn-primary">{{ ic.svg('impressao', 14) }} Gerar Etiqueta</button>
         </form>
     </div>
 
     <div class="card">
-        <h2 style="margin-bottom:4px;">🔁 Códigos Já Gerados</h2>
+        <h2 style="margin-bottom:4px;">Códigos Já Gerados</h2>
         <p style="color:#666;font-size:13px;margin-top:0;">
             Clique no código pra corrigir o texto — o patrimônio que usa esse código é
             atualizado junto. Marque como reciclável os códigos reaproveitados em mais de um
@@ -884,10 +880,10 @@
         <form method="get" action="/admin/items" class="busca-form"
               data-busca-viva="#bloco-codigos">
             <input type="hidden" name="tab" value="codigos">
-            <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar código...">
+            <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar código...">
             <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
             {% if busca %}
-            <a href="/admin/items?tab=codigos" class="btn btn-sm btn-secondary">✕ Limpar</a>
+            <a href="/admin/items?tab=codigos" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>
             {% endif %}
         </form>
         <div id="bloco-codigos">
@@ -920,9 +916,9 @@
                                 <input type="text" name="texto" value="{{ c.texto }}" required
                                        style="flex:1;margin-bottom:0;font-size:13px;padding:4px 6px;"
                                        onkeydown="if(event.key==='Escape'){cancelarCodigo({{ c.id }});}">
-                                <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+                                <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">{{ ic.svg('check', 13) }}</button>
                                 <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
-                                        onclick="cancelarCodigo({{ c.id }})">✕</button>
+                                        onclick="cancelarCodigo({{ c.id }})">{{ ic.svg('fechar', 13) }}</button>
                             </div>
                         </form>
                     </td>
@@ -930,21 +926,21 @@
                     <td style="font-size:12px;color:#888;">{{ c.criado_por_nome or '—' }}</td>
                     <td>
                         <form method="post" action="/admin/codigos-gerados/{{ c.id }}/toggle-reciclavel">
-                            <button type="submit" class="btn btn-sm"
-                                    style="min-width:100px;{% if c.reciclavel %}background:#6c5ce7;color:#fff;{% else %}background:#dfe6e9;color:#636e72;{% endif %}">
-                                {{ '♻️ Sim' if c.reciclavel else '— Não' }}
+                            <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if c.reciclavel }}"
+                                    style="min-width:100px;">
+                                {{ 'Sim' if c.reciclavel else '— Não' }}
                             </button>
                         </form>
                     </td>
                     <td>
                         <a href="/admin/gerar-codigo/etiqueta?texto={{ c.texto | urlencode }}"
                            target="_blank" class="btn btn-sm btn-secondary" title="Reimprimir esta etiqueta">
-                            🖨️
+                            {{ ic.svg('impressao', 14) }}
                         </a>
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "🏷️ Gerar Nova Etiqueta" acima.</td></tr>
+                <tr><td colspan="5" style="text-align:center;color:#888;">Nenhum código gerado ainda. Use "Gerar Nova Etiqueta" acima.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -969,7 +965,7 @@
 <!-- ── Aba: Sobressalentes ──────────────────────────────────────────────── -->
 <div id="tab-sobressalentes" class="tab-panel" style="display:{{ 'block' if aba == 'sobressalentes' else 'none' }};">
     <div class="card">
-        <h2 style="margin-bottom:4px;">📦 Peças Sobressalentes</h2>
+        <h2 style="margin-bottom:4px;">Peças Sobressalentes</h2>
         <p style="color:#666;font-size:13px;margin-top:0;">
             Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza.
             Escolha o cliente pra ver o que já foi enviado e registrar um novo envio.
@@ -994,13 +990,13 @@
                 <label>Até</label>
                 <input type="date" name="data_fim" value="{{ sobressalente_data_fim }}">
             </div>
-            <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+            <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
             {% endif %}
         </form>
 
         {% if sobressalente_cliente %}
         <div style="background:#f7f7f7;border-radius:8px;padding:14px;margin-bottom:20px;">
-            <h3 style="margin:0 0 10px;font-size:14px;">➕ Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
+            <h3 style="margin:0 0 10px;font-size:14px;">Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
             {# Várias peças num envio só: antes era um item por vez, e mandar
                cinco peças pro mesmo cliente exigia repetir o formulário
                cinco vezes, recarregando a página a cada uma. #}
@@ -1011,7 +1007,7 @@
                     <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">
                         ＋ Adicionar outro item
                     </button>
-                    <button type="submit" class="btn btn-warning">📦 Enviar (<span id="qtd-linhas-sobr">1</span>)</button>
+                    <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Enviar (<span id="qtd-linhas-sobr">1</span>)</button>
                     <span style="font-size:12px;color:#888;">
                         Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.
                     </span>
@@ -1038,7 +1034,7 @@
                         <input type="text" name="observacao" style="margin:0;">
                     </div>
                     <button type="button" class="btn btn-sm btn-danger btn-remover-linha"
-                            onclick="removerLinhaSobressalente(this)" title="Remover esta linha">✕</button>
+                            onclick="removerLinhaSobressalente(this)" title="Remover esta linha">{{ ic.svg('fechar', 13) }}</button>
                 </div>
             </template>
         </div>

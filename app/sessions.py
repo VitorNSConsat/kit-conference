@@ -40,7 +40,7 @@ def _aviso_quantidade(template_item: dict | None) -> str:
         return ""
     if (template_item.get("quantidade_exigida") or 0) <= 1:
         return ""
-    return " ⚠️ Verifique a quantidade depositada na caixa."
+    return " Verifique a quantidade depositada na caixa."
 
 
 def deletar_kit_record(kit_id: str):
@@ -390,7 +390,7 @@ def desfazer_ultimo_item(sessao_id: int) -> dict:
 
     return {
         "resultado": "desfeito",
-        "mensagem": f"↩️ Última bipagem desfeita: {resumo}",
+        "mensagem": f"Última bipagem desfeita: {resumo}",
         "atualizacoes": [
             {
                 "item_tipo_id": t,
@@ -581,7 +581,7 @@ def confirmar_componente(sessao_id: int, codigo_barra: str,
     nomes = " + ".join(f"{u['descricao']} ×{u['adicionados']}" for u in adicionados)
     return {
         "resultado": "componente",
-        "mensagem": f"📦 Conjunto '{codigo_barra}': {nomes}",
+        "mensagem": f"Conjunto '{codigo_barra}': {nomes}",
         "codigo_barra": codigo_barra,
         "atualizacoes": atualizacoes,
     }
@@ -674,12 +674,12 @@ def register_scan(sessao_id: int, codigo_barra: str,
             )
 
         novo_qtd = est["quantidade_atual"] - qtd
-        alerta = (f" ⚠️ Estoque baixo ({novo_qtd} restantes)"
+        alerta = (f" Estoque baixo ({novo_qtd} restantes)"
                   if novo_qtd <= est["quantidade_minima"] else "")
         aviso = _aviso_quantidade(template_item)
         return {
             "resultado": "aceito",
-            "mensagem": f"📦 {est['tipo_nome']}: {qtd} unidades do estoque.{alerta}" + aviso,
+            "mensagem": f"{est['tipo_nome']}: {qtd} unidades do estoque.{alerta}" + aviso,
             "quantidade_aviso": bool(aviso),
             "contagem_atual": qtd,
             "quantidade_exigida": qtd,
@@ -860,7 +860,7 @@ def confirmar_substituicao(sessao_id: int, codigo_barra: str, motivo: str, opera
     aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
-        "mensagem": (f"✅ '{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})"
+        "mensagem": (f"'{item['descricao']}' substituído. Motivo: {motivo_texto} ({novo_atual}/{exigido})"
                     + aviso),
         "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
@@ -936,7 +936,7 @@ def confirmar_quantidade(sessao_id: int, codigo_barra: str, quantidade: float, o
     aviso = _aviso_quantidade(template_item)
     return {
         "resultado": "aceito",
-        "mensagem": (f"✅ '{item['descricao']}': {_fmt(quantidade)}{sufixo} {label} adicionado(s). "
+        "mensagem": (f"'{item['descricao']}': {_fmt(quantidade)}{sufixo} {label} adicionado(s). "
                      f"({_fmt(novo_atual)}{sufixo}/{_fmt(exigido)}{sufixo})"
                      + aviso),
         "quantidade_aviso": bool(aviso),
@@ -1876,7 +1876,7 @@ def remover_item(sessao_id: int, item_id: int) -> dict:
 
     return {
         "resultado": "item_removido",
-        "mensagem": (f"🗑 Bipagem de '{descricao}' removida."
+        "mensagem": (f"Bipagem de '{descricao}' removida."
                      + (" Estoque devolvido." if estoque_ajustado else "")),
         "item_tipo_id": item["item_tipo_id"],
         "contagem_atual": contagem.get(item["item_tipo_id"], 0),

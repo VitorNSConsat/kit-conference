@@ -1,45 +1,41 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Veículo {{ v.numero }}{% endblock %}
+{% block acoes_topo %}
+<span class="badge {{ 'badge-danger' if ocupado else 'badge-success' }}">
+  {{ 'Ocupado' if ocupado else 'Disponível' }}
+</span>
+<a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}" class="btn btn-primary btn-sm"
+   title="Todos os patrimônios que estão neste veículo">{{ ic.svg('itens', 15) }} Itens e patrimônios</a>
+<a href="/admin/producao" class="btn btn-secondary btn-sm"
+   title="Ver este veículo na esteira de produção">{{ ic.svg('producao', 15) }} Produção</a>
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>Veículo {{ v.numero }}
-    <span class="badge {{ 'badge-danger' if ocupado else 'badge-success' }}" style="vertical-align:middle;font-size:12px;">
-      {{ '🔒 Ocupado' if ocupado else '✅ Disponível' }}
-    </span>
-  </h1>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;">
-    <a href="/admin/items?tab=patrimonios&veiculo_id={{ v.id }}" class="btn btn-primary"
-       title="Todos os patrimônios que estão neste veículo">🏷️ Itens e patrimônios</a>
-    <a href="/admin/producao" class="btn btn-primary"
-       title="Ver este veículo na esteira de produção">🚚 Produção</a>
-    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-  </div>
-</div>
-
 {% if falta_item %}
 {# A mesma pendência da lista, aqui também: quem abre o veículo pra entender
    o que aconteceu precisa ver o que está faltando e chegar no kit num clique. #}
 <div class="alert alert-danger">
   {% for f in falta_item.faltas %}
-  ⚠️ <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ ' · ' if not loop.last }}
+  {{ ic.svg('alerta', 13) }} <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ ' · ' if not loop.last }}
   {% endfor %}
   <a href="/kit/{{ falta_item.kit_id }}" style="font-weight:700;">Abrir o kit →</a>
 </div>
 {% endif %}
 
 {% if request.query_params.get('ok') == 'liberado' %}
-<div class="alert alert-success">🔓 Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Veículo liberado — já pode ser atribuído numa nova bipagem.</div>
 {% elif request.query_params.get('ok') == 'veiculo_kit' %}
-<div class="alert alert-success">🔗 Vínculo de kit atualizado — a alteração ficou registrada no histórico de auditoria.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Vínculo de kit atualizado — a alteração ficou registrada no histórico de auditoria.</div>
 {% elif request.query_params.get('ok') == 'modelo' %}
-<div class="alert alert-success">✅ Kit deste veículo atualizado.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Kit deste veículo atualizado.</div>
 {% elif request.query_params.get('ok') %}
-<div class="alert alert-success">✅ Dados atualizados.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Dados atualizados.</div>
 {% endif %}
 
 {% if request.query_params.get('erro') == 'motivo_veiculo' %}
 <div class="alert alert-danger">
-  ⚠️ Esse kit já estava vinculado a um veículo — informe o motivo da troca pra poder salvar.
+  {{ ic.svg('alerta', 14) }} Esse kit já estava vinculado a um veículo — informe o motivo da troca pra poder salvar.
 </div>
 {% endif %}
 
@@ -73,7 +69,7 @@
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-success">💾 Salvar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar</button>
   </form>
 </div>
 
@@ -81,7 +77,7 @@
      porque os dois falam da mesma coisa e antes ficavam em cards separados —
      o operador definia um sem entender o efeito no outro. -->
 <div class="card">
-  <h2>🎁 Kits</h2>
+  <h2>Kits</h2>
 
   <!-- 1. Que kit este veículo usa -->
   <div style="background:#f7f9fb;border:1px solid var(--border);border-radius:8px;
@@ -107,20 +103,20 @@
           {% endif %}
         </select>
       </div>
-      <button type="submit" class="btn btn-success">💾 Salvar kit</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar kit</button>
     </form>
     {% if not v.modelo %}
-    <p style="color:#e67e22;font-size:13px;margin:10px 0 0;">
-      ⚠️ Sem kit definido, <strong>{{ v.numero }} não aparece em bipagem nenhuma</strong>.
+    <p style="color:var(--warn-text);font-size:13px;margin:10px 0 0;">
+      {{ ic.svg('alerta', 13) }} Sem kit definido, <strong>{{ v.numero }} não aparece em bipagem nenhuma</strong>.
     </p>
     {% elif v.modelo not in modelos %}
-    <p style="color:#e67e22;font-size:13px;margin:10px 0 0;">
-      ⚠️ Não existe kit ativo chamado <strong>{{ v.modelo }}</strong> — ele pode ter sido
+    <p style="color:var(--warn-text);font-size:13px;margin:10px 0 0;">
+      {{ ic.svg('alerta', 13) }} Não existe kit ativo chamado <strong>{{ v.modelo }}</strong> — ele pode ter sido
       renomeado ou desativado. Enquanto isso, {{ v.numero }} não aparece em bipagem nenhuma.
     </p>
     {% else %}
-    <p style="color:#27ae60;font-size:13px;margin:10px 0 0;">
-      ✅ {{ v.numero }} aparece pra quem iniciar o kit <strong>{{ v.modelo }}</strong>.
+    <p style="color:var(--ok-text);font-size:13px;margin:10px 0 0;">
+      {{ ic.svg('check-circulo', 13) }} {{ v.numero }} aparece pra quem iniciar o kit <strong>{{ v.modelo }}</strong>.
     </p>
     {% endif %}
   </div>
@@ -149,22 +145,21 @@
       <td style="white-space:nowrap;">{{ h.finalizado_em[:10] if h.finalizado_em else '—' }}</td>
       <td>{{ h.kit_nome }}</td>
       <td>{{ h.operador_nome }}</td>
-      <td>{{ '✅' if h.tem_verificacao else '—' }}</td>
+      <td>{{ (ic.svg('check', 13) | safe) if h.tem_verificacao else '—' }}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-          <a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-primary">Ver kit</a>
+          <a href="/kit/{{ h.kit_id }}" target="_blank" class="btn btn-sm btn-secondary">Ver kit</a>
           {% if user and user.admin %}
-          <a href="/kit/{{ h.kit_id }}/trocar-modelo" class="btn btn-sm btn-primary"
-             style="background:#2980b9;"
+          <a href="/kit/{{ h.kit_id }}/trocar-modelo" class="btn btn-sm btn-secondary"
              title="Trocar o modelo deste kit já pronto — mesma prévia da troca em bipagem, com acerto automático de estoque">
-            🔄 Trocar kit
+            {{ ic.svg('editar', 13) }} Trocar kit
           </a>
           {% endif %}
           <button type="button" class="btn btn-sm btn-warning"
                   id="btn-desv-{{ loop.index }}"
                   onclick="abrirDesvincular({{ loop.index }})"
                   title="Tira o vínculo deste kit com o veículo (exige motivo)">
-            ✂️ Desvincular
+            {{ ic.svg('fechar', 13) }} Desvincular
           </button>
         </div>
         <!-- Desvincular é mudança de um vínculo já existente: motivo obrigatório -->
@@ -182,9 +177,9 @@
                    placeholder="Observação (opcional) — fica no relatório"
                    style="width:220px;margin:0;font-size:12px;padding:4px 6px;">
             <button type="submit" class="btn btn-sm btn-danger" style="padding:4px 8px;"
-                    title="Confirmar desvinculação">✓</button>
+                    title="Confirmar desvinculação">{{ ic.svg('check', 13) }}</button>
             <button type="button" class="btn btn-sm btn-secondary" style="padding:4px 8px;"
-                    onclick="fecharDesvincular({{ loop.index }})">✕</button>
+                    onclick="fecharDesvincular({{ loop.index }})">{{ ic.svg('fechar', 13) }}</button>
           </div>
         </form>
       </td>
@@ -199,7 +194,7 @@
 
   <!-- Vincular manualmente um kit a este veículo (inclusive trocando de outro) -->
   <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
-    <h3 style="font-size:15px;margin:0 0 4px;">➕ Trazer um kit já montado pra este veículo</h3>
+    <h3 style="font-size:15px;margin:0 0 4px;">Trazer um kit já montado pra este veículo</h3>
     <p style="color:#666;font-size:13px;margin:0 0 8px;">
       Só pra corrigir kits <strong>já finalizados</strong> — não tem relação com o kit
       escolhido acima, que vale pras próximas bipagens.
@@ -223,13 +218,13 @@
           {% for k in kits_para_vincular %}
           <option value="{{ k.kit_id }}" data-veiculo="{{ k.veiculo_atual if k.veiculo_id_atual else '' }}">
             {{ k.finalizado_em[:10] if k.finalizado_em else '—' }} · {{ k.kit_nome }} · {{ k.cliente }}
-            {%- if k.veiculo_id_atual %} — 🔒 hoje em {{ k.veiculo_atual }}{% endif %}
+            {%- if k.veiculo_id_atual %} — hoje em {{ k.veiculo_atual }}{% endif %}
           </option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group" id="grupo-motivo" style="margin:0;min-width:240px;display:none;">
-        <label>Motivo da troca <span style="color:#c0392b;">*</span></label>
+        <label>Motivo da troca <span style="color:var(--danger-text);">*</span></label>
         <input type="text" name="motivo" id="inp-motivo" maxlength="200"
                placeholder="Por que este kit está mudando de veículo?" style="margin:0;">
       </div>
@@ -238,7 +233,7 @@
         <input type="text" name="observacao" maxlength="300"
                placeholder="ex: corrigido após conferência em campo" style="margin:0;">
       </div>
-      <button type="submit" class="btn btn-success">🔗 Vincular a este veículo</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Vincular a este veículo</button>
     </form>
     {% else %}
     <p style="color:#888;font-size:13px;margin:0;">
@@ -255,7 +250,7 @@
     {% if ocupado and user and user.admin %}
     <form method="post" action="/admin/veiculos/{{ v.id }}/liberar"
           onsubmit="return confirm('Liberar {{ v.numero }} pra uma nova bipagem? O(s) kit(s) já feito(s) pra ele continuam intactos, isso só destrava uma atribuição nova.')">
-      <button type="submit" class="btn btn-primary">🔓 Liberar veículo</button>
+      <button type="submit" class="btn btn-primary">Liberar veículo</button>
     </form>
     {% endif %}
     {% if v.ativo %}
@@ -265,13 +260,13 @@
     </form>
     {% else %}
     <form method="post" action="/admin/veiculos/{{ v.id }}/reativar">
-      <button type="submit" class="btn btn-success">✅ Reativar</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Reativar</button>
     </form>
     {% endif %}
     {% if user and user.admin %}
     <form method="post" action="/admin/veiculos/{{ v.id }}/delete"
           onsubmit="return confirm('Excluir permanentemente o veículo {{ v.numero }}? O histórico de kits vinculados será preservado.')">
-      <button type="submit" class="btn btn-danger">🗑 Excluir</button>
+      <button type="submit" class="btn btn-danger">{{ ic.svg('excluir', 14) }} Excluir</button>
     </form>
     {% endif %}
   </div>
@@ -324,7 +319,7 @@ function prepararVinculo(form) {
     cada planilha que passou por ele e o que ela mexeu. #}
 {% if importacoes %}
 <div class="card">
-  <h2>📥 Importações de planilha</h2>
+  <h2>Importações de planilha</h2>
   <p style="color:#555;font-size:13px;margin:0 0 10px;">
     Cada vez que uma planilha passou por este veículo, e o que ela mudou.
   </p>
@@ -339,7 +334,7 @@ function prepararVinculo(form) {
           <td>{{ i.criada_em }}</td>
           <td>{{ i.arquivo or '—' }}</td>
           <td>{{ i.autor or '—' }}</td>
-          <td><span class="conf-tag conf-tag-{{ i.situacao }}">{{ i.sinal }} {{ i.situacao_texto }}</span></td>
+          <td><span class="conf-tag conf-tag-{{ i.situacao }}">{{ i.situacao_texto }}</span></td>
           <td>
             {% if i.mudancas %}
               {% for m in i.mudancas %}

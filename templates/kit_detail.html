@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
 <title>Kit — {{ kit.kit_nome }}</title>
+{% import "_icones.html" as ic %}
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -25,7 +26,7 @@
 
   /* ── Header ─────────────────────────────────── */
   .header {
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     padding: 18px 20px 14px;
     position: sticky;
@@ -53,7 +54,7 @@
   .btn-voltar-topo:active { background: rgba(255,255,255,.3); }
   .header .subtitulo { font-size: 13px; opacity: .7; margin-top: 4px; }
   .status-badge {
-    background: #27ae60;
+    background: #18804b;
     color: #fff;
     font-size: 11px;
     font-weight: bold;
@@ -106,7 +107,7 @@
   /* ── Destaque veículo/garagem ─────────────── */
   .vg-card {
     background: #f0f4f8;
-    border-left: 4px solid #1a3a5c;
+    border-left: 4px solid #246b84;
     border-radius: 8px;
     padding: 14px;
     margin-bottom: 14px;
@@ -123,7 +124,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #1a3a5c;
+    color: #246b84;
   }
   .vg-val { font-size: 15px; font-weight: 700; color: #222; }
 
@@ -146,12 +147,12 @@
     background: #f0fff4;
   }
   .item-row.checked .item-qtd {
-    background: #27ae60;
+    background: #18804b;
   }
   .item-qtd {
     min-width: 36px;
     height: 36px;
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     border-radius: 50%;
     display: flex;
@@ -197,7 +198,7 @@
   }
   .progress-fill {
     height: 100%;
-    background: #27ae60;
+    background: #18804b;
     border-radius: 99px;
     transition: width .25s ease;
   }
@@ -219,7 +220,7 @@
   /* ── Validação ────────────────────────────── */
   .val-form {
     background: #f0f8f2;
-    border: 1.5px solid #27ae60;
+    border: 1.5px solid #18804b;
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 14px;
@@ -239,7 +240,7 @@
   .val-btn {
     width: 100%;
     padding: 15px;
-    background: #27ae60;
+    background: #18804b;
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -247,12 +248,12 @@
     font-weight: 700;
     cursor: pointer;
   }
-  .val-btn:active { background: #1e8449; }
+  .val-btn:active { background: #136339; }
   .val-login-btn {
     display: block;
     width: 100%;
     padding: 15px;
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -271,7 +272,7 @@
     gap: 10px;
   }
   .val-history-row:last-child { border-bottom: none; }
-  .val-who { font-size: 14px; font-weight: 600; color: #1a3a5c; }
+  .val-who { font-size: 14px; font-weight: 600; color: #246b84; }
   .val-when { font-size: 12px; color: #999; }
   .val-obs { font-size: 13px; color: #555; margin-top: 2px; }
   .val-check { font-size: 22px; flex-shrink: 0; }
@@ -288,7 +289,7 @@
     box-shadow: 0 2px 10px rgba(0,0,0,.06);
   }
   .card-atribuir > summary {
-    cursor: pointer; padding: 14px; font-weight: 700; font-size: 15px; color: #1a3a5c;
+    cursor: pointer; padding: 14px; font-weight: 700; font-size: 15px; color: #246b84;
     list-style: none;
   }
   .card-atribuir > summary::-webkit-details-marker { display: none; }
@@ -302,14 +303,14 @@
   }
   .card-atribuir button {
     width: 100%; margin-top: 14px; padding: 14px; border: none; border-radius: 999px;
-    background: #1e7a46; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+    background: #136339; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
   }
 
   .btn-voltar-inicio {
     display: block;
     width: 100%;
     text-align: center;
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     text-decoration: none;
     font-size: 15px;
@@ -326,7 +327,7 @@
   {# Voltar também aqui em cima: o botão do rodapé obriga a rolar o kit
      inteiro só pra sair, o que num kit grande é bem chato no celular.
      O header é sticky, então este fica sempre à mão. #}
-  <a href="{{ voltar_para }}" class="btn-voltar-topo">← Voltar</a>
+  <a href="{{ voltar_para }}" class="btn-voltar-topo">{{ ic.svg('voltar', 13) }} Voltar</a>
   <div class="header-top">
     <div>
       <h1>{{ kit.kit_nome }}</h1>
@@ -334,7 +335,7 @@
     </div>
     {# Só verificação POSTERIOR à troca de modelo vale como "verificado" —
        a anterior descrevia outro conteúdo de kit. #}
-    {% if validacoes_vigentes %}<span class="status-badge">✓ Verificado</span>{% endif %}
+    {% if validacoes_vigentes %}<span class="status-badge">{{ ic.svg('check', 11) }} Verificado</span>{% endif %}
   </div>
 
   <!-- Veículo e Garagem direto no header — visíveis imediatamente -->
@@ -359,7 +360,7 @@
 <div class="container">
 
   {% if ok and ok != 'validado' %}
-  <div class="alert-success">✅ {{ ok }}</div>
+  <div class="alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok }}</div>
   {% endif %}
 
   {# Pendência de item: o kit está com menos do que o modelo pede — em geral
@@ -368,10 +369,10 @@
   {% if faltas %}
   <div class="alert-success" style="background:#fdecea;color:#a33a2c;border-color:#f3c9c2;">
     {% for f in faltas %}
-    ⚠️ <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ ' · ' if not loop.last }}
+    {{ ic.svg('alerta', 13) }} <strong>{{ f.aviso }}</strong>{% if f.faltam > 1 %} ({{ f.faltam }} unidades){% endif %}{{ ' · ' if not loop.last }}
     {% endfor %}
     {% if pode('patrimonio_atribuir') %}
-    Use “➕ Colocar patrimônio neste kit”, no fim da página, quando a reposição for enviada
+    Use “Colocar patrimônio neste kit”, no fim da página, quando a reposição for enviada
     ou quando for trazer a peça de outro veículo.
     {% else %}
     A reposição precisa ser atribuída por quem tem permissão de patrimônio.
@@ -384,7 +385,7 @@
      histórico, que é onde esse fato pertence. #}
   {% if validacoes_antigas and not validacoes_vigentes %}
   <div class="alert-success" style="background:#fdf6ea;color:#8a6d3b;border-color:#f0d9a8;">
-    ⚠️ Este kit teve o modelo trocado em {{ kit.modelo_trocado_em[:16] }}.
+    {{ ic.svg('alerta', 13) }} Este kit teve o modelo trocado em {{ kit.modelo_trocado_em[:16] }}.
     {{ validacoes_antigas | length }} verificação(ões) anterior(es) continuam no histórico,
     mas descrevem o conteúdo antigo — <strong>o kit precisa ser verificado de novo</strong>.
   </div>
@@ -395,7 +396,7 @@
      conferência — o kit foi fechado corretamente pela regra da época. #}
   {% if mudancas and mudancas.houve_mudanca %}
   <div class="card" style="border:2px solid #e6a23c;">
-    <div class="card-title" style="color:#b8860b;">🔄 O template deste kit foi atualizado</div>
+    <div class="card-title" style="color:#b8860b;">O template deste kit foi atualizado</div>
     <p style="font-size:13px;color:#555;margin:0 0 10px;">
       O modelo <strong>{{ kit.kit_nome }}</strong> (v{{ kit.versao }}) mudou depois que este
       kit foi montado. O que isso significa para ele:
@@ -416,7 +417,7 @@
     {% endif %}
 
     {% if mudancas.entraram %}
-    <div style="font-size:13px;color:#c0392b;">
+    <div style="font-size:13px;color:var(--danger-text);">
       <strong>Passaram a fazer parte do kit</strong> — o modelo pede e este kit não tem:
       <ul style="margin:4px 0 0;padding-left:20px;">
         {% for e in mudancas.entraram %}
@@ -432,7 +433,7 @@
       {% if mudancas.entraram %}
       Confira a caixa física: o que falta precisa entrar no kit.
       {% if user and user.admin %}Se o kit foi montado num modelo diferente, use
-      <strong>🔄 Trocar Kit</strong> abaixo.{% endif %}
+      <strong>Trocar Kit</strong> abaixo.{% endif %}
       {% else %}
       <strong>Nada a fazer.</strong> O kit está completo pelo modelo atual — a lista é que
       mudou. As peças que saíram continuam na caixa e no histórico.
@@ -481,8 +482,8 @@
     {% endif %}
 
     {% if not user %}
-    <div style="font-size:12px;color:#e67e22;font-weight:600;margin-bottom:8px;">
-      🔒 Faça login para conferir os itens.
+    <div style="font-size:12px;color:var(--warn-text);font-weight:600;margin-bottom:8px;">
+      Faça login para conferir os itens.
     </div>
     {% endif %}
     {% for item in itens %}
@@ -520,19 +521,19 @@
            porque é ali que alguém pergunta "de que lote é este CVC?" — antes
            esse dado morria na bipagem. #}
         {% if item.caixas %}
-        <div class="item-barcodes" style="color:#b8860b;">📦 caixa {{ item.caixas }}</div>
+        <div class="item-barcodes" style="color:#b8860b;">caixa {{ item.caixas }}</div>
         {% endif %}
         {% if item.fora_do_template %}
         <div style="font-size:11px;color:#b8860b;margin-top:3px;font-weight:600;">
-          🔄 não faz mais parte do modelo — não precisa conferir
+          não faz mais parte do modelo — não precisa conferir
         </div>
         {% elif grupos.get(item.item_tipo_id) %}
-        <div style="font-size:11px;color:#e67e22;margin-top:3px;font-weight:600;">
-          🔗 conjunto — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
+        <div style="font-size:11px;color:var(--warn-text);margin-top:3px;font-weight:600;">
+          conjunto — confere junto com {{ grupos[item.item_tipo_id] | join(', ') }}
         </div>
         {% endif %}
       </div>
-      <div class="item-check-icon">{{ '—' if item.fora_do_template else ('✅' if is_checked else '⬜') }}</div>
+      <div class="item-check-icon">{{ (ic.svg('check-circulo', 20) | safe) if (not item.fora_do_template and is_checked) else '—' if item.fora_do_template else '' }}</div>
     </div>
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
@@ -541,7 +542,7 @@
 
   {% if operadores_kit and operadores_kit | length > 1 %}
   <div class="card">
-    <div class="card-title">👥 Operadores envolvidos ({{ operadores_kit | length }})</div>
+    <div class="card-title">Operadores envolvidos ({{ operadores_kit | length }})</div>
     {% for op in operadores_kit %}
     <div class="info-grid" style="padding:8px 0;{% if not loop.last %}border-bottom:1px solid #f0f0f0;{% endif %}">
       <div class="info-item">
@@ -584,12 +585,12 @@
   {% endif %}
 
   {% if ok == 'validado' %}
-  <div class="alert-success">✅ Verificação registrada com sucesso.</div>
+  <div class="alert-success">{{ ic.svg('check-circulo', 14) }} Verificação registrada com sucesso.</div>
   {% endif %}
 
   {% if erro == 'itens_pendentes' %}
   <div class="alert-success" style="background:#fdecea;color:#a33;border-color:#f5c6cb;">
-    ⚠️ Marque todos os itens do checklist antes de confirmar a verificação.
+    {{ ic.svg('alerta', 14) }} Marque todos os itens do checklist antes de confirmar a verificação.
   </div>
   {% endif %}
 
@@ -598,20 +599,20 @@
     <div class="card-title">Verificação do Kit</div>
 
     {% if itens %}
-    <div id="aviso-checklist" style="font-size:13px;color:#e67e22;font-weight:600;
+    <div id="aviso-checklist" style="font-size:13px;color:var(--warn-text);font-weight:600;
          text-align:center;padding:10px 0 4px;">
-      ☝️ Confirme todos os itens acima antes de verificar
+      Confirme todos os itens acima antes de verificar
     </div>
     {% endif %}
 
     {% if user %}
     <div class="val-form" id="val-form-wrap" style="{% if itens %}opacity:.45;pointer-events:none;{% endif %}">
-      <div style="font-size:14px;font-weight:600;color:#1a3a5c;margin-bottom:4px;">
+      <div style="font-size:14px;font-weight:600;color:#246b84;margin-bottom:4px;">
         Verificando como: <strong>{{ user.nome }}</strong>
       </div>
       <form method="post" action="/kit/{{ kit.kit_id }}/validar">
         <textarea name="observacao" placeholder="Observação (opcional)..."></textarea>
-        <button type="submit" class="val-btn" id="btn-validar">✅ Confirmar Verificação</button>
+        <button type="submit" class="val-btn" id="btn-validar">{{ ic.svg('check', 15) }} Confirmar Verificação</button>
       </form>
     </div>
     {% else %}
@@ -619,7 +620,7 @@
       <p style="font-size:13px;color:#888;margin-bottom:12px;">
         Faça login para verificar este kit.
       </p>
-      <a href="/login?next=/kit/{{ kit.kit_id }}" class="val-login-btn">🔒 Entrar para Verificar</a>
+      <a href="/login?next=/kit/{{ kit.kit_id }}" class="val-login-btn">Entrar para Verificar</a>
     </div>
     {% endif %}
 
@@ -635,13 +636,13 @@
           <div class="val-who">{{ v.user_nome }}</div>
           <div class="val-when">{{ v.validado_em[:16] }}
             {%- if v in validacoes_antigas %}
-            <span style="color:#e67e22;font-weight:600;"> · antes da troca de kit</span>
+            <span style="color:var(--warn-text);font-weight:600;"> · antes da troca de kit</span>
             {%- endif %}</div>
           {% if v.observacao %}
           <div class="val-obs">{{ v.observacao }}</div>
           {% endif %}
         </div>
-        <div class="val-check">✅</div>
+        <div class="val-check">{{ ic.svg('check-circulo', 20) }}</div>
       </div>
       {% endfor %}
     </div>
@@ -654,7 +655,7 @@
      Não reabre produção nem mexe em estoque — só diz que este item passou a
      fazer parte deste kit, com motivo gravado. #}
   <details class="card-atribuir">
-    <summary>➕ Colocar patrimônio neste kit</summary>
+    <summary>Colocar patrimônio neste kit</summary>
     <div style="padding:0 14px 14px;">
       {% if pode('patrimonio_mover') and candidatos_outros %}
       {# Trazer de outro veículo: é o caminho de quem está OLHANDO o veículo
@@ -671,14 +672,14 @@
           <option value="">— escolha —</option>
           {% for c in candidatos_outros %}
           <option value="{{ c.codigo_barra }}">
-            {{ c.tipo_nome }} · {{ c.codigo_barra }} — 🚗 {{ c.veiculo or 'sem veículo' }}
+            {{ c.tipo_nome }} · {{ c.codigo_barra }} — {{ c.veiculo or 'sem veículo' }}
           </option>
           {% endfor %}
         </select>
         <label>Motivo *</label>
         <input type="text" name="motivo" required minlength="5"
                placeholder="ex: peça remanejada na instalação">
-        <button type="submit" style="background:#2980b9;">🔀 Trazer para este kit</button>
+        <button type="submit" style="background:var(--brand);">{{ ic.svg('editar', 14) }} Trazer para este kit</button>
       </form>
       <hr style="border:none;border-top:1px solid #eee;margin:16px 0 10px;">
       {% endif %}
@@ -704,7 +705,7 @@
         <label>Motivo *</label>
         <input type="text" name="motivo" required minlength="5"
                placeholder="ex: reposição do item que foi para o veículo 1415">
-        <button type="submit">➕ Atribuir ao kit</button>
+        <button type="submit">{{ ic.svg('mais', 14) }} Atribuir ao kit</button>
       </form>
     </div>
   </details>
@@ -714,10 +715,10 @@
   {# Troca de kit do kit pronto — mesma lógica da troca em bipagem, com
      acerto automático de estoque. Só admin, e a rota também exige. #}
   <a href="/kit/{{ kit.kit_id }}/trocar-modelo" class="btn-voltar-inicio"
-     style="background:#2980b9;margin-bottom:10px;">🔄 Trocar Kit (corrigir modelo)</a>
+     style="background:var(--brand);margin-bottom:10px;">{{ ic.svg('editar', 14) }} Trocar Kit (corrigir modelo)</a>
   {% endif %}
 
-  <a href="{{ voltar_para }}" class="btn-voltar-inicio">← Voltar</a>
+  <a href="{{ voltar_para }}" class="btn-voltar-inicio">{{ ic.svg('voltar', 15) }} Voltar</a>
 
 </div>
 
@@ -736,7 +737,7 @@ function aplicarEstado(tipoId, marcado) {
   const row = document.querySelector('.item-row[data-tipo-id="' + tipoId + '"]');
   if (!row) return;
   row.classList.toggle('checked', marcado);
-  row.querySelector('.item-check-icon').textContent = marcado ? '✅' : '⬜';
+  row.querySelector('.item-check-icon').innerHTML = marcado ? '{{ ic.svg("check-circulo", 20) }}' : '';
   row.style.opacity = '1';
 }
 

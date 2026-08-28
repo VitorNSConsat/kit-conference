@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pg %}
-{% block title %}Criar Kit — Conferência de Kits{% endblock %}
+{% import "_icones.html" as ic %}
+{% block title %}Criar Kit/Pedido{% endblock %}
 
 {% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
 <!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
-<div class="card" style="border:1px solid #b0c4de;">
+<div class="card" style="border:1px solid var(--brand-border);">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
-            <h2 style="margin:0;">📋 Criar Kit a partir do BOM</h2>
+            <h2 style="margin:0;">Criar Kit a partir do BOM</h2>
             <p style="margin:4px 0 0;font-size:13px;color:#666;">
                 Importa Description e Quantity da planilha e cria o template já com todos os itens.
                 Após a criação você pode editar livremente.
@@ -34,20 +35,20 @@
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">📥 Importar e Criar Kit</button>
+            <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar e Criar Kit</button>
         </div>
     </form>
 </div>
 {% elif not pode('pedidos_criar_editar') %}
-<div class="card" style="border:1px solid #e0c9a6;background:#fdf6ea;">
-    <p style="margin:0;color:#8a6d3b;">Seu usuário não tem permissão pra criar Pedidos.</p>
+<div class="card" style="border:1px solid var(--warn-border);background:var(--warn-bg);">
+    <p style="margin:0;color:var(--warn-text);">Seu usuário não tem permissão pra criar Pedidos.</p>
 </div>
 {% else %}
 <!-- ── Importar Planilha do Pedido (ICCID/Telefone/CDT/ID Hardware) ──────── -->
-<div class="card" style="border:1px solid #b0c4de;">
+<div class="card" style="border:1px solid var(--brand-border);">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
-            <h2 style="margin:0;">📋 Importar Planilha do Pedido</h2>
+            <h2 style="margin:0;">Importar Planilha do Pedido</h2>
             <p style="margin:4px 0 0;font-size:13px;color:#666;">
                 Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
                 <strong>CDT</strong> e <strong>ID Hardware</strong> — uma linha por unidade. O número do
@@ -76,7 +77,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">📥 Importar Planilha</button>
+            <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar Planilha</button>
         </div>
     </form>
 </div>
@@ -89,9 +90,9 @@
     <form method="get" action="/admin/templates" class="busca-form"
           data-busca-viva="#bloco-{{ tipo }}">
         <input type="hidden" name="tab" value="{{ tipo }}">
-        <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou cliente...">
+        <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar por nome ou cliente...">
         <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-        {% if busca %}<a href="/admin/templates?tab={{ tipo }}" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+        {% if busca %}<a href="/admin/templates?tab={{ tipo }}" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>{% endif %}
     </form>
     <div id="bloco-{{ tipo }}">
     {{ pg.contagem(pag, label|lower ~ "s") }}
@@ -124,7 +125,7 @@
                 <div style="font-size:10px;color:#999;">trava em: {{ c.gargalo }}</div>
                 {% endif %}
                 {% if c.confianca != 'ok' %}
-                <div style="font-size:10px;color:#e67e22;">
+                <div style="font-size:10px;color:var(--warn-text);">
                     {{ 'estimado pelo plano' if c.confianca == 'sem_historico' else 'amostra pequena' }}
                 </div>
                 {% endif %}
@@ -136,13 +137,13 @@
             <td>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
                     {% if tipo == 'pedido' %}
-                    <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">📊 Excel</a>
+                    <a href="/admin/templates/{{ t.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }} Excel</a>
                     {% endif %}
                     {% if tipo != 'pedido' or pode('pedidos_criar_editar') %}
-                    <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-primary">Editar</a>
+                    <a href="/admin/templates/{{ t.id }}/edit" class="btn btn-sm btn-secondary">Editar</a>
                     {% endif %}
                     <div class="menu-mais">
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">⋯</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">{{ ic.svg('mais-vertical', 15) }}</button>
                         <div class="menu-mais-dropdown">
                             <form method="post" action="/admin/templates/{{ t.id }}/toggle">
                                 <button class="btn btn-sm {{ 'btn-danger' if t.ativo else 'btn-success' }}">{{ 'Desativar' if t.ativo else 'Ativar' }}</button>
@@ -209,14 +210,14 @@
         </div>
 
         <button type="button" id="btn-comecar-{{ tipo }}" class="btn btn-primary" onclick="comecarNovoTemplate('{{ tipo }}')">
-            ▶ Começar Novo {{ label }}
+            {{ ic.svg('seta-direita', 15) }} Começar Novo {{ label }}
         </button>
 
         <div id="secao-itens-{{ tipo }}" style="display:none;">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; margin-top:16px;">
                 <h2 style="margin:0;">Tipos disponíveis</h2>
                 <button type="button" onclick="adicionarTodos('{{ tipo }}')" class="btn btn-warning">
-                    ⚡ Inserir todos os itens
+                    {{ ic.svg('mais', 15) }} Inserir todos os itens
                 </button>
             </div>
             <p style="font-size:12px;color:#888;margin-bottom:10px;">
@@ -224,7 +225,7 @@
             </p>
 
             {% if tipos_catalogo %}
-            <input type="text" class="busca-box" placeholder="🔍 Buscar tipo..."
+            <input type="text" class="busca-box" placeholder="Buscar tipo..."
                    oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid-{{ tipo }} .filtro-item">
             <div class="tipos-grid-admin" id="tipos-grid-{{ tipo }}">
                 {% for tp in tipos_catalogo %}
@@ -234,9 +235,9 @@
                         data-serial="{{ '1' if tp.requer_serial else '0' }}"
                         onclick="adicionarTipoFromCard(this, '{{ tipo }}')">
                     {{ tp.nome }}
-                    {% if tp.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">📏 m</span>{% endif %}
-                    {% if tp.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">♻️ reutilizável</span>{% endif %}
-                    {% if tp.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">🔢 serial</span>{% endif %}
+                    {% if tp.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">m</span>{% endif %}
+                    {% if tp.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">reutilizável</span>{% endif %}
+                    {% if tp.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">serial</span>{% endif %}
                 </button>
                 {% endfor %}
             </div>
@@ -262,8 +263,6 @@
 {% endmacro %}
 
 {% block content %}
-<h1>Criar Kit/Pedido</h1>
-
 {% if request.query_params.get('ok') == '1' %}
 <div class="alert alert-success">Template criado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'editado' %}
@@ -280,10 +279,10 @@
 </div>
 {% elif request.query_params.get('ok') == 'pedidos' %}
 <div class="alert alert-success">
-    ✅ {{ request.query_params.get('pedidos') }} pedido(s) criado(s)/atualizado(s) a partir da planilha —
+    {{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('pedidos') }} pedido(s) criado(s)/atualizado(s) a partir da planilha —
     {{ request.query_params.get('unidades') }} unidade(s) importada(s) no total.
     {% if request.query_params.get('ignoradas', '0') != '0' %}
-    <br>⚠️ {{ request.query_params.get('ignoradas') }} linha(s) ignorada(s) por não ter número de pedido
+    <br>{{ ic.svg('alerta', 13) }} {{ request.query_params.get('ignoradas') }} linha(s) ignorada(s) por não ter número de pedido
     identificável.
     {% endif %}
 </div>
@@ -293,9 +292,9 @@
 {% endif %}
 
 <div class="tabs-menu">
-    <button type="button" class="tab-btn" data-tab="kit" onclick="mudarTabTemplates('kit')">🎁 Kit</button>
-    <button type="button" class="tab-btn" data-tab="pedido" onclick="mudarTabTemplates('pedido')">📑 Pedido</button>
-    <button type="button" class="tab-btn" data-tab="conjuntos" onclick="mudarTabTemplates('conjuntos')">🔗 Conjuntos</button>
+    <button type="button" class="tab-btn" data-tab="kit" onclick="mudarTabTemplates('kit')">Kit</button>
+    <button type="button" class="tab-btn" data-tab="pedido" onclick="mudarTabTemplates('pedido')">Pedido</button>
+    <button type="button" class="tab-btn" data-tab="conjuntos" onclick="mudarTabTemplates('conjuntos')">Conjuntos</button>
 </div>
 
 <div id="tab-kit" class="tab-panel">
@@ -306,7 +305,7 @@
 </div>
 <div id="tab-conjuntos" class="tab-panel" style="display:none;">
     <div class="card">
-        <h2 style="margin-top:0;">🔗 Conjuntos</h2>
+        <h2 style="margin-top:0;">Conjuntos</h2>
         <p style="font-size:13px;color:#666;margin-bottom:14px;">
             Itens com o mesmo código de conjunto são bipados e conferidos juntos — marcar um deles marca
             os outros automaticamente. Desligue "Verifica em conjunto" pra um conjunto específico exigir
@@ -335,7 +334,7 @@
                                 <input type="hidden" name="componente_codigo" value="{{ c.componente_codigo }}">
                                 <input type="hidden" name="verifica" value="{{ '0' if c.verifica_em_conjunto else '1' }}">
                                 <button type="submit" class="btn btn-sm {{ 'btn-success' if c.verifica_em_conjunto else 'btn-warning' }}">
-                                    {{ '✅ Em conjunto' if c.verifica_em_conjunto else '🔲 Manual' }}
+                                    {{ 'Em conjunto' if c.verifica_em_conjunto else 'Manual' }}
                                 </button>
                             </form>
                         </td>
@@ -381,44 +380,13 @@
 }
 .conjunto-template-details table { width: 100%; }
 .autonomia-lista { font-weight: 800; font-size: 13px; }
-.autonomia-lista.ok      { color: #27ae60; }
-.autonomia-lista.alerta  { color: #e67e22; }
-.autonomia-lista.critico { color: #c0392b; }
-.tipos-grid-admin {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
-}
-.tipo-card-admin {
-    padding: 14px 8px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    transition: border-color .15s, background .15s;
-    line-height: 1.3;
-    color: #1a3a5c;
-}
-.tipo-card-admin:hover { border-color: #1a3a5c; background: #eef2f7; }
-.tipo-card-admin:active { background: #dce6f0; }
-.item-sel {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    background: #f4f7fb;
-    border-radius: 8px;
-    border: 1px solid #e0e7ef;
-    flex-wrap: wrap;
-}
-.item-sel-nome { font-weight: 600; font-size: 14px; flex: 1; min-width: 120px; color: #1a3a5c; }
-.item-sel-campos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-/* O estilo do menu de abas mora em static/style.css (carregado no <head>). */
+.autonomia-lista.ok      { color: var(--ok-text); }
+.autonomia-lista.alerta  { color: var(--warn-text); }
+.autonomia-lista.critico { color: var(--danger-text); }
+/* .tipos-grid-admin, .tipo-card-admin e .item-sel* moraram aqui e viraram
+   duplicata de admin_template_edit.html — agora vivem uma vez só em
+   static/style.css, pra Criar Kit/Pedido e Editar Template usarem o mesmo
+   bloco. O estilo do menu de abas também mora lá (carregado no <head>). */
 </style>
 <script>
 let idx = { kit: 0, pedido: 0 };
@@ -441,8 +409,8 @@ function adicionarTipo(tipo, tipoId, tipoNome, tipoUnidade, requerSerial) {
     div.className = 'item-sel';
     div.innerHTML =
         `<div class="item-sel-nome">${tipoNome}` +
-            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">📏 m</span>` : '') +
-            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">🔢 serial</span>` : '') +
+            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">m</span>` : '') +
+            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">serial</span>` : '') +
         `</div>` +
         `<input type="hidden" name="item_tipo_id_${i}" value="${tipoId}">` +
         (requerSerial ? `<input type="hidden" name="requer_serial_${i}" value="1">` : '') +
@@ -455,7 +423,7 @@ function adicionarTipo(tipo, tipoId, tipoNome, tipoUnidade, requerSerial) {
           `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
             `<input type="checkbox" name="obrigatorio_${i}" value="1" checked> Obrigatório` +
           `</label>` +
-          `<button type="button" onclick="removerItem(this, '${tipo}')" class="btn btn-sm btn-danger">✕</button>` +
+          `<button type="button" onclick="removerItem(this, '${tipo}')" class="btn btn-sm btn-danger">&times;</button>` +
         `</div>`;
     container.appendChild(div);
     idx[tipo]++;

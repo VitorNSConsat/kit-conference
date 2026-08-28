@@ -267,7 +267,7 @@ def generate_estoque_html_label(tipo_nome: str, codigo_barra: str, url_qr: str) 
   <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
                  border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
           onclick="window.print();setTimeout(()=>window.close(),800);">
-    🖨️ Imprimir e Fechar
+    Imprimir e Fechar
   </button>
 </div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
@@ -411,7 +411,7 @@ def generate_pausa_html_label(veiculo: str, kit_nome: str, cliente: str,
   <div class="rodape">Etiqueta de acompanhamento — gerada {data_str} {hora_str}</div>
 </div>
 <div class="actions">
-  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn btn-print" onclick="window.print()">Imprimir</button>
   <button class="btn btn-close" onclick="window.close()">Fechar</button>
 </div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
@@ -606,7 +606,7 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
   <div class="rodape">ID: {kit_id_curto}</div>
 </div>
 <div class="actions">
-  <button class="btn btn-print" onclick="window.print()">🖨️ Imprimir</button>
+  <button class="btn btn-print" onclick="window.print()">Imprimir</button>
   <button class="btn btn-close" onclick="window.close()">Fechar</button>
 </div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>

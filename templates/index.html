@@ -1,26 +1,27 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Início — Conferência de Kits{% endblock %}
 {% block content %}
 {% if sessoes_em_andamento %}
-<div class="card" style="border:1px solid #f0a500; margin-bottom:20px;">
-    <h2 style="margin-top:0; color:#b87800;">📋 Sessões em Andamento</h2>
-    <p style="color:#666; font-size:13px; margin-top:-8px; margin-bottom:12px;">
+<div class="card" style="border-left:4px solid var(--warn-text); margin-bottom:20px;">
+    <h2 style="margin-top:0;">Sessões em Andamento</h2>
+    <p style="color:var(--text-muted); font-size:13px; margin-top:-8px; margin-bottom:12px;">
         Sessões salvas pela equipe. Retome onde parou ou cancele para descartar.
     </p>
     {% for s in sessoes_em_andamento %}
     <div style="display:flex; align-items:center; gap:12px; padding:10px 0;
-                border-bottom:1px solid #f0e8cc; flex-wrap:wrap;">
+                border-bottom:1px solid var(--border-subtle); flex-wrap:wrap;">
         <div style="flex:1; min-width:140px;">
             <strong>{{ s.veiculo or s.kit_nome }}</strong>
-            <span style="color:#666; font-size:13px;"> — {{ s.cliente }}</span>
+            <span style="color:var(--text-muted); font-size:13px;"> — {{ s.cliente }}</span>
             <br>
-            <span style="font-size:12px; color:#999;">
-                {{ s.kit_nome }}{% if s.garagem %} · 🅿️ {{ s.garagem }}{% endif %}
-                &nbsp;·&nbsp; Operador: <strong style="color:#666;">{{ s.operador_nome }}</strong>
+            <span style="font-size:12px; color:var(--text-muted-2);">
+                {{ s.kit_nome }}{% if s.garagem %} · {{ s.garagem }}{% endif %}
+                &nbsp;·&nbsp; Operador: <strong style="color:var(--text-muted);">{{ s.operador_nome }}</strong>
                 &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
             </span>
         </div>
-        <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">▶ Retomar</a>
+        <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">{{ ic.svg('seta-direita', 13) }} Retomar</a>
         <form method="post" action="/session/{{ s.id }}/cancel"
               onsubmit="return confirm('Cancelar esta sessão? Os itens bipados serão descartados.')">
             <button type="submit" class="btn btn-sm btn-danger">Cancelar</button>
@@ -33,10 +34,10 @@
 <h1>Nova Sessão de Bipagem</h1>
 
 {% if request.query_params.get('ok') == 'remessa' %}
-<div class="alert alert-success" style="max-width:500px;">✅ Remessa escolhida.</div>
+<div class="alert alert-success" style="max-width:500px;">{{ ic.svg('check-circulo', 14) }} Remessa escolhida.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger" style="max-width:500px;">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger" style="max-width:500px;">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 {# Escolher a remessa ANTES de bipar: é aqui que se decide em que lote o kit
@@ -46,22 +47,22 @@
     <div>
       <div class="pat-rotulo">Remessa deste kit</div>
       {% if remessa_atual %}
-      <div style="font-size:16px;font-weight:800;color:var(--brand);">
-        📦 {{ remessa_atual.nome }} <span style="font-size:14px;">{{ remessa_atual.rotulo }}</span>
+      <div style="font-size:16px;font-weight:800;color:var(--brand);display:flex;align-items:center;gap:6px;">
+        {{ ic.svg('caixa', 16) }} {{ remessa_atual.nome }} <span style="font-size:14px;">{{ remessa_atual.rotulo }}</span>
       </div>
-      <div style="font-size:12px;color:#7a8794;">
+      <div style="font-size:12px;color:var(--text-muted);">
         {% if remessa_atual.cliente %}<span style="color:{{ cor_do_cliente(remessa_atual.cliente) }};font-weight:700;">{{ remessa_atual.cliente }}</span>
         {%- else %}todos os clientes{% endif %}
         · faltam {{ remessa_atual.faltam }}
       </div>
       {% else %}
-      <div style="font-size:14px;color:#c0392b;font-weight:700;">Nenhuma escolhida</div>
-      <div style="font-size:12px;color:#7a8794;">O kit vai ficar fora da contagem do lote.</div>
+      <div style="font-size:14px;color:var(--danger-text);font-weight:700;">Nenhuma escolhida</div>
+      <div style="font-size:12px;color:var(--text-muted);">O kit vai ficar fora da contagem do lote.</div>
       {% endif %}
     </div>
     <button type="button" class="btn btn-sm {{ 'btn-secondary' if remessa_atual else 'btn-primary' }}"
-            onclick="abrirJanelaPainel('/session/remessa', '📦 Remessa', 'escolha o lote deste kit')">
-      {{ '🔄 Trocar' if remessa_atual else '📦 Escolher remessa' }}
+            onclick="abrirJanelaPainel('/session/remessa', 'Remessa', 'escolha o lote deste kit')">
+      {% if remessa_atual %}{{ ic.svg('editar', 14) }} Trocar{% else %}{{ ic.svg('caixa', 14) }} Escolher remessa{% endif %}
     </button>
   </div>
 </div>
@@ -74,14 +75,14 @@
             <select name="kit_template_id" id="kit_template_id" required>
                 <option value="">— escolha —</option>
                 {% if templates_kit %}
-                <optgroup label="🎁 Kits">
+                <optgroup label="Kits">
                     {% for t in templates_kit %}
                     <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
                     {% endfor %}
                 </optgroup>
                 {% endif %}
                 {% if templates_pedido %}
-                <optgroup label="📑 Pedidos">
+                <optgroup label="Pedidos">
                     {% for t in templates_pedido %}
                     <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
                     {% endfor %}
@@ -97,6 +98,6 @@
 </div>
 
 <div style="margin-top: 24px;">
-    <a href="/print-queue" class="btn btn-warning">🖨 Fila de Impressão</a>
+    <a href="/print-queue" class="btn btn-secondary">{{ ic.svg('impressao', 15) }} Fila de Impressão</a>
 </div>
 {% endblock %}

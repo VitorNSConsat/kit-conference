@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Estoque — Consulta</title>
+{% import "_icones.html" as ic %}
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1a3a5c">
+<meta name="theme-color" content="#246b84">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kit Conf">
@@ -22,7 +23,7 @@
   }
 
   .header {
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     padding: 16px 18px;
     display: flex;
@@ -66,9 +67,9 @@
   .est-min { font-size: 10px; color: #aaa; margin-top: 2px; }
 
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-  .dot.ok    { background: #27ae60; }
-  .dot.baixo { background: #f0ad4e; }
-  .dot.critico { background: #e74c3c; }
+  .dot.ok    { background: var(--ok-text); }
+  .dot.baixo { background: var(--warn-text); }
+  .dot.critico { background: var(--danger-text); }
 
   .empty { padding: 24px 16px; font-size: 13px; color: #aaa; text-align: center; }
 
@@ -81,7 +82,7 @@
     display: block;
     width: 100%;
     text-align: center;
-    background: #1a3a5c;
+    background: #246b84;
     color: #fff;
     text-decoration: none;
     font-size: 15px;
@@ -98,7 +99,7 @@
 <div class="header">
   <a href="/mobile" class="voltar">←</a>
   <div>
-    <h1>📦 Estoque</h1>
+    <h1>Estoque</h1>
     <div class="subtitulo">Consulta — somente visualização</div>
   </div>
 </div>
@@ -118,7 +119,7 @@
         <div class="est-codigo">{{ item.codigo_barra }}</div>
       </div>
       <div class="est-qtd-wrap">
-        <div class="est-qtd" style="color:{{ '#e74c3c' if critico else ('#f0ad4e' if baixo else '#27ae60') }};">
+        <div class="est-qtd" style="color:{{ 'var(--danger-text)' if critico else ('var(--warn-text)' if baixo else 'var(--ok-text)') }};">
           {{ item.quantidade_atual }}
         </div>
         <div class="est-min">mín. {{ item.quantidade_minima }}</div>

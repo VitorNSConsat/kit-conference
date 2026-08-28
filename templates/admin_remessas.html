@@ -1,59 +1,59 @@
 {% extends "base.html" %}
 {% import "_filtros.html" as f %}
+{% import "_icones.html" as ic %}
 {% block title %}Remessas{% endblock %}
-{% block content %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>📦 Remessas</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
+{% block content %}
 
 {% set ok = request.query_params.get('ok') %}
 {% if ok == 'aberta' %}
-<div class="alert alert-success">✅ Remessa aberta. Escolha ela na bipagem pros kits entrarem
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa aberta. Escolha ela na bipagem pros kits entrarem
   automaticamente.</div>
 {% elif ok == 'alvo' or ok == 'editada' %}
 <div class="alert alert-success">
-  ✅ Remessa atualizada.
+  {{ ic.svg('check-circulo', 14) }} Remessa atualizada.
   {% if request.query_params.get('fechada') %}Como o alvo já estava alcançado, ela foi
   <strong>fechada</strong>.{% endif %}
 </div>
 {% elif ok == 'fechada' %}
-<div class="alert alert-success">✅ Remessa fechada.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa fechada.</div>
 {% elif ok == 'reaberta' %}
-<div class="alert alert-success">✅ Remessa reaberta — dá pra corrigir os veículos dela.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa reaberta — dá pra corrigir os veículos dela.</div>
 {% elif ok == 'arquivada' %}
-<div class="alert alert-success">✅ Remessa arquivada. Saiu das listas do dia a dia; o
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa arquivada. Saiu das listas do dia a dia; o
   histórico e a planilha dela continuam inteiros.</div>
 {% elif ok == 'excluida' %}
-<div class="alert alert-success">✅ Remessa <strong>{{ request.query_params.get('n') }}</strong>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa <strong>{{ request.query_params.get('n') }}</strong>
   excluída (estava vazia).</div>
 {% elif ok == 'transferido' %}
-<div class="alert alert-success">✅ Veículo transferido para esta remessa.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Veículo transferido para esta remessa.</div>
 {% elif ok == 'add' %}
 <div class="alert alert-success">
-  ✅ <strong>{{ request.query_params.get('n') }}</strong> veículo(s) acrescentado(s) à remessa.
+  {{ ic.svg('check-circulo', 14) }} <strong>{{ request.query_params.get('n') }}</strong> veículo(s) acrescentado(s) à remessa.
   {% if request.query_params.get('fechada') %}Com isso ela bateu o alvo, <strong>fechou</strong>
   e a próxima já abriu.{% endif %}
 </div>
 {% elif ok == 'removido' %}
-<div class="alert alert-success">✅ Veículo tirado da remessa.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Veículo tirado da remessa.</div>
 {% endif %}
 {% if request.query_params.get('ja') %}
 <div class="alert alert-danger">
-  ⚠️ {{ request.query_params.get('ja') }} veículo(s) já estavam em outra remessa e foram
+  {{ ic.svg('alerta', 14) }} {{ request.query_params.get('ja') }} veículo(s) já estavam em outra remessa e foram
   ignorados — cada veículo entra em um lote só. Use <strong>Transferir</strong> se for pra
   mudar de lote.
 </div>
 {% endif %}
 {% if request.query_params.get('outro_cliente') %}
 <div class="alert alert-danger">
-  ⚠️ {{ request.query_params.get('outro_cliente') }} veículo(s) não entraram: esta remessa é
+  {{ ic.svg('alerta', 14) }} {{ request.query_params.get('outro_cliente') }} veículo(s) não entraram: esta remessa é
   de <strong>{{ request.query_params.get('cliente') }}</strong> e eles são de outro cliente.
 </div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <p style="color:#666;font-size:13px;">
@@ -86,14 +86,14 @@
     </span>
     <strong class="rem-resumo-conta">{{ r.rotulo }}</strong>
     <span class="rem-resumo-falta">
-      {% if r.completa %}✅ completa{% else %}faltam {{ r.faltam }}{% endif %}
+      {% if r.completa %}{{ ic.svg('check-circulo', 12) }} completa{% else %}faltam {{ r.faltam }}{% endif %}
     </span>
   </summary>
 
   <div class="rem-corpo">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
       <p style="color:#666;font-size:13px;margin:0;">Aberta em {{ r.criada_em[:16] }}</p>
-      <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a>
+      <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }} Excel</a>
     </div>
 
     {% if pode('remessas_gerenciar') %}
@@ -119,11 +119,11 @@
             {% endfor %}
           </select>
         </div>
-        <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
+        <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar</button>
       </form>
       <form method="post" action="/admin/producao/remessas/{{ r.id }}/fechar"
             onsubmit="return confirm('Fechar {{ r.nome }} em {{ r.rotulo }}? Ela vai pro histórico — mas dá pra reabrir depois.')">
-        <button type="submit" class="btn btn-sm btn-warning">🔒 Fechar</button>
+        <button type="submit" class="btn btn-sm btn-warning">Fechar</button>
       </form>
     </div>
     {% endif %}
@@ -131,7 +131,7 @@
     <!-- ── Montar a remessa (dentro da que está aberta) ─────────────────────── -->
     {% if atual and pode('remessas_gerenciar') %}
     <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
-      <h3 style="font-size:15px;margin:0 0 6px;">➕ Acrescentar veículos</h3>
+      <h3 style="font-size:15px;margin:0 0 6px;">Acrescentar veículos</h3>
       <p style="color:#666;font-size:13px;margin-top:0;">
         Veículos de <strong>qualquer etapa</strong> — inclusive os que ainda nem foram bipados.
         A lista traz só quem <strong>não está em remessa nenhuma</strong>: cada veículo entra em
@@ -139,13 +139,14 @@
       </p>
 
       <div class="busca-bloco">
-        <form method="get" action="/admin/producao/remessas" class="busca-form" style="margin:0;">
+        <form method="get" action="/admin/producao/remessas" class="busca-form" style="margin:0;"
+              data-busca-viva="#bloco-candidatos">
           <input type="hidden" name="remessa_id" value="{{ alvo.id }}">
           {% for e in filtro_etapa %}<input type="hidden" name="etapa" value="{{ e }}">{% endfor %}
           <input type="hidden" name="imp_ini" value="{{ imp_ini }}">
           <input type="hidden" name="imp_fim" value="{{ imp_fim }}">
           <input type="text" name="busca" value="{{ busca }}"
-                 placeholder="🔍 Buscar veículo, cliente, kit ou modelo...">
+                 placeholder="Buscar veículo, cliente, kit ou modelo...">
           <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
         </form>
 
@@ -171,7 +172,7 @@
           </div>
           {% if busca or filtro_etapa or imp_ini or imp_fim %}
           <a href="/admin/producao/remessas?remessa_id={{ alvo.id }}"
-             class="btn btn-sm btn-warning">✕ Limpar filtros</a>
+             class="btn btn-sm btn-warning">{{ ic.svg('fechar', 13) }} Limpar filtros</a>
           {% endif %}
         </form>
       </div>
@@ -218,7 +219,7 @@
         </table>
         </div>
         <button type="submit" class="btn btn-primary" style="margin-top:12px;">
-          ➕ Acrescentar selecionados a {{ alvo.nome }}
+          {{ ic.svg('mais', 14) }} Acrescentar selecionados a {{ alvo.nome }}
         </button>
         <span style="font-size:12px;color:#888;margin-left:8px;">
           {{ candidatos | length }} veículo(s) na lista.
@@ -282,12 +283,12 @@
             </select>
             <button type="submit" name="acao" value="transferir" class="btn btn-sm btn-primary"
                     title="Move numa operação só — tirar de uma e pôr na outra em dois passos deixa o veículo fora de qualquer lote no meio">
-              🔀 Transferir
+              {{ ic.svg('editar', 13) }} Transferir
             </button>
           </span>
           {% endif %}
           <button type="submit" name="acao" value="tirar" class="btn btn-sm btn-danger">
-            ✕ Tirar da remessa
+            {{ ic.svg('fechar', 13) }} Tirar da remessa
           </button>
           <button type="button" class="btn btn-sm btn-secondary" onclick="limparSelecaoLote()">
             Limpar seleção
@@ -304,7 +305,7 @@
 </details>
 {% else %}
 <div class="alert alert-danger">
-  ⚠️ <strong>Nenhuma remessa aberta.</strong> Sem uma aberta, os kits montados não entram em
+  {{ ic.svg('alerta', 14) }} <strong>Nenhuma remessa aberta.</strong> Sem uma aberta, os kits montados não entram em
   contagem nenhuma — e só dá pra acertar depois acrescentando à mão, aqui.
 </div>
 {% endfor %}
@@ -336,7 +337,7 @@
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-primary">📦 Abrir</button>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('caixa', 14) }} Abrir</button>
   </form>
 </div>
 {% endif %}
@@ -347,7 +348,7 @@
     <h2 style="margin:0;">Histórico ({{ remessas | length }})</h2>
     <a href="/admin/producao/remessas?arquivadas={{ 0 if arquivadas else 1 }}"
        class="btn btn-sm btn-secondary">
-      {{ '👁 Ocultar arquivadas' if arquivadas else '🗄️ Mostrar arquivadas' }}
+      {{ 'Ocultar arquivadas' if arquivadas else 'Mostrar arquivadas' }}
     </a>
   </div>
   {% if remessas %}
@@ -370,8 +371,7 @@
         <td style="white-space:nowrap;font-weight:700;">{{ r.rotulo }}</td>
         <td>
           {% if r.status == 'aberta' %}<span class="badge badge-info">Aberta</span>
-          {% elif r.status == 'arquivada' %}<span class="badge badge-secondary"
-                style="background:#8a97a4;color:#fff;">Arquivada</span>
+          {% elif r.status == 'arquivada' %}<span class="badge">Arquivada</span>
           {% else %}<span class="badge badge-success">Fechada</span>{% endif %}
           {% if r.observacao %}
           <div style="font-size:11px;color:#999;">{{ r.observacao }}</div>
@@ -380,25 +380,25 @@
         <td style="white-space:nowrap;font-size:12px;">{{ r.criada_em[:16] }}</td>
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
-            <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊</a>
+            <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }}</a>
             {% if pode('remessas_gerenciar') %}
             {% if r.status != 'aberta' %}
             <form method="post" action="/admin/producao/remessas/{{ r.id }}/reabrir">
               <button type="submit" class="btn btn-sm btn-primary"
-                      title="Voltar pra aberta e poder corrigir os veículos">🔓 Reabrir</button>
+                      title="Voltar pra aberta e poder corrigir os veículos">{{ ic.svg('editar', 13) }} Reabrir</button>
             </form>
             {% endif %}
             {% if r.status != 'arquivada' %}
             <form method="post" action="/admin/producao/remessas/{{ r.id }}/arquivar"
                   onsubmit="return confirm('Arquivar {{ r.nome }}? Ela sai das listas do dia a dia, mas o histórico e a planilha continuam.');">
               <button type="submit" class="btn btn-sm btn-warning"
-                      title="Tira do caminho sem apagar nada">🗄️ Arquivar</button>
+                      title="Tira do caminho sem apagar nada">{{ ic.svg('caixa', 13) }} Arquivar</button>
             </form>
             {% endif %}
             <form method="post" action="/admin/producao/remessas/{{ r.id }}/excluir"
                   onsubmit="return confirm('EXCLUIR {{ r.nome }} definitivamente?\n\nSó funciona se ela estiver vazia. Com veículos dentro, use Arquivar.');">
               <button type="submit" class="btn btn-sm btn-danger"
-                      title="Só apaga remessa vazia">🗑️</button>
+                      title="Só apaga remessa vazia">{{ ic.svg('excluir', 13) }}</button>
             </form>
             {% endif %}
           </div>

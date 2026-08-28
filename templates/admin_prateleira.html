@@ -1,20 +1,20 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Prateleira{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>🗄️ Prateleira</h1>
-  <a href="/prateleira/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
-</div>
+{% block acoes_topo %}
+<a href="/prateleira/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
+{% endblock %}
 
+{% block content %}
 {% if request.query_params.get('ok') == 'layout' %}
-<div class="alert alert-success">✅ Grade atualizada.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Grade atualizada.</div>
 {% elif request.query_params.get('ok') == 'bloco' %}
-<div class="alert alert-success">✅ Item atribuído.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Item atribuído.</div>
 {% elif request.query_params.get('ok') == 'livre' %}
-<div class="alert alert-success">✅ Item adicionado à área livre.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Item adicionado à área livre.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <div class="card">
@@ -48,7 +48,7 @@
       </div>
     </div>
     <div style="margin-top:14px;">
-      <button type="submit" class="btn btn-success">💾 Salvar Grade</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar Grade</button>
     </div>
   </form>
 </div>
@@ -104,7 +104,7 @@
             </div>
             {% if user and user.admin %}
             <form method="post" action="/admin/prateleira/blocos/{{ item.bloco_id }}/remover" style="margin:0;">
-              <button type="submit" class="pcell-item-remover" title="Remover deste bloco">✕</button>
+              <button type="submit" class="pcell-item-remover" title="Remover deste bloco">{{ ic.svg('fechar', 11) }}</button>
             </form>
             {% endif %}
           </div>
@@ -133,7 +133,7 @@
           <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }})</option>
           {% endfor %}
         </select>
-        <button type="submit" class="btn btn-success">＋ Atribuir</button>
+        <button type="submit" class="btn btn-success">{{ ic.svg('mais', 14) }} Atribuir</button>
         <button type="button" class="btn btn-warning" onclick="cancelarSelecao()">Cancelar</button>
       </form>
     </div>
@@ -155,7 +155,7 @@
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-success">＋ Adicionar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('mais', 14) }} Adicionar</button>
   </form>
   {% if livre %}
   <div class="prateleira-livre-lista">
@@ -176,7 +176,7 @@
       </div>
       {% if user and user.admin %}
       <form method="post" action="/admin/prateleira/livre/{{ item.livre_id }}/remover" style="margin:0;">
-        <button type="submit" class="pcell-item-remover" title="Remover da área livre">✕</button>
+        <button type="submit" class="pcell-item-remover" title="Remover da área livre">{{ ic.svg('fechar', 11) }}</button>
       </form>
       {% endif %}
     </div>
@@ -204,9 +204,9 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #1a3a5c;
+  color: var(--brand-ink);
   padding-bottom: 4px;
-  border-bottom: 2px solid #1a3a5c;
+  border-bottom: 2px solid var(--brand-ink);
 }
 
 .prateleira-grid2 {
@@ -226,13 +226,13 @@
   min-height: 0;
   overflow: hidden;
 }
-.pcell.ocupado { background: #fff; border-color: #1a3a5c; }
+.pcell.ocupado { background: #fff; border-color: var(--brand-ink); }
 .pcell-pos { font-size: 10px; color: #999; font-weight: 700; flex-shrink: 0; }
 .pcell-selection {
   grid-row: 1; grid-column: 1;
   display: none;
   background: rgba(26,58,92,.18);
-  border: 2px dashed #1a3a5c;
+  border: 2px dashed var(--brand-ink);
   border-radius: 8px;
   pointer-events: none;
   z-index: 5;
@@ -250,23 +250,23 @@
 }
 .pcell-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .pcell-item-info { flex: 1; min-width: 0; }
-.pcell-item-nome { font-size: 11px; font-weight: 700; color: #1a3a5c; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcell-item-nome { font-size: 11px; font-weight: 700; color: var(--brand-ink); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pcell-item-codigo { font-size: 9px; color: #999; font-family: monospace; }
 .pcell-item-qtd { font-size: 13px; font-weight: 800; flex-shrink: 0; text-align: right; }
-.pcell-item-esgotado-label { display: block; color: #c0392b; font-weight: 800; }
+.pcell-item-esgotado-label { display: block; color: var(--danger-text); font-weight: 800; }
 .pcell-item-remover {
-  border: none; background: none; color: #c0392b; font-weight: 800;
+  border: none; background: none; color: var(--danger-text); font-weight: 800;
   cursor: pointer; font-size: 13px; flex-shrink: 0; padding: 2px 4px;
 }
-.pcell-item.ok       .pcell-item-dot { background: #27ae60; }
-.pcell-item.ok       .pcell-item-qtd { color: #27ae60; }
-.pcell-item.baixo    .pcell-item-dot { background: #f0ad4e; }
-.pcell-item.baixo    .pcell-item-qtd { color: #f0ad4e; }
-.pcell-item.critico  .pcell-item-dot { background: #e74c3c; }
-.pcell-item.critico  .pcell-item-qtd { color: #e74c3c; }
-.pcell-item.esgotado .pcell-item-dot { background: #e74c3c; }
+.pcell-item.ok       .pcell-item-dot { background: var(--ok-text); }
+.pcell-item.ok       .pcell-item-qtd { color: var(--ok-text); }
+.pcell-item.baixo    .pcell-item-dot { background: var(--warn-text); }
+.pcell-item.baixo    .pcell-item-qtd { color: var(--warn-text); }
+.pcell-item.critico  .pcell-item-dot { background: var(--danger-text); }
+.pcell-item.critico  .pcell-item-qtd { color: var(--danger-text); }
+.pcell-item.esgotado .pcell-item-dot { background: var(--danger-text); }
 .pcell-item.esgotado { background: rgba(192,57,43,.08); }
-.pcell-item.esgotado .pcell-item-qtd { color: #c0392b; }
+.pcell-item.esgotado .pcell-item-qtd { color: var(--danger-text); }
 
 .prateleira-livre-lista { display: flex; flex-wrap: wrap; gap: 8px; }
 </style>

@@ -19,19 +19,19 @@ from database import db
 # A ORDEM é a do menu: é ela que decide pra onde vai quem não pode ver a
 # tela inicial.
 TELAS = (
-    ("ver_bipagem",        "⚡ Bipagem",            "/",                ("/", "/session")),
-    ("ver_impressao",      "🖨️ Impressão",          "/print-queue",     ("/print-queue",)),
-    ("ver_itens",          "📋 Itens & Estoque",    "/admin/items",     ("/admin/items", "/admin/tipos",
+    ("ver_bipagem",        "Bipagem",            "/",                ("/", "/session")),
+    ("ver_impressao",      "Impressão",          "/print-queue",     ("/print-queue",)),
+    ("ver_itens",          "Itens & Estoque",    "/admin/items",     ("/admin/items", "/admin/tipos",
                                                                         "/admin/estoque", "/estoque")),
-    ("ver_kits",           "📄 Criar Kit/Pedido",   "/admin/templates", ("/admin/templates",)),
-    ("ver_veiculos",       "🚗 Veículos e Clientes", "/admin/veiculos", ("/admin/veiculos", "/admin/clientes",
+    ("ver_kits",           "Criar Kit/Pedido",   "/admin/templates", ("/admin/templates",)),
+    ("ver_veiculos",       "Veículos e Clientes", "/admin/veiculos", ("/admin/veiculos", "/admin/clientes",
                                                                         "/admin/garagens")),
-    ("ver_prateleira",     "🗄️ Prateleira",         "/admin/prateleira", ("/admin/prateleira", "/prateleira")),
-    ("ver_producao",       "🚚 Produção",           "/admin/producao",  ("/admin/producao", "/producao")),
-    ("ver_relatorios",     "📊 Relatórios",         "/reports",         ("/reports",)),
-    ("ver_rede",           "🌐 Rede",               "/rede",            ("/rede",)),
-    ("ver_funcionalidades", "📖 Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
-    ("ver_backup",         "💾 Backup",             "/admin/backup",    ("/admin/backup",)),
+    ("ver_prateleira",     "Prateleira",         "/admin/prateleira", ("/admin/prateleira", "/prateleira")),
+    ("ver_producao",       "Produção",           "/admin/producao",  ("/admin/producao", "/producao")),
+    ("ver_relatorios",     "Relatórios",         "/reports",         ("/reports",)),
+    ("ver_rede",           "Rede",               "/rede",            ("/rede",)),
+    ("ver_funcionalidades", "Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
+    ("ver_backup",         "Backup",             "/admin/backup",    ("/admin/backup",)),
 )
 
 # Chave -> rótulo exibido na tela de gestão de usuários.

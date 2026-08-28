@@ -47,9 +47,9 @@ INTERVALO_MIN, INTERVALO_MAX = 1, 720      # de 1 hora a 30 dias
 MANTER_MIN, MANTER_MAX = 1, 999
 
 MOTIVOS = {
-    "automatico": "⏱️ Automático",
-    "manual": "👤 Manual",
-    "migracao": "🔧 Antes de migração",
+    "automatico": "Automático",
+    "manual": "Manual",
+    "migracao": "Antes de migração",
 }
 
 

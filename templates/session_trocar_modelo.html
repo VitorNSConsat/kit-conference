@@ -1,13 +1,13 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Trocar o kit — {{ session.kit_nome }}{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">🔄 Trocar o kit desta bipagem</h1>
-  <a href="/session/{{ session.id }}" class="btn btn-secondary">← Voltar para a bipagem</a>
-</div>
+{% block acoes_topo %}
+<a href="/session/{{ session.id }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar para a bipagem</a>
+{% endblock %}
 
+{% block content %}
 {% if erro %}
-<div class="alert alert-danger">⚠️ {{ erro }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ erro }}</div>
 {% endif %}
 
 <div class="card">
@@ -45,7 +45,7 @@
 </div>
 
 {% if novo_id and not previa %}
-<div class="alert alert-danger">⚠️ Kit não encontrado ou bipagem já encerrada.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Kit não encontrado ou bipagem já encerrada.</div>
 {% endif %}
 
 {% if previa %}
@@ -53,15 +53,15 @@
   <h2>2. Confira o que muda</h2>
   <p style="color:#555;margin-top:0;">
     Das <strong>{{ previa.total_bipado }}</strong> bipagens já feitas,
-    <strong style="color:#27ae60;">{{ previa.total_aproveitado }}</strong>
+    <strong style="color:var(--ok-text);">{{ previa.total_aproveitado }}</strong>
     continuam valendo em <strong>{{ previa.novo.nome }}</strong>.
   </p>
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
 
     <div>
-      <h3 style="font-size:14px;color:#27ae60;margin:0 0 6px;">
-        ✅ Aproveitado ({{ previa.aproveitados | length }})
+      <h3 style="font-size:14px;color:var(--ok-text);margin:0 0 6px;">
+        {{ ic.svg('check', 13) }} Aproveitado ({{ previa.aproveitados | length }})
       </h3>
       {% if previa.aproveitados %}
       <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
@@ -75,8 +75,8 @@
     </div>
 
     <div>
-      <h3 style="font-size:14px;color:#e67e22;margin:0 0 6px;">
-        ⚠️ Sobra ({{ previa.excedentes | length }})
+      <h3 style="font-size:14px;color:var(--warn-text);margin:0 0 6px;">
+        {{ ic.svg('alerta', 13) }} Sobra ({{ previa.excedentes | length }})
       </h3>
       {% if previa.excedentes %}
       <ul style="margin:0 0 8px;padding-left:18px;font-size:13px;color:#444;">
@@ -98,8 +98,8 @@
     </div>
 
     <div>
-      <h3 style="font-size:14px;color:#c0392b;margin:0 0 6px;">
-        📋 Ainda falta bipar ({{ previa.faltantes | length }})
+      <h3 style="font-size:14px;color:var(--danger-text);margin:0 0 6px;">
+        Ainda falta bipar ({{ previa.faltantes | length }})
       </h3>
       {% if previa.faltantes %}
       <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
@@ -108,7 +108,7 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p style="color:#27ae60;font-size:13px;margin:0;">
+      <p style="color:var(--ok-text);font-size:13px;margin:0;">
         Nada — o kit já fica completo depois da troca.
       </p>
       {% endif %}
@@ -152,7 +152,7 @@
       a tela depois da troca — a lista de itens dela só muda ao recarregar.
     </p>
 
-    <button type="submit" class="btn btn-success">🔄 Trocar para {{ previa.novo.nome }}</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('editar', 14) }} Trocar para {{ previa.novo.nome }}</button>
     <a href="/session/{{ session.id }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>

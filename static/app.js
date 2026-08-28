@@ -1,6 +1,16 @@
 // Captura global de teclado para leitor de código de barras USB
 // O leitor envia os caracteres do código + Enter ao final
 
+// Mesmo ícone de "concluído" usado no servidor (templates/_icones.html,
+// entrada "check-circulo") — reaproveitado aqui pra atualização ao vivo da
+// tela de bipagem não divergir do que veio pronto no HTML.
+const ICONE_CHECK =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" ' +
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true" class="ic">' +
+    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>' +
+    '<polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+
 let ws = null;
 let buffer = "";
 let _aguardandoIdentificacao = false;
@@ -15,11 +25,13 @@ function initScanner(sessaoId) {
     ws = new WebSocket(`${proto}://${location.host}/ws/session/${sessaoId}`);
 
     ws.onopen = () => {
-        document.getElementById("ws-status").textContent = "🟢 Conectado";
+        document.getElementById("ws-status").innerHTML =
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#18804b;margin-right:5px;"></span>Conectado';
     };
 
     ws.onclose = () => {
-        document.getElementById("ws-status").textContent = "🔴 Desconectado — recarregue a página";
+        document.getElementById("ws-status").innerHTML =
+            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c0392b;margin-right:5px;"></span>Desconectado — recarregue a página';
         mostrarPopupReconectar();
     };
 
@@ -125,7 +137,7 @@ function mostrarAvisoQuantidade() {
     if (!toast) {
         toast = document.createElement("div");
         toast.id = "aviso-quantidade-toast";
-        toast.textContent = "⚠️ Verifique a quantidade depositada na caixa";
+        toast.textContent = "Verifique a quantidade depositada na caixa";
         document.body.appendChild(toast);
     }
     // Reinicia a animação mesmo se já estiver visível (bipagem em sequência)
@@ -142,8 +154,8 @@ function mostrarPopupReconectar() {
     if (!popup) {
         popup = document.createElement("div");
         popup.id = "ws-reconectar-popup";
-        popup.innerHTML = "🔴 Conexão perdida — recarregue a página para continuar bipando." +
-            "<button type=\"button\" onclick=\"location.reload()\">🔄 Recarregar agora</button>";
+        popup.innerHTML = "Conexão perdida — recarregue a página para continuar bipando." +
+            "<button type=\"button\" onclick=\"location.reload()\">Recarregar agora</button>";
         document.body.appendChild(popup);
     }
     // Não some sozinho — só ao recarregar a página.
@@ -167,11 +179,11 @@ function atualizarContagem(itemTipoId, atual, _exigido, opcoes) {
         if (parseFloat(atual) >= exigido - 0.001) {
             el.classList.remove("pending");
             el.classList.add("done");
-            el.querySelector(".check").textContent = "✅";
+            el.querySelector(".check").innerHTML = ICONE_CHECK;
         } else {
             el.classList.remove("done");
             el.classList.add("pending");
-            el.querySelector(".check").textContent = "⬜";
+            el.querySelector(".check").textContent = "";
         }
         if (!scrollAlvo) scrollAlvo = el;
     });
@@ -187,7 +199,7 @@ function atualizarContagem(itemTipoId, atual, _exigido, opcoes) {
 // CSS deixaria uma fresta (ou sobreporia) dependendo da tela.
 function _medirNavbar() {
     const raiz = document.documentElement.style;
-    const navbar = document.querySelector(".navbar");
+    const navbar = document.querySelector(".ds-topbar");
     if (navbar) {
         raiz.setProperty("--altura-navbar",
             Math.round(navbar.getBoundingClientRect().height) + "px");
@@ -228,7 +240,7 @@ _medirNavbar();
 // a zona visível desconta a altura dela + a navbar, pra nunca parar o item
 // escondido atrás das duas.
 function _seguirItem(el) {
-    const navbar = document.querySelector(".navbar");
+    const navbar = document.querySelector(".ds-topbar");
     const progresso = document.getElementById("bip-progresso");
     const topoBloqueado =
         (navbar ? navbar.getBoundingClientRect().height : 0) +
@@ -255,7 +267,7 @@ function _seguirGrupo(tipoIds) {
     if (!linhas.length) return;
 
     const progresso = document.getElementById("bip-progresso");
-    const navbar = document.querySelector(".navbar");
+    const navbar = document.querySelector(".ds-topbar");
     const topoBloqueado =
         (navbar ? navbar.getBoundingClientRect().height : 0) +
         (progresso ? progresso.getBoundingClientRect().height : 0) + 8;
@@ -296,7 +308,7 @@ function atualizarProgressoBipagem() {
     document.getElementById("bip-progresso-pct").textContent = pct + "%";
     document.getElementById("bip-progresso-barra").style.width = pct + "%";
     document.getElementById("bip-progresso-falta").textContent =
-        falta > 0 ? `faltam ${falta} item(ns)` : "✅ tudo bipado — pode finalizar";
+        falta > 0 ? `faltam ${falta} item(ns)` : "tudo bipado — pode finalizar";
     caixa.classList.toggle("completo", falta === 0);
 }
 
@@ -378,7 +390,7 @@ function mostrarModalComponente(data) {
                 <div style="font-size:11px;color:#888;margin-top:2px;">${item.atual}/${item.quantidade_exigida} já bipados</div>
              </div>` +
             (completo
-                ? `<span style="color:#27ae60;font-size:18px;">✅</span>
+                ? `<span style="color:#18804b;">${ICONE_CHECK}</span>
                    <input type="hidden" data-tipo-id="${item.item_tipo_id}" value="0">`
                 : `<label style="font-size:12px;color:#555;">Qtd:</label>
                    <input type="number" data-tipo-id="${item.item_tipo_id}"
@@ -477,7 +489,7 @@ function mostrarModalQuantidade(data) {
     const isMeter = (data.unidade === 'm');
     const sufixo = isMeter ? 'm' : '';
     document.getElementById("qtd-titulo").textContent =
-        isMeter ? "📏 Metragem" : "📦 Quantidade de Unidades";
+        isMeter ? "Metragem" : "Quantidade de Unidades";
     document.getElementById("qtd-label").textContent =
         isMeter ? "Quantos metros você está adicionando?" : "Quantas unidades você está adicionando?";
     document.getElementById("qtd-mensagem").innerHTML =

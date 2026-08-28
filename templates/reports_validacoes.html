@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
 {% block title %}Relatório de Verificações{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">Relatório de Verificações</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
 
+{% block content %}
 <div class="card">
   <h2>Filtros</h2>
   <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
@@ -23,9 +23,9 @@
       <label>Verificador</label>
       {{ f.multi('validador_id', 'Quem verificou', opcoes_usuarios, validador_id, 'todos') }}
     </div>
-    <button type="submit" class="btn btn-primary">🔍 Filtrar</button>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
     <a href="/reports/validacoes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for v in validador_id %}&validador_id={{ v|urlencode }}{% endfor %}"
-       class="btn btn-success">📥 Exportar Excel</a>
+       class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
   </form>
 </div>
 
@@ -56,14 +56,14 @@
       </td>
       <td>{{ r.cliente }}</td>
       <td>
-        {% if r.veiculo %}<a href="/admin/veiculos?busca={{ r.veiculo | urlencode }}" style="color:#1a3a5c;font-weight:600;" title="Ver este veículo">{{ r.veiculo }}</a>{% else %}—{% endif %}
+        {% if r.veiculo %}<a href="/admin/veiculos?busca={{ r.veiculo | urlencode }}" style="color:var(--brand-ink);font-weight:600;" title="Ver este veículo">{{ r.veiculo }}</a>{% else %}—{% endif %}
       </td>
       <td>{{ r.operador_nome }}</td>
       <td><strong>{{ r.validado_por_nome }}</strong></td>
       <td style="font-size:13px;color:#555;">{{ r.observacao or '—' }}</td>
       <td>
         <a href="/kit/{{ r.kit_id }}" target="_blank"
-           class="btn btn-sm btn-primary">Ver Kit</a>
+           class="btn btn-sm btn-secondary">Ver Kit</a>
       </td>
     </tr>
     {% endfor %}

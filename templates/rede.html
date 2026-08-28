@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Rede e Conectividade{% endblock %}
 {% block content %}
 <h1>Rede e Conectividade</h1>
@@ -11,15 +12,15 @@
     <div style="display:flex;flex-direction:column;gap:10px;">
 
       <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#f4f7fb;border-radius:8px;">
-        <span style="font-size:22px;">🔒</span>
+        <span style="color:var(--brand);">{{ ic.svg('cadeado', 22) }}</span>
         <div style="flex:1;min-width:0;">
           <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;">Principal — HTTPS (iOS · Desktop)</div>
-          <div style="font-size:15px;font-weight:900;color:#1a3a5c;font-family:monospace;word-break:break-all;">{{ url_https or url_http }}</div>
+          <div style="font-size:15px;font-weight:900;color:var(--brand-ink);font-family:monospace;word-break:break-all;">{{ url_https or url_http }}</div>
         </div>
       </div>
 
       <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#f8f9fa;border-radius:8px;">
-        <span style="font-size:22px;">🌐</span>
+        <span style="color:#555;">{{ ic.svg('rede', 22) }}</span>
         <div style="flex:1;min-width:0;">
           <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;">Alternativo — HTTP (Android)</div>
           <div style="font-size:15px;font-weight:700;color:#555;font-family:monospace;word-break:break-all;">{{ url_http }}</div>
@@ -36,29 +37,29 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
       <!-- iOS -->
-      <div style="text-align:center;padding:16px;background:#f4f7fb;border-radius:10px;border:2px solid #1a3a5c;">
-        <div style="font-size:18px;margin-bottom:4px;">🍎</div>
-        <div style="font-weight:700;font-size:13px;color:#1a3a5c;margin-bottom:2px;">iPhone / iPad</div>
+      <div style="text-align:center;padding:16px;background:#f4f7fb;border-radius:10px;border:2px solid var(--brand-ink);">
+        <div style="margin-bottom:4px;color:var(--brand);">{{ ic.svg('celular', 22) }}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--brand-ink);margin-bottom:2px;">iPhone / iPad</div>
         <div style="font-size:11px;color:#888;margin-bottom:10px;">HTTPS — com certificado</div>
         {{ qr_ios | safe }}
         <div style="font-size:10px;color:#aaa;margin-top:8px;font-family:monospace;word-break:break-all;">{{ url_https or url_http }}</div>
         {% if tem_ssl %}
         <a href="{{ url_http }}/cert"
-           style="display:inline-block;margin-top:10px;background:#1a3a5c;color:#fff;
+           style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:var(--brand-ink);color:#fff;
                   font-size:11px;font-weight:600;padding:6px 12px;border-radius:6px;
-                  text-decoration:none;">⬇️ Baixar Certificado</a>
+                  text-decoration:none;">{{ ic.svg('baixar', 13) }} Baixar Certificado</a>
         <div style="font-size:10px;color:#888;margin-top:4px;">Instale antes de escanear o QR</div>
         {% endif %}
       </div>
 
       <!-- Android -->
-      <div style="text-align:center;padding:16px;background:#f1fff6;border-radius:10px;border:2px solid #27ae60;">
-        <div style="font-size:18px;margin-bottom:4px;">🤖</div>
-        <div style="font-weight:700;font-size:13px;color:#27ae60;margin-bottom:2px;">Android</div>
+      <div style="text-align:center;padding:16px;background:#f1fff6;border-radius:10px;border:2px solid var(--ok-text);">
+        <div style="margin-bottom:4px;color:var(--ok-text);">{{ ic.svg('celular', 22) }}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--ok-text);margin-bottom:2px;">Android</div>
         <div style="font-size:11px;color:#888;margin-bottom:10px;">HTTP — acesso direto</div>
         {{ qr_android | safe }}
         <div style="font-size:10px;color:#aaa;margin-top:8px;font-family:monospace;word-break:break-all;">{{ url_http }}</div>
-        <div style="font-size:10px;color:#27ae60;margin-top:10px;font-weight:600;">✓ Sem certificado · sem aviso</div>
+        <div style="font-size:10px;color:var(--ok-text);margin-top:10px;font-weight:600;">Sem certificado · sem aviso</div>
       </div>
 
     </div>
@@ -67,12 +68,12 @@
   <!-- iOS — Configuração -->
   <div class="card" style="margin-bottom:16px;">
     <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:20px;">🍎</span> Configuração — iPhone / iPad
+      <span style="color:var(--brand);">{{ ic.svg('celular', 18) }}</span> Configuração — iPhone / iPad
     </h3>
     <div style="display:flex;flex-direction:column;gap:0;">
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--brand-ink);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">1</div>
         <div>
@@ -82,7 +83,7 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--brand-ink);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">2</div>
         <div>
@@ -96,7 +97,7 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--brand-ink);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">3</div>
         <div>
@@ -108,7 +109,7 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#1a3a5c;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--brand-ink);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">4</div>
         <div>
@@ -121,11 +122,11 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;">
-        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--ok-text);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:14px;
-                    font-weight:800;flex-shrink:0;">✓</div>
+                    font-weight:800;flex-shrink:0;">{{ ic.svg('check', 13) }}</div>
         <div>
-          <div style="font-weight:700;font-size:13px;color:#27ae60;">Pronto — feito uma única vez</div>
+          <div style="font-weight:700;font-size:13px;color:var(--ok-text);">Pronto — feito uma única vez</div>
           <div style="font-size:12px;color:#666;margin-top:3px;">
             Escaneie o QR iOS acima — abre direto no Safari sem aviso.
           </div>
@@ -138,12 +139,12 @@
   <!-- Android — Configuração -->
   <div class="card" style="margin-bottom:16px;">
     <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:20px;">🤖</span> Configuração — Android
+      <span style="color:var(--ok-text);">{{ ic.svg('celular', 18) }}</span> Configuração — Android
     </h3>
     <div style="display:flex;flex-direction:column;gap:0;">
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--ok-text);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">1</div>
         <div>
@@ -153,7 +154,7 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid #f0f0f0;">
-        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--ok-text);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:13px;
                     font-weight:800;flex-shrink:0;">2</div>
         <div>
@@ -166,11 +167,11 @@
       </div>
 
       <div style="display:flex;gap:14px;padding:12px 0;">
-        <div style="width:26px;height:26px;background:#27ae60;color:#fff;border-radius:50%;
+        <div style="width:26px;height:26px;background:var(--ok-text);color:#fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:14px;
-                    font-weight:800;flex-shrink:0;">✓</div>
+                    font-weight:800;flex-shrink:0;">{{ ic.svg('check', 13) }}</div>
         <div>
-          <div style="font-weight:700;font-size:13px;color:#27ae60;">Pronto para uso</div>
+          <div style="font-weight:700;font-size:13px;color:var(--ok-text);">Pronto para uso</div>
           <div style="font-size:12px;color:#666;margin-top:3px;">
             Acesse o admin sempre via <code style="background:#f0f0f0;padding:1px 5px;border-radius:3px;">{{ url_http }}</code>.<br>
             O QR das etiquetas usa HTTPS — se aparecer aviso, toque <strong>"Avançado" → "Continuar"</strong>.
@@ -182,15 +183,15 @@
   </div>
 
   <!-- Firewall -->
-  <div class="card" style="border:1.5px solid #f39c12;">
-    <h3 style="margin-bottom:10px;">🔥 Firewall do Windows</h3>
+  <div class="card" style="border:1.5px solid var(--warn-text);">
+    <h3 style="margin-bottom:10px;display:flex;align-items:center;gap:7px;color:var(--warn-text);">{{ ic.svg('alerta', 18) }} Firewall do Windows</h3>
     <p style="font-size:13px;color:#555;margin-bottom:10px;">
       Se um celular não conseguir acessar, execute como <strong>Administrador</strong> no CMD:
     </p>
     <code id="fw-cmd" style="display:block;background:#f8f8f8;padding:10px;border-radius:6px;
           font-size:11px;word-break:break-all;user-select:all;border:1px solid #ddd;">netsh advfirewall firewall add rule name="Kit Conference" dir=in action=allow protocol=TCP localport=8011,8080</code>
     <button onclick="copiar()" class="btn btn-warning" style="margin-top:10px;font-size:12px;padding:6px 14px;">
-      📋 Copiar
+      {{ ic.svg('clipboard', 13) }} Copiar
     </button>
   </div>
 

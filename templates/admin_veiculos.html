@@ -1,7 +1,17 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pg %}
 {% import "_filtros.html" as f %}
+{% import "_icones.html" as ic %}
 {% block title %}Veículos e Clientes{% endblock %}
+{% block acoes_topo %}
+<button type="button" class="btn btn-primary btn-sm" onclick="abrirListaCadastro('veiculo')">
+  {{ ic.svg('mais', 15) }} Novo Veículo
+</button>
+<a href="/admin/veiculos/import" class="btn btn-secondary btn-sm">{{ ic.svg('importar', 15) }} Importar Excel</a>
+<a href="/admin/veiculos/importacoes" class="btn btn-ghost btn-sm">{{ ic.svg('relogio', 15) }} Importações</a>
+<a href="/admin/veiculos/modelo.xlsx" class="btn btn-ghost btn-sm">{{ ic.svg('baixar', 15) }} Baixar Modelo</a>
+{% endblock %}
+
 {% block content %}
 <style>
 /* Clientes e garagens como listas suspensas dentro de uma caixa de altura
@@ -54,40 +64,34 @@
 }
 .ls-excluir:hover { background: #f9ecea; }
 </style>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-  <h1>Veículos e Clientes</h1>
-  {# Clientes e garagens saíram do topo da página e viraram botão: são
-     cadastro de apoio, consultado de vez em quando, e ocupavam a primeira
-     tela inteira antes da lista de veículos — que é o que se vem ver. #}
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-    <button type="button" class="btn btn-primary" onclick="abrirListaCadastro('clientes')">
-      🏢 Clientes <span class="badge badge-info">{{ clientes_cadastrados | length }}</span>
-    </button>
-    <button type="button" class="btn btn-primary" onclick="abrirListaCadastro('garagens')">
-      🏭 Garagens <span class="badge badge-info">{{ garagens_cadastradas | length }}</span>
-    </button>
-    <button type="button" class="btn btn-success" onclick="abrirListaCadastro('veiculo')">
-      ＋ Novo Veículo
-    </button>
-    <a href="/admin/veiculos/import" class="btn btn-primary">📥 Importar Excel</a>
-    <a href="/admin/veiculos/importacoes" class="btn btn-secondary">🕘 Importações</a>
-    <a href="/admin/veiculos/modelo.xlsx" class="btn btn-secondary">📄 Baixar Modelo</a>
+<section class="ds-kpis">
+  <button type="button" class="ds-kpi" onclick="abrirListaCadastro('clientes')" title="Ver e cadastrar clientes">
+    <div><p class="ds-kpi-label">Clientes</p><p class="ds-kpi-value">{{ clientes_cadastrados | length }}</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('cliente', 20) }}</span>
+  </button>
+  <button type="button" class="ds-kpi" onclick="abrirListaCadastro('garagens')" title="Ver e cadastrar garagens">
+    <div><p class="ds-kpi-label">Garagens</p><p class="ds-kpi-value">{{ garagens_cadastradas | length }}</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('garagem', 20) }}</span>
+  </button>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Veículos cadastrados</p><p class="ds-kpi-value">{{ total_geral }}</p></div>
+    <span class="ds-kpi-icon success">{{ ic.svg('veiculos', 20) }}</span>
   </div>
-</div>
+</section>
 
 {% if request.query_params.get('ok') == 'excluidos' %}
 <div class="alert alert-success">
-  🗑 {{ request.query_params.get('qtd', '?') }} veículo(s) excluído(s).
+  {{ ic.svg('excluir', 15) }} {{ request.query_params.get('qtd', '?') }} veículo(s) excluído(s).
   O histórico de kits de cada um foi preservado.
 </div>
 {% elif request.query_params.get('ok') == 'cliente' %}
-<div class="alert alert-success">✅ Cliente adicionado com sucesso.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 15) }} Cliente adicionado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'cliente_excluido' %}
-<div class="alert alert-success">✅ Cliente excluído.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 15) }} Cliente excluído.</div>
 {% elif request.query_params.get('ok') == 'garagem' %}
-<div class="alert alert-success">✅ Garagem adicionada com sucesso.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 15) }} Garagem adicionada com sucesso.</div>
 {% elif request.query_params.get('ok') == 'garagem_excluida' %}
-<div class="alert alert-success">✅ Garagem excluída.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 15) }} Garagem excluída.</div>
 {% elif request.query_params.get('ok') %}
 {# As ações de patrimônio (mover, corrigir, adicionar) mandam a FRASE do que
    aconteceu — "Código alterado de X para Y". As outras rotas mandam um código
@@ -95,24 +99,24 @@
    espaço; código não. #}
 {% set msg_ok = request.query_params.get('ok') %}
 <div class="alert alert-success">
-  ✅ {{ msg_ok if ' ' in msg_ok else 'Operação realizada com sucesso.' }}
+  {{ ic.svg('check-circulo', 15) }} {{ msg_ok if ' ' in msg_ok else 'Operação realizada com sucesso.' }}
 </div>
 {% endif %}
 {# Sem este bloco, uma correção RECUSADA (motivo curto, código já em uso)
    voltava pra cá sem dizer nada: a lista recarregava igual e a impressão era
    de que o sistema tinha simplesmente ignorado o comando. #}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 15) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 {% if request.query_params.get('erro_cliente') == 'duplicado' %}
-<div class="alert alert-danger">⚠️ Este cliente já está cadastrado.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 15) }} Este cliente já está cadastrado.</div>
 {% elif request.query_params.get('erro_cliente') == 'vazio' %}
-<div class="alert alert-danger">⚠️ O nome do cliente não pode ser vazio.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 15) }} O nome do cliente não pode ser vazio.</div>
 {% endif %}
 {% if request.query_params.get('erro_garagem') == 'duplicado' %}
-<div class="alert alert-danger">⚠️ Esta garagem já está cadastrada.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 15) }} Esta garagem já está cadastrada.</div>
 {% elif request.query_params.get('erro_garagem') == 'vazio' %}
-<div class="alert alert-danger">⚠️ O nome da garagem não pode ser vazio.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 15) }} O nome da garagem não pode ser vazio.</div>
 {% endif %}
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -125,7 +129,7 @@
      aria-labelledby="titulo-modal-clientes">
   <div class="modal-cabecalho">
     <div>
-      <strong id="titulo-modal-clientes">🏢 Clientes</strong>
+      <strong id="titulo-modal-clientes">{{ ic.svg('cliente', 16) }} Clientes</strong>
       <span class="modal-sub">abra um cliente pra ver em quais garagens os veículos dele estão</span>
     </div>
     <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
@@ -136,10 +140,10 @@
         style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
     <input type="text" name="nome" placeholder="Nome do cliente" required
            style="flex:1;margin-bottom:0;">
-    <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
+    <button type="submit" class="btn btn-success" style="white-space:nowrap;">{{ ic.svg('mais', 15) }} Adicionar</button>
   </form>
   {% if clientes_cadastrados %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar cliente ou garagem..."
+  <input type="text" class="busca-box" placeholder="Buscar cliente ou garagem..."
          oninput="filtrarLista(this)" data-filtro-alvo="#lista-clientes > details">
   {# Lista suspensa: abrir um cliente mostra em quais garagens os veículos
      dele estão, e cada garagem é atalho pra página dela. O vínculo não
@@ -159,7 +163,7 @@
         <div class="ls-links">
           {% for g in gars %}
           {% if g.id %}
-          <a href="/admin/garagens/{{ g.id }}" style="color:{{ cor }};">🏭 {{ g.nome }} <em>{{ g.veiculos }}</em></a>
+          <a href="/admin/garagens/{{ g.id }}" style="color:{{ cor }};">{{ g.nome }} <em>{{ g.veiculos }}</em></a>
           {% else %}
           <span class="ls-sem-link" style="color:{{ cor }};">{{ g.nome }} <em>{{ g.veiculos }}</em></span>
           {% endif %}
@@ -169,12 +173,12 @@
         <p class="ls-vazio">Nenhum veículo cadastrado neste cliente.</p>
         {% endif %}
         <div class="ls-acoes">
-          <a href="/admin/clientes/{{ c.id }}" class="btn btn-sm btn-primary">Abrir cliente →</a>
+          <a href="/admin/clientes/{{ c.id }}" class="btn btn-sm btn-secondary">Abrir cliente →</a>
           <span class="ls-desde">desde {{ c.criado_em[:10] }}</span>
           {% if user and user.admin %}
           <form method="post" action="/admin/clientes/{{ c.id }}/delete"
                 onsubmit="return confirm('Excluir o cliente \'{{ c.nome }}\'?')">
-            <button type="submit" class="ls-excluir" title="Excluir cliente">✕ Excluir</button>
+            <button type="submit" class="ls-excluir" title="Excluir cliente">{{ ic.svg('excluir', 12) }} Excluir</button>
           </form>
           {% endif %}
         </div>
@@ -192,7 +196,7 @@
      aria-labelledby="titulo-modal-garagens">
   <div class="modal-cabecalho">
     <div>
-      <strong id="titulo-modal-garagens">🏭 Garagens</strong>
+      <strong id="titulo-modal-garagens">{{ ic.svg('garagem', 16) }} Garagens</strong>
       <span class="modal-sub">abra uma garagem pra ver quais clientes ela atende</span>
     </div>
     <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
@@ -203,10 +207,10 @@
         style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;">
     <input type="text" name="nome" placeholder="Nome da garagem" required
            style="flex:1;margin-bottom:0;">
-    <button type="submit" class="btn btn-success" style="white-space:nowrap;">＋ Adicionar</button>
+    <button type="submit" class="btn btn-success" style="white-space:nowrap;">{{ ic.svg('mais', 15) }} Adicionar</button>
   </form>
   {% if garagens_cadastradas %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar garagem ou cliente..."
+  <input type="text" class="busca-box" placeholder="Buscar garagem ou cliente..."
          oninput="filtrarLista(this)" data-filtro-alvo="#lista-garagens > details">
   <div class="lista-suspensa" id="lista-garagens">
     {% for g in garagens_cadastradas %}
@@ -225,7 +229,7 @@
         <div class="ls-links">
           {% for c in clis %}
           {% if c.id %}
-          <a href="/admin/clientes/{{ c.id }}" style="color:{{ cor_do_cliente(c.nome) }};">🏢 {{ c.nome }} <em>{{ c.veiculos }}</em></a>
+          <a href="/admin/clientes/{{ c.id }}" style="color:{{ cor_do_cliente(c.nome) }};">{{ c.nome }} <em>{{ c.veiculos }}</em></a>
           {% else %}
           <span class="ls-sem-link" style="color:{{ cor_do_cliente(c.nome) }};">{{ c.nome }} <em>{{ c.veiculos }}</em></span>
           {% endif %}
@@ -235,12 +239,12 @@
         <p class="ls-vazio">Nenhum veículo nesta garagem.</p>
         {% endif %}
         <div class="ls-acoes">
-          <a href="/admin/garagens/{{ g.id }}" class="btn btn-sm btn-primary">Abrir garagem →</a>
+          <a href="/admin/garagens/{{ g.id }}" class="btn btn-sm btn-secondary">Abrir garagem →</a>
           <span class="ls-desde">desde {{ g.criado_em[:10] }}</span>
           {% if user and user.admin %}
           <form method="post" action="/admin/garagens/{{ g.id }}/delete"
                 onsubmit="return confirm('Excluir a garagem \'{{ g.nome }}\'?')">
-            <button type="submit" class="ls-excluir" title="Excluir garagem">✕ Excluir</button>
+            <button type="submit" class="ls-excluir" title="Excluir garagem">{{ ic.svg('excluir', 12) }} Excluir</button>
           </form>
           {% endif %}
         </div>
@@ -258,7 +262,7 @@
      aria-labelledby="titulo-modal-veiculo">
   <div class="modal-cabecalho">
     <div>
-      <strong id="titulo-modal-veiculo">➕ Novo Veículo</strong>
+      <strong id="titulo-modal-veiculo">{{ ic.svg('mais', 16) }} Novo Veículo</strong>
       <span class="modal-sub">cliente, garagem e modelo saem dos cadastros — nada é digitado à mão</span>
     </div>
     <button type="button" class="modal-fechar" onclick="fecharListaCadastro()"
@@ -299,7 +303,7 @@
       </select>
     </div>
     <div>
-      <button type="submit" class="btn btn-success">＋ Adicionar Veículo</button>
+      <button type="submit" class="btn btn-success">{{ ic.svg('mais', 15) }} Adicionar Veículo</button>
     </div>
   </form>
   </div>
@@ -312,7 +316,7 @@
      sistema não apaga sozinho (cada um pode ter kits no histórico) —
      o admin decide qual fica e exclui o outro pela seleção abaixo. -->
 <div class="alert alert-danger" style="margin-bottom:16px;">
-  ⚠️ <strong>{{ duplicados | length }} número(s) de veículo cadastrados mais de uma vez:</strong>
+  {{ ic.svg('alerta', 15) }} <strong>{{ duplicados | length }} número(s) de veículo cadastrados mais de uma vez:</strong>
   {% for d in duplicados %}
     <strong>{{ d.numero }}</strong> ({{ d.repeticoes }}×: {{ d.clientes }}){{ ", " if not loop.last }}
   {% endfor %}
@@ -326,18 +330,18 @@
   <!-- Contagem sempre visível: total cadastrado e, com filtro/busca ativo,
        quantos estão sendo exibidos — os dois números lado a lado. -->
   <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-    <h2 style="margin:0;">🚚 Veículos</h2>
-    <span class="badge" style="background:#1a3a5c;color:#fff;font-size:13px;">
+    <h2 style="margin:0;display:flex;align-items:center;gap:8px;">{{ ic.svg('veiculos', 17) }} Veículos</h2>
+    <span class="badge" style="font-size:13px;">
       {{ total_geral }} cadastrados
     </span>
-    <span class="badge" id="badge-exibindo"
-          style="background:#2980b9;color:#fff;font-size:13px;{{ '' if tem_filtro else 'display:none;' }}">
+    <span class="badge badge-info" id="badge-exibindo"
+          style="font-size:13px;{{ '' if tem_filtro else 'display:none;' }}">
       exibindo {{ pag_veiculos.total }}
     </span>
     {% if sem_modelo %}
     <span class="badge badge-warning"
           title="Veículo sem modelo não aparece em nenhum kit — defina o modelo pra ele voltar a ser bipável">
-      ⚠️ {{ sem_modelo }} sem modelo
+      {{ ic.svg('alerta', 12) }} {{ sem_modelo }} sem modelo
     </span>
     {% endif %}
   </div>
@@ -347,13 +351,13 @@
   <form method="get" action="/admin/veiculos" id="form-filtros-veiculos"
         data-busca-viva="#bloco-veiculos,#badge-exibindo,#btn-limpar-filtros">
     <div class="filtros-linha">
-      <span class="filtros-rotulo">🔍 Busca</span>
+      <span class="filtros-rotulo">{{ ic.svg('busca', 13) }} Busca</span>
       <input type="text" name="busca" id="busca-veiculos" value="{{ busca }}"
              autocomplete="off" style="flex:1;min-width:220px;margin:0;"
              placeholder="Número, cliente, garagem, kit, localização ou patrimônio bipado...">
     </div>
     <div class="filtros-linha">
-      <span class="filtros-rotulo">⚙️ Filtros</span>
+      <span class="filtros-rotulo">{{ ic.svg('filtro', 13) }} Filtros</span>
       {# Filtros de múltipla escolha: duas garagens, três situações — as
          opções do MESMO filtro somam, e filtros diferentes se cruzam. #}
       {{ f.multi('cliente', 'Cliente', clientes, filtro_cliente, 'todos') }}
@@ -370,21 +374,21 @@
            ('transito', 'Em trânsito'),
            ('cliente', 'Cliente'),
            ('sem_localizacao', '— não configurado'),
-           ('sem_modelo', '⚠️ Sem modelo'),
+           ('sem_modelo', 'Sem modelo'),
            ('sem_garagem', 'Sem garagem'),
            ('sem_kits', 'Nunca recebeu kit'),
            ('com_kits', 'Já recebeu kit'),
-           ('falta_item', '⚠️ Kit faltando item'),
+           ('falta_item', 'Kit faltando item'),
          ], filtro_situacao, 'todas') }}
       <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
-      <a href="/admin/veiculos" class="btn btn-sm btn-warning" id="btn-limpar-filtros"
-         style="{{ '' if tem_filtro else 'display:none;' }}">✕ Limpar</a>
+      <a href="/admin/veiculos" class="btn btn-sm btn-ghost" id="btn-limpar-filtros"
+         style="{{ '' if tem_filtro else 'display:none;' }}">{{ ic.svg('fechar', 13) }} Limpar</a>
     </div>
     {# Período de IMPORTAÇÃO: "quem entrou no sistema entre tal e tal dia".
        Um dia só = as duas datas iguais. É o filtro que transforma uma
        importação inteira num lote de trabalho. #}
     <div class="filtros-linha">
-      <span class="filtros-rotulo">📅 Importado</span>
+      <span class="filtros-rotulo">{{ ic.svg('calendario', 13) }} Importado</span>
       <label style="font-size:12px;color:#7a8794;">de</label>
       <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
              onchange="this.form.submit()">
@@ -396,7 +400,7 @@
       <span style="font-size:12px;color:#7a8794;">
         {{ pag_veiculos.total }} veículo(s) neste período —
         dá pra levar todos pra uma remessa em
-        <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">📦 Remessas</a>.
+        <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">Remessas</a>.
       </span>
       {% endif %}
     </div>
@@ -497,20 +501,21 @@
       </td>
       <td>
         {% if v.modelo %}{{ v.modelo }}
-        {% else %}<span style="color:#e67e22;font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">⚠️ sem modelo</span>{% endif %}
+        {% else %}<span style="color:var(--warn-text);font-size:12px;" title="Sem modelo, o veículo não aparece em nenhum kit">{{ ic.svg('alerta', 12) }} sem modelo</span>{% endif %}
         {# Pendência de reposição: o kit deste veículo está com menos itens do
            que o modelo pede (item foi pra outro veículo ou foi retirado). #}
         {% if v.falta_item %}
         {# Nomeia o item: "CVC não encontrado" diz o que fazer; "falta item"
            obrigava a abrir pra descobrir o quê. #}
         <button type="button" class="badge badge-danger"
-                style="border:0;cursor:pointer;display:inline-block;margin-top:3px;"
+                style="border:0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:3px;"
                 onclick="abrirPainelVeiculo({{ v.id }}, '{{ v.numero | e }}')"
                 title="Clique para ver o histórico e repor">
+          {{ ic.svg('alerta', 11) }}
           {% if v.falta_item.faltas | length == 1 %}
-          ⚠️ {{ v.falta_item.faltas[0].aviso }}
+          {{ v.falta_item.faltas[0].aviso }}
           {% else %}
-          ⚠️ {{ v.falta_item.faltas | length }} itens não encontrados
+          {{ v.falta_item.faltas | length }} itens não encontrados
           {% endif %}
         </button>
         {% endif %}
@@ -532,14 +537,14 @@
       </td>
       <td>
         {% if v.total_kits > 0 %}
-          <span style="color:#27ae60;font-weight:700;">✅ {{ v.total_kits }}</span>
+          <span style="color:var(--ok-text);font-weight:700;display:inline-flex;align-items:center;gap:4px;">{{ ic.svg('check', 13) }} {{ v.total_kits }}</span>
         {% else %}
-          <span style="color:#aaa;">⚠️ Nenhum</span>
+          <span style="color:#aaa;">Nenhum</span>
         {% endif %}
       </td>
       <td style="font-size:12px;color:#888;">{{ v.ultimo_kit_em[:10] if v.ultimo_kit_em else '—' }}</td>
       <td>
-        <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-primary">Ver</a>
+        <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Ver</a>
       </td>
     </tr>
     {% endfor %}
@@ -549,7 +554,7 @@
   {% if user and user.admin %}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="submit" class="btn btn-sm btn-danger" id="btn-excluir-massa" disabled>
-      🗑 Excluir selecionados (<span id="qtd-selecionados">0</span>)
+      {{ ic.svg('excluir', 13) }} Excluir selecionados (<span id="qtd-selecionados">0</span>)
     </button>
     <span style="font-size:12px;color:#888;">
       Marque os veículos acima — ou o quadradinho do topo pra marcar a página inteira.

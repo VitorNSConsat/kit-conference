@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Kits — Mobile</title>
+{% import "_icones.html" as ic %}
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1e4976">
+<meta name="theme-color" content="#246b84">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kit Conf">
@@ -23,7 +24,7 @@
 
   /* ── Header ─── */
   .header {
-    background: linear-gradient(135deg, #1e4976 0%, #16324f 100%);
+    background: linear-gradient(135deg, #246b84 0%, #1d586c 100%);
     color: #fff;
     padding: 16px 18px;
     display: flex;
@@ -51,7 +52,7 @@
   .header a.login-btn {
     font-size: 13px;
     background: #fff;
-    color: #1e4976;
+    color: #246b84;
     padding: 7px 16px;
     border-radius: 999px;
     text-decoration: none;
@@ -103,7 +104,7 @@
   .btn-start {
     width: 100%;
     padding: 15px;
-    background: #1e4976;
+    background: #246b84;
     color: #fff;
     border: none;
     border-radius: 999px;
@@ -115,7 +116,7 @@
     justify-content: center;
     gap: 8px;
   }
-  .btn-start:active { background: #16324f; }
+  .btn-start:active { background: #1d586c; }
 
   /* ── Session / kit row ─── */
   .row-link {
@@ -154,7 +155,7 @@
     font-size: 10px;
     font-weight: 700;
     background: #fdf0dc;
-    color: #a15c07;
+    color: var(--warn-text);
     padding: 2px 7px;
     border-radius: 999px;
     margin-left: 4px;
@@ -185,7 +186,7 @@
   }
   .quick-btn:active { background: #faf7f1; }
   .quick-btn .qb-icon { font-size: 26px; margin-bottom: 6px; }
-  .quick-btn .qb-label { font-size: 12px; font-weight: 700; color: #1e4976; }
+  .quick-btn .qb-label { font-size: 12px; font-weight: 700; color: #246b84; }
 
   /* ── Alerta ─── */
   .alert-danger {
@@ -196,7 +197,7 @@
 
   /* ── Login CTA ─── */
   .login-cta {
-    background: linear-gradient(135deg, #1e4976 0%, #16324f 100%);
+    background: linear-gradient(135deg, #246b84 0%, #1d586c 100%);
     color: #fff;
     border-radius: 16px;
     padding: 20px 18px;
@@ -207,7 +208,7 @@
   .login-cta a {
     display: inline-block;
     background: #fff;
-    color: #1e4976;
+    color: #246b84;
     padding: 12px 28px;
     border-radius: 999px;
     font-size: 15px;
@@ -222,23 +223,23 @@
 <body>
 
 <div class="header">
-  <h1>📦 Kits Mobile</h1>
+  <h1 style="display:flex;align-items:center;gap:8px;">{{ ic.svg('caixa', 18) }} Kits Mobile</h1>
   {% if user %}
   <div class="user-area">
     <span class="user-chip">{{ user.nome }}</span>
     <a href="/logout" class="sair-link">Sair</a>
   </div>
   {% else %}
-  <a href="/login?next=/mobile" class="login-btn">🔒 Entrar</a>
+  <a href="/login?next=/mobile" class="login-btn">Entrar</a>
   {% endif %}
 </div>
 
 <div class="container">
 
   {% if request.query_params.get('erro') == 'estoque_nao_encontrado' %}
-  <div class="alert-danger">⚠️ Código não encontrado no estoque.</div>
+  <div class="alert-danger">Código não encontrado no estoque.</div>
   {% elif request.query_params.get('erro') == 'kit_nao_encontrado' %}
-  <div class="alert-danger">⚠️ Kit não encontrado.</div>
+  <div class="alert-danger">Kit não encontrado.</div>
   {% endif %}
 
   {% if user %}
@@ -256,7 +257,7 @@
           <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="btn-start">📷 Iniciar Bipagem</button>
+        <button type="submit" class="btn-start">{{ ic.svg('celular', 18) }} Iniciar Bipagem</button>
       </form>
       {% else %}
       <p class="empty">Nenhum template ativo. Cadastre no computador.</p>
@@ -270,7 +271,7 @@
   <div class="card">
     {% for s in sessoes_ativas %}
     <a href="/session/{{ s.id }}" class="row-link">
-      <div class="row-icon scan">📋</div>
+      <div class="row-icon scan">{{ ic.svg('kits', 20) }}</div>
       <div class="row-info">
         <div class="row-nome">{{ s.veiculo or s.kit_nome }}</div>
         <div class="row-meta">{{ s.kit_nome }} · {{ s.cliente }} · {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}</div>
@@ -284,13 +285,13 @@
   <!-- ── Outros Kits em Andamento (de outros operadores) ──────────────── -->
   {% if sessoes_outros %}
   <details class="card" style="padding:0;">
-    <summary style="padding:14px 16px; font-size:13px; font-weight:700; color:#1e4976; cursor:pointer; list-style:none;">
-      👥 Ver outros kits em andamento ({{ sessoes_outros | length }})
+    <summary style="padding:14px 16px; font-size:13px; font-weight:700; color:#246b84; cursor:pointer; list-style:none;">
+      {{ ic.svg('usuarios', 15) }} Ver outros kits em andamento ({{ sessoes_outros | length }})
     </summary>
     <div style="border-top:1px solid #f0ece2;">
       {% for s in sessoes_outros %}
       <a href="/session/{{ s.id }}" class="row-link">
-        <div class="row-icon scan">📋</div>
+        <div class="row-icon scan">{{ ic.svg('kits', 20) }}</div>
         <div class="row-info">
           <div class="row-nome">{{ s.veiculo or s.kit_nome }}</div>
           <div class="row-meta">{{ s.kit_nome }} · iniciado por {{ s.operador_nome }} · {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}</div>
@@ -309,7 +310,7 @@
        o atalho aqui (a rota também barra). #}
     {% if pode('ver_itens') %}
     <a href="/estoque" class="quick-btn">
-      <div class="qb-icon">📦</div>
+      <div class="qb-icon">{{ ic.svg('itens', 24) }}</div>
       <div class="qb-label">Estoque</div>
     </a>
     {% endif %}
@@ -317,16 +318,16 @@
     {# Versão de consulta da esteira — a de computador tem ação em lote, que
        no telefone só rende toque errado. #}
     <a href="/producao/mobile" class="quick-btn">
-      <div class="qb-icon">🚚</div>
+      <div class="qb-icon">{{ ic.svg('producao', 24) }}</div>
       <div class="qb-label">Produção</div>
     </a>
     {% endif %}
     <button type="button" class="quick-btn" onclick="abrirConsultaEstoque()">
-      <div class="qb-icon">🔍</div>
+      <div class="qb-icon">{{ ic.svg('busca', 24) }}</div>
       <div class="qb-label">Consultar Item</div>
     </button>
     <button type="button" class="quick-btn" onclick="abrirConsultaKit()">
-      <div class="qb-icon">📋</div>
+      <div class="qb-icon">{{ ic.svg('kits', 24) }}</div>
       <div class="qb-label">Consultar Kit</div>
     </button>
   </div>
@@ -336,7 +337,7 @@
   <!-- ── CTA Login ─────────────────────────────────────── -->
   <div class="login-cta" style="margin-top:12px;">
     <p>Entre para iniciar uma bipagem, verificar kits e acessar o estoque.</p>
-    <a href="/login?next=/mobile">🔒 Entrar</a>
+    <a href="/login?next=/mobile">Entrar</a>
   </div>
 
   {% endif %}
@@ -359,9 +360,9 @@
       <div id="est-status" style="color:#fff; font-size:14px; font-weight:600;">Aponte para o código do item</div>
     </div>
     <button onclick="fecharConsultaEstoque()"
-            style="background:#c0392b; color:#fff; border:none; padding:11px 18px;
+            style="background:var(--danger-text); color:#fff; border:none; padding:11px 18px;
                    border-radius:8px; font-size:14px; font-weight:700; flex-shrink:0;">
-      ✕ Fechar
+      {{ ic.svg('fechar', 15) }} Fechar
     </button>
   </div>
   <div style="background:#111; padding:8px 16px 14px; display:flex; gap:8px; flex-shrink:0;">
@@ -370,8 +371,8 @@
            style="flex:1; padding:11px 12px; font-size:16px; border:none; border-radius:10px;
                   background:rgba(255,255,255,.12); color:#fff; outline:none; min-width:0;"
            onkeydown="if(event.key==='Enter'){_estBuscarManual();}">
-    <button onclick="_estBuscarManual()" style="flex-shrink:0; width:46px; background:#27ae60;
-            color:#fff; border:none; border-radius:10px; font-size:20px; font-weight:700;">✓</button>
+    <button onclick="_estBuscarManual()" style="flex-shrink:0; width:46px; background:var(--ok-text);
+            color:#fff; border:none; border-radius:10px; font-size:20px; font-weight:700;">{{ ic.svg('check', 18) }}</button>
   </div>
 </div>
 
@@ -474,7 +475,7 @@
                 const reader = new ZXing.BrowserMultiFormatReader(_zxingHints());
                 _iniciarLoopZXing(video, reader, meuToken);
             } else {
-                status.textContent = '⚠️ Scanner não disponível neste navegador.';
+                status.textContent = 'Scanner não disponível neste navegador.';
             }
         } catch (e) {
             fecharScannerEDigitar();
@@ -547,7 +548,7 @@
         const file = input.files && input.files[0];
         if (!file) return;
         document.getElementById('est-overlay').style.display = 'flex';
-        document.getElementById('est-status').textContent = '⏳ Lendo código…';
+        document.getElementById('est-status').textContent = 'Lendo código…';
 
         let codigo = null;
 
@@ -580,7 +581,7 @@
         if (codigo) {
             _irParaDestino(codigo, _token);
         } else {
-            document.getElementById('est-status').textContent = '⚠️ Código não detectado — tente novamente.';
+            document.getElementById('est-status').textContent = 'Código não detectado — tente novamente.';
         }
         input.value = '';
     };

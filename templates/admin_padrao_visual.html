@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% block title %}Padrão Visual{% endblock %}
+{% block content %}
+<style>
+.pv-secao { margin-bottom: 20px; }
+.pv-secao h2 { display: flex; align-items: center; gap: 8px; }
+.pv-desc { color: var(--text-muted); font-size: 13px; margin: -8px 0 16px; }
+.pv-swatches {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+}
+.pv-swatch {
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    background: var(--surface);
+}
+.pv-swatch-cor { height: 44px; border-bottom: 1px solid var(--border); }
+.pv-swatch-info { padding: 8px 10px; }
+.pv-swatch-token { font-family: monospace; font-size: 11.5px; color: var(--text); display: block; }
+.pv-swatch-hex { font-family: monospace; font-size: 11px; color: var(--text-muted); }
+.pv-swatch-uso { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.pv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.pv-tipo-linha {
+    display: flex; align-items: baseline; gap: 12px; padding: 7px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.pv-tipo-linha:last-child { border-bottom: none; }
+.pv-tipo-px { width: 56px; flex: 0 0 auto; font-size: 11px; color: var(--text-muted); font-family: monospace; }
+.pv-tipo-nome { font-size: 11.5px; color: var(--text-muted); }
+</style>
+
+<p class="pv-desc" style="margin-top:-4px;">
+  Referência viva do sistema: os tokens e componentes abaixo são os mesmos usados em toda tela —
+  mudar um valor aqui em <code>static/style.css</code> muda o sistema inteiro, não só esta página.
+</p>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('paleta', 17) }} Paleta</h2>
+  <p class="pv-desc">Base branca, marca <code>#246B84</code>. Poucas cores por tela: branco + cinzas + marca + no máximo uma semântica em destaque.</p>
+  <div class="pv-swatches">
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand</span><span class="pv-swatch-hex">#246b84</span><div class="pv-swatch-uso">Primário, item ativo, link, foco</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-dark);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-dark</span><span class="pv-swatch-hex">#1c5568</span><div class="pv-swatch-uso">Hover do primário</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-soft);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-soft</span><span class="pv-swatch-hex">#e8f1f4</span><div class="pv-swatch-uso">Fundo do item ativo, linha selecionada</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-border);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-border</span><span class="pv-swatch-hex">#bcd5dd</span><div class="pv-swatch-uso">Borda de elementos soft</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--surface);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--surface</span><span class="pv-swatch-hex">#ffffff</span><div class="pv-swatch-uso">Cards, tabelas, topbar</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--bg);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--bg</span><span class="pv-swatch-hex">#f6f8f9</span><div class="pv-swatch-uso">Fundo da página</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--surface-alt);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--surface-alt</span><span class="pv-swatch-hex">#fafbfc</span><div class="pv-swatch-uso">Header de tabela, hover</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--border);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--border</span><span class="pv-swatch-hex">#e3e7ea</span><div class="pv-swatch-uso">Borda padrão</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--text</span><span class="pv-swatch-hex">#16191d</span><div class="pv-swatch-uso">Texto principal</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text-muted);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--text-muted</span><span class="pv-swatch-hex">#6b7480</span><div class="pv-swatch-uso">Labels, metadados</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text-muted-2);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--text-muted-2</span><span class="pv-swatch-hex">#99a1ab</span><div class="pv-swatch-uso">Desabilitado</div></div></div>
+  </div>
+  <p style="font-size:11.5px;color:var(--text-muted);margin-top:10px;">Nenhum hex é escrito nos templates — sempre o token <code>var(--…)</code>.</p>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('alerta', 17) }} Cores semânticas</h2>
+  <p class="pv-desc">Sempre em par: fundo suave + texto na mesma cor, nunca cor sólida com texto branco.</p>
+  <div class="pv-swatches">
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--ok-text);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--ok-text / --ok-bg</span><span class="pv-swatch-hex">#15803d / #e9f7ef</span><div class="pv-swatch-uso">Confirmado, produzido, kit enviado</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--warn-text);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--warn-text / --warn-bg</span><span class="pv-swatch-hex">#b45309 / #fef6e7</span><div class="pv-swatch-uso">Estoque baixo, em produção</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--danger-text);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--danger-text / --danger-bg</span><span class="pv-swatch-hex">#b42318 / #fdecea</span><div class="pv-swatch-uso">Falha, cancelar, excluir</div></div></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand / --brand-soft</span><span class="pv-swatch-hex">#246b84 / #e8f1f4</span><div class="pv-swatch-uso">Em trânsito, dica, informação</div></div></div>
+  </div>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('mais', 17) }} Hierarquia de ação</h2>
+  <p class="pv-desc">Um único botão primário por tela. Verde só confirma, vermelho só destrói — o resto é secundário ou fantasma.</p>
+  <div class="pv-row">
+    <button type="button" class="btn btn-primary">Primário</button>
+    <button type="button" class="btn btn-secondary">Secundário</button>
+    <button type="button" class="btn btn-ghost">Fantasma</button>
+    <button type="button" class="btn btn-success">Confirmar</button>
+    <button type="button" class="btn btn-danger">Excluir</button>
+  </div>
+  <div class="pv-row" style="margin-top:12px;">
+    <button type="button" class="btn btn-sm btn-primary">Pequeno</button>
+    <button type="button" class="btn btn-primary">Padrão</button>
+    <button type="button" class="btn btn-primary" disabled>Desabilitado</button>
+    <button type="button" class="btn btn-secondary icon" title="Ícone">{{ ic.svg('filtro', 16) }}</button>
+  </div>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('filtro', 17) }} Controles</h2>
+  <p class="pv-desc">Campos, selects e filtros seguem a mesma altura e borda discreta do botão.</p>
+  <div class="pv-row" style="align-items:flex-start;">
+    <div class="form-group" style="margin:0;min-width:200px;">
+      <label>Número do veículo</label>
+      <input type="text" placeholder="ex: VH-042">
+    </div>
+    <div class="form-group" style="margin:0;min-width:200px;">
+      <label>Garagem</label>
+      <select><option>— selecione —</option><option>MB</option><option>HP CENTRAL</option></select>
+    </div>
+    <div class="form-group" style="margin:0;min-width:200px;">
+      <label>Campo com erro</label>
+      <input type="text" value="VH-042" style="border-color:var(--danger-border);">
+      <span style="font-size:11.5px;color:var(--danger-text);">Número já cadastrado.</span>
+    </div>
+  </div>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('check-circulo', 17) }} Badges, tags e status</h2>
+  <div class="pv-row">
+    <span class="badge">Neutro</span>
+    <span class="badge badge-info">Marca</span>
+    <span class="badge badge-success">Produzido</span>
+    <span class="badge badge-warning">Em produção</span>
+    <span class="badge badge-info">Em trânsito</span>
+    <span class="badge badge-danger">Cancelado</span>
+  </div>
+  <p style="font-size:11.5px;color:var(--text-muted);margin-top:12px;">
+    Cor de cliente/garagem é um ponto de identificação (nome, borda fina), nunca um fundo grande de tela.
+  </p>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('alerta', 17) }} Alertas</h2>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div class="alert alert-info">{{ ic.svg('alerta', 14) }} A esteira segue a bipagem nas três primeiras etapas.</div>
+    <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Importação concluída: 279 veículos.</div>
+    <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} 17 itens abaixo do mínimo.</div>
+  </div>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('veiculos', 17) }} Cards e KPIs</h2>
+  <section class="ds-kpis" style="margin-bottom:0;">
+    <div class="ds-kpi">
+      <div><p class="ds-kpi-label">Veículos cadastrados</p><p class="ds-kpi-value">1.284</p></div>
+      <span class="ds-kpi-icon">{{ ic.svg('veiculos', 20) }}</span>
+    </div>
+    <div class="ds-kpi">
+      <div><p class="ds-kpi-label">Produzidos hoje</p><p class="ds-kpi-value">36</p></div>
+      <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
+    </div>
+  </section>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('relatorios', 17) }} Tabelas</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Número</th><th>Cliente</th><th>Situação</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>VH-042</td><td>Exemplo Transportes</td><td><span class="badge badge-success">Produzido</span></td><td><a href="#" class="btn btn-sm btn-secondary">Ver</a></td></tr>
+        <tr><td>VH-043</td><td>Exemplo Transportes</td><td><span class="badge badge-warning">Em produção</span></td><td><a href="#" class="btn btn-sm btn-secondary">Ver</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card pv-secao">
+  <h2>{{ ic.svg('menu', 17) }} Navegação</h2>
+  <p class="pv-desc">Sidebar fixa à esquerda, agrupada por contexto (Operação, Cadastros, Gestão). O item ativo ganha fundo suave da marca, nunca cor cheia.</p>
+  <div style="max-width:220px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+    <a class="ds-nav-item ativo" style="margin:6px;">{{ ic.svg('veiculos', 17) }}<span>Item ativo</span></a>
+    <a class="ds-nav-item" style="margin:6px;">{{ ic.svg('itens', 17) }}<span>Item comum</span></a>
+  </div>
+</div>
+
+<div class="card pv-secao" style="margin-bottom:0;">
+  <h2>Aa Tipografia</h2>
+  <p class="pv-desc">Inter/sistema, pesos 400/500/600. Nunca 700 — negrito demais compete com o dado, não destaca ele.</p>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">28px</span><span style="font-size:28px;font-weight:600;">Valor de KPI</span><span class="pv-tipo-nome">— .ds-kpi-value</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">20px</span><span style="font-size:20px;font-weight:600;">Título de página</span><span class="pv-tipo-nome">— h1</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">16px</span><span style="font-size:16px;font-weight:600;">Título de card</span><span class="pv-tipo-nome">— h2</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">14px</span><span style="font-size:14px;">Corpo padrão e navegação</span><span class="pv-tipo-nome">— body</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">13px</span><span style="font-size:13px;">Tabela, botões, inputs</span><span class="pv-tipo-nome">— .btn, table</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">12px</span><span style="font-size:12px;color:var(--text-muted);">Metadados e hint</span><span class="pv-tipo-nome">— .ds-kpi-label</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">11px</span><span style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted-2);">Overline / header de tabela</span><span class="pv-tipo-nome">— .ds-nav-title</span></div>
+</div>
+{% endblock %}

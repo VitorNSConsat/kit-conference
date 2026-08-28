@@ -153,7 +153,7 @@ class _InatividadeMiddleware(BaseHTTPMiddleware):
                 # aí o operador veria um login desenhado dentro da janela.
                 if request.headers.get("X-Requested-With") == "fetch":
                     return HTMLResponse(
-                        "<div class='alert alert-danger'>🔒 Sessão encerrada por "
+                        "<div class='alert alert-danger'>Sessão encerrada por "
                         "inatividade. <a href='/login'>Entrar de novo</a></div>",
                         status_code=401)
                 return RedirectResponse("/login?expirado=1", status_code=302)
@@ -618,6 +618,12 @@ async def admin_usuarios(request: Request, pagina: int = 1, busca: str = ""):
         "inatividade": inatividade_mod.get_config(),
         "inatividade_max": inatividade_mod.MINUTOS_MAX,
     })
+
+
+@app.get("/admin/padrao-visual", response_class=HTMLResponse)
+@require_admin
+async def admin_padrao_visual(request: Request):
+    return render(request, "admin_padrao_visual.html", {})
 
 
 @app.post("/admin/usuarios/inatividade")
@@ -3867,9 +3873,9 @@ async def producao_mobile(request: Request):
          "linhas": _linhas(
              no_cliente,
              lambda i: i.get("veiculo") or i.get("kit_nome"),
-             lambda i: _cli_gar(i) + (" · ✅ concluído"
+             lambda i: _cli_gar(i) + (" · concluído"
                                       if i.get("status_producao") == "cliente_concluido"
-                                      else " · 🔧 instalando"),
+                                      else " · instalando"),
              lambda i: i.get("chegou_em"),
              lambda i: "/kit/%s" % i["kit_id"])},
     ]

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel de Produção</title>
+{% import "_icones.html" as ic %}
 <style>
   :root {
     color-scheme: light;
@@ -231,7 +232,7 @@
   </div>
   <div class="header-controls">
     <button type="button" class="theme-toggle" id="btn-theme" onclick="alternarTema()">
-      <span id="theme-icon">🌙</span><span id="theme-label">Modo escuro</span>
+      <span id="theme-icon">{{ ic.svg('lua', 14) }}</span><span id="theme-label">Modo escuro</span>
     </button>
     <div class="refresh">
       Atualiza a cada <input type="number" min="1" id="input-minutos" value="{{ minutos }}" onchange="ajustarIntervalo()"> min
@@ -366,9 +367,11 @@ function ajustarIntervalo() {
 
 document.getElementById('now').textContent = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+const ICONE_SOL = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+const ICONE_LUA = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
 function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
-    document.getElementById('theme-icon').textContent = tema === 'dark' ? '☀️' : '🌙';
+    document.getElementById('theme-icon').innerHTML = tema === 'dark' ? ICONE_SOL : ICONE_LUA;
     document.getElementById('theme-label').textContent = tema === 'dark' ? 'Modo claro' : 'Modo escuro';
 }
 

@@ -22,13 +22,13 @@
 .indice a { font-size: 14px; text-decoration: none; }
 .doc .nota { background: #f0f4f8; border-left: 4px solid var(--brand);
              border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
-.doc .cuidado { background: var(--warn-bg); border-left: 4px solid #e67e22;
+.doc .cuidado { background: var(--warn-bg); border-left: 4px solid var(--warn-text);
                 border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
 </style>
 
 <div class="doc">
 
-<h1 style="margin-bottom:4px;">📖 Funcionalidades do sistema</h1>
+<h1 style="margin-bottom:4px;">Funcionalidades do sistema</h1>
 <p style="color:#666;margin-top:0;">
   O que cada tela faz, o que cada campo significa, as regras dos códigos e o que
   o sistema quer dizer com cada aviso. Feito pra ser lido do começo ou consultado
@@ -100,7 +100,7 @@
     <li>Não é nenhum dos três → o sistema pergunta de que tipo é aquele código.</li>
   </ol>
 
-  <h3>🏷️ Item de patrimônio</h3>
+  <h3>Item de patrimônio</h3>
   <p>
     É a peça com identidade própria — cada unidade tem um código único e o sistema
     guarda em qual kit ela entrou. Marcado no tipo de item como
@@ -116,7 +116,7 @@
       <em>Corrigir patrimônio</em>).</li>
   </ul>
 
-  <h3>📦 Código da caixa (código fixo)</h3>
+  <h3>Código da caixa (código fixo)</h3>
   <p>
     É o código impresso na <strong>caixa</strong> do produto, cadastrado no tipo de item
     como <span class="campo">Código fixo</span>. Serve pra ganhar tempo: o operador bipa
@@ -151,7 +151,7 @@
     linha e no fim da lista — justamente os que mais precisam de troca.
   </div>
 
-  <h3>🔢 Serial number</h3>
+  <h3>Serial number</h3>
   <p>
     Alguns tipos exigem, além do patrimônio, o <strong>número de série</strong> — marcado
     no tipo como <span class="campo">Requer serial</span>. O fluxo é sempre em dois tempos:
@@ -165,7 +165,7 @@
       completo.</li>
   </ul>
 
-  <h3>📦 Item de estoque</h3>
+  <h3>Item de estoque</h3>
   <p>
     Peça contada por quantidade, sem identidade individual (parafuso, abraçadeira,
     cabo). Tem um código de barras próprio no cadastro de estoque, e a etiqueta com QR
@@ -180,7 +180,7 @@
     <li>Ao descontar, se o saldo ficar no mínimo ou abaixo, aparece o aviso de estoque baixo.</li>
   </ul>
 
-  <h3>🔗 Conjunto</h3>
+  <h3>Conjunto</h3>
   <p>
     Vários tipos que chegam numa embalagem só (um chicote com conector, presilha e
     parafuso). No kit eles compartilham o mesmo <span class="campo">código de componente</span>.
@@ -205,7 +205,7 @@
     estoque — volta a ficar livre pra outro kit.
   </div>
 
-  <h3>♻️ Códigos gerados e recicláveis</h3>
+  <h3>Códigos gerados e recicláveis</h3>
   <p>
     Em <strong>Etiquetas &amp; Códigos</strong> dá pra gerar códigos internos pra peça que
     veio sem etiqueta. Marcar um código como <strong>reciclável</strong> significa que ele
@@ -216,7 +216,7 @@
 
 <!-- 3 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="bipagem">
-  <h2>3. ⚡ Bipagem</h2>
+  <h2>3. Bipagem</h2>
 
   <h3>Tela inicial</h3>
   <p>
@@ -235,7 +235,7 @@
     <li>A lista traz só veículos <strong>daquele cliente</strong> cujo modelo é
       <strong>este kit</strong> — é o que impede montar o kit errado pro veículo errado.</li>
     <li>Veículo que já tem kit não aparece. Pra reaproveitar, use
-      <strong>🔓 Liberar veículo</strong> na tela do veículo.</li>
+      <strong>Liberar veículo</strong> na tela do veículo.</li>
     <li>Se a lista vier vazia, o aviso diz qual dos dois é o motivo: nenhum veículo com
       esse modelo, ou todos já com kit.</li>
   </ul>
@@ -247,7 +247,7 @@
     <li><strong>Substituição</strong> — se o patrimônio já foi usado em outro kit, o sistema
       não deixa passar batido: pede confirmação e <strong>motivo</strong>, e a troca fica
       registrada com o motivo no histórico.</li>
-    <li><strong>↩️ Desfazer</strong> — cancela a última bipagem, com estorno do que foi
+    <li><strong>Desfazer</strong> — cancela a última bipagem, com estorno do que foi
       descontado. Não existe “desfazer parcial” silencioso.</li>
     <li><strong>Quantidade manual</strong> — pra itens medidos (metros, por exemplo), dá pra
       informar a quantidade em vez de bipar unidade por unidade.</li>
@@ -270,7 +270,7 @@
 
 <!-- 4 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="impressao">
-  <h2>4. 🖨️ Impressão</h2>
+  <h2>4. Impressão</h2>
   <p>
     Fila única com as etiquetas de <strong>kit finalizado</strong> e as etiquetas
     <strong>“Em Andamento”</strong>, na ordem em que foram pedidas — pra não ter que olhar
@@ -285,22 +285,22 @@
 
 <!-- 5 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="itens">
-  <h2>5. 📋 Itens &amp; Estoque</h2>
+  <h2>5. Itens &amp; Estoque</h2>
 
-  <h3>📦 Estoque (catálogo)</h3>
+  <h3>Estoque (catálogo)</h3>
   <p>Cada linha é um tipo de item com saldo. Campos:</p>
   <ul>
     <li><span class="campo">Código de barras</span> — o código que o operador bipa (ou o QR da etiqueta).</li>
     <li><span class="campo">Quantidade atual</span> — saldo. Desce sozinho a cada kit bipado.</li>
     <li><span class="campo">Quantidade mínima</span> — a partir daqui o item entra no alerta
-      de estoque baixo (a faixa amarela no topo do sistema).</li>
+      de estoque baixo (o quadro na barra lateral, abaixo de Padrão Visual).</li>
     <li><span class="campo">Status de compra</span> — independente do saldo, pra marcar o que
       já foi providenciado:
       {% for chave, rotulo in status_compra_opcoes.items() %}<code>{{ rotulo }}</code>{{ ", " if not loop.last }}{% endfor %},
       ou vazio pra “sem pendência”.</li>
   </ul>
   <p>
-    O botão <strong>⚙️ de configuração</strong> de cada item abre a janela central com
+    O botão <strong>de configuração</strong> de cada item abre a janela central com
     correção de quantidade, mínimo, status de compra e código de barras. Toda correção
     entra no histórico do item com autor e data.
   </p>
@@ -309,23 +309,25 @@
     só o que está <em>zerado</em>, <em>no mínimo ou abaixo</em>, <em>perto do mínimo</em>,
     <em>acima do mínimo</em>, <em>sem estoque cadastrado</em>, ou informar uma faixa
     (<em>de … até …</em>). É a mesma conta que decide a cor da linha e o que entra no
-    aviso do topo — filtro, cor e aviso nunca discordam.
+    aviso da barra lateral — filtro, cor e aviso nunca discordam.
   </p>
   <p>
-    <strong>🔔 Avisos de estoque baixo</strong> (para quem pode editar estoque) controla a
-    faixa amarela do topo do sistema, sem mexer em estoque nenhum:
+    <strong>Avisos de estoque baixo</strong> (para quem pode editar estoque) controla o
+    quadro de aviso na barra lateral (abaixo de Padrão Visual, visível só pra admin),
+    sem mexer em estoque nenhum:
   </p>
   <ul>
-    <li><span class="campo">Mostrar o aviso</span> — liga e desliga a faixa.</li>
+    <li><span class="campo">Mostrar o aviso</span> — liga e desliga o quadro.</li>
     <li><span class="campo">Perto do mínimo (%)</span> — quanto acima do mínimo já conta
       como atenção. 0 = só o que está no mínimo ou abaixo.</li>
-    <li><span class="campo">Itens na faixa</span> — quantos aparecem; o resto vira
-      “e mais N”, em vez de sumir sem avisar. 0 = todos.</li>
+    <li><span class="campo">Itens na faixa</span> — quantos aparecem no quadro; o resto
+      vira “e mais N”, em vez de sumir sem avisar. 0 = todos.</li>
     <li><span class="campo">Some depois de (s)</span> — 0 = fica até alguém fechar.</li>
     <li><span class="campo">Onde aparece</span> — todas as telas, só Itens &amp; Estoque,
       ou só a tela inicial.</li>
-    <li><span class="campo">Cores</span> — uma para “no mínimo” e outra para “perto”.
-      Item zerado ainda ganha o 🚫.</li>
+    <li><span class="campo">Cores</span> — uma para “no mínimo” e outra para “perto”; no
+      quadro elas aparecem como um traço fino do lado de cada item, não mais um fundo cheio.
+      Item zerado ainda ganha o aviso.</li>
   </ul>
   <div class="cuidado">
     <strong>Atualização em massa pela planilha:</strong> baixe a planilha
@@ -334,7 +336,7 @@
     cadastro mudou. Célula em branco = <strong>não mexe</strong> naquele campo.
   </div>
 
-  <h3>➕ Novo Item</h3>
+  <h3>Novo Item</h3>
   <p>Cadastra o tipo de item. As marcações mudam o comportamento na bipagem:</p>
   <ul>
     <li><span class="campo">Item de Patrimônio</span> — cada unidade é rastreada individualmente.</li>
@@ -344,12 +346,12 @@
     <li><span class="campo">Unidade</span> — <code>un</code> (peça) ou <code>m</code> (medida, aceita fração).</li>
   </ul>
 
-  <h3>🏷️ Itens Cadastrados</h3>
+  <h3>Itens Cadastrados</h3>
   <p>
     Um item por linha, respondendo três perguntas nesta ordem: <strong>que peça é</strong>,
     <strong>onde está</strong> e <strong>como está</strong>. Em cima ficam a busca e os
     filtros (veículo e situação) — é por ali que a tela começa. O cadastro manual e o
-    “apagar todos” são exceção e ficam recolhidos em <span class="campo">➕ Cadastrar um
+    “apagar todos” são exceção e ficam recolhidos em <span class="campo">Cadastrar um
     patrimônio à mão</span>, pra não ocupar a primeira tela de quem só veio procurar.
   </p>
   <p>
@@ -363,7 +365,7 @@
     pra fora do kit no meio da conferência.
   </div>
 
-  <h3>🔧 Mexer no patrimônio de um kit já fechado</h3>
+  <h3>Mexer no patrimônio de um kit já fechado</h3>
   <p>
     <strong>É a mesma janela</strong>, aberta por dois caminhos. O que muda entre eles é só
     o <em>tamanho</em> — nunca o que cada bloco faz, nem quem pode o quê:
@@ -388,12 +390,12 @@
       <em>“CVC não encontrado”</em> aparece dentro do próprio card quando falta alguma
       coisa.</li>
     <li><strong>Item em foco</strong>, <strong>logo abaixo do veículo</strong> — o item e as
-      ações dele (🔀 mover, ✏️ corrigir). É a leitura natural: “este veículo, este item
+      ações dele (mover, corrigir). É a leitura natural: “este veículo, este item
       dele”; no fim da página, ninguém achava a ação.</li>
-    <li><strong>📜 Alterações depois da montagem</strong> — o que saiu, o que entrou, quando
+    <li><strong>Alterações depois da montagem</strong> — o que saiu, o que entrou, quando
       e por quê.</li>
-    <li><strong>🏷️ Itens deste kit</strong> e <strong>➕ Adicionar item</strong> — só na
-      janela do veículo. Clicar na ⚙️ de um item da lista coloca ele em foco
+    <li><strong>Itens deste kit</strong> e <strong>Adicionar item</strong> — só na
+      janela do veículo. Clicar na de um item da lista coloca ele em foco
       <strong>sem fechar a janela</strong>: você continua com o kit e o “adicionar” à mão.</li>
   </ul>
   <p>A lista de itens é montada pra quem está atrás de <strong>um</strong> item pra mexer:</p>
@@ -418,12 +420,12 @@
 
   <p>São três ações, e escolher a certa importa:</p>
   <ul>
-    <li><span class="campo">🔀 Mover para outro veículo</span> — o número está certo, o item
+    <li><span class="campo">Mover para outro veículo</span> — o número está certo, o item
       é que <strong>mudou de lugar</strong>. Sai do kit de um veículo e entra no de outro.</li>
-    <li><span class="campo">✏️ Corrigir código / nº de série</span> — o item é o mesmo, o
+    <li><span class="campo">Corrigir código / nº de série</span> — o item é o mesmo, o
       <strong>número</strong> é que está errado (digitado torto na bipagem). O histórico
       acompanha.</li>
-    <li><span class="campo">➕ Adicionar item</span> — traz um patrimônio pro kit deste
+    <li><span class="campo">Adicionar item</span> — traz um patrimônio pro kit deste
       veículo, pelo código. Só na <strong>janela do veículo</strong>.</li>
   </ul>
   <div class="nota">
@@ -433,7 +435,7 @@
     (peça quebrada, devolvida ao estoque) continua fazendo isso pela página do kit.
   </div>
 
-  <h4>➕ Adicionar item (pela janela do veículo)</h4>
+  <h4>Adicionar item (pela janela do veículo)</h4>
   <p style="font-size:14px;">
     Bipe ou digite o código do patrimônio que vai fazer parte do kit daquele veículo. O
     sistema mostra o que vai acontecer <strong>antes</strong> de gravar:
@@ -453,7 +455,7 @@
     pertence a outro patrimônio”.
   </p>
   <p>
-    <span class="campo">➕ Colocar patrimônio neste kit</span> fica na página do kit (no fim) e
+    <span class="campo">Colocar patrimônio neste kit</span> fica na página do kit (no fim) e
     faz o mesmo pelo lado de quem está com o kit aberto. São dois modos:
   </p>
   <ul>
@@ -484,7 +486,7 @@
     <li>Em Itens &amp; Estoque → Itens Cadastrados, clique no código <strong>PAT-A</strong>
       (a janela abre por cima da lista).</li>
     <li>Confira em “Onde está agora” que ele consta no 1219.</li>
-    <li>Use <strong>🔀 Mover para outro veículo</strong>, informe <em>1415</em> e o motivo
+    <li>Use <strong>Mover para outro veículo</strong>, informe <em>1415</em> e o motivo
       (“antena do 1415 com defeito, usada a do 1219”).</li>
     <li>O sistema mostra <strong>de onde sai, pra onde vai e o que cada lado perde ou
       ganha</strong> antes de gravar. Confirme.</li>
@@ -498,12 +500,12 @@
   </p>
   <ul>
     <li>Em Veículos e Clientes, clique no número <strong>1219</strong> (ou no próprio aviso
-      “⚠️ Antena não encontrada”) — a janela abre por cima da lista.</li>
-    <li>Use <strong>➕ Adicionar item</strong>, informe PAT-B e o motivo. Se PAT-B ainda não
+      “Antena não encontrada”) — a janela abre por cima da lista.</li>
+    <li>Use <strong>Adicionar item</strong>, informe PAT-B e o motivo. Se PAT-B ainda não
       existir, o sistema avisa e pede o tipo pra cadastrar na hora; se já estiver em outro
       veículo, avisa em qual e pede confirmação.</li>
     <li>Pronto — o aviso some, porque o kit voltou a ter a antena. A troca fica registrada em
-      <strong>📜 Alterações depois da montagem</strong>, na janela do 1219.</li>
+      <strong>Alterações depois da montagem</strong>, na janela do 1219.</li>
   </ul>
 
   <div class="nota">
@@ -524,7 +526,7 @@
     a ação é <strong>mover</strong>.
   </div>
 
-  <h3>⚠️ “CVC não encontrado” — veículo com item faltando</h3>
+  <h3>“CVC não encontrado” — veículo com item faltando</h3>
   <p>
     O aviso <strong>diz o nome do item</strong>: “CVC não encontrado”, “Antena não
     encontrada”. Se for mais de um, mostra quantos são. Ele nasce sempre que um kit fica
@@ -562,7 +564,7 @@
     tudo que devia; o que falta é item de quantidade (não gera pendência); ou o item nunca
     esteve no kit nem está no modelo, e aí é o modelo que precisa ser ajustado em Criar
     Kit/Pedido. Se o item deveria gerar pendência e não gera, confira se o tipo dele está
-    marcado como <strong>Item de Patrimônio</strong> (⚙️ do item, em Itens &amp; Estoque).
+    marcado como <strong>Item de Patrimônio</strong> (do item, em Itens &amp; Estoque).
   </div>
   <div class="nota">
     <strong>Só conta item de patrimônio</strong> — a peça rastreada uma a uma. Item contado
@@ -572,7 +574,7 @@
     ou em estoque: o veículo continua exatamente onde estava na esteira.
   </div>
 
-  <h3>📜 Histórico de alterações do veículo</h3>
+  <h3>Histórico de alterações do veículo</h3>
   <p>
     Dentro da janela do veículo, logo abaixo do aviso, fica o resumo do que mudou
     <strong>depois</strong> que o kit foi finalizado. Se não mudou nada, ele diz isso também —
@@ -580,11 +582,11 @@
     coisas diferentes, e cada uma tem sua marca:
   </p>
   <ul>
-    <li><span class="campo">➡️ saiu</span> — a peça foi movida pra outro veículo (diz qual)
+    <li><span class="campo">saiu</span> — a peça foi movida pra outro veículo (diz qual)
       ou retirada do kit.</li>
-    <li><span class="campo">⬅️ entrou</span> — chegou uma peça depois da montagem, dizendo
+    <li><span class="campo">entrou</span> — chegou uma peça depois da montagem, dizendo
       de onde veio.</li>
-    <li><span class="campo">✏️ corrigido</span> — a peça é <strong>a mesma</strong>; o
+    <li><span class="campo">corrigido</span> — a peça é <strong>a mesma</strong>; o
       número dela é que estava errado. Mostra <em>de qual código para qual</em>, o nº de
       série quando muda, quem corrigiu, quando e o motivo.</li>
   </ul>
@@ -599,10 +601,10 @@
     esconderia um dos dois.
   </div>
 
-  <h3>🖨️ Etiquetas &amp; Códigos</h3>
+  <h3>Etiquetas &amp; Códigos</h3>
   <p>Geração de códigos internos e etiquetas, incluindo a marcação de reciclável.</p>
 
-  <h3>🚚 Sobressalentes</h3>
+  <h3>Sobressalentes</h3>
   <p>
     Baixa manual de peça enviada fora do kit, sempre amarrada a um <strong>cliente</strong>.
     Dá pra lançar <strong>vários itens num envio só</strong>. Aqui a regra é
@@ -613,13 +615,13 @@
 
 <!-- 6 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="kits">
-  <h2>6. 📄 Criar Kit/Pedido</h2>
+  <h2>6. Criar Kit/Pedido</h2>
   <ul>
-    <li><strong>🎁 Kit</strong> — a receita usada na bipagem. Nome do kit = modelo do veículo.</li>
-    <li><strong>📑 Pedido</strong> — lista avulsa, sem média por kit. Tem a tabela
+    <li><strong>Kit</strong> — a receita usada na bipagem. Nome do kit = modelo do veículo.</li>
+    <li><strong>Pedido</strong> — lista avulsa, sem média por kit. Tem a tabela
       <strong>Unidades do Pedido</strong> (ICCID, telefone, CDT, ID hardware), editável e com
       inclusão manual de linhas; valores repetidos são <strong>marcados</strong>, não bloqueados.</li>
-    <li><strong>🔗 Conjuntos</strong> — quais conjuntos são conferidos em bloco e quais são
+    <li><strong>Conjuntos</strong> — quais conjuntos são conferidos em bloco e quais são
       conferidos item a item.</li>
   </ul>
   <p>Em cada item do kit define-se:</p>
@@ -642,7 +644,7 @@
 
 <!-- 7 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="veiculos">
-  <h2>7. 🚗 Veículos e Clientes</h2>
+  <h2>7. Veículos e Clientes</h2>
   <p>Campos do veículo:</p>
   <ul>
     <li><span class="campo">Número</span> — identificação do veículo. É
@@ -664,16 +666,16 @@
       Clicando no título da coluna, a lista ordena por ela (mais recentes primeiro, e o
       contrário no segundo clique).</li>
   </ul>
-  <h3>📅 Filtrar por data de importação</h3>
+  <h3>Filtrar por data de importação</h3>
   <p>
-    Na barra de filtros, <span class="campo">📅 Importado de / até</span> mostra os
+    Na barra de filtros, <span class="campo">Importado de / até</span> mostra os
     veículos que entraram no sistema naquele intervalo. <strong>Um dia só</strong> é pôr a
     mesma data nos dois campos; deixar só o “de” mostra tudo daquela data em diante.
   </p>
   <p>
     Serve pra achar rapidamente o que acabou de ser importado — e, principalmente, pra
     tratar uma importação como um lote: com o período filtrado, a tela oferece o atalho
-    <strong>📦 Remessas</strong> já com o mesmo período, onde dá pra marcar todos e
+    <strong>Remessas</strong> já com o mesmo período, onde dá pra marcar todos e
     acrescentá-los à remessa de uma vez.
   </p>
   <div class="nota">
@@ -721,7 +723,7 @@
     <li>A importação <strong>não cria</strong> modelos novos — trabalha só sobre os que existem.</li>
   </ul>
 
-  <h3>🔎 Conferência da importação</h3>
+  <h3>Conferência da importação</h3>
   <p>
     Terminada a importação, o sistema abre a <strong>conferência</strong>: a planilha
     inteira, <strong>linha por linha</strong>, dizendo o que cada uma virou. Antes o
@@ -729,14 +731,14 @@
     quem subia 200 linhas não tinha como saber <em>quais</em> foram os 3.
   </p>
   <ul>
-    <li>🟢 <span class="campo">Novo</span> — o veículo não existia e foi cadastrado.</li>
-    <li>🔵 <span class="campo">Já existente</span> — já estava no sistema e a planilha
+    <li><span class="campo">Novo</span> — o veículo não existia e foi cadastrado.</li>
+    <li><span class="campo">Já existente</span> — já estava no sistema e a planilha
       <strong>não mudou nada</strong> nele.</li>
-    <li>🟡 <span class="campo">Alterado</span> — já existia e algum campo mudou. A linha
+    <li><span class="campo">Alterado</span> — já existia e algum campo mudou. A linha
       mostra o valor <strong>antes riscado e o depois ao lado</strong>, campo a campo.</li>
-    <li>🔴 <span class="campo">Erro</span> — a linha <strong>não foi aproveitada</strong>
+    <li><span class="campo">Erro</span> — a linha <strong>não foi aproveitada</strong>
       (sem número do veículo, sem cliente, ou faltando colunas), com o motivo escrito.</li>
-    <li>⚠️ <span class="campo">Aviso</span> — a linha <strong>entrou</strong>, mas tem algo
+    <li><span class="campo">Aviso</span> — a linha <strong>entrou</strong>, mas tem algo
       pra conferir. O caso comum é o modelo digitado não bater com nenhum kit: o veículo é
       cadastrado e o modelo fica como estava.</li>
   </ul>
@@ -753,15 +755,15 @@
     O número do veículo é um link direto pro cadastro dele.
   </p>
 
-  <h3>🕘 Importações anteriores</h3>
+  <h3>Importações anteriores</h3>
   <p>
     A pergunta quase nunca aparece no dia do upload; ela aparece semanas depois —
     “esse veículo mudou de garagem, foi planilha?”. Por isso toda importação fica
-    guardada em <span class="campo">🕘 Importações</span>, com data, arquivo, quem
+    guardada em <span class="campo">Importações</span>, com data, arquivo, quem
     subiu e o placar; de lá dá pra reabrir a conferência de qualquer uma.
   </p>
   <p>
-    E dentro de cada veículo existe o bloco <strong>📥 Importações de planilha</strong>:
+    E dentro de cada veículo existe o bloco <strong>Importações de planilha</strong>:
     todas as vezes que uma planilha passou por ele e o que mudou em cada uma — sem
     precisar abrir importação por importação procurando.
   </p>
@@ -775,14 +777,14 @@
   <h3>Liberar veículo</h3>
   <p>
     Um veículo fica bloqueado pra nova bipagem assim que tem qualquer kit, em qualquer
-    estágio. <strong>🔓 Liberar</strong> abre uma exceção que vale até a próxima sessão ser
+    estágio. <strong>Liberar</strong> abre uma exceção que vale até a próxima sessão ser
     criada pra ele.
   </p>
 </div>
 
 <!-- 8 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="prateleira">
-  <h2>8. 🗄️ Prateleira</h2>
+  <h2>8. Prateleira</h2>
   <p>
     O mapa físico do almoxarifado: uma grade de linhas e colunas onde cada bloco é
     ocupado por um item do estoque, mais uma área livre pro que não tem posição fixa.
@@ -799,9 +801,9 @@
 
 <!-- 9 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="producao">
-  <h2>9. 🚚 Produção</h2>
+  <h2>9. Produção</h2>
 
-  <h3>📦 Remessa — o lote de envio (“mandar 90”)</h3>
+  <h3>Remessa — o lote de envio (“mandar 90”)</h3>
   <p>
     O envio não é kit a kit: é por lote fechado, combinado com o cliente. A remessa é onde
     esse número mora — antes ele ficava num papel, e a única forma de saber quanto faltava
@@ -810,14 +812,14 @@
   <h4>Escolher a remessa é o primeiro passo da bipagem</h4>
   <p style="font-size:14px;">
     Na tela de <strong>Nova Sessão de Bipagem</strong>, antes de escolher o kit, aparece
-    <span class="campo">📦 Remessa deste kit</span>. Clicando em
+    <span class="campo">Remessa deste kit</span>. Clicando em
     <strong>Escolher remessa</strong>, abre a janela com as remessas abertas — e, se não
     houver nenhuma (ou a certa não existir), dá pra <strong>criar uma ali mesmo</strong>,
     sem sair da tela.
   </p>
   <ul>
     <li><strong>A escolha fica lembrada.</strong> No segundo kit, no terceiro e nos
-      seguintes, basta seguir: o botão vira <span class="campo">🔄 Trocar</span> e só é
+      seguintes, basta seguir: o botão vira <span class="campo">Trocar</span> e só é
       usado quando o lote muda de verdade. Quem monta trinta kits seguidos escolhe uma vez.</li>
     <li><strong>Dá pra trocar no meio.</strong> A remessa fica à vista no cabeçalho da
       bipagem; clicando nela, abre a página de troca e o kit passa pro outro lote. Como o
@@ -868,9 +870,9 @@
     envio</em>. Ver o contador e baixar a planilha não exige — acompanhar não é mexer.
   </div>
 
-  <h4>🗂️ Uma remessa por vez na tela</h4>
+  <h4>Uma remessa por vez na tela</h4>
   <p>
-    Em <strong>📦 Remessas</strong>, cada remessa aberta é uma <strong>lista que abre</strong>:
+    Em <strong>Remessas</strong>, cada remessa aberta é uma <strong>lista que abre</strong>:
     fechada, mostra só o essencial — nome, cliente, o contador e a barra. Clicando nela, ela
     abre e <strong>as outras fecham</strong>. Com quatro ou cinco em andamento, a página
     virava um rolo e o operador perdia de vista qual estava montando.
@@ -881,15 +883,15 @@
     estão lá. Não há dúvida sobre em qual remessa o botão vai agir.
   </p>
 
-  <h4>☑️ Mexer em vários veículos de uma vez</h4>
+  <h4>Mexer em vários veículos de uma vez</h4>
   <p>
     Na lista <span class="campo">Nesta remessa</span>, cada linha tem uma caixinha — e o
     cabeçalho marca todas. Com algo marcado, aparece a barra de ações:
   </p>
   <ul>
-    <li><span class="campo">🔀 Transferir</span> — escolhe a remessa de destino e move
+    <li><span class="campo">Transferir</span> — escolhe a remessa de destino e move
       <strong>todos os marcados de uma vez</strong>, numa operação só.</li>
-    <li><span class="campo">✕ Tirar da remessa</span> — tira os marcados; eles voltam pra
+    <li><span class="campo">Tirar da remessa</span> — tira os marcados; eles voltam pra
       lista de disponíveis e podem ser acrescentados de novo.</li>
   </ul>
   <div class="nota">
@@ -901,8 +903,8 @@
 
   <h4>Acrescentar à mão os veículos que já se passaram</h4>
   <p>
-    Em <strong>📦 Remessas</strong>, escolhendo uma remessa aberta, aparece
-    <span class="campo">➕ Acrescentar veículos</span>: a lista dos kits que
+    Em <strong>Remessas</strong>, escolhendo uma remessa aberta, aparece
+    <span class="campo">Acrescentar veículos</span>: a lista dos kits que
     <strong>não estão em remessa nenhuma</strong>, com busca por veículo, cliente ou kit.
     Marque e acrescente — inclusive vários de uma vez.
   </p>
@@ -911,7 +913,7 @@
       nenhuma estava aberta. Sem isso, o único jeito de acertar o lote seria refazer a
       bipagem.</li>
     <li>Desfazer é pela seleção: marque os que entraram errado em
-      <span class="campo">Nesta remessa</span> e use <span class="campo">✕ Tirar da
+      <span class="campo">Nesta remessa</span> e use <span class="campo">Tirar da
       remessa</span>. Eles voltam pra lista de disponíveis.</li>
     <li><strong>Kit que já está em outra remessa é ignorado</strong>, e a tela diz quantos
       foram — cada kit entra em um lote só.</li>
@@ -926,9 +928,9 @@
     registro — e com a planilha que já foi enviada.
   </div>
 
-  <h4>🛠️ Montar a remessa antes de bipar</h4>
+  <h4>Montar a remessa antes de bipar</h4>
   <p>
-    A remessa não depende de o kit existir. Em <strong>📦 Remessas</strong>, a lista de
+    A remessa não depende de o kit existir. Em <strong>Remessas</strong>, a lista de
     candidatos traz veículo de <strong>qualquer etapa</strong>:
   </p>
   <ul>
@@ -946,10 +948,10 @@
   <div class="nota">
     <strong>Um veículo entra em uma remessa só.</strong> Vale pelos dois lados: pelo kit e
     pelo veículo. Marcar um que já está em outro lote não duplica — ele é ignorado e a tela
-    diz quantos foram. Pra mudar de lote, use <strong>🔀 Transferir</strong>.
+    diz quantos foram. Pra mudar de lote, use <strong>Transferir</strong>.
   </div>
 
-  <h4>📅 Usar a data de importação pra montar o lote</h4>
+  <h4>Usar a data de importação pra montar o lote</h4>
   <p>
     Quando uma importação inteira é um lote operacional (“os 37 que entraram no dia 25”),
     filtre por <span class="campo">Importado de / até</span>, marque o cabeçalho pra
@@ -958,7 +960,7 @@
     ficou de fora do filtro.
   </p>
 
-  <h4>✏️ Corrigir depois: editar, transferir, reabrir</h4>
+  <h4>Corrigir depois: editar, transferir, reabrir</h4>
   <ul>
     <li><strong>Editar</strong> nome, quantidade e cliente — em <strong>qualquer</strong>
       status, inclusive de remessa fechada. Corrigir dado administrativo não mexe em
@@ -979,12 +981,12 @@
     sem cliente.
   </div>
 
-  <h4>🗄️ Arquivar x excluir</h4>
+  <h4>Arquivar x excluir</h4>
   <ul>
-    <li><span class="campo">🗄️ Arquivar</span> tira a remessa das listas do dia a dia
+    <li><span class="campo">Arquivar</span> tira a remessa das listas do dia a dia
       <strong>sem apagar nada</strong>: os veículos continuam sabendo em que lote foram, e a
       planilha daquele envio continua existindo. É o caminho normal pra lote velho.</li>
-    <li><span class="campo">🗑️ Excluir</span> só funciona em remessa <strong>vazia</strong>.
+    <li><span class="campo">Excluir</span> só funciona em remessa <strong>vazia</strong>.
       Com veículos dentro, o sistema recusa, diz quantos são e quantos já foram enviados, e
       manda arquivar.</li>
     <li>Em nenhum dos dois casos se apaga produção, bipagem, patrimônio, estoque ou
@@ -993,14 +995,14 @@
   </ul>
   <div class="nota">
     Arquivada não conta como aberta: não aparece na escolha da bipagem e não recebe kit.
-    Pra ver as arquivadas no histórico, use <span class="campo">🗄️ Mostrar arquivadas</span>.
+    Pra ver as arquivadas no histórico, use <span class="campo">Mostrar arquivadas</span>.
   </div>
 
-  <h4>➕ Acrescentar veículos que já se passaram</h4>
+  <h4>Acrescentar veículos que já se passaram</h4>
   <p>
     Kit montado <strong>antes de a remessa existir</strong>, ou finalizado enquanto nenhuma
-    estava aberta, fica sem lote. Em <strong>📦 Remessas</strong>, o bloco
-    <span class="campo">➕ Acrescentar veículos</span> resolve isso sem refazer bipagem
+    estava aberta, fica sem lote. Em <strong>Remessas</strong>, o bloco
+    <span class="campo">Acrescentar veículos</span> resolve isso sem refazer bipagem
     nenhuma.
   </p>
   <ul>
@@ -1015,7 +1017,7 @@
     <li>Acrescentar pode <strong>fechar a remessa</strong>: se a seleção bater o alvo, ela
       encerra e a próxima abre sozinha, igual a quando o alvo é batido montando.</li>
     <li><span class="campo">Nesta remessa</span> lista o que já está no lote, com
-      <strong>✕ Tirar</strong> ao lado de cada um — o desfazer de quem acrescentou o
+      <strong>Tirar</strong> ao lado de cada um — o desfazer de quem acrescentou o
       veículo errado.</li>
   </ul>
   <div class="cuidado">
@@ -1025,15 +1027,15 @@
     abra uma remessa nova.
   </div>
   <div class="nota">
-    Com várias remessas abertas, o botão <span class="campo">➕ Acrescentar veículos</span>
+    Com várias remessas abertas, o botão <span class="campo">Acrescentar veículos</span>
     de cada uma diz <strong>para qual</strong> a lista está apontando — sem isso não daria
     pra saber em que lote os veículos marcados iriam cair.
   </div>
 
-  <h3>🧾 Nota fiscal em lote</h3>
+  <h3>Nota fiscal em lote</h3>
   <p>
     Em <strong>Produzido</strong> e em <strong>Em Trânsito</strong>, marque os veículos e use
-    <span class="campo">🧾 Atribuir nota aos selecionados</span>: a mesma nota e a mesma data
+    <span class="campo">Atribuir nota aos selecionados</span>: a mesma nota e a mesma data
     vão pros marcados de uma vez. Em trânsito importa porque a nota costuma sair
     <strong>depois</strong> do despacho — o kit já saiu quando o número chega.
   </p>
@@ -1046,9 +1048,9 @@
       elas leem a nota atual do kit, não uma cópia do momento em que ele entrou no lote.</li>
   </ul>
 
-  <h3>📊 Planilhas de acompanhamento</h3>
+  <h3>Planilhas de acompanhamento</h3>
   <p>
-    Cada estágio tem <strong>📊 Baixar Excel desta etapa</strong> — A produzir, Em produção,
+    Cada estágio tem <strong>Baixar Excel desta etapa</strong> — A produzir, Em produção,
     Produzido e Em Trânsito. É o que se manda pro cliente ou pro time de campo sem dar
     acesso ao sistema. A remessa tem a planilha dela, com os kits que entraram e quando.
   </p>
@@ -1058,7 +1060,7 @@
     recebe a planilha achar que faltou dado.
   </div>
 
-  <h3>📄 Cada etapa vem por páginas</h3>
+  <h3>Cada etapa vem por páginas</h3>
   <p>
     Com centenas de kits, uma etapa listava tudo de uma vez e a tela demorava a abrir.
     Agora <strong>cada etapa pagina sozinha</strong>: mudar de página em “Produzido” não
@@ -1068,7 +1070,7 @@
   <div class="nota">
     O <strong>marcar todos</strong> marca só o que está <strong>na página aberta</strong> —
     é o que você está vendo. Pra despachar mais que uma página, marque, envie, e a página
-    seguinte assume o lugar. A planilha da etapa (📊) continua trazendo
+    seguinte assume o lugar. A planilha da etapa continua trazendo
     <strong>tudo</strong>, não só a página.
   </div>
 
@@ -1106,7 +1108,7 @@
   <p>O <strong>painel de TV</strong> mostra os mesmos números em tela cheia, incluindo “Kits a
     produzir”, com limites configuráveis por estágio.</p>
   <p>
-    <strong>No celular</strong> existe uma versão de consulta (atalho 🚚 Produção no início do
+    <strong>No celular</strong> existe uma versão de consulta (atalho Produção no início do
     celular): os números das cinco etapas e a lista de cada uma, com atalho pra bipagem em
     andamento e pro kit já produzido. Mover kit de etapa, nota fiscal e envio em lote
     continuam só no computador — no telefone rendem toque errado.
@@ -1127,7 +1129,7 @@
 
 <!-- 10 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="verificacao">
-  <h2>10. ✅ Verificação do kit</h2>
+  <h2>10. Verificação do kit</h2>
   <p>
     Depois de produzido, o kit passa pela conferência item a item. Cada item conferido
     fica marcado com quem conferiu e quando; conferir um item de conjunto marca o
@@ -1139,7 +1141,7 @@
     <li>Item removido do template <strong>não é mais cobrado</strong> na conferência.</li>
     <li>Item acrescentado ao template <strong>passa a ser cobrado</strong>.</li>
     <li>Quando isso acontece, o painel avisa
-      “<em>🔄 O template deste kit foi atualizado</em>” e lista o que
+      “<em>O template deste kit foi atualizado</em>” e lista o que
       <strong>não faz mais parte</strong> e o que <strong>passou a fazer parte</strong>.</li>
   </ul>
   <p>
@@ -1157,7 +1159,7 @@
 
 <!-- 11 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="relatorios">
-  <h2>11. 📊 Relatórios</h2>
+  <h2>11. Relatórios</h2>
   <ul>
     <li><strong>Kits</strong> — todos os kits com filtro de período, operador e tipo, e
       exportação em Excel (a exportação leva exatamente o mesmo filtro da tela).</li>
@@ -1181,7 +1183,7 @@
 
 <!-- 12 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="usuarios">
-  <h2>12. 👥 Usuários e Auditoria</h2>
+  <h2>12. Usuários e Auditoria</h2>
   <p>
     Dois perfis de base: <strong>admin</strong> (faz tudo) e <strong>comum</strong>. Sobre o
     perfil comum, cada permissão pode ser tirada individualmente. Toda permissão
@@ -1197,7 +1199,7 @@
     {% endfor %}
   </ul>
   {% endfor %}
-  <h3>🔒 Encerrar login parado (inatividade)</h3>
+  <h3>Encerrar login parado (inatividade)</h3>
   <p>
     Configurável em <strong>Usuários</strong>, só por administrador: depois de X minutos
     <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa precisa entrar de novo.
@@ -1243,13 +1245,13 @@
 
 <!-- 13 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="rede">
-  <h2>13. 🌐 Rede</h2>
+  <h2>13. Rede</h2>
   <p>
     Endereços de acesso ao sistema (HTTPS e HTTP) e os QR codes pra abrir no celular.
     Visível só pra quem tem a permissão <em>Ver a tela Rede</em>.
   </p>
 
-  <h3>⚡ O que faz a tela abrir rápido</h3>
+  <h3>O que faz a tela abrir rápido</h3>
   <p>
     Nada disso precisa ser configurado — está ligado sozinho. Está escrito aqui porque
     explica comportamentos que dá pra notar no dia a dia.
@@ -1278,7 +1280,7 @@
 
 <!-- 14 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="backup">
-  <h2>14. 💾 Backup do banco</h2>
+  <h2>14. Backup do banco</h2>
   <p>
     Todo o sistema mora num arquivo só — kits, bipagens, estoque, veículos,
     auditoria. Perder esse arquivo é perder tudo, e é por isso que a cópia não pode
@@ -1314,16 +1316,16 @@
       “tinha backup e não tinha”.</li>
   </ul>
   <div class="nota">
-    <span class="campo">💾 Fazer backup agora</span> gera a cópia na hora. Use antes de
+    <span class="campo">Fazer backup agora</span> gera a cópia na hora. Use antes de
     mexer no banco por fora, antes de uma atualização — e logo depois de configurar a
-    segunda pasta, pra ver o ✅ na lista e ter certeza de que ela grava mesmo.
+    segunda pasta, pra ver o na lista e ter certeza de que ela grava mesmo.
   </div>
 
   <h3>Além dessa rotina</h3>
   <p>
     O sistema também copia o banco <strong>sozinho, antes de qualquer mudança de
     estrutura</strong> (quando sai uma versão que mexe em tabela). Essas aparecem na
-    lista como <em>🔧 Antes de migração</em>. Se essa cópia falhar, o sistema
+    lista como <em>Antes de migração</em>. Se essa cópia falhar, o sistema
     <strong>não sobe</strong> — é melhor ficar fora do ar do que alterar o banco de
     produção sem rede de segurança.
   </p>
@@ -1341,7 +1343,7 @@
     voltar atrás.
   </div>
   <div class="nota">
-    A tela é visível pra quem tem <em>💾 Backup</em>; configurar e disparar a cópia exige
+    A tela é visível pra quem tem <em>Backup</em>; configurar e disparar a cópia exige
     <em>Configurar a rotina de backup</em>. Quem não tem a segunda continua enxergando
     quando foi a última cópia — saber se o sistema está protegido não é privilégio.
   </div>
@@ -1397,7 +1399,7 @@
         <td>Repor o estoque ou corrigir o saldo em Itens &amp; Estoque.</td>
       </tr>
       <tr>
-        <td>“<em>⚠️ Estoque baixo (N restantes)</em>”</td>
+        <td>“<em>Estoque baixo (N restantes)</em>”</td>
         <td>Aviso, não bloqueio: o saldo chegou ao mínimo.</td>
         <td>A bipagem continua normalmente; providenciar a reposição.</td>
       </tr>
@@ -1419,15 +1421,15 @@
       <tr>
         <td>“<em>Todos os veículos … já têm kit associado</em>”</td>
         <td>Os veículos elegíveis já foram usados.</td>
-        <td>Liberar o veículo certo com 🔓 Liberar veículo.</td>
+        <td>Liberar o veículo certo com Liberar veículo.</td>
       </tr>
       <tr>
-        <td>“<em>⚠️ Divergências com o modelo atual</em>”</td>
+        <td>“<em>Divergências com o modelo atual</em>”</td>
         <td>O que está no kit não bate com o que o modelo pede hoje.</td>
         <td>Ver as listas de sobrando/faltando; se o modelo mudou de propósito, o aviso de template atualizado explica.</td>
       </tr>
       <tr>
-        <td>“<em>🔄 O template deste kit foi atualizado</em>”</td>
+        <td>“<em>O template deste kit foi atualizado</em>”</td>
         <td>O modelo mudou depois que este kit foi fechado.</td>
         <td>Conferir a lista do que saiu e do que entrou — a verificação já segue o modelo novo.</td>
       </tr>

@@ -1,17 +1,15 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Importações de Veículos{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/veiculos/import" class="btn btn-success btn-sm">{{ ic.svg('importar', 15) }} Importar planilha</a>
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
 {% block content %}
 {#  O histórico existe porque a pergunta quase nunca aparece no dia do upload —
     ela aparece semanas depois ("esse veículo mudou de garagem, foi planilha?").
     Sem esta lista, a única resposta era a memória de quem importou. #}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-  <h1 style="margin:0;">Importações de Veículos</h1>
-  <div style="display:flex;gap:8px;">
-    <a href="/admin/veiculos/import" class="btn btn-success">📥 Importar planilha</a>
-    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-  </div>
-</div>
-
 <div class="card">
   {% if importacoes %}
   <div class="table-scroll">
@@ -22,10 +20,10 @@
           <th>Arquivo</th>
           <th>Quem</th>
           <th>Linhas</th>
-          <th>🟢 Novos</th>
-          <th>🔵 Já existentes</th>
-          <th>🟡 Alterados</th>
-          <th>🔴 Erros</th>
+          <th>Novos</th>
+          <th>Já existentes</th>
+          <th>Alterados</th>
+          <th>Erros</th>
           <th></th>
         </tr>
       </thead>

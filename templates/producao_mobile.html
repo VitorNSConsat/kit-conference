@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Produção — Mobile</title>
+{% import "_icones.html" as ic %}
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#1e4976">
+<meta name="theme-color" content="#246b84">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-touch-icon" href="/static/icon-192.png">
@@ -20,7 +21,7 @@
     background: #f5f2ec; color: #2b2a27; min-height: 100vh; padding-bottom: 40px;
   }
   .header {
-    background: linear-gradient(135deg, #1e4976 0%, #16324f 100%);
+    background: linear-gradient(135deg, #246b84 0%, #1d586c 100%);
     color: #fff; padding: 14px 16px; display: flex; align-items: center;
     justify-content: space-between; gap: 10px;
     position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,.25);
@@ -36,7 +37,7 @@
     background: #fff; border-radius: 14px; padding: 10px 8px; text-align: center;
     box-shadow: 0 4px 16px rgba(30,73,118,.08);
   }
-  .resumo .n { font-size: 20px; font-weight: 800; color: #1e4976; }
+  .resumo .n { font-size: 20px; font-weight: 800; color: #246b84; }
   .resumo .r { font-size: 10px; font-weight: 700; text-transform: uppercase;
                letter-spacing: .5px; color: #7a7468; margin-top: 2px; }
 
@@ -46,7 +47,7 @@
   }
   details.etapa > summary {
     display: flex; align-items: center; gap: 10px; padding: 14px 16px;
-    cursor: pointer; list-style: none; font-weight: 800; font-size: 15px; color: #1e4976;
+    cursor: pointer; list-style: none; font-weight: 800; font-size: 15px; color: #246b84;
   }
   details.etapa > summary::-webkit-details-marker { display: none; }
   details.etapa > summary::before { content: '▸'; color: #9aa7b4; font-size: 13px; }
@@ -77,7 +78,7 @@
 <body>
 
 <div class="header">
-  <h1>🚚 Produção</h1>
+  <h1>Produção</h1>
   <a href="/mobile">← Início</a>
 </div>
 

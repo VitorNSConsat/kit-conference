@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
 {% block title %}Usuários{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>👥 Usuários</h1>
-  <a href="/admin/auditoria" class="btn btn-primary">📜 Ver Auditoria</a>
-</div>
+{% block acoes_topo %}
+<a href="/admin/auditoria" class="btn btn-secondary btn-sm">{{ ic.svg('relatorios', 15) }} Ver Auditoria</a>
+{% endblock %}
 
+{% block content %}
 {% if request.query_params.get('ok') == 'criado' %}
-<div class="alert alert-success">✅ Usuário criado.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Usuário criado.</div>
 {% elif request.query_params.get('ok') == 'perfil' %}
-<div class="alert alert-success">✅ Perfil alterado.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Perfil alterado.</div>
 {% elif request.query_params.get('ok') == 'status' %}
-<div class="alert alert-success">✅ Status alterado.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Status alterado.</div>
 {% elif request.query_params.get('ok') == 'senha' %}
-<div class="alert alert-success">✅ Senha alterada.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Senha alterada.</div>
 {% elif request.query_params.get('ok') == 'permissoes' %}
-<div class="alert alert-success">✅ Permissões atualizadas.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Permissões atualizadas.</div>
 {% elif request.query_params.get('ok') == 'nome' %}
-<div class="alert alert-success">✅ Nome alterado. O login continua o mesmo.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Nome alterado. O login continua o mesmo.</div>
 {% elif request.query_params.get('ok') == 'inatividade' %}
 <div class="alert alert-success">
-  {% if request.query_params.get('m') == '0' %}✅ Encerramento por inatividade
+  {% if request.query_params.get('m') == '0' %}{{ ic.svg('check-circulo', 14) }} Encerramento por inatividade
   <strong>desligado</strong> — o login só cai ao sair ou depois de 12h.
-  {% else %}✅ O login passa a cair depois de
+  {% else %}{{ ic.svg('check-circulo', 14) }} O login passa a cair depois de
   <strong>{{ request.query_params.get('m') }} minuto(s)</strong> parado.{% endif %}
 </div>
 {% endif %}
 {% if request.query_params.get('erro') %}
-<div class="alert alert-danger">⚠️ {{ request.query_params.get('erro') }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}
 
 <div class="card">
-  <h2>🔒 Encerrar login parado</h2>
+  <h2>Encerrar login parado</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">
     Depois de um tempo <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa
     precisa entrar de novo. É o que evita o caso de sempre: alguém sai da estação com o
@@ -46,8 +46,8 @@
       <input type="number" name="minutos" min="0" max="{{ inatividade_max }}"
              value="{{ inatividade.minutos }}" style="width:160px;margin:0;">
     </div>
-    <button type="submit" class="btn btn-success">💾 Salvar</button>
-    <span style="font-size:13px;color:{{ '#27ae60' if inatividade.ativo else '#e67e22' }};">
+    <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar</button>
+    <span style="font-size:13px;color:{{ 'var(--ok-text)' if inatividade.ativo else 'var(--warn-text)' }};">
       {% if inatividade.ativo %}Ligado: cai depois de {{ inatividade.minutos }} min parado.
       {% else %}Desligado — o login só cai ao sair ou no fim das 12h do cookie.{% endif %}
     </span>
@@ -65,7 +65,7 @@
 <div class="alert" style="background:#eef4fb;border:1px solid #d3e2f3;color:#2c4a6b;">
   <strong>Como funcionam os perfis:</strong> administrador tem acesso total sempre,
   inclusive pra configurar os outros usuários. Usuário comum nasce com tudo liberado
-  (igual antes) e o admin pode restringir individualmente em <strong>🔐 Permissões</strong> —
+  (igual antes) e o admin pode restringir individualmente em <strong>Permissões</strong> —
   ver Rede/Relatórios, alterar estoque, editar nota fiscal, criar/editar Pedidos e
   apagar itens do catálogo. As demais exclusões do sistema continuam só pra admin.
   Toda ação, de qualquer perfil, fica registrada na
@@ -92,7 +92,7 @@
       <input type="checkbox" name="admin" style="width:auto;margin:0;">
       Administrador
     </label>
-    <button type="submit" class="btn btn-success">＋ Criar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('mais', 14) }} Criar</button>
   </form>
 </div>
 
@@ -102,9 +102,9 @@
      sem JS. O bloco trocado é o #bloco-usuarios. #}
   <form method="get" action="/admin/usuarios" class="busca-form"
         data-busca-viva="#bloco-usuarios">
-    <input type="text" name="busca" value="{{ busca }}" placeholder="🔍 Buscar por nome ou login...">
+    <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar por nome ou login...">
     <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-    {% if busca %}<a href="/admin/usuarios" class="btn btn-sm btn-secondary">✕ Limpar</a>{% endif %}
+    {% if busca %}<a href="/admin/usuarios" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>{% endif %}
   </form>
   <div id="bloco-usuarios">
   {{ pg.contagem(pag_usuarios, "usuários") }}
@@ -139,9 +139,9 @@
                     próprio campo trata antes de o bloqueio pegar. #}
                  onkeydown="if(event.key==='Escape'){cancelarNomeUsuario({{ u.id }});}
                             else if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit();}">
-          <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">✓</button>
+          <button type="submit" class="btn btn-sm btn-success" style="padding:3px 8px;">{{ ic.svg('check', 13) }}</button>
           <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px;"
-                  onclick="cancelarNomeUsuario({{ u.id }})">✕</button>
+                  onclick="cancelarNomeUsuario({{ u.id }})">{{ ic.svg('fechar', 13) }}</button>
         </form>
       </td>
       <td style="font-family:monospace;" title="O login não muda — é o que identifica a pessoa no histórico">{{ u.username }}</td>
@@ -174,7 +174,7 @@
                   onclick="mostrarSenha({{ u.id }})">Trocar senha</button>
           {% if not u.admin %}
           <button type="button" class="btn btn-sm btn-secondary"
-                  onclick="mostrarPermissoes({{ u.id }})">🔐 Permissões</button>
+                  onclick="mostrarPermissoes({{ u.id }})">Permissões</button>
           {% endif %}
         </div>
       </td>

@@ -6,65 +6,128 @@
     <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
     <title>{% block title %}Conferência de Kits{% endblock %}</title>
     <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#1a3a5c">
+    <meta name="theme-color" content="var(--brand-ink)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=30">
+    <link rel="stylesheet" href="/static/style.css?v=34">
 </head>
 <body>
+{% import "_icones.html" as ic %}
 {% if user %}
-<nav class="navbar">
-    <a href="/" class="brand">🏠 Início</a>
-    <button class="nav-hamburger" onclick="toggleNav()" aria-label="Menu">☰</button>
-    {% set p = request.url.path %}
-    {# O menu sai do cadastro de telas (app/permissoes.py): cada uma só
-       aparece pra quem pode vê-la, e "qual está ativa" usa os mesmos
-       prefixos que o porteiro das rotas — link e permissão não têm como
-       discordar. #}
-    <div class="nav-links" id="nav-links">
-        {% for chave, rotulo, destino, prefixos in telas %}
-        {% if pode(chave) %}
-        {% set ns = namespace(ativa=false) %}
-        {% for pre in prefixos %}
-        {% if p == pre or (pre != '/' and p.startswith(pre + '/')) %}{% set ns.ativa = true %}{% endif %}
-        {% endfor %}
-        <a href="{{ destino }}" class="{{ 'nav-active' if ns.ativa else '' }}"
-           {% if chave == 'ver_rede' %}style="color:#7ecfff;"{% endif %}>{{ rotulo }}</a>
-        {% endif %}
-        {% endfor %}
-        {% if user.admin %}
-        <a href="/admin/usuarios" class="{{ 'nav-active' if p.startswith('/admin/usuarios') or p.startswith('/admin/auditoria') else '' }}">👥 Usuários</a>
-        {% endif %}
-        <a href="/logout" class="nav-logout">🚪 Sair ({{ user.nome }})</a>
+{# ── Menu lateral ───────────────────────────────────────────────────────
+   Sai do mesmo cadastro de telas que o porteiro das rotas usa
+   (app/permissoes.py): esconder o link e barrar a rota não podem discordar.
+   Agrupado só visualmente aqui — a permissão continua sendo uma por tela. #}
+{% set NAV_INFO = {
+    'ver_bipagem':         ('Bipagem', 'bipagem'),
+    'ver_impressao':       ('Impressão', 'impressao'),
+    'ver_producao':        ('Produção', 'producao'),
+    'ver_prateleira':      ('Prateleira', 'prateleira'),
+    'ver_veiculos':        ('Veículos e Clientes', 'veiculos'),
+    'ver_itens':           ('Itens & Estoque', 'itens'),
+    'ver_kits':            ('Criar Kit/Pedido', 'kits'),
+    'ver_relatorios':      ('Relatórios', 'relatorios'),
+    'ver_rede':            ('Rede', 'rede'),
+    'ver_funcionalidades': ('Funcionalidades', 'funcionalidades'),
+    'ver_backup':          ('Backup', 'backup'),
+} %}
+{% set GRUPOS_MENU = [
+    ('Operação', ['ver_bipagem', 'ver_impressao', 'ver_producao', 'ver_prateleira']),
+    ('Cadastros', ['ver_veiculos', 'ver_itens', 'ver_kits']),
+    ('Gestão', ['ver_relatorios', 'ver_rede', 'ver_funcionalidades', 'ver_backup']),
+] %}
+{% set p = request.url.path %}
+<div class="ds-sidebar-fundo" id="ds-sidebar-fundo" onclick="toggleNav()"></div>
+<aside class="ds-sidebar" id="ds-sidebar">
+  <a href="/" class="ds-brand">
+    <span class="ds-brand-logo"><img src="/static/icon-192.png" alt=""></span>
+    <span>Conferência de Kits</span>
+  </a>
+  <nav class="ds-nav">
+    {% for grupo_nome, chaves_grupo in GRUPOS_MENU %}
+    {% set ns_grupo = namespace(tem_algo=false) %}
+    {% for chave in chaves_grupo %}{% if pode(chave) %}{% set ns_grupo.tem_algo = true %}{% endif %}{% endfor %}
+    {% if ns_grupo.tem_algo or (grupo_nome == 'Gestão' and user.admin) %}
+    <div class="ds-nav-group">
+      <div class="ds-nav-title">{{ grupo_nome }}</div>
+      {% for chave, rotulo, destino, prefixos in telas %}
+      {% if chave in chaves_grupo and pode(chave) %}
+      {% set ns = namespace(ativa=false) %}
+      {% for pre in prefixos %}
+      {% if p == pre or (pre != '/' and p.startswith(pre + '/')) %}{% set ns.ativa = true %}{% endif %}
+      {% endfor %}
+      {% set info = NAV_INFO.get(chave, (rotulo, 'alerta')) %}
+      <a href="{{ destino }}" class="ds-nav-item {{ 'ativo' if ns.ativa else '' }}">
+        {{ ic.svg(info[1]) }}<span>{{ info[0] }}</span>
+      </a>
+      {% endif %}
+      {% endfor %}
+      {% if grupo_nome == 'Gestão' and user.admin %}
+      <a href="/admin/usuarios" class="ds-nav-item {{ 'ativo' if (p.startswith('/admin/usuarios') or p.startswith('/admin/auditoria')) else '' }}">
+        {{ ic.svg('usuarios') }}<span>Usuários</span>
+      </a>
+      <a href="/admin/padrao-visual" class="ds-nav-item {{ 'ativo' if p.startswith('/admin/padrao-visual') else '' }}">
+        {{ ic.svg('paleta') }}<span>Padrão Visual</span>
+      </a>
+      {% endif %}
     </div>
-</nav>
-{% if alertas_estoque and '/session/' not in request.url.path %}
-{# O que aparece aqui (quais itens, quantos, a cor e por quanto tempo) vem da
-   configuração em Itens & Estoque — a faixa não decide nada sozinha. #}
-<div class="stock-alert-banner" id="stock-alert-banner" data-segundos="{{ alerta_cfg.alerta_segundos }}">
-    <strong>⚠️ Estoque baixo:</strong>
-    {% for a in alertas_estoque %}
-    <span class="stock-alert-chip"
-          style="{% if a.nivel in ('zerado', 'critico') %}background:{{ alerta_cfg.alerta_cor_critico }};color:#fff;{% elif a.nivel == 'atencao' %}background:{{ alerta_cfg.alerta_cor_atencao }};color:#fff;{% endif %}"
-          {% if a.nivel == 'zerado' %}title="Sem nenhuma unidade"{% endif %}>{{ '🚫 ' if a.nivel == 'zerado' }}{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
-    {% endfor %}
-    {% if alertas_total > alertas_estoque | length %}
-    <span class="stock-alert-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
+    {% if grupo_nome == 'Gestão' and user.admin and alertas_estoque and '/session/' not in request.url.path %}
+    {# O que aparece aqui (quais itens, quantos, a cor e por quanto tempo) vem da
+       configuração em Itens & Estoque ("Itens na faixa" já limita alertas_estoque
+       lá na origem) — o quadro só desenha o que chega, não decide nada sozinho. #}
+    <div class="ds-sidebar-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}">
+      <div class="ds-sidebar-alerta-cab">
+        {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
+        <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
+                class="ds-sidebar-alerta-fechar" aria-label="Fechar">{{ ic.svg('fechar', 11) }}</button>
+      </div>
+      <div class="ds-sidebar-alerta-lista">
+        {% for a in alertas_estoque %}
+        {# A cor por severidade é a mesma configurada em Itens & Estoque →
+           Avisos de estoque baixo — só que aqui vira um traço fino, não mais
+           um fundo cheio, pra caber num quadrinho simples. #}
+        <span class="ds-sidebar-alerta-chip"
+              style="border-left-color:{{ alerta_cfg.alerta_cor_critico if a.nivel in ('zerado', 'critico') else alerta_cfg.alerta_cor_atencao }};">
+          {{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}
+        </span>
+        {% endfor %}
+        {% if alertas_total > alertas_estoque | length %}
+        <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
+        {% endif %}
+      </div>
+      <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="ds-sidebar-alerta-link">Ver Estoque</a>
+    </div>
+    <script>
+    (function () {
+        const faixa = document.getElementById('stock-alert-box');
+        const seg = parseInt(faixa.dataset.segundos || '0', 10);
+        if (seg > 0) setTimeout(function () { faixa.style.display = 'none'; }, seg * 1000);
+    })();
+    </script>
     {% endif %}
-    <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="stock-alert-chip" style="background:#f0ad4e;color:#fff;text-decoration:none;font-weight:600;">Ver Estoque →</a>
-    <button onclick="document.getElementById('stock-alert-banner').style.display='none'" class="stock-alert-close">✕</button>
-</div>
-<script>
-// Some sozinho depois de N segundos quando configurado (0 = fica até fechar).
-(function () {
-    const faixa = document.getElementById('stock-alert-banner');
-    const seg = parseInt(faixa.dataset.segundos || '0', 10);
-    if (seg > 0) setTimeout(function () { faixa.style.display = 'none'; }, seg * 1000);
-})();
-</script>
+    {% endif %}
+    {% endfor %}
+  </nav>
+  <div class="ds-user">
+    <div class="ds-user-btn">
+      <span class="ds-avatar">{{ (user.nome or '?')[0] | upper }}</span>
+      <span>
+        <span class="ds-user-nome">{{ user.nome }}</span><br>
+        <a href="/logout" class="ds-user-sair">{{ ic.svg('sair', 13) }} Sair</a>
+      </span>
+    </div>
+  </div>
+</aside>
 {% endif %}
+<div class="{{ 'ds-main' if user else '' }}">
+{% if user %}
+<header class="ds-topbar">
+  <button class="ds-hamburguer btn icon" onclick="toggleNav()" aria-label="Menu">{{ ic.svg('menu', 20) }}</button>
+  <h1>{{ self.title() }}</h1>
+  <div class="ds-topbar-acoes">{% block acoes_topo %}{% endblock %}</div>
+</header>
 {# Janela única do sistema pra abrir um "painel" vindo do servidor (patrimônio,
    veículo). Fica no base porque a mesma janela serve várias telas — e porque
    uma janela por linha de lista encheria a página de HTML escondido. #}
@@ -76,14 +139,15 @@
       <span class="modal-sub" id="janela-painel-sub"></span>
     </div>
     <button type="button" class="modal-fechar" onclick="fecharJanelaPainel()"
-            title="Fechar (Esc)">&times;</button>
+            title="Fechar (Esc)">{{ ic.svg('fechar', 18) }}</button>
   </div>
   <div class="modal-corpo" id="janela-painel-corpo"></div>
 </div>
 <div id="janela-painel-fundo" class="modal-fundo" onclick="fecharJanelaPainel()"></div>
 <script>
 function toggleNav() {
-    document.getElementById('nav-links').classList.toggle('open');
+    document.getElementById('ds-sidebar').classList.toggle('aberta');
+    document.getElementById('ds-sidebar-fundo').classList.toggle('aberta');
 }
 
 // ── Janela com conteúdo vindo do servidor ─────────────────────────────────
@@ -120,14 +184,14 @@ function _voltaAtual() {
 }
 function abrirPainelPatrimonio(codigo) {
     abrirJanelaPainel('/admin/items/patrimonio/' + encodeURIComponent(codigo)
-                      + '/painel?voltar=' + _voltaAtual(), '🏷️ Patrimônio', codigo);
+                      + '/painel?voltar=' + _voltaAtual(), 'Patrimônio', codigo);
 }
 function abrirPainelVeiculo(id, numero, item) {
     // `item` foca um patrimônio SEM sair da janela do veículo — quem clica na
     // engrenagem da lista continua com o kit e o "adicionar item" à mão.
     abrirJanelaPainel('/admin/veiculos/' + id + '/painel?voltar=' + _voltaAtual()
                       + (item ? '&item=' + encodeURIComponent(item) : ''),
-                      '🚗 Veículo', numero || '', true);
+                      'Veículo', numero || '', true);
 }
 // Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
 // conferindo origem e destino não pode perder a lista de trás.
@@ -313,6 +377,7 @@ if (!window.location.pathname.startsWith('/session/')) {
 {% endif %}
 <div class="container">
     {% block content %}{% endblock %}
+</div>
 </div>
 {% block scripts %}{% endblock %}
 </body>

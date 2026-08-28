@@ -1,13 +1,13 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Trocar o kit — {{ kit.kit_nome }}{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">🔄 Trocar o kit deste kit pronto</h1>
-  <a href="/kit/{{ kit.kit_id }}" class="btn btn-secondary">← Voltar para o kit</a>
-</div>
+{% block acoes_topo %}
+<a href="/kit/{{ kit.kit_id }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar para o kit</a>
+{% endblock %}
 
+{% block content %}
 {% if erro %}
-<div class="alert alert-danger">⚠️ {{ erro }}</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ erro }}</div>
 {% endif %}
 
 <div class="card">
@@ -53,7 +53,7 @@
 </div>
 
 {% if novo_id and not previa %}
-<div class="alert alert-danger">⚠️ Kit não encontrado ou registro inválido.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Kit não encontrado ou registro inválido.</div>
 {% endif %}
 
 {% if previa %}
@@ -63,12 +63,12 @@
     Modelo anterior: <strong>{{ previa.sessao.kit_nome }}</strong> →
     modelo novo: <strong>{{ previa.novo.nome }}</strong>.
     Das <strong>{{ previa.total_bipado }}</strong> bipagens do kit,
-    <strong style="color:#27ae60;">{{ previa.total_aproveitado }}</strong> continuam valendo.
+    <strong style="color:var(--ok-text);">{{ previa.total_aproveitado }}</strong> continuam valendo.
   </p>
 
   {% if previa.bloqueios %}
   <div class="alert alert-danger" style="margin-bottom:12px;">
-    🚫 <strong>A troca está bloqueada por falta de estoque:</strong>
+    {{ ic.svg('alerta', 14) }} <strong>A troca está bloqueada por falta de estoque:</strong>
     <ul style="margin:6px 0 0;padding-left:20px;">
       {% for b in previa.bloqueios %}<li>{{ b }}</li>{% endfor %}
     </ul>
@@ -79,8 +79,8 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
 
     <div>
-      <h3 style="font-size:14px;color:#27ae60;margin:0 0 6px;">
-        ✅ Continua igual ({{ previa.aproveitados | length }})
+      <h3 style="font-size:14px;color:var(--ok-text);margin:0 0 6px;">
+        {{ ic.svg('check', 13) }} Continua igual ({{ previa.aproveitados | length }})
       </h3>
       {% if previa.aproveitados %}
       <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
@@ -94,16 +94,16 @@
     </div>
 
     <div>
-      <h3 style="font-size:14px;color:#e67e22;margin:0 0 6px;">
-        ➖ Sai do kit ({{ previa.excedentes | length }})
+      <h3 style="font-size:14px;color:var(--warn-text);margin:0 0 6px;">
+        Sai do kit ({{ previa.excedentes | length }})
       </h3>
       {% if previa.excedentes %}
       <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
         {% for e in previa.excedentes %}
         <li>
           {{ e.descricao }} — {{ e.quantidade }}
-          {%- if e.volta_estoque %} <span style="color:#27ae60;">(volta {{ e.volta_estoque }} pro estoque)</span>{% endif %}
-          {%- if e.libera_patrimonio %} <span style="color:#2980b9;">({{ e.libera_patrimonio }} patrimônio(s) ficam livres)</span>{% endif %}
+          {%- if e.volta_estoque %} <span style="color:var(--ok-text);">(volta {{ e.volta_estoque }} pro estoque)</span>{% endif %}
+          {%- if e.libera_patrimonio %} <span style="color:var(--brand);">({{ e.libera_patrimonio }} patrimônio(s) ficam livres)</span>{% endif %}
         </li>
         {% endfor %}
       </ul>
@@ -116,8 +116,8 @@
     </div>
 
     <div>
-      <h3 style="font-size:14px;color:#c0392b;margin:0 0 6px;">
-        ➕ Entra no kit ({{ previa.faltantes | length }})
+      <h3 style="font-size:14px;color:var(--danger-text);margin:0 0 6px;">
+        Entra no kit ({{ previa.faltantes | length }})
       </h3>
       {% if previa.faltantes %}
       <ul style="margin:0;padding-left:18px;font-size:13px;color:#444;">
@@ -125,11 +125,11 @@
         <li>
           {{ f.descricao }} — {{ f.faltam }} de {{ f.exigido }}
           {%- if f.tem_estoque and f.estoque_suficiente %}
-            <span style="color:#27ae60;">(sai do estoque automaticamente — tem {{ f.estoque_disponivel }})</span>
+            <span style="color:var(--ok-text);">(sai do estoque automaticamente — tem {{ f.estoque_disponivel }})</span>
           {%- elif f.tem_estoque %}
-            <span style="color:#c0392b;">(estoque tem só {{ f.estoque_disponivel }} — bloqueia a troca)</span>
+            <span style="color:var(--danger-text);">(estoque tem só {{ f.estoque_disponivel }} — bloqueia a troca)</span>
           {%- else %}
-            <span style="color:#e67e22;">(patrimônio: bipe a peça na tela do kit — o sistema não escolhe qual unidade física entra)</span>
+            <span style="color:var(--warn-text);">(patrimônio: bipe a peça na tela do kit — o sistema não escolhe qual unidade física entra)</span>
           {%- endif %}
         </li>
         {% endfor %}
@@ -140,7 +140,7 @@
         patrimônio pendentes ficam listados no painel de divergências da tela do kit.
       </p>
       {% else %}
-      <p style="color:#27ae60;font-size:13px;margin:0;">
+      <p style="color:var(--ok-text);font-size:13px;margin:0;">
         Nada falta — o kit fica completo no modelo novo.
       </p>
       {% endif %}
@@ -161,7 +161,7 @@
              placeholder="ex: kit montado no modelo errado">
     </div>
     <button type="submit" class="btn btn-success" {{ 'disabled' if previa.bloqueios }}>
-      🔄 Trocar para {{ previa.novo.nome }}
+      {{ ic.svg('editar', 14) }} Trocar para {{ previa.novo.nome }}
     </button>
     <a href="/kit/{{ kit.kit_id }}" class="btn btn-secondary">Cancelar</a>
   </form>

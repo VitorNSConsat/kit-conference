@@ -1,13 +1,12 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Importar Veículos{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/veiculos/importacoes" class="btn btn-secondary btn-sm">{{ ic.svg('relogio', 15) }} Importações anteriores</a>
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-  <h1>Importar Veículos</h1>
-  <div style="display:flex;gap:8px;">
-    <a href="/admin/veiculos/importacoes" class="btn btn-secondary">🕘 Importações anteriores</a>
-    <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-  </div>
-</div>
 
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
@@ -19,7 +18,7 @@
     A planilha deve ter as colunas <strong>Número do Veículo</strong>, <strong>Cliente</strong>,
     <strong>Garagem</strong> e <strong>Modelo (Kit)</strong>. Clientes e garagens que ainda não
     existirem são cadastrados automaticamente.
-    <a href="/admin/veiculos/modelo.xlsx">📄 Baixar modelo</a>
+    <a href="/admin/veiculos/modelo.xlsx">Baixar modelo</a>
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
     O <strong>Modelo</strong> é o <strong>nome de um kit já existente</strong>
@@ -43,7 +42,7 @@
       <label>Planilha (.xlsx)</label>
       <input type="file" name="arquivo" accept=".xlsx" required>
     </div>
-    <button type="submit" class="btn btn-success">📥 Importar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('importar', 15) }} Importar</button>
     <p style="color:#555;font-size:13px;margin:12px 0 0;">
       Ao terminar, o sistema abre a <strong>conferência</strong>: a planilha inteira
       linha a linha, dizendo o que cada uma virou (novo, já existente, alterado ou

@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Remessa da bipagem{% endblock %}
 {% block content %}
 {# A tela de bipagem não usa a janela única do sistema (ela não estende o
    base), então a troca de remessa no meio do kit é uma página curta — e no
    celular uma página inteira lê melhor que um popup apertado. #}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>📦 Remessa desta bipagem</h1>
-  <a href="/session/{{ sessao_id }}" class="btn btn-secondary">← Voltar à bipagem</a>
-</div>
+{% block acoes_topo %}
+<a href="/session/{{ sessao_id }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar à bipagem</a>
+{% endblock %}
+{% block content %}
 <div class="card" style="max-width:640px;">
   {% include "_remessa_escolher.html" %}
 </div>

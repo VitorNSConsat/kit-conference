@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
 {% block title %}Produção{% endblock %}
 
 {% macro nota_fiscal_form(k, pode_editar) %}
 {% set tem_nf = (k.nota_fiscal or '') | trim %}
 {% if not pode_editar %}
-<span style="font-size:12px;">📄 {{ k.nota_fiscal or '—' }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
+<span style="font-size:12px;">{{ k.nota_fiscal or '—' }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
 {% else %}
 <div class="nf-bloco">
   <div class="nf-visual" style="display:{{ 'flex' if tem_nf else 'none' }};gap:6px;align-items:center;font-size:12px;">
-    <span>📄 {{ k.nota_fiscal }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
-    <button type="button" class="btn btn-sm" onclick="editarNotaFiscal(this)" style="padding:2px 6px;" title="Editar nota fiscal (exige motivo)">✏️ NF</button>
+    <span>{{ k.nota_fiscal }}{% if k.nota_fiscal_data %} · {{ k.nota_fiscal_data }}{% endif %}</span>
+    <button type="button" class="btn btn-sm" onclick="editarNotaFiscal(this)" style="padding:2px 6px;" title="Editar nota fiscal (exige motivo)">NF</button>
   </div>
   <form method="post" action="/admin/producao/{{ k.kit_id }}/nota-fiscal" class="nf-form"
         style="display:{{ 'none' if tem_nf else 'flex' }};gap:4px;align-items:center;flex-wrap:wrap;">
@@ -22,62 +23,60 @@
     <input type="text" name="motivo" placeholder="Motivo da alteração" required
            style="width:150px;margin:0;font-size:12px;padding:4px 6px;">
     {% endif %}
-    <button type="submit" class="btn btn-sm btn-primary" style="padding:4px 8px;" title="Salvar nota fiscal">💾</button>
+    <button type="submit" class="btn btn-sm btn-primary" style="padding:4px 8px;" title="Salvar nota fiscal">{{ ic.svg('check', 13) }}</button>
     {% if tem_nf %}
-    <button type="button" class="btn btn-sm" onclick="cancelarNotaFiscal(this)" style="padding:4px 6px;" title="Cancelar edição">✖</button>
+    <button type="button" class="btn btn-sm" onclick="cancelarNotaFiscal(this)" style="padding:4px 6px;" title="Cancelar edição">{{ ic.svg('fechar', 12) }}</button>
     {% endif %}
   </form>
 </div>
 {% endif %}
 {% endmacro %}
 
+{% block acoes_topo %}
+<a href="/admin/producao/historico" class="btn btn-secondary btn-sm">{{ ic.svg('historico', 15) }} Histórico de Alterações</a>
+<a href="/producao/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
+{# Liberado pra todos: zera só a numeração da etiqueta de
+   acompanhamento, sem tocar em kit, estoque ou produção. #}
+<form method="post" action="/admin/producao/zerar-sequencia"
+      onsubmit="return confirm('Zerar o contador de sequência das etiquetas \'Em Andamento\'? O próximo kit voltará a começar do 0001.')">
+  <button type="submit" class="btn btn-danger btn-sm" title="Reinicia o número SEQ das etiquetas de acompanhamento">{{ ic.svg('reiniciar', 15) }} Zerar Contador</button>
+</form>
+{% endblock %}
+
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1>🚚 Produção</h1>
-  <div style="display:flex;gap:5px;flex-wrap:wrap;">
-    <a href="/admin/producao/historico" class="btn btn-warning">📜 Histórico de Alterações</a>
-    <a href="/producao/tv" target="_blank" class="btn btn-primary">🖥️ Abrir Painel da TV</a>
-    {# Liberado pra todos: zera só a numeração da etiqueta de
-       acompanhamento, sem tocar em kit, estoque ou produção. #}
-    <form method="post" action="/admin/producao/zerar-sequencia"
-          onsubmit="return confirm('Zerar o contador de sequência das etiquetas \'Em Andamento\'? O próximo kit voltará a começar do 0001.')">
-      <button type="submit" class="btn btn-secondary" title="Reinicia o número SEQ das etiquetas de acompanhamento">🔁 Zerar Contador</button>
-    </form>
-  </div>
-</div>
 
 {% if request.query_params.get('ok') == 'transito' %}
-<div class="alert alert-success">✅ {{ request.query_params.get('n') }} kit(s) marcado(s) como Em Trânsito.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('n') }} kit(s) marcado(s) como Em Trânsito.</div>
 {% elif request.query_params.get('ok') == 'instalando' %}
-<div class="alert alert-success">✅ Kit marcado como chegando no cliente.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Kit marcado como chegando no cliente.</div>
 {% elif request.query_params.get('ok') == 'concluido' %}
-<div class="alert alert-success">✅ Instalação marcada como concluída.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Instalação marcada como concluída.</div>
 {% elif request.query_params.get('ok') == 'voltou' %}
-<div class="alert alert-success">↩️ Kit voltou para o estágio anterior.</div>
+<div class="alert alert-success">Kit voltou para o estágio anterior.</div>
 {% elif request.query_params.get('ok') == 'nota_fiscal' %}
-<div class="alert alert-success">✅ Nota fiscal salva.</div>
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Nota fiscal salva.</div>
 {% elif request.query_params.get('ok') == 'sequencia_zerada' %}
-<div class="alert alert-success">🔁 Contador de sequência zerado. O próximo kit começa do 0001.</div>
+<div class="alert alert-success">Contador de sequência zerado. O próximo kit começa do 0001.</div>
 {% elif request.query_params.get('ok') == 'tv_config' %}
-<div class="alert alert-success">🖥️ Configuração de exibição do Painel da TV salva.</div>
+<div class="alert alert-success">Configuração de exibição do Painel da TV salva.</div>
 {% elif request.query_params.get('ok') == 'nota_lote' %}
 <div class="alert alert-success">
-  🧾 Nota atribuída a {{ request.query_params.get('n', '?') }} veículo(s).
+  Nota atribuída a {{ request.query_params.get('n', '?') }} veículo(s).
   {% if request.query_params.get('bloqueados') %}
-  <br>⚠️ {{ request.query_params.get('bloqueados') }} não foi(ram) alterado(s): já tinham nota
+  <br>{{ ic.svg('alerta', 13) }} {{ request.query_params.get('bloqueados') }} não foi(ram) alterado(s): já tinham nota
   salva e a troca exige motivo. Informe o motivo e repita a seleção.
   {% endif %}
 </div>
 {% elif request.query_params.get('erro') == 'nota_lote_vazio' %}
-<div class="alert alert-danger">⚠️ Nenhum veículo selecionado — marque os veículos antes de atribuir a nota.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Nenhum veículo selecionado — marque os veículos antes de atribuir a nota.</div>
 {% elif request.query_params.get('ok') == 'alvo' %}
 <div class="alert alert-success">
-  ✅ Quantidade da remessa atualizada.
+  {{ ic.svg('check-circulo', 14) }} Quantidade da remessa atualizada.
   {% if request.query_params.get('fechada') %}Como o alvo já estava alcançado, ela foi
   <strong>fechada</strong> e a próxima começa do zero.{% endif %}
 </div>
 {% elif request.query_params.get('erro') == 'nf_motivo' %}
-<div class="alert alert-danger">⚠️ Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
 {% endif %}
 
 <!-- ── Remessas em andamento ───────────────────────────────────────────── -->
@@ -87,13 +86,13 @@
 <div class="card" style="border-left:4px solid var(--brand);">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
     <div>
-      <h2 style="margin:0 0 2px;">📦 Remessas em andamento</h2>
-      <p style="color:#666;font-size:13px;margin:0;">
+      <h2 style="margin:0 0 2px;display:flex;align-items:center;gap:7px;">{{ ic.svg('caixa', 16) }} Remessas em andamento</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin:0;">
         O operador escolhe a remessa no começo da bipagem, e o kit entra nela ao ser
         finalizado.
       </p>
     </div>
-    <a href="/admin/producao/remessas" class="btn btn-sm btn-primary">📦 Ver todas</a>
+    <a href="/admin/producao/remessas" class="btn btn-ghost btn-sm">Ver todas</a>
   </div>
 
   {% if remessas_abertas %}
@@ -111,12 +110,12 @@
     <div style="font-size:26px;font-weight:800;color:var(--brand);line-height:1;">{{ r.rotulo }}</div>
     <div style="flex:1;min-width:200px;">
       <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
-      <div style="font-size:12px;color:#7a8794;margin-top:4px;">
-        {% if r.completa %}✅ Alvo alcançado — fecha e a próxima abre sozinha.
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+        {% if r.completa %}{{ ic.svg('check-circulo', 12) }} Alvo alcançado — fecha e a próxima abre sozinha.
         {% else %}Faltam <strong>{{ r.faltam }}</strong> kit(s).{% endif %}
       </div>
     </div>
-    <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">📊 Excel</a>
+    <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }} Excel</a>
     {% if pode('remessas_gerenciar') %}
     <form method="post" action="/admin/producao/remessas/{{ r.id }}/alvo"
           style="display:flex;gap:6px;align-items:flex-end;">
@@ -126,15 +125,15 @@
         <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:100px;margin:0;">
       </div>
       <button type="submit" class="btn btn-sm btn-success"
-              title="Vale a partir de agora; o que já entrou continua contado">💾</button>
+              title="Vale a partir de agora; o que já entrou continua contado">{{ ic.svg('check', 13) }}</button>
     </form>
     {% endif %}
   </div>
   {% endfor %}
   {% else %}
-  <p style="color:#e67e22;font-size:13px;margin:12px 0 0;">
-    ⚠️ Nenhuma remessa aberta — os kits montados agora não entram em contagem nenhuma.
-    Abra uma em <strong>📦 Ver todas</strong> ou no começo da bipagem.
+  <p style="color:var(--warn-text);font-size:13px;margin:12px 0 0;">
+    {{ ic.svg('alerta', 13) }} Nenhuma remessa aberta — os kits montados agora não entram em contagem nenhuma.
+    Abra uma em <strong>Ver todas</strong> ou no começo da bipagem.
   </p>
   {% endif %}
 </div>
@@ -148,8 +147,8 @@
 {% if user and user.admin %}
 <!-- ── Config de exibição do Painel da TV ──────────────────────────────── -->
 <details class="card" style="padding:0;">
-  <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:#1a3a5c;">
-    ⚙️ Exibição do Painel da TV
+  <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:var(--text);">
+    Exibição do Painel da TV
     <span style="font-weight:400;color:#888;font-size:13px;">— quantos kits cabem em cada coluna</span>
   </summary>
   <div style="padding:0 18px 18px;">
@@ -197,7 +196,7 @@
         <input type="number" name="tv_horas_cliente_concluido" min="0" style="width:150px;margin:0;"
                value="{{ tv_config.tv_horas_cliente_concluido }}">
       </div>
-      <button type="submit" class="btn btn-primary">💾 Salvar</button>
+      <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
     </form>
   </div>
 </details>
@@ -209,12 +208,12 @@
    navegador, então quem trabalha sempre na mesma etapa não reabre toda vez. #}
 <details class="card etapa" data-etapa="a_produzir" id="etapa-a_produzir">
   <summary>
-    <h2>Kits a Produzir <span class="etapa-sub">(prontos, ainda sem bipagem)</span> <span class="badge badge-info">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
+    <h2>Kits a Produzir <span class="etapa-sub">(prontos, ainda sem bipagem)</span> <span class="badge">{{ resumo.a_produzir }} kit{{ 's' if resumo.a_produzir != 1 }}</span></h2>
   </summary>
   {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
      de campo sem dar acesso ao sistema. #}
   <a href="/admin/producao/excel?etapa=a_produzir" class="btn btn-sm btn-success"
-     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
 
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Veículos com cliente, garagem e kit definidos, disponíveis pra bipar. Some daqui
@@ -227,7 +226,7 @@
     <tbody>
     {% for v in a_produzir.itens %}
     <tr>
-      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:#1a3a5c;">{{ v.veiculo }}</a></td>
+      <td><a href="/admin/veiculos/{{ v.veiculo_id }}" style="font-weight:700;color:var(--brand-ink);">{{ v.veiculo }}</a></td>
       <td>{{ v.garagem or '—' }}</td>
       <td>{{ v.cliente }}</td>
       <td>{{ v.modelo or '—' }} <span style="color:#aaa;font-size:11px;">v{{ v.versao }}</span></td>
@@ -276,7 +275,7 @@
   {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
      de campo sem dar acesso ao sistema. #}
   <a href="/admin/producao/excel?etapa=em_producao" class="btn btn-sm btn-success"
-     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
 
   {% if em_producao %}
   <div style="overflow-x:auto;">
@@ -291,9 +290,9 @@
       <td>
         {{ s.modelo or s.kit_nome }}
         {% if s.modelo and s.modelo != s.kit_nome %}
-        <div style="font-size:11px;color:#e67e22;font-weight:600;"
+        <div style="font-size:11px;color:var(--warn-text);font-weight:600;"
              title="O veículo pede {{ s.modelo }}, mas está sendo bipado como {{ s.kit_nome }}">
-          ⚠️ bipando como {{ s.kit_nome }}
+          {{ ic.svg('alerta', 11) }} bipando como {{ s.kit_nome }}
         </div>
         {% endif %}
       </td>
@@ -333,7 +332,7 @@
   {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
      de campo sem dar acesso ao sistema. #}
   <a href="/admin/producao/excel?etapa=produzido" class="btn btn-sm btn-success"
-     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
 
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
     Prontos, esperando envio. Selecione os que forem sair hoje e marque como Em Trânsito.
@@ -357,12 +356,12 @@
         <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-transito"
                    class="chk-produzido" onchange="atualizarSelecao('produzido')"
                    data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
-        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+        <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
                title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
         <span class="badge badge-danger" style="margin-left:4px;"
-              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}
+              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}
   {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
      e a âncora devolve o operador pra etapa onde ele estava. #}
   {% if produzido.total_paginas > 1 %}
@@ -378,7 +377,7 @@
     {% endfor %}
   </div>
   {% endif %}
-{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
         {% endif %}</td>
         <td>{{ k.garagem or '—' }}</td>
         <td>{{ k.cliente }}</td>
@@ -393,13 +392,13 @@
     {% if pode('producao_mover_estagio') %}
     <button type="submit" form="form-transito" class="btn btn-primary" id="btn-transito-lote"
             data-lote="produzido" disabled>
-      🚚 Marcar selecionados como Em Trânsito (<span class="qtd-sel-produzido">0</span>)
+      {{ ic.svg('producao', 14) }} Marcar selecionados como Em Trânsito (<span class="qtd-sel-produzido">0</span>)
     </button>
     {% endif %}
     {% if pode('producao_nota_fiscal') %}
     <button type="button" class="btn btn-secondary" id="btn-nota-lote"
             data-lote="produzido" disabled onclick="abrirNotaLote('produzido')">
-      🧾 Atribuir nota aos selecionados (<span class="qtd-sel-produzido">0</span>)
+      {{ ic.svg('kits', 14) }} Atribuir nota aos selecionados (<span class="qtd-sel-produzido">0</span>)
     </button>
     {% endif %}
     <span style="font-size:12px;color:#888;">As duas ações valem só pros marcados.</span>
@@ -414,7 +413,7 @@
 <div id="modal-nota-lote" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
      z-index:1000;align-items:center;justify-content:center;padding:16px;">
   <div style="background:var(--surface);border-radius:12px;padding:24px;max-width:520px;width:100%;">
-    <h3 style="margin-top:0;">🧾 Atribuir nota em lote</h3>
+    <h3 style="margin-top:0;">Atribuir nota em lote</h3>
     <p style="font-size:13px;color:#666;margin:-6px 0 12px;">
       A mesma nota e a mesma data vão para <strong><span id="qtd-nota-lote">0</span></strong>
       veículo(s) selecionado(s):
@@ -439,7 +438,7 @@
     </div>
     <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px;">
       <button type="button" class="btn btn-secondary" onclick="fecharNotaLote()">Cancelar</button>
-      <button type="submit" form="form-nota-lote" class="btn btn-success">🧾 Atribuir</button>
+      <button type="submit" form="form-nota-lote" class="btn btn-success">{{ ic.svg('check', 14) }} Atribuir</button>
     </div>
   </div>
 </div>
@@ -447,12 +446,12 @@
 <!-- ── Em Trânsito → chegada no cliente ──────────────────────────────────── -->
 <details class="card etapa" data-etapa="transito" id="etapa-transito">
   <summary>
-    <h2>Em Trânsito <span class="badge badge-info">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
+    <h2>Em Trânsito <span class="badge">{{ resumo.transito }} kit{{ 's' if resumo.transito != 1 }}</span></h2>
   </summary>
   {# Planilha de acompanhamento: é o que se manda pro cliente ou pro time
      de campo sem dar acesso ao sistema. #}
   <a href="/admin/producao/excel?etapa=transito" class="btn btn-sm btn-success"
-     style="margin-bottom:10px;">📊 Baixar Excel desta etapa</a>
+     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
 
   {% if transito.itens %}
   {# A nota costuma sair DEPOIS do despacho: o kit já está em trânsito quando
@@ -474,11 +473,11 @@
                  onchange="atualizarSelecao('transito')"
                  data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
       {% endif %}
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}
   {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
      e a âncora devolve o operador pra etapa onde ele estava. #}
   {% if transito.total_paginas > 1 %}
@@ -494,7 +493,7 @@
     {% endfor %}
   </div>
   {% endif %}
-{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
@@ -504,12 +503,12 @@
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-instalando">
-            <button type="submit" class="btn btn-sm btn-success">📦 Chegou no cliente</button>
+            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Chegou no cliente</button>
           </form>
           {% endif %}
           {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
-            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Produzido">↩️ Voltar</button>
+            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pra Produzido">{{ ic.svg('voltar', 13) }} Voltar</button>
           </form>
           {% endif %}
         </div>
@@ -523,7 +522,7 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="button" class="btn btn-secondary" data-lote="transito" disabled
             onclick="abrirNotaLote('transito')">
-      🧾 Atribuir nota aos selecionados (<span class="qtd-sel-transito">0</span>)
+      {{ ic.svg('kits', 14) }} Atribuir nota aos selecionados (<span class="qtd-sel-transito">0</span>)
     </button>
     <span style="font-size:12px;color:#888;">
       A mesma nota e a mesma data pros marcados. Quem já tem nota só é
@@ -545,7 +544,7 @@
   <summary>
     <h2>Cliente
       <span class="etapa-sub">(no cliente — últimos 30)</span>
-      <span class="badge badge-success">{{ resumo.cliente }} kit{{ 's' if resumo.cliente != 1 }} no total</span>
+      <span class="badge">{{ resumo.cliente }} kit{{ 's' if resumo.cliente != 1 }} no total</span>
     </h2>
   </summary>
   <p style="font-size:12px;color:#888;margin-bottom:10px;">
@@ -553,7 +552,7 @@
     coluna Situação.
   </p>
   {% if no_cliente %}
-  <input type="text" class="busca-box" placeholder="🔍 Buscar por veículo, garagem ou cliente..."
+  <input type="text" class="busca-box" placeholder="Buscar por veículo, garagem ou cliente..."
          oninput="filtrarLista(this)" data-filtro-alvo="#tabela-cliente tr.filtro-item">
   <div style="overflow-x:auto;">
   <table id="tabela-cliente">
@@ -561,11 +560,11 @@
     <tbody>
     {% for k in no_cliente %}
     <tr class="filtro-item">
-      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:#1a3a5c;"
+      <td><a href="/kit/{{ k.kit_id }}" target="_blank" style="font-weight:700;color:var(--brand-ink);"
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}⚠️ {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}⚠️ {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td>{{ k.cliente }}</td>
@@ -574,9 +573,9 @@
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       <td>
         {% if k.status_producao == 'cliente_concluido' %}
-        <span class="badge badge-success">✅ Concluído</span>
+        <span class="badge badge-success">{{ ic.svg('check', 11) }} Concluído</span>
         {% else %}
-        <span class="badge badge-warning">🔧 Instalando</span>
+        <span class="badge badge-warning">Instalando</span>
         {% endif %}
       </td>
       <td>
@@ -584,13 +583,13 @@
           {% if k.status_producao != 'cliente_concluido' %}
           {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/cliente-concluido">
-            <button type="submit" class="btn btn-sm btn-success">✅ Instalação concluída</button>
+            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Instalação concluída</button>
           </form>
           {% endif %}
           {% endif %}
           {% if pode('producao_mover_estagio') %}
           <form method="post" action="/admin/producao/{{ k.kit_id }}/voltar">
-            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pro estágio anterior">↩️ Voltar</button>
+            <button type="submit" class="btn btn-sm btn-warning" title="Desfazer — volta pro estágio anterior">{{ ic.svg('voltar', 13) }} Voltar</button>
           </form>
           {% endif %}
         </div>

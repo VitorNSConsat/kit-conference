@@ -1,21 +1,21 @@
 {% extends "base.html" %}
+{% import "_icones.html" as ic %}
 {% block title %}Garagem {{ garagem.nome }}{% endblock %}
-{% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-  <h1 style="margin:0;">🏭 {{ garagem.nome }}</h1>
-  <a href="{{ voltar_para }}" class="btn btn-secondary">← Voltar</a>
-</div>
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
 
+{% block content %}
 {% if ok.startswith('movidos_') %}
   {% set qtd = ok[8:] %}
   {% if qtd == '0' %}
-  <div class="alert alert-danger">⚠️ Nenhum veículo mudou de garagem — não havia veículo com esse filtro aqui.</div>
+  <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Nenhum veículo mudou de garagem — não havia veículo com esse filtro aqui.</div>
   {% else %}
-  <div class="alert alert-success">✅ {{ qtd }} veículo(s) saíram desta garagem.</div>
+  <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ qtd }} veículo(s) saíram desta garagem.</div>
   {% endif %}
 {% endif %}
 {% if erro == 'destino' %}
-<div class="alert alert-danger">⚠️ Escolha uma garagem de destino que já esteja cadastrada.</div>
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Escolha uma garagem de destino que já esteja cadastrada.</div>
 {% endif %}
 
 <!-- Resumo -->
@@ -35,7 +35,7 @@
     </div>
     <div>
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Sem modelo</div>
-      <div style="font-size:18px;font-weight:700;color:{{ '#e67e22' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
+      <div style="font-size:18px;font-weight:700;color:{{ 'var(--warn-text)' if totais.sem_modelo else 'inherit' }};">{{ totais.sem_modelo or 0 }}</div>
     </div>
     <div>
       <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">Kits montados aqui</div>
@@ -43,7 +43,7 @@
     </div>
   </div>
   <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-    <a href="/admin/veiculos?garagem={{ garagem.nome | urlencode }}" class="btn btn-sm btn-primary">🚗 Ver veículos desta garagem</a>
+    <a href="/admin/veiculos?garagem={{ garagem.nome | urlencode }}" class="btn btn-sm btn-primary">{{ ic.svg('veiculos', 14) }} Ver veículos desta garagem</a>
   </div>
 </div>
 
@@ -65,7 +65,7 @@
     <tr>
       <td><strong>{{ c.cliente }}</strong></td>
       <td>{{ c.veiculos }}</td>
-      <td style="color:{{ '#e67e22' if c.sem_modelo else '#888' }};">{{ c.sem_modelo or 0 }}</td>
+      <td style="color:{{ 'var(--warn-text)' if c.sem_modelo else '#888' }};">{{ c.sem_modelo or 0 }}</td>
       <td>
         <a href="/admin/veiculos?cliente={{ c.cliente | urlencode }}&garagem={{ garagem.nome | urlencode }}"
            class="btn btn-sm btn-secondary">Ver veículos</a>
@@ -80,7 +80,7 @@
   {% endif %}
 
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
-    <summary style="cursor:pointer;font-weight:600;font-size:14px;">🔀 Transferir veículos desta garagem</summary>
+    <summary style="cursor:pointer;font-weight:600;font-size:14px;">Transferir veículos desta garagem</summary>
     <p style="color:#666;font-size:13px;margin:8px 0;">
       Tira os veículos desta garagem e coloca em outra — de um cliente só ou de todos.
       Só muda o <strong>cadastro do veículo</strong>: kits já bipados continuam com a
