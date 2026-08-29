@@ -20,7 +20,7 @@
 </div>
 {% endif %}
 
-<div class="session-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<div class="session-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
     <div>
         <h1 style="margin-bottom:4px;">{{ session.kit_nome }}</h1>
         <span style="color:var(--text-muted); font-size:14px;">
@@ -36,7 +36,7 @@
             <span id="ws-status">Conectando...</span>
         </span>
     </div>
-    <div style="display:flex; gap:5px;">
+    <div style="display:flex; gap:5px; flex-wrap:wrap;">
         {% if user and user.admin %}
         {# Corrigir uma bipagem que começou no kit errado, sem rebipar tudo.
            Só admin: mexer no kit no meio da produção muda a etiqueta. #}
