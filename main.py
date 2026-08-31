@@ -3453,12 +3453,12 @@ async def report_excel(request: Request, kit_id: str):
 
     def meta_block(ws):
         meta = [
-            ("Kit", kit["kit_nome"]),
+            ("Veículo", kit.get("veiculo") or "—"),
             ("Cliente", kit["cliente"]),
+            ("Garagem", kit.get("garagem") or "—"),
+            ("Kit", kit["kit_nome"]),
             ("Versão", f"v{kit['versao']}"),
             ("Operador", kit["operador_nome"]),
-            ("Veículo", kit.get("veiculo") or "—"),
-            ("Garagem", kit.get("garagem") or "—"),
             ("Finalizado em", kit["finalizado_em"]),
         ]
         for r, (label, value) in enumerate(meta, 1):
@@ -3617,16 +3617,16 @@ async def reports_exportar_todos(request: Request,
     ws1 = wb.active
     ws1.title = "Resumo"
     for col, h in enumerate(
-        ["Tipo", "Kit", "Cliente", "Veículo", "Garagem", "Operador",
+        ["Tipo", "Veículo", "Cliente", "Garagem", "Kit", "Operador",
          "Finalizado em", "Verificações", "Observação"], 1):
         hdr_cell(ws1, 1, col, h)
     for i, k in enumerate(kits):
         row = i + 2
         ws1.cell(row, 1, "Pedido" if k.get("kit_tipo") == "pedido" else "Kit")
-        ws1.cell(row, 2, f"{k['kit_nome']} v{k['versao']}")
+        ws1.cell(row, 2, k.get("veiculo_exibido") or "")
         ws1.cell(row, 3, k["cliente"])
-        ws1.cell(row, 4, k.get("veiculo_exibido") or "")
-        ws1.cell(row, 5, k.get("garagem") or "")
+        ws1.cell(row, 4, k.get("garagem") or "")
+        ws1.cell(row, 5, f"{k['kit_nome']} v{k['versao']}")
         ws1.cell(row, 6, k["operador_nome"])
         ws1.cell(row, 7, k.get("finalizado_em") or "")
         ws1.cell(row, 8, k.get("num_validacoes") or 0)
@@ -3634,7 +3634,7 @@ async def reports_exportar_todos(request: Request,
         if i % 2 == 0:
             for col in range(1, 10):
                 ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGHI", (10, 30, 22, 16, 16, 22, 20, 14, 34)):
+    for col, w in zip("ABCDEFGHI", (10, 16, 22, 16, 30, 22, 20, 14, 34)):
         ws1.column_dimensions[col].width = w
     ws1.freeze_panes = "A2"
 

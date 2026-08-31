@@ -51,10 +51,10 @@
         <thead>
             <tr>
                 <th>Tipo</th>
-                <th>Kit</th>
-                <th>Cliente</th>
                 <th>Veículo</th>
+                <th>Cliente</th>
                 <th>Garagem</th>
+                <th>Kit</th>
                 <th>Operador</th>
                 <th>Finalizado em</th>
                 <th>Verificações</th>
@@ -71,6 +71,20 @@
                 <span class="badge badge-info">Kit</span>
                 {% endif %}
             </td>
+            {% set cor = cor_do_cliente(k.cliente) %}
+            <td>
+              {% if k.v_id %}
+                <a href="/admin/veiculos/{{ k.v_id }}" class="marca-cliente" style="color:{{ cor }};">
+                  {{ k.veiculo_exibido }}
+                </a>
+              {% elif k.veiculo_exibido %}
+                <span style="color:{{ cor }};font-weight:700;">{{ k.veiculo_exibido }}</span>
+              {% else %}
+                <span style="color:var(--text-muted-2);">—</span>
+              {% endif %}
+            </td>
+            <td style="color:{{ cor }};font-weight:600;">{{ k.cliente }}</td>
+            <td>{{ k.garagem or '—' }}</td>
             <td>
                 <a href="/kit/{{ k.kit_id }}" target="_blank"
                    style="font-weight:600; color:var(--brand-ink); text-decoration:none;"
@@ -84,20 +98,6 @@
                 </div>
                 {% endif %}
             </td>
-            {% set cor = cor_do_cliente(k.cliente) %}
-            <td style="color:{{ cor }};font-weight:600;">{{ k.cliente }}</td>
-            <td>
-              {% if k.v_id %}
-                <a href="/admin/veiculos/{{ k.v_id }}" class="marca-cliente" style="color:{{ cor }};">
-                  {{ k.veiculo_exibido }}
-                </a>
-              {% elif k.veiculo_exibido %}
-                <span style="color:{{ cor }};font-weight:700;">{{ k.veiculo_exibido }}</span>
-              {% else %}
-                <span style="color:var(--text-muted-2);">—</span>
-              {% endif %}
-            </td>
-            <td>{{ k.garagem or '—' }}</td>
             <td>
               {{ k.operador_nome }}
               {% if k.finalizado_por_nome %}
