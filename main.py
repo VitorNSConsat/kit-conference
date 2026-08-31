@@ -161,6 +161,28 @@ class _InatividadeMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class _CabecalhosSegurancaMiddleware(BaseHTTPMiddleware):
+    """Cabeçalhos HTTP de defesa que não têm por que faltar em nenhuma
+    resposta, e que não arriscam quebrar nada do sistema atual.
+
+    De propósito NÃO inclui Content-Security-Policy nem X-XSS-Protection:
+    o sistema inteiro usa <style> e <script> inline nas telas (é assim que
+    o CSS/JS de cada página específica é carregado hoje), e um CSP que
+    bloqueasse inline quebraria a aparência e o comportamento de toda tela
+    administrativa. Endurecer isso pediria mover todo CSS/JS inline pra
+    arquivo — uma reescrita grande demais pra entrar aqui."""
+
+    async def dispatch(self, request: Request, call_next):
+        resposta = await call_next(request)
+        resposta.headers["X-Content-Type-Options"] = "nosniff"
+        # Impede que a tela do sistema seja carregada dentro de um <iframe>
+        # de outro site (clickjacking) — nenhuma tela daqui precisa ser
+        # embutida em outro lugar.
+        resposta.headers["X-Frame-Options"] = "SAMEORIGIN"
+        resposta.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return resposta
+
+
 class _AuditoriaMiddleware(BaseHTTPMiddleware):
     """Grava toda requisição que altera dados.
 
@@ -179,18 +201,30 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
         if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
             # GET não altera dados e logar todos inundaria a tabela — mas
             # uma tentativa NEGADA é exatamente o sinal que interessa quando
-            # alguém está sondando o que consegue acessar.
-            resposta = await call_next(request)
-            if resposta.status_code == 403:
+            # alguém está sondando o que consegue acessar. Logout é a outra
+            # exceção: é GET, mas "quem saiu e quando" é justamente o que se
+            # procura numa investigação, então precisa ficar registrado.
+            # O usuário tem que ser capturado ANTES do call_next() aqui: a
+            # própria rota de logout limpa a sessão durante o call_next, e
+            # depois disso get_current_user() já não sabe mais quem era.
+            eh_logout = caminho == "/logout"
+            usuario_antes = None
+            if eh_logout:
                 try:
-                    user = get_current_user(request)
+                    usuario_antes = get_current_user(request)
+                except Exception:
+                    pass
+            resposta = await call_next(request)
+            if resposta.status_code == 403 or eh_logout:
+                try:
+                    user = usuario_antes if eh_logout else get_current_user(request)
                     auditoria_mod.registrar(
                         user_id=user["id"] if user else None,
                         user_nome=user["nome"] if user else None,
-                        acao="ACESSO NEGADO",
+                        acao="LOGOUT" if eh_logout else "ACESSO NEGADO",
                         metodo=request.method, caminho=caminho,
                         detalhe="", ip=_ip_do_cliente(request),
-                        status=403,
+                        status=resposta.status_code,
                     )
                 except Exception:
                     pass
@@ -224,10 +258,18 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
                 pass
             # No POST /login o usuário só existe depois da resposta; o nome
             # digitado já foi para o detalhe, então o log não fica anônimo.
+            acao = auditoria_mod.classificar(caminho)
+            # A própria rota de login marca o desfecho em request.state antes
+            # de responder — sucesso, senha errada, conta desativada ou
+            # bloqueio pelo freio de força bruta viram o mesmo status HTTP
+            # (200 ou 302) e, sem isso, ficariam indistinguíveis no log.
+            desfecho = getattr(request.state, "auditoria_desfecho", None)
+            if desfecho:
+                acao = f"{acao}: {desfecho}"
             auditoria_mod.registrar(
                 user_id=user["id"] if user else None,
                 user_nome=user["nome"] if user else None,
-                acao=auditoria_mod.classificar(caminho),
+                acao=acao,
                 metodo=request.method,
                 caminho=caminho,
                 detalhe=detalhe,
@@ -254,8 +296,37 @@ _COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").strip() in ("1", "true", "True")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "25")) * 1024 * 1024
 
 
-async def _ler_upload(arquivo) -> bytes:
-    """Lê um upload recusando arquivos acima do teto."""
+# Freio simples contra upload repetido/em massa — não é anti-fraude fino
+# como o do login (não bloqueia progressivamente nem por usuário), só evita
+# que um script ou um clique múltiplo encha o processo reprocessando
+# planilhas sem parar. Guardado em memória pelo mesmo motivo do login.
+_UPLOAD_MAX_TENTATIVAS = 10
+_UPLOAD_JANELA_SEG = 5 * 60
+_upload_tentativas: dict[str, list[float]] = {}
+
+
+def _upload_liberado(request: Request) -> bool:
+    import time
+    chave = f"{_ip_do_cliente(request)}|{request.url.path}"
+    agora = time.time()
+    tentativas = [t for t in _upload_tentativas.get(chave, []) if agora - t < _UPLOAD_JANELA_SEG]
+    liberado = len(tentativas) < _UPLOAD_MAX_TENTATIVAS
+    tentativas.append(agora)
+    _upload_tentativas[chave] = tentativas
+    return liberado
+
+
+async def _ler_upload(request: Request, arquivo) -> bytes:
+    """Lê um upload recusando arquivos acima do teto, com extensão errada,
+    ou vindos de quem já mandou upload demais nos últimos minutos."""
+    if not _upload_liberado(request):
+        raise ValueError(
+            "Muitos envios de arquivo em pouco tempo. Espere alguns minutos "
+            "e tente de novo."
+        )
+    nome = (getattr(arquivo, "filename", "") or "").lower()
+    if nome and not nome.endswith(".xlsx"):
+        raise ValueError("O arquivo precisa ser uma planilha .xlsx.")
     conteudo = await arquivo.read()
     if len(conteudo) > MAX_UPLOAD_BYTES:
         raise ValueError(
@@ -265,7 +336,27 @@ async def _ler_upload(arquivo) -> bytes:
     return conteudo
 
 
+def _erro_usuario(e: Exception, generico: str = "Não foi possível concluir esta operação.") -> str:
+    """Mensagem seguindo pra tela quando uma operação falha.
+
+    ValueError é o tipo que o resto do código já usa de propósito pra
+    mensagens pensadas pro usuário (ex.: "Este é o último administrador
+    ativo...") — essas passam direto. Qualquer outro tipo de exceção (erro
+    de biblioteca, de arquivo, de banco) pode trazer detalhe técnico interno
+    que não deveria chegar na tela; essa vai só pro log do servidor, e o
+    usuário recebe uma frase genérica."""
+    if isinstance(e, ValueError):
+        return str(e)
+    print(f"[KIT] erro interno ({type(e).__name__}): {e}")
+    return generico
+
+
 _SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+# O valor de exemplo do .env.example — que fica no repositório. Se o .env de
+# verdade ainda tiver ESTE texto, qualquer pessoa que já tenha visto o
+# repositório conhece a chave que assina o cookie de sessão e pode forjar um
+# login como qualquer usuário, sem senha nenhuma.
+_SECRET_KEY_PLACEHOLDER = "troque-por-chave-aleatoria-longa"
 if not _SECRET_KEY:
     # Sem SECRET_KEY, qualquer um forja o cookie de sessão e entra como
     # quem quiser. Numa máquina exposta isso é crítico, então o processo
@@ -279,6 +370,20 @@ if not _SECRET_KEY:
     _SECRET_KEY = "dev-secret"
     print("[KIT] AVISO: SECRET_KEY nao definido — usando chave de desenvolvimento. "
           "NAO exponha este servidor sem definir SECRET_KEY no .env.")
+elif _SECRET_KEY == _SECRET_KEY_PLACEHOLDER:
+    # De propósito NUNCA travamos por causa disto (ao contrário do caso
+    # "vazio" acima): travar aqui poderia derrubar um servidor já no ar sem
+    # ninguém saber trocar o .env na hora. O aviso é pra ser impossível de
+    # não ver nos logs de inicialização.
+    print("=" * 78)
+    print("[KIT] ALERTA DE SEGURANCA: SECRET_KEY ainda esta com o valor de exemplo")
+    print("      do .env.example, que fica no repositorio. Qualquer pessoa que ja")
+    print("      tenha visto esse arquivo pode forjar um cookie de sessao e entrar")
+    print("      como qualquer usuario, inclusive admin. Troque AGORA por uma chave")
+    print("      aleatoria de verdade, por exemplo:")
+    print('      python -c "import secrets; print(secrets.token_hex(32))"')
+    print("      Cole o resultado em SECRET_KEY no .env e reinicie o servidor.")
+    print("=" * 78)
 
 # Ordem importa: quem é adicionado por último fica por fora. A auditoria
 # precisa enxergar a sessão, então entra ANTES do SessionMiddleware para
@@ -306,6 +411,10 @@ app.add_middleware(_MobileGateMiddleware)
 # compresslevel=6 e nao o 9 que o Starlette usa por padrao: medido aqui,
 # o 9 leva o DOBRO do tempo pra deixar a resposta 1,5% menor.
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
+# Por FORA de tudo: cabeçalho de segurança tem que voltar em toda resposta,
+# inclusive página de erro e redirecionamento — nenhuma lógica de negócio
+# depende dele, então não tem por que ficar por dentro de nada.
+app.add_middleware(_CabecalhosSegurancaMiddleware)
 
 
 class _EstaticoComCache(StaticFiles):
@@ -491,7 +600,14 @@ def render(request: Request, template: str, ctx: dict = {}):
 # tornar inviável varrer senhas, não ser um cofre distribuído.
 _LOGIN_MAX_TENTATIVAS = 8
 _LOGIN_JANELA_SEG = 15 * 60
+# Teto do bloqueio progressivo — nunca passa de 4h, mesmo pra quem insiste
+# indefinidamente. Sem teto, um IP com histórico antigo de tentativas
+# ficaria bloqueado por dias, o que vira problema pra usuário legítimo
+# atrás do mesmo IP (rede corporativa, Cloudflare) tanto quanto pro atacante.
+_LOGIN_BLOQUEIO_TETO_SEG = 4 * 60 * 60
 _login_tentativas: dict[str, list[float]] = {}
+_login_bloqueado_ate: dict[str, float] = {}
+_login_nivel_bloqueio: dict[str, int] = {}
 
 
 def _ip_do_cliente(request: Request) -> str:
@@ -524,20 +640,33 @@ def _login_bloqueado(chave: str) -> int:
     """Segundos restantes de bloqueio, ou 0 se liberado."""
     import time
     agora = time.time()
-    tentativas = [t for t in _login_tentativas.get(chave, []) if agora - t < _LOGIN_JANELA_SEG]
-    _login_tentativas[chave] = tentativas
-    if len(tentativas) < _LOGIN_MAX_TENTATIVAS:
-        return 0
-    return int(_LOGIN_JANELA_SEG - (agora - tentativas[0]))
+    ate = _login_bloqueado_ate.get(chave, 0)
+    if agora < ate:
+        return int(ate - agora)
+    return 0
 
 
 def _login_falhou(chave: str) -> None:
+    """Cada ciclo de _LOGIN_MAX_TENTATIVAS erradas dobra o bloqueio do ciclo
+    anterior (15min, 30min, 1h, 2h... até o teto de 4h) — quem insiste depois
+    de ser liberado espera cada vez mais, em vez de sempre os mesmos 15min."""
     import time
-    _login_tentativas.setdefault(chave, []).append(time.time())
+    agora = time.time()
+    tentativas = [t for t in _login_tentativas.get(chave, []) if agora - t < _LOGIN_JANELA_SEG]
+    tentativas.append(agora)
+    if len(tentativas) >= _LOGIN_MAX_TENTATIVAS:
+        nivel = _login_nivel_bloqueio.get(chave, 0) + 1
+        _login_nivel_bloqueio[chave] = nivel
+        duracao = min(_LOGIN_JANELA_SEG * (2 ** (nivel - 1)), _LOGIN_BLOQUEIO_TETO_SEG)
+        _login_bloqueado_ate[chave] = agora + duracao
+        tentativas = []
+    _login_tentativas[chave] = tentativas
 
 
 def _login_ok(chave: str) -> None:
     _login_tentativas.pop(chave, None)
+    _login_bloqueado_ate.pop(chave, None)
+    _login_nivel_bloqueio.pop(chave, None)
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -561,6 +690,7 @@ async def login_post(request: Request):
     espera = _login_bloqueado(chave)
     if espera:
         minutos = max(1, espera // 60)
+        request.state.auditoria_desfecho = "bloqueado"
         return render(request, "login.html", {
             "erro": f"Muitas tentativas. Tente novamente em {minutos} minuto(s).",
             "next": next_url,
@@ -571,6 +701,7 @@ async def login_post(request: Request):
             "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
     if row and not row["ativo"]:
+        request.state.auditoria_desfecho = "usuario desativado"
         return render(request, "login.html", {
             "erro": "Este usuário está desativado. Procure um administrador.",
             "next": next_url,
@@ -578,6 +709,7 @@ async def login_post(request: Request):
 
     if row and verify_password(password, row["password_hash"]):
         _login_ok(chave)
+        request.state.auditoria_desfecho = "sucesso"
         # Descarta qualquer conteúdo de sessão anterior antes de autenticar,
         # para que um valor plantado na sessão pré-login não sobreviva à
         # troca de identidade (fixação de sessão).
@@ -591,6 +723,7 @@ async def login_post(request: Request):
         return RedirectResponse(next_url, status_code=302)
 
     _login_falhou(chave)
+    request.state.auditoria_desfecho = "falha"
     return render(request, "login.html", {"erro": "Usuário ou senha incorretos.", "next": next_url})
 
 
@@ -764,7 +897,7 @@ async def admin_backup_agora(request: Request):
         r = await asyncio.to_thread(backup_mod.criar_backup, "manual",
                                     user["id"] if user else None)
     except Exception as e:
-        return RedirectResponse("/admin/backup?erro=" + quote(str(e)), status_code=302)
+        return RedirectResponse("/admin/backup?erro=" + quote(_erro_usuario(e)), status_code=302)
     if r["erro"]:
         return RedirectResponse("/admin/backup?erro=" + quote(r["erro"]), status_code=302)
     return RedirectResponse("/admin/backup?ok=feito&n=" + quote(r["arquivo"]), status_code=302)
@@ -1105,11 +1238,11 @@ async def session_remessa_definir(request: Request):
 @require_login
 async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)):
     try:
-        conteudo = await _ler_upload(arquivo)
+        conteudo = await _ler_upload(request, arquivo)
         resultado = items_mod.importar_tipos_xlsx(conteudo)
         params = f"importado={resultado['criados']}&ignorado={resultado['ignorados']}"
     except Exception as e:
-        params = f"erro_import={quote(str(e))}"
+        params = f"erro_import={quote(_erro_usuario(e))}"
     return RedirectResponse(f"/admin/items?{params}", status_code=302)
 
 
@@ -1118,7 +1251,7 @@ async def admin_tipos_importar(request: Request, arquivo: UploadFile = File(...)
 async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(...)):
     user = get_current_user(request)
     try:
-        conteudo = await _ler_upload(arquivo)
+        conteudo = await _ler_upload(request, arquivo)
         resultado = items_mod.importar_bom_xlsx(conteudo, user["id"])
         if "erro" in resultado:
             params = f"erro_import={quote(resultado['erro'])}"
@@ -1127,7 +1260,7 @@ async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(
             ign = resultado["ignorados"]
             params = f"importado_bom=1&tipos={t}&itens={i}&ignorado={ign}"
     except Exception as e:
-        params = f"erro_import={quote(str(e))}"
+        params = f"erro_import={quote(_erro_usuario(e))}"
     return RedirectResponse(f"/admin/items?{params}", status_code=302)
 
 
@@ -1673,7 +1806,7 @@ async def admin_tipos_completo(request: Request):
                                        quantidade_minima, user["id"])
     except Exception as e:
         return RedirectResponse(
-            "/admin/items?tab=novo&erro=" + quote(f"Erro ao cadastrar: {e}"),
+            "/admin/items?tab=novo&erro=" + quote(_erro_usuario(e, "Não foi possível cadastrar o item.")),
             status_code=302)
 
     return RedirectResponse("/admin/items?ok=item_criado", status_code=302)
@@ -1687,7 +1820,7 @@ async def admin_estoque_codigo(request: Request, estoque_id: int):
         estoque_mod.atualizar_codigo_barra(estoque_id, form.get("codigo_barra", ""))
     except Exception as e:
         return RedirectResponse(
-            "/admin/items?erro=" + quote(f"Erro ao atualizar código: {e}"),
+            "/admin/items?erro=" + quote(_erro_usuario(e, "Não foi possível atualizar o código.")),
             status_code=302)
     return RedirectResponse("/admin/items?ok=codigo_atualizado", status_code=302)
 
@@ -1706,7 +1839,7 @@ async def admin_items_post(request: Request,
     except Exception as e:
         return render(request, "admin_items.html",
                       {**_admin_items_context(tab="patrimonios"),
-                       "erro": f"Erro ao salvar: {e}"})
+                       "erro": _erro_usuario(e, "Não foi possível salvar o item.")})
 
 
 @app.post("/admin/items/clear")
@@ -1794,7 +1927,7 @@ async def admin_templates_import_bom(request: Request,
             "tab_ativo": tipo,
         })
     try:
-        conteudo = await _ler_upload(arquivo)
+        conteudo = await _ler_upload(request, arquivo)
         template_id, stats = templates_mod.criar_template_do_bom(
             nome, cliente, user["id"], conteudo, tipo=tipo
         )
@@ -1877,7 +2010,7 @@ async def admin_templates_import_pedido(request: Request,
             "tab_ativo": "pedido",
         })
     try:
-        conteudo = await _ler_upload(arquivo)
+        conteudo = await _ler_upload(request, arquivo)
         template_id, stats = pedidos_mod.importar_planilha(
             cliente, numero_pedido, user["id"], conteudo
         )
@@ -4551,11 +4684,11 @@ async def admin_estoque_importar_ajuste(request: Request):
             "/admin/items?tab=catalogo&erro=" + quote("Selecione um arquivo .xlsx."),
             status_code=302)
     try:
-        conteudo = await _ler_upload(arquivo)
+        conteudo = await _ler_upload(request, arquivo)
         r = estoque_mod.importar_ajustes_xlsx(conteudo, user["id"])
     except Exception as e:
         return RedirectResponse(
-            "/admin/items?tab=catalogo&erro=" + quote(f"Erro ao ler a planilha: {e}"),
+            "/admin/items?tab=catalogo&erro=" + quote(_erro_usuario(e, "Não foi possível ler a planilha.")),
             status_code=302)
 
     partes = [f"{len(r['atualizados'])} item(ns) atualizado(s)"]
@@ -4705,7 +4838,7 @@ async def admin_estoque_post(request: Request):
                                    quantidade_minima, user["id"])
     except Exception as e:
         return RedirectResponse(
-            "/admin/items?erro=" + quote(f"Erro ao adicionar ao estoque: {e}"),
+            "/admin/items?erro=" + quote(_erro_usuario(e, "Não foi possível adicionar ao estoque.")),
             status_code=302)
     return RedirectResponse("/admin/items?ok=estoque_criado", status_code=302)
 
@@ -4774,7 +4907,7 @@ async def admin_estoque_corrigir(request: Request, estoque_id: int):
         estoque_mod.corrigir_quantidade(estoque_id, nova_quantidade, user["id"])
     except Exception as e:
         return RedirectResponse(
-            "/admin/items?erro=" + quote(f"Erro ao corrigir quantidade: {e}"),
+            "/admin/items?erro=" + quote(_erro_usuario(e, "Não foi possível corrigir a quantidade.")),
             status_code=302)
     return RedirectResponse("/admin/items?ok=quantidade_corrigida", status_code=302)
 
@@ -5193,7 +5326,7 @@ async def admin_veiculos_import_post(request: Request):
         return render(request, "admin_veiculos_import.html",
                       {"erro": "Selecione um arquivo .xlsx."})
     try:
-        file_bytes = await _ler_upload(arquivo)
+        file_bytes = await _ler_upload(request, arquivo)
     except ValueError as e:
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
     user = request.state.user

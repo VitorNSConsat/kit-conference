@@ -55,7 +55,7 @@
   {% endif %}
 
   <div style="margin-top:12px;font-size:13px;color:#555;">
-    <div><strong>Pasta padrão:</strong> <code>{{ pasta_padrao }}</code></div>
+    <div><strong>Pasta padrão:</strong> <code>{{ pasta_padrao if user.admin else '(pasta local do servidor — visível só para administradores)' }}</code></div>
     <div style="margin-top:4px;">
       <strong>Segunda pasta:</strong>
       {% if cfg.pasta_extra %}<code>{{ cfg.pasta_extra }}</code>
@@ -163,7 +163,7 @@
   <ol style="font-size:14px;line-height:1.8;">
     <li><strong>Pare o sistema</strong> (feche o servidor). Com ele no ar, o arquivo está
       em uso e a troca não vale.</li>
-    <li>Na pasta <code>{{ pasta_padrao }}</code>, copie o <code>.bak</code> da data que você
+    <li>Na pasta <code>{{ pasta_padrao if user.admin else '(pasta local do servidor)' }}</code>, copie o <code>.bak</code> da data que você
       quer, <strong>renomeie para o nome do banco</strong> e coloque no lugar do arquivo
       atual — guardando o atual antes, com outro nome.</li>
     <li><strong>Suba o sistema de novo.</strong> Ele abre exatamente como estava naquele
