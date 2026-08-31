@@ -266,13 +266,20 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
             desfecho = getattr(request.state, "auditoria_desfecho", None)
             if desfecho:
                 acao = f"{acao}: {desfecho}"
+            # Rotas importantes escrevem um resumo pronto pra leitura (ex.:
+            # "Remessa Consat 07: alvo alterado de 100 para 110"), depois de
+            # já saber o resultado — muito mais claro do que os campos crus
+            # do formulário. As rotas que ainda não foram customizadas
+            # continuam caindo no resumo do formulário, que ao menos cobre
+            # tudo sem exigir que cada rota nova pense nisso.
+            detalhe_final = getattr(request.state, "auditoria_detalhe", None) or detalhe
             auditoria_mod.registrar(
                 user_id=user["id"] if user else None,
                 user_nome=user["nome"] if user else None,
                 acao=acao,
                 metodo=request.method,
                 caminho=caminho,
-                detalhe=detalhe,
+                detalhe=detalhe_final,
                 ip=_ip_do_cliente(request),
                 status=resposta.status_code,
             )
@@ -349,6 +356,16 @@ def _erro_usuario(e: Exception, generico: str = "Não foi possível concluir est
         return str(e)
     print(f"[KIT] erro interno ({type(e).__name__}): {e}")
     return generico
+
+
+def _veiculo_do_kit(kit_id: str) -> str:
+    """Número do veículo de um kit, pro log de auditoria falar a língua do
+    operador ("veículo 293") em vez do kit_id (um UUID que ninguém decora)."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT veiculo FROM kit_record WHERE kit_id = ?", (kit_id,)
+        ).fetchone()
+    return (row["veiculo"] if row and row["veiculo"] else kit_id[:8])
 
 
 _SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
@@ -766,6 +783,9 @@ async def admin_usuarios_inatividade(request: Request):
     em quem consegue ficar dentro do sistema."""
     form = await request.form()
     minutos = inatividade_mod.salvar_config(form.get("minutos", "0"))
+    request.state.auditoria_detalhe = (
+        f"Tempo de inatividade definido para {minutos} minuto(s)" if minutos
+        else "Expiração por inatividade desligada")
     return RedirectResponse(f"/admin/usuarios?ok=inatividade&m={minutos}", status_code=302)
 
 
@@ -773,15 +793,17 @@ async def admin_usuarios_inatividade(request: Request):
 @require_admin
 async def admin_usuarios_criar(request: Request):
     form = await request.form()
+    nome = str(form.get("nome", ""))
+    username = str(form.get("username", ""))
+    eh_admin = bool(form.get("admin"))
     try:
-        usuarios_mod.criar(
-            nome=str(form.get("nome", "")),
-            username=str(form.get("username", "")),
-            senha=str(form.get("senha", "")),
-            admin=bool(form.get("admin")),
-        )
+        usuarios_mod.criar(nome=nome, username=username,
+                           senha=str(form.get("senha", "")), admin=eh_admin)
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Usuário \"{nome}\" ({username}) criado"
+        + (" como administrador" if eh_admin else ""))
     return RedirectResponse("/admin/usuarios?ok=criado", status_code=302)
 
 
@@ -794,10 +816,13 @@ async def admin_usuario_renomear(request: Request, user_id: int):
     if not alvo:
         raise HTTPException(status_code=404)
     form = await request.form()
+    novo_nome = str(form.get("nome", ""))
     try:
-        usuarios_mod.renomear(user_id, str(form.get("nome", "")))
+        usuarios_mod.renomear(user_id, novo_nome)
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Usuário \"{alvo['nome']}\" ({alvo['username']}) renomeado para \"{novo_nome}\"")
     return RedirectResponse("/admin/usuarios?ok=nome", status_code=302)
 
 
@@ -807,10 +832,14 @@ async def admin_usuario_toggle_admin(request: Request, user_id: int):
     alvo = usuarios_mod.buscar(user_id)
     if not alvo:
         raise HTTPException(status_code=404)
+    novo_admin = not alvo["admin"]
     try:
-        usuarios_mod.definir_admin(user_id, not alvo["admin"])
+        usuarios_mod.definir_admin(user_id, novo_admin)
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Usuário \"{alvo['nome']}\" ({alvo['username']}) "
+        + ("promovido a administrador" if novo_admin else "rebaixado a usuário comum"))
     return RedirectResponse("/admin/usuarios?ok=perfil", status_code=302)
 
 
@@ -820,10 +849,14 @@ async def admin_usuario_toggle_ativo(request: Request, user_id: int):
     alvo = usuarios_mod.buscar(user_id)
     if not alvo:
         raise HTTPException(status_code=404)
+    novo_ativo = not alvo["ativo"]
     try:
-        usuarios_mod.definir_ativo(user_id, not alvo["ativo"])
+        usuarios_mod.definir_ativo(user_id, novo_ativo)
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Usuário \"{alvo['nome']}\" ({alvo['username']}) "
+        + ("reativado" if novo_ativo else "desativado"))
     return RedirectResponse("/admin/usuarios?ok=status", status_code=302)
 
 
@@ -834,19 +867,40 @@ async def admin_usuario_permissoes(request: Request, user_id: int):
     if not alvo:
         raise HTTPException(status_code=404)
     form = await request.form()
+    antes = permissoes_mod.negadas_do_usuario(user_id)
     permitidas = {chave for chave in permissoes_mod.PERMISSOES if form.get(chave)}
     permissoes_mod.definir_permissoes(user_id, permitidas)
+    depois = permissoes_mod.negadas_do_usuario(user_id)
+    # O que a pessoa PERDEU (passou a negado) e o que RECUPEROU (deixou de
+    # estar negado) — muito mais direto de revisar do que os ~15 checkboxes
+    # crus que o formulário manda.
+    passou_a_negar = sorted(permissoes_mod.PERMISSOES.get(c, c) for c in (depois - antes))
+    voltou_a_permitir = sorted(permissoes_mod.PERMISSOES.get(c, c) for c in (antes - depois))
+    partes = []
+    if passou_a_negar:
+        partes.append("negou " + ", ".join(passou_a_negar))
+    if voltou_a_permitir:
+        partes.append("liberou " + ", ".join(voltou_a_permitir))
+    resumo = "; ".join(partes) if partes else "sem mudança"
+    request.state.auditoria_detalhe = (
+        f"Permissões de \"{alvo['nome']}\" ({alvo['username']}): {resumo}")
     return RedirectResponse("/admin/usuarios?ok=permissoes", status_code=302)
 
 
 @app.post("/admin/usuarios/{user_id}/senha")
 @require_admin
 async def admin_usuario_senha(request: Request, user_id: int):
+    alvo = usuarios_mod.buscar(user_id)
+    if not alvo:
+        raise HTTPException(status_code=404)
     form = await request.form()
     try:
         usuarios_mod.trocar_senha(user_id, str(form.get("senha", "")))
     except ValueError as e:
         return RedirectResponse("/admin/usuarios?erro=" + quote(str(e)), status_code=302)
+    # Nunca a senha em si — só quem teve a senha trocada e por quem (o "por
+    # quem" já vem de graça do user_nome da linha da auditoria).
+    request.state.auditoria_detalhe = f"Senha de \"{alvo['nome']}\" ({alvo['username']}) alterada"
     return RedirectResponse("/admin/usuarios?ok=senha", status_code=302)
 
 
@@ -4133,10 +4187,11 @@ async def admin_remessa_editar(request: Request, remessa_id: int):
 @require_permission("remessas_gerenciar")
 async def admin_remessa_reabrir(request: Request, remessa_id: int):
     try:
-        remessas_mod.reabrir(remessa_id)
+        r = remessas_mod.reabrir(remessa_id)
     except ValueError as e:
         return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
                                 status_code=302)
+    request.state.auditoria_detalhe = f"Remessa \"{r['nome']}\" reaberta"
     return RedirectResponse(_volta_remessa(remessa_id, "ok=reaberta"), status_code=302)
 
 
@@ -4145,11 +4200,14 @@ async def admin_remessa_reabrir(request: Request, remessa_id: int):
 async def admin_remessa_arquivar(request: Request, remessa_id: int):
     """Tira do caminho SEM apagar: o historico do envio continua inteiro."""
     form = await request.form()
+    motivo = str(form.get("motivo", ""))
     try:
-        remessas_mod.arquivar(remessa_id, str(form.get("motivo", "")))
+        r = remessas_mod.arquivar(remessa_id, motivo)
     except ValueError as e:
         return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)),
                                 status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Remessa \"{r['nome']}\" arquivada" + (f" (motivo: {motivo})" if motivo else ""))
     return RedirectResponse("/admin/producao/remessas?ok=arquivada", status_code=302)
 
 
@@ -4163,6 +4221,7 @@ async def admin_remessa_excluir(request: Request, remessa_id: int):
     except ValueError as e:
         return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)),
                                 status_code=302)
+    request.state.auditoria_detalhe = f"Remessa \"{r['nome']}\" excluída"
     return RedirectResponse("/admin/producao/remessas?ok=excluida&n=" + quote(r["nome"]),
                             status_code=302)
 
@@ -4173,14 +4232,17 @@ async def admin_remessa_transferir(request: Request):
     """Move um veiculo de uma remessa pra outra numa operacao so — sem passar
     por "tirar de uma" e "por na outra", onde da pra esquecer o segundo passo."""
     form = await request.form()
+    ref = str(form.get("ref", ""))
     destino = int(form.get("destino_id") or 0)
     origem = int(form.get("remessa_id") or 0)
     try:
-        remessas_mod.transferir(str(form.get("ref", "")), destino,
-                                (get_current_user(request) or {}).get("id"))
+        remessas_mod.transferir(ref, destino, (get_current_user(request) or {}).get("id"))
     except ValueError as e:
         return RedirectResponse(_volta_remessa(origem, "erro=" + quote(str(e))),
                                 status_code=302)
+    nome_destino = (remessas_mod.listar_uma(destino) or {}).get("nome", destino)
+    request.state.auditoria_detalhe = (
+        f"{remessas_mod.rotulo_do_ref(ref)} movido para a remessa \"{nome_destino}\"")
     return RedirectResponse(_volta_remessa(destino, "ok=transferido"), status_code=302)
 
 
@@ -4213,6 +4275,9 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
         partes.append(f"outro_cliente={r['cliente_errado']}&cliente={quote(r['cliente'])}")
     if r["fechou"]:
         partes.append("fechada=1")
+    nome_remessa = (remessas_mod.listar_uma(remessa_id) or {}).get("nome", remessa_id)
+    request.state.auditoria_detalhe = (
+        f"{r['entraram']} veículo(s) acrescentado(s) à remessa \"{nome_remessa}\"")
     return RedirectResponse(
         _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "&".join(partes)),
         status_code=302)
@@ -4223,11 +4288,14 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
 async def admin_remessa_remover(request: Request, remessa_id: int):
     form = await request.form()
     ref = str(form.get("ref", "")) or ("kit:" + str(form.get("kit_id", "")))
+    rotulo = remessas_mod.rotulo_do_ref(ref)
     try:
         remessas_mod.remover_item(remessa_id, ref)
     except ValueError as e:
         return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
                                 status_code=302)
+    nome_remessa = (remessas_mod.listar_uma(remessa_id) or {}).get("nome", remessa_id)
+    request.state.auditoria_detalhe = f"{rotulo} removido da remessa \"{nome_remessa}\""
     return RedirectResponse(_volta_remessa(remessa_id, "ok=removido"), status_code=302)
 
 
@@ -4255,11 +4323,17 @@ async def admin_remessa_selecionados(request: Request, remessa_id: int):
             extra = f"ok=movidos&n={r['movidos']}"
             if r["recusados"]:
                 extra += "&recusados=" + quote(" · ".join(r["recusados"][:4]))
+            nome_destino = (r["destino"] or {}).get("nome", destino)
+            request.state.auditoria_detalhe = (
+                f"{r['movidos']} veículo(s) movido(s) para a remessa \"{nome_destino}\"")
             return RedirectResponse(_volta_remessa(destino, extra), status_code=302)
         r = remessas_mod.remover_varios(remessa_id, refs)
         extra = f"ok=tirados&n={r['tirados']}"
         if r["recusados"]:
             extra += "&recusados=" + quote(" · ".join(r["recusados"][:4]))
+        nome_remessa = (remessas_mod.listar_uma(remessa_id) or {}).get("nome", remessa_id)
+        request.state.auditoria_detalhe = (
+            f"{r['tirados']} veículo(s) removido(s) da remessa \"{nome_remessa}\"")
         return RedirectResponse(_volta_remessa(remessa_id, extra), status_code=302)
     except ValueError as e:
         return RedirectResponse(_volta_remessa(remessa_id, "erro=" + quote(str(e))),
@@ -4271,11 +4345,15 @@ async def admin_remessa_selecionados(request: Request, remessa_id: int):
 async def admin_remessa_abrir(request: Request):
     form = await request.form()
     user = get_current_user(request)
+    cliente = str(form.get("cliente", ""))
     try:
-        remessas_mod.abrir(str(form.get("nome", "")), form.get("alvo", ""),
-                           str(form.get("cliente", "")), user["id"] if user else None)
+        r = remessas_mod.abrir(str(form.get("nome", "")), form.get("alvo", ""),
+                               cliente, user["id"] if user else None)
     except ValueError as e:
         return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)), status_code=302)
+    request.state.auditoria_detalhe = (
+        f"Remessa \"{r['nome']}\" aberta (alvo {r['alvo']}"
+        + (f", cliente {cliente}" if cliente else "") + ")")
     return RedirectResponse("/admin/producao/remessas?ok=aberta", status_code=302)
 
 
@@ -4285,11 +4363,17 @@ async def admin_remessa_alvo(request: Request, remessa_id: int):
     """Muda a quantidade no meio do caminho — o "0/90 → 80/80"."""
     form = await request.form()
     voltar = str(form.get("voltar", "")) or "/admin/producao/remessas"
+    antes = remessas_mod.listar_uma(remessa_id)
     try:
         r = remessas_mod.definir_alvo(remessa_id, form.get("alvo", ""))
     except ValueError as e:
         return RedirectResponse(voltar + "?erro=" + quote(str(e)), status_code=302)
     fechou = "&fechada=1" if r and r["status"] == "fechada" else ""
+    nome = (r or antes or {}).get("nome", remessa_id)
+    alvo_antes = (antes or {}).get("alvo")
+    request.state.auditoria_detalhe = (
+        f"Remessa \"{nome}\": alvo alterado de {alvo_antes} para {r['alvo']}"
+        if r else f"Remessa \"{nome}\": alvo alterado")
     return RedirectResponse(f"{voltar}?ok=alvo{fechou}", status_code=302)
 
 
@@ -4404,7 +4488,10 @@ async def admin_remessa_excel(request: Request, remessa_id: int):
 @require_permission("remessas_gerenciar")
 async def admin_remessa_fechar(request: Request, remessa_id: int):
     form = await request.form()
-    remessas_mod.fechar(remessa_id, motivo=str(form.get("motivo", "")).strip() or "fechada à mão")
+    motivo = str(form.get("motivo", "")).strip() or "fechada à mão"
+    nome = (remessas_mod.listar_uma(remessa_id) or {}).get("nome", remessa_id)
+    remessas_mod.fechar(remessa_id, motivo=motivo)
+    request.state.auditoria_detalhe = f"Remessa \"{nome}\" fechada ({motivo})"
     return RedirectResponse("/admin/producao/remessas?ok=fechada", status_code=302)
 
 
@@ -4432,6 +4519,7 @@ async def admin_producao_transito(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
     n = producao_mod.marcar_transito(kit_ids)
+    request.state.auditoria_detalhe = f"{n} kit(s) movido(s) para Em trânsito"
     return RedirectResponse(f"/admin/producao?ok=transito&n={n}", status_code=302)
 
 
@@ -4446,29 +4534,36 @@ async def admin_producao_nota_lote(request: Request):
     kit_ids = [k for k in form.getlist("kit_ids") if str(k).strip()]
     if not kit_ids:
         return RedirectResponse("/admin/producao?erro=nota_lote_vazio", status_code=302)
+    nota = str(form.get("nota_fiscal", ""))
     r = producao_mod.atribuir_nota_em_lote(
         kit_ids,
-        str(form.get("nota_fiscal", "")),
+        nota,
         str(form.get("nota_fiscal_data", "")),
         str(form.get("motivo", "")),
     )
     q = f"?ok=nota_lote&n={len(r['atualizados'])}"
     if r["bloqueados"]:
         q += f"&bloqueados={len(r['bloqueados'])}"
+    request.state.auditoria_detalhe = (
+        f"{len(r['atualizados'])} kit(s): nota fiscal definida para {nota}")
     return RedirectResponse("/admin/producao" + q, status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/cliente-instalando")
 @require_permission("producao_mover_estagio")
 async def admin_producao_cliente_instalando(request: Request, kit_id: str):
+    veiculo = _veiculo_do_kit(kit_id)
     producao_mod.marcar_cliente_instalando(kit_id)
+    request.state.auditoria_detalhe = f"Veículo {veiculo}: instalação iniciada no cliente"
     return RedirectResponse("/admin/producao?ok=instalando", status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/cliente-concluido")
 @require_permission("producao_mover_estagio")
 async def admin_producao_cliente_concluido(request: Request, kit_id: str):
+    veiculo = _veiculo_do_kit(kit_id)
     producao_mod.marcar_cliente_concluido(kit_id)
+    request.state.auditoria_detalhe = f"Veículo {veiculo}: instalação concluída"
     return RedirectResponse("/admin/producao?ok=concluido", status_code=302)
 
 
@@ -4478,13 +4573,16 @@ async def admin_producao_cliente_concluido_lote(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
     n = producao_mod.marcar_cliente_concluido_lote(kit_ids)
+    request.state.auditoria_detalhe = f"{n} kit(s): instalação concluída"
     return RedirectResponse(f"/admin/producao?ok=concluido_lote&n={n}", status_code=302)
 
 
 @app.post("/admin/producao/{kit_id}/voltar")
 @require_permission("producao_mover_estagio")
 async def admin_producao_voltar(request: Request, kit_id: str):
+    veiculo = _veiculo_do_kit(kit_id)
     producao_mod.voltar_estagio(kit_id)
+    request.state.auditoria_detalhe = f"Veículo {veiculo}: voltou para a etapa anterior"
     return RedirectResponse("/admin/producao?ok=voltou", status_code=302)
 
 
@@ -4492,14 +4590,17 @@ async def admin_producao_voltar(request: Request, kit_id: str):
 @require_permission("producao_nota_fiscal")
 async def admin_producao_nota_fiscal(request: Request, kit_id: str):
     form = await request.form()
+    nota = str(form.get("nota_fiscal", ""))
     ok = producao_mod.atualizar_nota_fiscal(
         kit_id,
-        str(form.get("nota_fiscal", "")),
+        nota,
         str(form.get("nota_fiscal_data", "")),
         str(form.get("motivo", "")),
     )
     if not ok:
         return RedirectResponse("/admin/producao?erro=nf_motivo", status_code=302)
+    veiculo = _veiculo_do_kit(kit_id)
+    request.state.auditoria_detalhe = f"Veículo {veiculo}: nota fiscal definida para {nota}"
     return RedirectResponse("/admin/producao?ok=nota_fiscal", status_code=302)
 
 

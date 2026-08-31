@@ -635,7 +635,7 @@ def transferir_varios(refs: list, destino_id: int, user_id: int = None) -> dict:
             transferir(ref, destino_id, user_id)
             movidos += 1
         except ValueError as e:
-            recusados.append(_rotulo_do_ref(ref) + ": " + str(e))
+            recusados.append(rotulo_do_ref(ref) + ": " + str(e))
     return {"movidos": movidos, "recusados": recusados,
             "destino": listar_uma(destino["id"]),
             "origens": [listar_uma(o) for o in origens if o]}
@@ -655,13 +655,13 @@ def remover_varios(remessa_id: int, refs: list) -> dict:
             if remover_item(remessa_id, ref):
                 tirados += 1
             else:
-                recusados.append(_rotulo_do_ref(ref) + ": nao estava nesta remessa")
+                recusados.append(rotulo_do_ref(ref) + ": nao estava nesta remessa")
         except ValueError as e:
-            recusados.append(_rotulo_do_ref(ref) + ": " + str(e))
+            recusados.append(rotulo_do_ref(ref) + ": " + str(e))
     return {"tirados": tirados, "recusados": recusados}
 
 
-def _rotulo_do_ref(ref: str) -> str:
+def rotulo_do_ref(ref: str) -> str:
     """O NUMERO do veiculo, que e como o operador chama o item — nao o kit_id,
     que ele nunca viu."""
     kit_id, veiculo_id = _ler_ref(ref)
