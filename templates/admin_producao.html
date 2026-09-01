@@ -366,7 +366,18 @@
         {% if faltando_item.get(k.kit_id) %}
         {# Kit devendo item: precisa de reposição antes de seguir. #}
         <span class="badge badge-danger" style="margin-left:4px;"
-              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}
+              title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+        {% endif %}</td>
+        <td>{{ k.garagem or '—' }}</td>
+        <td style="color:{{ cor }};">{{ k.cliente }}</td>
+        <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] if k.finalizado_em else '—' }}</td>
+        <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
   {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
      e a âncora devolve o operador pra etapa onde ele estava. #}
   {% if produzido.total_paginas > 1 %}
@@ -382,17 +393,7 @@
     {% endfor %}
   </div>
   {% endif %}
-{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
-        {% endif %}</td>
-        <td>{{ k.garagem or '—' }}</td>
-        <td style="color:{{ cor }};">{{ k.cliente }}</td>
-        <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] if k.finalizado_em else '—' }}</td>
-        <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     {% if pode('producao_mover_estagio') %}
     <button type="submit" form="form-transito" class="btn btn-primary" id="btn-transito-lote"
@@ -483,23 +484,7 @@
              title="Abrir o kit deste veículo — itens, patrimônios e verificação">{{ k.veiculo or k.kit_nome }}</a>
       {% if faltando_item.get(k.kit_id) %}
       <span class="badge badge-danger" style="margin-left:4px;"
-            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}
-  {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
-     e a âncora devolve o operador pra etapa onde ele estava. #}
-  {% if transito.total_paginas > 1 %}
-  <div class="paginacao">
-    <span class="paginacao-info">página {{ transito.pagina }} de {{ transito.total_paginas }}
-      · {{ transito.total }} no total</span>
-    {% for p in transito.paginas_visiveis %}
-      {% if p is none %}<span class="paginacao-ellipsis">…</span>
-      {% else %}
-      <a href="?pag_tr={{ p }}#etapa-transito"
-         class="btn btn-sm {{ 'btn-primary' if p == transito.pagina else 'btn-secondary' }}">{{ p }}</a>
-      {% endif %}
-    {% endfor %}
-  </div>
-  {% endif %}
-{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
+            title="Falta de patrimônio: {% for f in faltando_item[k.kit_id].faltas %}{{ f.faltam }}× {{ f.tipo }}{{ ', ' if not loop.last }}{% endfor %}">{% if faltando_item[k.kit_id].faltas | length == 1 %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas[0].aviso }}{% else %}{{ ic.svg('alerta', 11) }} {{ faltando_item[k.kit_id].faltas | length }} itens não encontrados{% endif %}</span>
       {% endif %}</td>
       <td>{{ k.garagem or '—' }}</td>
       <td style="color:{{ cor }};">{{ k.cliente }}</td>
@@ -524,6 +509,23 @@
     </tbody>
   </table>
   </div>
+
+  {# Cada etapa pagina sozinha: mudar de página aqui não mexe nas outras,
+     e a âncora devolve o operador pra etapa onde ele estava. #}
+  {% if transito.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ transito.pagina }} de {{ transito.total_paginas }}
+      · {{ transito.total }} no total</span>
+    {% for p in transito.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_tr={{ p }}#etapa-transito"
+         class="btn btn-sm {{ 'btn-primary' if p == transito.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if pode('producao_nota_fiscal') %}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="button" class="btn btn-secondary" data-lote="transito" disabled
