@@ -588,6 +588,18 @@ def _voltar_para(request: Request, padrao: str) -> str:
     return destino
 
 
+def _voltar_items_catalogo(request: Request, ok: str = "") -> str:
+    """Pra onde os POSTs da aba Catálogo (Itens & Estoque) devem redirecionar
+    depois de editar um tipo/estoque: a MESMA tela que a pessoa tinha aberto —
+    busca e filtro de quantidade (q_situacao/q_min/q_max) incluídos — em vez
+    da lista pelada. Usa o mesmo mecanismo de Referer do botão Voltar."""
+    destino = _voltar_para(request, "/admin/items?tab=catalogo")
+    if not ok:
+        return destino
+    sep = "&" if "?" in destino else "?"
+    return f"{destino}{sep}ok={ok}"
+
+
 def render(request: Request, template: str, ctx: dict = {}):
     user = get_current_user(request)
     # A faixa de aviso obedece à configuração (quais itens, em quais telas,
@@ -1322,28 +1334,28 @@ async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(
 @require_login
 async def admin_tipo_toggle_reutilizavel(request: Request, tipo_id: int):
     items_mod.alternar_reutilizavel_tipo(tipo_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/toggle-controle-externo")
 @require_login
 async def admin_tipo_toggle_controle_externo(request: Request, tipo_id: int):
     items_mod.alternar_controle_externo(tipo_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/toggle-requer-serial")
 @require_login
 async def admin_tipo_toggle_requer_serial(request: Request, tipo_id: int):
     items_mod.alternar_requer_serial(tipo_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/toggle-unidade")
 @require_login
 async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
     items_mod.alternar_unidade_tipo(tipo_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/renomear")
@@ -1356,7 +1368,7 @@ async def admin_tipo_renomear(request: Request, tipo_id: int):
             items_mod.renomear_tipo(tipo_id, novo_nome)
         except Exception:
             pass
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/delete")
@@ -1364,7 +1376,7 @@ async def admin_tipo_renomear(request: Request, tipo_id: int):
 async def admin_tipo_delete(request: Request, tipo_id: int):
     try:
         items_mod.deletar_tipo(tipo_id)
-        return RedirectResponse("/admin/items", status_code=302)
+        return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
     except Exception:
         deps = items_mod.buscar_dependencias_tipo(tipo_id)
         return render(request, "admin_items.html", {
@@ -1377,7 +1389,7 @@ async def admin_tipo_delete(request: Request, tipo_id: int):
 @require_admin
 async def admin_tipo_delete_force(request: Request, tipo_id: int):
     items_mod.deletar_tipo_cascade(tipo_id)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 @app.post("/admin/tipos/{tipo_id}/set-codigo-fixo")
@@ -1386,7 +1398,7 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
     form = await request.form()
     codigo = str(form.get("codigo_fixo", "")).strip()
     items_mod.definir_codigo_fixo(tipo_id, codigo or None)
-    return RedirectResponse("/admin/items", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
@@ -4950,7 +4962,7 @@ async def admin_estoque_alertas(request: Request):
         "alerta_telas": str(form.get("alerta_telas", "")),
         "alerta_cor_critico": str(form.get("alerta_cor_critico", "")),
     })
-    return RedirectResponse("/admin/items?tab=catalogo&ok=alertas", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request, "alertas"), status_code=302)
 
 
 @app.get("/admin/estoque", response_class=HTMLResponse)
@@ -5000,7 +5012,7 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     quantidade = max(1, int(form.get("quantidade", 1) or 1))
     observacao = form.get("observacao", "").strip()
     estoque_mod.repor_estoque(estoque_id, quantidade, user["id"], observacao)
-    return RedirectResponse("/admin/items?ok=reposto", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request, "reposto"), status_code=302)
 
 
 @app.post("/admin/estoque/reconciliar-producao")
@@ -5055,10 +5067,12 @@ async def admin_estoque_corrigir(request: Request, estoque_id: int):
         nova_quantidade = max(0, int(form.get("quantidade_atual", 0) or 0))
         estoque_mod.corrigir_quantidade(estoque_id, nova_quantidade, user["id"])
     except Exception as e:
+        destino = _voltar_items_catalogo(request)
+        sep = "&" if "?" in destino else "?"
         return RedirectResponse(
-            "/admin/items?erro=" + quote(_erro_usuario(e, "Não foi possível corrigir a quantidade.")),
+            f"{destino}{sep}erro=" + quote(_erro_usuario(e, "Não foi possível corrigir a quantidade.")),
             status_code=302)
-    return RedirectResponse("/admin/items?ok=quantidade_corrigida", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request, "quantidade_corrigida"), status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/minimo")
@@ -5068,7 +5082,7 @@ async def admin_estoque_minimo(request: Request, estoque_id: int):
     form = await request.form()
     novo_minimo = max(0, int(form.get("quantidade_minima", 0) or 0))
     estoque_mod.atualizar_minimo(estoque_id, novo_minimo, user["id"])
-    return RedirectResponse("/admin/items?ok=minimo", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request, "minimo"), status_code=302)
 
 
 @app.post("/admin/estoque/{estoque_id}/status-compra")
@@ -5077,7 +5091,7 @@ async def admin_estoque_status_compra(request: Request, estoque_id: int):
     user = get_current_user(request)
     form = await request.form()
     estoque_mod.atualizar_status_compra(estoque_id, str(form.get("status_compra", "")), user["id"])
-    return RedirectResponse("/admin/items?ok=status_compra", status_code=302)
+    return RedirectResponse(_voltar_items_catalogo(request, "status_compra"), status_code=302)
 
 
 @app.get("/admin/estoque/{estoque_id}/historico", response_class=HTMLResponse)
