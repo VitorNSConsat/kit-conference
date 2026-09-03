@@ -352,7 +352,7 @@
       <thead><tr>
         <th style="width:32px;"><input type="checkbox" id="chk-todos-produzido"
               onchange="marcarTodos(this, 'produzido')" title="Marcar todos"></th>
-        <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Nota Fiscal</th>
+        <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Verificado</th><th>Nota Fiscal</th>
       </tr></thead>
       <tbody>
       {% for k in produzido.itens %}
@@ -371,6 +371,16 @@
         <td>{{ k.garagem or '—' }}</td>
         <td style="color:{{ cor }};">{{ k.cliente }}</td>
         <td style="font-size:12px;color:#888;">{{ k.finalizado_em[:16] if k.finalizado_em else '—' }}</td>
+        <td style="text-align:center;">
+          {% if k.num_validacoes > 0 %}
+          <a href="/kit/{{ k.kit_id }}" target="_blank"
+             style="color:var(--ok-text);font-weight:700;text-decoration:none;">
+            {{ ic.svg('check', 13) }} {{ k.num_validacoes }}
+          </a>
+          {% else %}
+          <span style="color:var(--text-muted-2);font-size:13px;">Nenhuma</span>
+          {% endif %}
+        </td>
         <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
       </tr>
       {% endfor %}

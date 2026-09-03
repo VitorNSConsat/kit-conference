@@ -270,7 +270,8 @@ _CAMPOS_KIT = (
     "kr.kit_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
     "kr.cliente_concluido_em, kr.veiculo, kr.garagem, kr.modelo, "
     "kr.nota_fiscal, kr.nota_fiscal_data, "
-    "kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome"
+    "kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome, "
+    "(SELECT COUNT(*) FROM kit_validacoes kv WHERE kv.kit_id = kr.kit_id) AS num_validacoes"
 )
 
 
