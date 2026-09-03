@@ -4081,6 +4081,33 @@ async def producao_tv(request: Request, minutos: int = 5):
     })
 
 
+# Coluna "Veículo" cai pro nome do kit quando o veículo está vazio (mesma
+# regra que o template já usa pra exibir a linha) — por isso é uma tupla de
+# fallback, e não um campo só. Cada prefixo é o mesmo já usado no pag_XX de
+# cada etapa, pra clicar em ordenar não desarrumar a paginação dela.
+_COL_VEICULO = ("veiculo", "kit_nome")
+_ORDENS_PRODUCAO = {
+    "ap":  {"veiculo": "veiculo", "garagem": "garagem", "cliente": "cliente", "modelo": "modelo"},
+    "pr":  {"veiculo": _COL_VEICULO, "garagem": "garagem", "cliente": "cliente", "quando": "finalizado_em"},
+    "tr":  {"veiculo": _COL_VEICULO, "garagem": "garagem", "cliente": "cliente", "quando": "transito_em"},
+    "cli": {"veiculo": _COL_VEICULO, "garagem": "garagem", "cliente": "cliente",
+            "modelo": "modelo", "quando": "chegou_em"},
+}
+
+
+def _ler_ordem(request: Request, prefixo: str) -> tuple[str, str]:
+    """Lê ord_<prefixo>/dir_<prefixo> da URL — coluna clicada e sentido.
+    Coluna que não existe no mapa dessa etapa é ignorada (lista fica na
+    ordem de sempre), então um link/URL velho nunca quebra a tela."""
+    campo = request.query_params.get(f"ord_{prefixo}", "")
+    if campo not in _ORDENS_PRODUCAO[prefixo]:
+        campo = ""
+    direcao = request.query_params.get(f"dir_{prefixo}", "asc")
+    if direcao not in ("asc", "desc"):
+        direcao = "asc"
+    return campo, direcao
+
+
 @app.get("/admin/producao", response_class=HTMLResponse)
 @require_login
 async def admin_producao(request: Request):
@@ -4104,16 +4131,33 @@ async def admin_producao(request: Request):
     pag_ap = max(1, int(request.query_params.get("pag_ap", 1) or 1))
     pag_pr = max(1, int(request.query_params.get("pag_pr", 1) or 1))
     pag_tr = max(1, int(request.query_params.get("pag_tr", 1) or 1))
+
+    # Clicar no cabeçalho da coluna só reordena a lista antes de paginar —
+    # é apoio de busca visual, não filtro: nada some, só muda a ordem.
+    ord_ap, dir_ap = _ler_ordem(request, "ap")
+    ord_pr, dir_pr = _ler_ordem(request, "pr")
+    ord_tr, dir_tr = _ler_ordem(request, "tr")
+    ord_cli, dir_cli = _ler_ordem(request, "cli")
+
+    lista_ap = paginacao_mod.ordenar(
+        _com_autonomia(producao_mod.listar_a_produzir()),
+        _ORDENS_PRODUCAO["ap"].get(ord_ap), dir_ap)
+    lista_pr = paginacao_mod.ordenar(
+        producao_mod.listar_produzido(), _ORDENS_PRODUCAO["pr"].get(ord_pr), dir_pr)
+    lista_tr = paginacao_mod.ordenar(
+        producao_mod.listar_transito(), _ORDENS_PRODUCAO["tr"].get(ord_tr), dir_tr)
+    lista_cli = paginacao_mod.ordenar(
+        producao_mod.listar_no_cliente(limite=30), _ORDENS_PRODUCAO["cli"].get(ord_cli), dir_cli)
+
     return render(request, "admin_producao.html", {
-        "a_produzir": paginacao_mod.paginar(
-            _com_autonomia(producao_mod.listar_a_produzir()), pag_ap),
+        "a_produzir": paginacao_mod.paginar(lista_ap, pag_ap),
         "em_producao": _com_autonomia(producao_mod.listar_em_producao()),
-        "produzido": paginacao_mod.paginar(producao_mod.listar_produzido(), pag_pr),
-        "transito": paginacao_mod.paginar(producao_mod.listar_transito(), pag_tr),
+        "produzido": paginacao_mod.paginar(lista_pr, pag_pr),
+        "transito": paginacao_mod.paginar(lista_tr, pag_tr),
         # Card único de Cliente: instalando + concluído na mesma lista. As
         # duas funções antigas seguem existindo (o Painel da TV usa cada
         # coluna separada), então nada foi perdido.
-        "no_cliente": producao_mod.listar_no_cliente(limite=30),
+        "no_cliente": lista_cli,
         "resumo": producao_mod.resumo(),
         # Kits devendo item (patrimônio movido pra outro veículo ou retirado):
         # a esteira é onde o kit espera, então é aqui que a pendência precisa
@@ -4125,6 +4169,10 @@ async def admin_producao(request: Request):
         "remessas_abertas": remessas_mod.listar_abertas(),
         "clientes_cadastrados": clientes_mod.listar(),
         "ok": request.query_params.get("ok", ""),
+        "ord_ap": ord_ap, "dir_ap": dir_ap,
+        "ord_pr": ord_pr, "dir_pr": dir_pr,
+        "ord_tr": ord_tr, "dir_tr": dir_tr,
+        "ord_cli": ord_cli, "dir_cli": dir_cli,
     })
 
 

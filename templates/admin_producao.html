@@ -32,6 +32,22 @@
 {% endif %}
 {% endmacro %}
 
+{# Cabeçalho clicável: ordena a lista inteira daquela etapa (não só a
+   página aberta) por aquela coluna, A-Z/1-100 e volta pro Z-A/100-1 num
+   segundo clique. `reset_pag` é "pag_XX=1&" pras etapas paginadas — sem
+   isso, reordenar podia deixar a pessoa "presa" numa página 4 que já não
+   existe na nova ordem. #}
+{% macro th_ord(rotulo, campo, prefixo, ord_atual, dir_atual, ancora, reset_pag='') %}
+{% set ativo = (ord_atual == campo) %}
+{% set proxima = 'desc' if (ativo and dir_atual == 'asc') else 'asc' %}
+<th>
+  <a href="?{{ reset_pag }}ord_{{ prefixo }}={{ campo }}&dir_{{ prefixo }}={{ proxima }}#etapa-{{ ancora }}"
+     style="color:inherit;text-decoration:none;white-space:nowrap;" title="Ordenar por {{ rotulo }}">
+    {{ rotulo }}{% if ativo %}<span style="color:var(--brand);"> {{ '▲' if dir_atual == 'asc' else '▼' }}</span>{% endif %}
+  </a>
+</th>
+{% endmacro %}
+
 {% block acoes_topo %}
 <a href="/admin/producao/historico" class="btn btn-secondary btn-sm">{{ ic.svg('historico', 15) }} Histórico de Alterações</a>
 <a href="/producao/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
@@ -224,7 +240,13 @@
   {% if a_produzir.itens %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th></tr></thead>
+    <thead><tr>
+      {{ th_ord('Veículo', 'veiculo', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
+      {{ th_ord('Garagem', 'garagem', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
+      {{ th_ord('Cliente', 'cliente', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
+      {{ th_ord('Modelo (kit)', 'modelo', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
+      <th>Kits possíveis</th>
+    </tr></thead>
     <tbody>
     {% for v in a_produzir.itens %}
     {% set cor = cor_do_cliente(v.cliente) %}
@@ -256,7 +278,7 @@
     {% for p in a_produzir.paginas_visiveis %}
       {% if p is none %}<span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="?pag_ap={{ p }}#etapa-a_produzir"
+      <a href="?pag_ap={{ p }}{% if ord_ap %}&ord_ap={{ ord_ap }}&dir_ap={{ dir_ap }}{% endif %}#etapa-a_produzir"
          class="btn btn-sm {{ 'btn-primary' if p == a_produzir.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
@@ -352,7 +374,11 @@
       <thead><tr>
         <th style="width:32px;"><input type="checkbox" id="chk-todos-produzido"
               onchange="marcarTodos(this, 'produzido')" title="Marcar todos"></th>
-        <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Produzido em</th><th>Verificado</th><th>Nota Fiscal</th>
+        {{ th_ord('Veículo', 'veiculo', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
+        {{ th_ord('Garagem', 'garagem', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
+        {{ th_ord('Cliente', 'cliente', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
+        {{ th_ord('Produzido em', 'quando', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
+        <th>Verificado</th><th>Nota Fiscal</th>
       </tr></thead>
       <tbody>
       {% for k in produzido.itens %}
@@ -397,7 +423,7 @@
     {% for p in produzido.paginas_visiveis %}
       {% if p is none %}<span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="?pag_pr={{ p }}#etapa-produzido"
+      <a href="?pag_pr={{ p }}{% if ord_pr %}&ord_pr={{ ord_pr }}&dir_pr={{ dir_pr }}{% endif %}#etapa-produzido"
          class="btn btn-sm {{ 'btn-primary' if p == produzido.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
@@ -479,7 +505,11 @@
       <th style="width:32px;"><input type="checkbox" id="chk-todos-transito"
             onchange="marcarTodos(this, 'transito')" title="Marcar todos"></th>
       {% endif %}
-      <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Em trânsito desde</th><th>Nota Fiscal</th><th></th>
+      {{ th_ord('Veículo', 'veiculo', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
+      {{ th_ord('Garagem', 'garagem', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
+      {{ th_ord('Cliente', 'cliente', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
+      {{ th_ord('Em trânsito desde', 'quando', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
+      <th>Nota Fiscal</th><th></th>
     </tr></thead>
     <tbody>
     {% for k in transito.itens %}
@@ -529,7 +559,7 @@
     {% for p in transito.paginas_visiveis %}
       {% if p is none %}<span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="?pag_tr={{ p }}#etapa-transito"
+      <a href="?pag_tr={{ p }}{% if ord_tr %}&ord_tr={{ ord_tr }}&dir_tr={{ dir_tr }}{% endif %}#etapa-transito"
          class="btn btn-sm {{ 'btn-primary' if p == transito.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
@@ -558,7 +588,7 @@
      status_producao continua com os dois valores e cada kit mantém suas
      datas, então o histórico de quando chegou e quando concluiu segue
      intacto — e os botões de concluir e voltar continuam os mesmos. -->
-<details class="card etapa" data-etapa="cliente">
+<details class="card etapa" data-etapa="cliente" id="etapa-cliente">
   <summary>
     <h2>Cliente
       <span class="etapa-sub">(no cliente — últimos 30)</span>
@@ -583,7 +613,12 @@
       <th style="width:32px;"><input type="checkbox" id="chk-todos-cliente"
             onchange="marcarTodos(this, 'cliente')" title="Marcar todos os que ainda podem ser concluídos"></th>
       {% endif %}
-      <th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>No cliente desde</th><th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
+      {{ th_ord('Veículo', 'veiculo', 'cli', ord_cli, dir_cli, 'cliente') }}
+      {{ th_ord('Garagem', 'garagem', 'cli', ord_cli, dir_cli, 'cliente') }}
+      {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente') }}
+      {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente') }}
+      {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente') }}
+      <th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente %}
     {% set cor = cor_do_cliente(k.cliente) %}

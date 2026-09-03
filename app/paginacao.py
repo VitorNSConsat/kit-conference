@@ -56,6 +56,39 @@ def _normalizar(valor) -> str:
     )
 
 
+def _chave_natural(valor) -> list:
+    """"2" antes de "10": quebra em pedaços de dígito e texto, e cada pedaço
+    de dígito vira número — senão ordem alfabética pura poria "10" antes de
+    "2", o que não bate com o que a pessoa espera ao ordenar uma coluna de
+    números/códigos de veículo."""
+    import re
+    texto = _normalizar(valor)
+    return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", texto)]
+
+
+def ordenar(lista: list, campos, direcao: str = "asc") -> list:
+    """Ordena uma lista de dicts por um campo (ou, se `campos` for uma
+    tupla, pelo primeiro campo não vazio de cada item — para colunas como
+    "Veículo" que às vezes mostram o nome do kit no lugar).
+
+    Não altera a lista original. `campos` vazio devolve a lista como veio,
+    então chamar isto sem pedido de ordenação nenhum é inofensivo."""
+    if not campos:
+        return lista
+    if isinstance(campos, str):
+        campos = (campos,)
+
+    def valor(item):
+        for c in campos:
+            v = item.get(c)
+            if v not in (None, ""):
+                return v
+        return ""
+
+    return sorted(lista, key=lambda item: _chave_natural(valor(item)),
+                  reverse=(direcao == "desc"))
+
+
 def paginar(lista: list, pagina: int, por_pagina: int = POR_PAGINA_PADRAO) -> dict:
     """Fatia uma lista já carregada em memória pra exibição paginada.
     Use quando a lista completa já foi buscada do banco (sem LIMIT/OFFSET
