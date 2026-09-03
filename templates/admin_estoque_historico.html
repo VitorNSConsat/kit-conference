@@ -76,6 +76,13 @@
             <td>{{ m.operador_nome or '—' }}</td>
             <td style="font-size:13px;color:#555;">
                 {% if is_sobressalente %}<strong>Cliente: {{ m.cliente }}</strong>{% if m.observacao %} — {{ m.observacao }}{% endif %}
+                {% elif m.kit_id %}
+                {# "Kit" na saída é só o rótulo — o link mostra QUAL kit/pedido levou o
+                   item, achado pela mesma sessão de bipagem que descontou o estoque. #}
+                <a href="/kit/{{ m.kit_id }}" target="_blank"
+                   style="color:var(--brand-ink);font-weight:600;text-decoration:none;">
+                    {{ 'Pedido' if m.kit_tipo == 'pedido' else 'Kit' }} {{ m.kit_veiculo or m.kit_nome }}
+                </a>{% if m.observacao and m.observacao != 'Kit' %} — {{ m.observacao }}{% endif %}
                 {% else %}{{ m.observacao or '—' }}{% endif %}
             </td>
         </tr>

@@ -416,9 +416,19 @@ def reverter_saidas_sessao(sessao_id: int) -> None:
 def listar_historico(estoque_id: int, limit: int = 100, offset: int = 0) -> list:
     with db() as conn:
         rows = conn.execute(
-            "SELECT em.*, u.nome AS operador_nome "
+            "SELECT em.*, u.nome AS operador_nome, "
+            # A saída de Kit grava só sessao_id na hora da bipagem — o
+            # kit_record ainda nem existe. Ligando pelo mesmo sessao_id aqui
+            # (na leitura, bem depois), pegamos o kit que a sessão virou,
+            # se ela chegou a virar um: sessão cancelada ou ainda em
+            # andamento fica sem kit_id mesmo, e o "Kit" genérico continua
+            # aparecendo sozinho, sem link.
+            "kr.kit_id AS kit_id, kr.veiculo AS kit_veiculo, "
+            "kt.nome AS kit_nome, kt.tipo AS kit_tipo "
             "FROM estoque_movimentos em "
             "LEFT JOIN users u ON u.id = em.criado_por "
+            "LEFT JOIN kit_record kr ON kr.sessao_id = em.sessao_id "
+            "LEFT JOIN kit_template kt ON kt.id = kr.kit_template_id "
             "WHERE em.estoque_id = ? "
             "ORDER BY em.criado_em DESC LIMIT ? OFFSET ?",
             (estoque_id, limit, offset)
