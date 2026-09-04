@@ -725,6 +725,31 @@ def listar(limite: int = 60, incluir_arquivadas: bool = False) -> list:
     return [_com_contagem(dict(r)) for r in rows]
 
 
+def mapa_por_referencia() -> dict:
+    """{"kit:<kit_id>": {...}, "veic:<veiculo_id>": {...}} — em que remessa
+    (se alguma) cada kit/veículo está, pra tela de Produção marcar a coluna
+    Remessa sem uma consulta por linha.
+
+    Cada remessa_kit vira as DUAS chaves que tiver: um kit que já foi
+    bipado ainda guarda o veiculo_id de quando entrou como "a produzir",
+    então procurar por qualquer um dos dois acha a mesma remessa. Inclui
+    remessa de QUALQUER status — fechada/arquivada continua sendo "a
+    remessa deste kit", só não aceita item novo."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT rk.kit_id, rk.veiculo_id, r.id AS remessa_id, r.nome, r.status "
+            "FROM remessa_kit rk JOIN remessa r ON r.id = rk.remessa_id"
+        ).fetchall()
+    mapa = {}
+    for row in rows:
+        info = {"remessa_id": row["remessa_id"], "nome": row["nome"], "status": row["status"]}
+        if row["kit_id"]:
+            mapa["kit:" + row["kit_id"]] = info
+        if row["veiculo_id"] is not None:
+            mapa["veic:%d" % row["veiculo_id"]] = info
+    return mapa
+
+
 def kits_da_remessa(remessa_id: int) -> list:
     """Os itens daquela remessa — kits prontos E veiculos ainda sem kit.
 

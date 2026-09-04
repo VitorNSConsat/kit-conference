@@ -4136,6 +4136,25 @@ async def admin_producao(request: Request):
             l["gargalo"] = info.get("gargalo")
         return linhas
 
+    # Mesma ideia da autonomia: um mapa só, pra marcar a coluna Remessa em
+    # todas as etapas sem uma consulta por linha. Procura primeiro pelo
+    # kit_id (o kit já bipado) e só cai pro veiculo_id quando não tem kit
+    # ainda (a_produzir/em_produção) ou quando o kit não tem remessa
+    # própria mas o veículo entrou como "a produzir" antes dele existir.
+    mapa_remessa = remessas_mod.mapa_por_referencia()
+
+    def _com_remessa(linhas):
+        for l in linhas:
+            info = None
+            kit_id = l.get("kit_id")
+            veiculo_id = l.get("veiculo_id")
+            if kit_id:
+                info = mapa_remessa.get("kit:" + kit_id)
+            if not info and veiculo_id is not None:
+                info = mapa_remessa.get("veic:%d" % veiculo_id)
+            l["remessa"] = info
+        return linhas
+
     # Cada etapa pagina SOZINHA: abrir a página 3 de "Produzido" não pode
     # mexer em "Em Trânsito". Sem paginação nenhuma, com 2.500 kits a tela
     # saía com 2,4 MB e 1.800 linhas de uma vez — no tablet do galpão isso
@@ -4152,18 +4171,19 @@ async def admin_producao(request: Request):
     ord_cli, dir_cli = _ler_ordem(request, "cli")
 
     lista_ap = paginacao_mod.ordenar(
-        _com_autonomia(producao_mod.listar_a_produzir()),
+        _com_remessa(_com_autonomia(producao_mod.listar_a_produzir())),
         _ORDENS_PRODUCAO["ap"].get(ord_ap), dir_ap)
     lista_pr = paginacao_mod.ordenar(
-        producao_mod.listar_produzido(), _ORDENS_PRODUCAO["pr"].get(ord_pr), dir_pr)
+        _com_remessa(producao_mod.listar_produzido()), _ORDENS_PRODUCAO["pr"].get(ord_pr), dir_pr)
     lista_tr = paginacao_mod.ordenar(
-        producao_mod.listar_transito(), _ORDENS_PRODUCAO["tr"].get(ord_tr), dir_tr)
+        _com_remessa(producao_mod.listar_transito()), _ORDENS_PRODUCAO["tr"].get(ord_tr), dir_tr)
     lista_cli = paginacao_mod.ordenar(
-        producao_mod.listar_no_cliente(limite=30), _ORDENS_PRODUCAO["cli"].get(ord_cli), dir_cli)
+        _com_remessa(producao_mod.listar_no_cliente(limite=30)),
+        _ORDENS_PRODUCAO["cli"].get(ord_cli), dir_cli)
 
     return render(request, "admin_producao.html", {
         "a_produzir": paginacao_mod.paginar(lista_ap, pag_ap),
-        "em_producao": _com_autonomia(producao_mod.listar_em_producao()),
+        "em_producao": _com_remessa(_com_autonomia(producao_mod.listar_em_producao())),
         "produzido": paginacao_mod.paginar(lista_pr, pag_pr),
         "transito": paginacao_mod.paginar(lista_tr, pag_tr),
         # Card único de Cliente: instalando + concluído na mesma lista. As

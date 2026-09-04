@@ -48,6 +48,24 @@
 </th>
 {% endmacro %}
 
+{# Célula da coluna Remessa: mesmo pedaço em toda etapa, pra não desencontrar
+   o estilo entre as cinco tabelas. l.remessa vem pronto do main.py — nada
+   de decidir aqui se está ou não em remessa. #}
+{% macro remessa_td(l) %}
+<td style="white-space:nowrap;">
+  {% if l.remessa %}
+  <a href="/admin/producao/remessas?remessa_id={{ l.remessa.remessa_id }}"
+     style="color:var(--brand-ink);font-weight:600;text-decoration:none;font-size:13px;"
+     title="Abrir esta remessa">{{ l.remessa.nome }}</a>
+  {% if l.remessa.status != 'aberta' %}
+  <span style="color:var(--text-muted-2);font-size:11px;">({{ 'fechada' if l.remessa.status == 'fechada' else 'arquivada' }})</span>
+  {% endif %}
+  {% else %}
+  <span style="color:var(--text-muted-2);font-size:13px;">—</span>
+  {% endif %}
+</td>
+{% endmacro %}
+
 {% block acoes_topo %}
 <a href="/admin/producao/historico" class="btn btn-secondary btn-sm">{{ ic.svg('historico', 15) }} Histórico de Alterações</a>
 <a href="/producao/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
@@ -246,6 +264,7 @@
       {{ th_ord('Cliente', 'cliente', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
       {{ th_ord('Modelo (kit)', 'modelo', 'ap', ord_ap, dir_ap, 'a_produzir', 'pag_ap=1&') }}
       <th>Kits possíveis</th>
+      <th>Remessa</th>
     </tr></thead>
     <tbody>
     {% for v in a_produzir.itens %}
@@ -263,6 +282,7 @@
         </span>
         {% else %}<span style="color:#aaa;">—</span>{% endif %}
       </td>
+      {{ remessa_td(v) }}
     </tr>
     {% endfor %}
     </tbody>
@@ -305,7 +325,7 @@
   {% if em_producao %}
   <div style="overflow-x:auto;">
   <table>
-    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th></tr></thead>
+    <thead><tr><th>Veículo</th><th>Garagem</th><th>Cliente</th><th>Modelo (kit)</th><th>Kits possíveis</th><th>Progresso</th><th>Operador</th><th>Desde</th><th>Remessa</th></tr></thead>
     <tbody>
     {% for s in em_producao %}
     {% set cor = cor_do_cliente(s.cliente) %}
@@ -340,6 +360,7 @@
       </td>
       <td>{{ s.operador_nome }}</td>
       <td style="font-size:12px;color:#888;">{{ s.iniciado_em[:16] if s.iniciado_em else '—' }}</td>
+      {{ remessa_td(s) }}
     </tr>
     {% endfor %}
     </tbody>
@@ -378,7 +399,7 @@
         {{ th_ord('Garagem', 'garagem', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
         {{ th_ord('Cliente', 'cliente', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
         {{ th_ord('Produzido em', 'quando', 'pr', ord_pr, dir_pr, 'produzido', 'pag_pr=1&') }}
-        <th>Verificado</th><th>Nota Fiscal</th>
+        <th>Verificado</th><th>Nota Fiscal</th><th>Remessa</th>
       </tr></thead>
       <tbody>
       {% for k in produzido.itens %}
@@ -408,6 +429,7 @@
           {% endif %}
         </td>
         <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
+        {{ remessa_td(k) }}
       </tr>
       {% endfor %}
       </tbody>
@@ -509,7 +531,7 @@
       {{ th_ord('Garagem', 'garagem', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
       {{ th_ord('Cliente', 'cliente', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
       {{ th_ord('Em trânsito desde', 'quando', 'tr', ord_tr, dir_tr, 'transito', 'pag_tr=1&') }}
-      <th>Nota Fiscal</th><th></th>
+      <th>Nota Fiscal</th><th>Remessa</th><th></th>
     </tr></thead>
     <tbody>
     {% for k in transito.itens %}
@@ -530,6 +552,7 @@
       <td style="color:{{ cor }};">{{ k.cliente }}</td>
       <td style="font-size:12px;color:#888;">{{ k.transito_em[:16] if k.transito_em else '—' }}</td>
       <td>{{ nota_fiscal_form(k, pode('producao_nota_fiscal')) }}</td>
+      {{ remessa_td(k) }}
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           {% if pode('producao_mover_estagio') %}
@@ -618,7 +641,7 @@
       {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente') }}
       {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente') }}
       {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente') }}
-      <th>Nota Fiscal</th><th>Situação</th><th></th></tr></thead>
+      <th>Nota Fiscal</th><th>Situação</th><th>Remessa</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente %}
     {% set cor = cor_do_cliente(k.cliente) %}
@@ -650,6 +673,7 @@
         <span class="badge badge-warning">Instalando</span>
         {% endif %}
       </td>
+      {{ remessa_td(k) }}
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
           {% if k.status_producao != 'cliente_concluido' %}

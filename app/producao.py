@@ -245,7 +245,7 @@ def listar_em_producao() -> list[dict]:
     with db() as conn:
         rows = conn.execute(
             "SELECT s.id AS sessao_id, s.iniciado_em, s.kit_template_id, "
-            "s.veiculo, s.garagem, "
+            "s.veiculo_id, s.veiculo, s.garagem, "
             # Modelo do CADASTRO do veículo, com o da sessão como reserva:
             # s.modelo é uma cópia tirada no momento do destino, então
             # corrigir o modelo no cadastro não se refletiria aqui. Só cai
@@ -267,7 +267,7 @@ def listar_em_producao() -> list[dict]:
 
 
 _CAMPOS_KIT = (
-    "kr.kit_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
+    "kr.kit_id, kr.veiculo_id, kr.finalizado_em, kr.transito_em, kr.cliente_instalando_em, "
     "kr.cliente_concluido_em, kr.veiculo, kr.garagem, kr.modelo, "
     "kr.nota_fiscal, kr.nota_fiscal_data, "
     "kt.nome AS kit_nome, kt.cliente, u.nome AS operador_nome, "
