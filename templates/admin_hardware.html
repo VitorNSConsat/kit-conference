@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% import "_filtros.html" as f %}
+{% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
+{% block title %}Gestão de Hardware{% endblock %}
+
+{% macro th_ord(rotulo, campo, ord_atual, dir_atual) %}
+{% set ativo = (ord_atual == campo) %}
+{% set proxima = 'desc' if (ativo and dir_atual == 'asc') else 'asc' %}
+<th>
+  <a href="?pag_hw=1&ord_hw={{ campo }}&dir_hw={{ proxima }}#lista-hardware"
+     style="color:inherit;text-decoration:none;white-space:nowrap;" title="Ordenar por {{ rotulo }}">
+    {{ rotulo }}{% if ativo %}<span style="color:var(--brand);"> {{ '▲' if dir_atual == 'asc' else '▼' }}</span>{% endif %}
+  </a>
+</th>
+{% endmacro %}
+
+{% block acoes_topo %}
+<a href="/admin/hardware/nova" class="btn btn-sm btn-primary">{{ ic.svg('mais', 14) }} Nova ocorrência</a>
+<a href="/admin/hardware/produtos" class="btn btn-sm btn-secondary">{{ ic.svg('itens', 14) }} Produtos cadastrados</a>
+{% endblock %}
+
+{% block content %}
+{% if ok == 'criada' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Ocorrência registrada.</div>
+{% elif ok == 'arquivada' %}
+<div class="alert alert-success">Ocorrência arquivada.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+<p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">
+    {% if visao == 'clientes' %}
+    Visualize o status dos equipamentos por cliente e acompanhe as ocorrências.
+    {% else %}
+    Acompanhamento de equipamentos com defeito, do registro até a solução — inclusive as frentes
+    Brasil, Suécia e fabricante.
+    {% endif %}
+</p>
+
+{% if visao == 'clientes' %}
+<!-- ── Painel por cliente ─────────────────────────────────────────────────── -->
+<div class="card">
+  <form method="get" action="/admin/hardware" class="busca-form">
+    <input type="text" name="busca_cliente" value="{{ busca_cliente }}" placeholder="Buscar cliente...">
+    <select name="status" style="width:auto;margin:0;">
+      <option value="">Status: todos</option>
+      {% for chave, texto in status_opcoes %}
+      <option value="{{ chave }}" {{ 'selected' if chave in filtros.status }}>{{ texto }}</option>
+      {% endfor %}
+    </select>
+    <select name="ordenar_cliente" style="width:auto;margin:0;" onchange="this.form.submit()">
+      <option value="nome_asc" {{ 'selected' if ordenar_cliente == 'nome_asc' }}>Ordenar: A-Z</option>
+      <option value="nome_desc" {{ 'selected' if ordenar_cliente == 'nome_desc' }}>Ordenar: Z-A</option>
+      <option value="qtd_desc" {{ 'selected' if ordenar_cliente == 'qtd_desc' }}>Ordenar: mais equipamentos</option>
+    </select>
+    <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+    {% if filtros.status or busca_cliente %}
+    <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- ── Resumo geral (condensado) ──────────────────────────────────────────── -->
+<section class="ds-kpis">
+  <a class="ds-kpi" href="/admin/hardware">
+    <div><p class="ds-kpi-label">Total de equipamentos</p><p class="ds-kpi-value">{{ resumo.total }}</p>
+      <p style="font-size:11px;color:var(--ok-text);font-weight:700;margin:2px 0 0;">
+        {% if resumo.criadas_hoje %}↑ +{{ resumo.criadas_hoje }} hoje{% else %}&nbsp;{% endif %}</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('clipboard', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?{% for s in status_andamento %}status={{ s }}&{% endfor %}">
+    <div><p class="ds-kpi-label">Em andamento</p><p class="ds-kpi-value">{{ resumo.em_andamento }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.em_andamento * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('reiniciar', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?{% for s in status_terminais %}status={{ s }}&{% endfor %}">
+    <div><p class="ds-kpi-label">Concluídos</p><p class="ds-kpi-value">{{ resumo.concluidas }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.concluidas * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?status=nao_iniciado">
+    <div><p class="ds-kpi-label">Não iniciados</p><p class="ds-kpi-value">{{ resumo.nao_iniciadas }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.nao_iniciadas * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon" style="background:var(--danger-bg);color:var(--danger-text);">{{ ic.svg('alerta', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?aguardando_de=brasil">
+    <div><p class="ds-kpi-label">Aguardando Brasil</p><p class="ds-kpi-value">{{ resumo.aguardando_brasil }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.aguardando_brasil * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon" style="background:var(--warn-bg);color:var(--warn-text);">{{ ic.svg('caixa', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?aguardando_de=suecia">
+    <div><p class="ds-kpi-label">Aguardando Suécia</p><p class="ds-kpi-value">{{ resumo.aguardando_suecia }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.aguardando_suecia * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('caixa', 20) }}</span>
+  </a>
+  <a class="ds-kpi" href="/admin/hardware?aguardando_de=fabricante">
+    <div><p class="ds-kpi-label">Aguardando fabricante</p><p class="ds-kpi-value">{{ resumo.aguardando_fabricante }}</p>
+      <p style="font-size:11px;color:var(--text-muted-2);margin:2px 0 0;">{{ (resumo.aguardando_fabricante * 100 // resumo.total) if resumo.total else 0 }}%</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('caixa', 20) }}</span>
+  </a>
+</section>
+
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+  <h2 style="margin:0;">Clientes</h2>
+  <span style="font-size:12.5px;color:var(--text-muted);">{{ clientes_resumo | length }} cliente{{ 's' if clientes_resumo | length != 1 }} encontrado{{ 's' if clientes_resumo | length != 1 }}</span>
+</div>
+
+{% if clientes_resumo %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:14px;">
+  {% for c in clientes_resumo %}
+  {% set cor = cor_do_cliente(c.cliente) %}
+  {% set badge_cor = c.status_predominante_cor %}
+  <a href="/admin/hardware?cliente={{ c.cliente | urlencode }}" class="card"
+     style="margin:0;text-decoration:none;color:inherit;display:block;transition:box-shadow .12s ease,border-color .12s ease;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <span class="ds-kpi-icon" style="background:color-mix(in srgb, {{ cor }} 15%, var(--surface));color:{{ cor }};flex-shrink:0;">
+          {{ ic.svg('cliente', 18) }}
+        </span>
+        <div style="min-width:0;">
+          <p style="font-weight:700;font-size:15px;margin:0;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.cliente }}</p>
+          <p style="font-size:12px;color:var(--text-muted);margin:0;">{{ c.total }} equipamento{{ 's' if c.total != 1 }}</p>
+        </div>
+      </div>
+      <span class="badge badge-cor" style="--cor:{{ badge_cor }};flex-shrink:0;white-space:nowrap;">{{ c.status_predominante_texto }}</span>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+      <span><span style="color:var(--ok-text);">●</span> {{ c.concluidas }} concl.</span>
+      <span><span style="color:var(--brand);">●</span> {{ c.em_andamento }} em and.</span>
+      <span><span style="color:var(--warn-text);">●</span> {{ c.nao_iniciadas }} pend.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="flex:1;height:6px;background:var(--surface-alt);border-radius:999px;overflow:hidden;">
+        <div style="width:{{ c.percentual_concluido }}%;height:100%;background:var(--ok-text);border-radius:999px;"></div>
+      </div>
+      <span style="font-size:11px;color:var(--text-muted-2);flex-shrink:0;">{{ c.percentual_concluido }}%</span>
+    </div>
+    <p style="font-size:12px;font-weight:600;color:var(--brand-ink);margin:10px 0 0;">Ver detalhes {{ ic.svg('seta-direita', 12) }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <p style="color:var(--text-muted);text-align:center;padding:24px;">
+    {% if busca_cliente or filtros.status %}Nenhum cliente encontrado para este filtro.
+    {% else %}Nenhuma ocorrência registrada ainda.{% endif %}
+  </p>
+</div>
+{% endif %}
+
+{% else %}
+<!-- ── Lista de ocorrências (de um cliente, ou de um filtro avançado) ──────── -->
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Clientes</a>
+    <h1 style="margin:0;font-size:18px;">
+      {% if filtros.cliente %}Ocorrências — <span style="color:{{ cor_do_cliente(filtros.cliente) }};">{{ filtros.cliente }}</span>
+      {% else %}Ocorrências (filtro avançado){% endif %}
+    </h1>
+  </div>
+  <span style="font-size:12.5px;color:var(--text-muted);">{{ pag.total }} ocorrência{{ 's' if pag.total != 1 }}</span>
+</div>
+
+<!-- ── Filtros ────────────────────────────────────────────────────────────── -->
+<details class="card">
+  <summary style="cursor:pointer;font-weight:600;">{{ ic.svg('filtro', 14) }} Filtros avançados</summary>
+  <form method="get" action="/admin/hardware" class="busca-form" style="margin-top:12px;margin-bottom:0;">
+    <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por HW-000X, cliente, produto ou serial...">
+    {{ f.multi('status', 'Status', status_opcoes, filtros.status, 'todos') }}
+    {{ f.multi('prioridade', 'Prioridade', prioridade_opcoes, filtros.prioridade, 'todas') }}
+    {{ f.multi('aguardando_de', 'Aguardando de', aguardando_opcoes, filtros.aguardando_de, 'ninguém') }}
+    <select name="cliente" style="width:auto;margin:0;">
+      <option value="">Cliente: todos</option>
+      {% for c in clientes_cadastrados %}
+      <option value="{{ c.nome }}" {{ 'selected' if filtros.cliente == c.nome }}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+    <select name="hardware_produto_id" style="width:auto;margin:0;">
+      <option value="">Produto: todos</option>
+      {% for p in produtos %}
+      <option value="{{ p.id }}" {{ 'selected' if filtros.hardware_produto_id == p.id }}>{{ p.nome }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+    {% if filtros.busca or filtros.status or filtros.prioridade or filtros.aguardando_de or filtros.cliente or filtros.hardware_produto_id or filtros.critico or filtros.sem_atualizacao_dias %}
+    <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar tudo</a>
+    {% endif %}
+  </form>
+</details>
+
+<!-- ── Lista ──────────────────────────────────────────────────────────────── -->
+<div class="card table-scroll" id="lista-hardware">
+  {{ pg.contagem(pag, "ocorrências") }}
+  {% if pag.itens %}
+  <table>
+    <thead><tr>
+      {{ th_ord('ID', 'id', ord_hw, dir_hw) }}
+      {{ th_ord('Cliente', 'cliente', ord_hw, dir_hw) }}
+      {{ th_ord('Produto', 'produto', ord_hw, dir_hw) }}
+      {{ th_ord('Status', 'status', ord_hw, dir_hw) }}
+      {{ th_ord('Prioridade', 'prioridade', ord_hw, dir_hw) }}
+      <th>Serial/Patrimônio</th>
+      {{ th_ord('Responsável', 'responsavel', ord_hw, dir_hw) }}
+      <th>Aguardando</th>
+      <th>Próxima ação</th>
+      <th>Dias aberto</th>
+      {{ th_ord('Última atualização', 'atualizado', ord_hw, dir_hw) }}
+    </tr></thead>
+    <tbody>
+    {% for o in pag.itens %}
+    {% set cor = cor_do_cliente(o.cliente) %}
+    <tr>
+      <td><a href="/admin/hardware/{{ o.id }}" style="font-weight:700;color:var(--brand-ink);text-decoration:none;">{{ o.rotulo }}</a></td>
+      <td style="color:{{ cor }};font-weight:600;">{{ o.cliente }}</td>
+      <td>{{ o.produto_exibido or '—' }}</td>
+      <td><span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span></td>
+      <td><span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span></td>
+      <td style="font-family:monospace;font-size:12px;">{{ o.serial_patrimonio or '—' }}</td>
+      <td>{{ o.responsavel_nome or '—' }}</td>
+      <td>{{ o.aguardando_texto or '—' }}</td>
+      <td style="font-size:12px;max-width:220px;">{{ (o.proxima_acao or '—') | truncate(60) }}</td>
+      <td style="text-align:center;">{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</td>
+      <td style="font-size:12px;color:var(--text-muted);">
+        {{ o.dias_sem_atualizacao }}d atrás
+        {% if o.dias_sem_atualizacao is not none and o.dias_sem_atualizacao >= sem_atualizacao_dias_padrao and o.status not in status_terminais %}
+        <span title="Sem atualização há {{ o.dias_sem_atualizacao }} dias">{{ ic.svg('alerta', 12) }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }} · {{ pag.total }} no total</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_hw={{ p }}{% if ord_hw %}&ord_hw={{ ord_hw }}&dir_hw={{ dir_hw }}{% endif %}#lista-hardware"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p style="color:var(--text-muted);text-align:center;padding:24px;">Nenhuma ocorrência encontrada.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -10,6 +10,10 @@
 <a href="/admin/veiculos/import" class="btn btn-secondary btn-sm">{{ ic.svg('importar', 15) }} Importar Excel</a>
 <a href="/admin/veiculos/importacoes" class="btn btn-ghost btn-sm">{{ ic.svg('relogio', 15) }} Importações</a>
 <a href="/admin/veiculos/modelo.xlsx" class="btn btn-ghost btn-sm">{{ ic.svg('baixar', 15) }} Baixar Modelo</a>
+<a href="/admin/veiculos/exportar.xlsx?{{ request.query_params }}" class="btn btn-secondary btn-sm"
+   title="Exporta os veículos com os filtros atuais da tela -- sem filtro nenhum, exporta todos.">
+  {{ ic.svg('baixar', 15) }} Exportar Excel
+</a>
 {% endblock %}
 
 {% block content %}

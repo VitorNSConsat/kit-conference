@@ -28,6 +28,7 @@ TELAS = (
                                                                         "/admin/garagens")),
     ("ver_prateleira",     "Prateleira",         "/admin/prateleira", ("/admin/prateleira", "/prateleira")),
     ("ver_producao",       "Produção",           "/admin/producao",  ("/admin/producao", "/producao")),
+    ("ver_hardware",       "Gestão de Hardware", "/admin/hardware",  ("/admin/hardware",)),
     ("ver_relatorios",     "Relatórios",         "/reports",         ("/reports",)),
     ("ver_rede",           "Rede",               "/rede",            ("/rede",)),
     ("ver_funcionalidades", "Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
@@ -66,11 +67,16 @@ PERMISSOES_BIPAGEM = {
 PERMISSOES_SISTEMA = {
     "backup_configurar": "Configurar a rotina de backup e fazer cópia na hora",
 }
+PERMISSOES_HARDWARE = {
+    "hardware_gerenciar": "Registrar, editar e movimentar ocorrências de hardware",
+    "hardware_encerrar_reabrir": "Encerrar e reabrir ocorrências de hardware",
+    "hardware_excluir": "Arquivar ocorrências de hardware",
+}
 
 PERMISSOES_ACOES = {
     **PERMISSOES_VEICULOS, **PERMISSOES_ESTOQUE, **PERMISSOES_PRODUCAO,
     **PERMISSOES_PATRIMONIO, **PERMISSOES_PEDIDOS, **PERMISSOES_BIPAGEM,
-    **PERMISSOES_SISTEMA,
+    **PERMISSOES_SISTEMA, **PERMISSOES_HARDWARE,
 }
 
 PERMISSOES = {**PERMISSOES_TELAS, **PERMISSOES_ACOES}
@@ -86,6 +92,7 @@ GRUPOS = (
     ("Pedidos", PERMISSOES_PEDIDOS),
     ("Bipagem", PERMISSOES_BIPAGEM),
     ("Sistema", PERMISSOES_SISTEMA),
+    ("Gestão de Hardware", PERMISSOES_HARDWARE),
 )
 
 # Toda chave nova nasce PERMITIDA pra quem já existe: tem_permissao() nega só

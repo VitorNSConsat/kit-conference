@@ -53,13 +53,14 @@
     <a href="#veiculos">7. Veículos e Clientes</a>
     <a href="#prateleira">8. Prateleira</a>
     <a href="#producao">9. Produção</a>
-    <a href="#verificacao">10. Verificação do kit</a>
-    <a href="#relatorios">11. Relatórios</a>
-    <a href="#usuarios">12. Usuários e Auditoria</a>
-    <a href="#rede">13. Rede</a>
-    <a href="#backup">14. Backup do banco</a>
-    <a href="#avisos">15. Avisos e erros</a>
-    <a href="#regras">16. Regras que nunca mudam</a>
+    <a href="#hardware">10. Gestão de Hardware</a>
+    <a href="#verificacao">11. Verificação do kit</a>
+    <a href="#relatorios">12. Relatórios</a>
+    <a href="#usuarios">13. Usuários e Auditoria</a>
+    <a href="#rede">14. Rede</a>
+    <a href="#backup">15. Backup do banco</a>
+    <a href="#avisos">16. Avisos e erros</a>
+    <a href="#regras">17. Regras que nunca mudam</a>
   </div>
 </div>
 
@@ -709,6 +710,19 @@
   <ul>
   </ul>
 
+  <h3>Exportar Excel</h3>
+  <p>
+    O botão <strong>Exportar Excel</strong>, no topo da tela, gera a planilha com os
+    <strong>mesmos filtros que estão ativos na lista</strong> — cliente, garagem, modelo,
+    situação, busca, data de importação. Sem filtro nenhum, exporta todos os veículos
+    cadastrados no sistema. Filtrando por um cliente ou por uma garagem antes de exportar, só
+    aquele recorte vai pra planilha; o nome do arquivo já leva o nome do cliente quando é só um.
+  </p>
+  <div class="nota">
+    A exportação nunca discorda do que a tela mostra: ela reaproveita exatamente o mesmo
+    filtro que monta a lista, então não existe planilha "desatualizada" em relação à tela.
+  </div>
+
   <p>
     <strong>Novo Veículo</strong> é o botão no topo da tela; os cartões <strong>Clientes</strong>
     e <strong>Garagens</strong>, logo acima da lista, também abrem essa mesma janela central ao
@@ -1165,8 +1179,95 @@
 </div>
 
 <!-- 10 ────────────────────────────────────────────────────────────────── -->
+<div class="card" id="hardware">
+  <h2>10. Gestão de Hardware</h2>
+  <p>
+    Acompanhamento de equipamento com defeito/RMA, do registro do problema até a solução final —
+    inclusive as três frentes que costumam entrar numa ocorrência: <strong>Brasil</strong>,
+    <strong>Suécia</strong> e <strong>fabricante</strong>.
+  </p>
+  <p>
+    <strong>Produto é um cadastro à parte</strong> (em <em>Produtos cadastrados</em>, no topo da
+    tela), separado do catálogo de peças de Itens &amp; Estoque de propósito — equipamento
+    completo com defeito e peça de reposição são coisas diferentes, e misturar os dois faria a
+    busca de produto de uma ocorrência aparecer cheia de parafuso e cabo. <strong>Serial ou
+    patrimônio</strong> é texto livre, mas quando bate com um patrimônio já cadastrado no
+    sistema, o vínculo é feito sozinho e a tela de detalhe ganha um atalho pro histórico
+    daquele patrimônio.
+  </p>
+
+  <h3>Painel de entrada</h3>
+  <p>
+    A tela abre num painel <strong>por cliente</strong>: um cartão por cliente com o total de
+    equipamentos, quantos estão concluídos/em andamento/pendentes e um selo com o status mais
+    comum entre os ainda abertos. Clicar em <strong>Ver detalhes</strong> abre a lista completa
+    só daquele cliente — id, status, prioridade, responsável, próxima ação — sem os cartões
+    do topo, que já não fazem sentido depois de filtrado.
+  </p>
+
+  <h3>Nova ocorrência</h3>
+  <p>
+    Tela própria (botão <strong>Nova ocorrência</strong>, ao lado de <em>Produtos
+    cadastrados</em>), com quatro botões no topo — <strong>Categorias</strong>,
+    <strong>Localizações</strong>, <strong>Prioridades</strong> e <strong>Status</strong> — que
+    abrem um popup pra <strong>adicionar, renomear ou excluir</strong> as opções de cada lista,
+    sem precisar mexer em código. Excluir é sempre <em>desativar</em>: some do formulário de
+    ocorrência nova, mas uma ocorrência antiga que já usava aquele valor continua mostrando
+    certo.
+  </p>
+  <div class="nota">
+    <strong>Três status e a prioridade "Normal" são protegidos</strong> (ícone de cadeado, sem
+    botão de excluir) — são os valores que o próprio sistema grava sozinho ao criar, reabrir ou
+    resolver uma ocorrência. Dá pra renomear e recolorir à vontade, só não pra excluir. Todo o
+    resto (Categoria de defeito e Localização inteiras, mais os outros status/prioridades) é
+    livre.
+  </div>
+
+  <p>Cada ocorrência tem:</p>
+  <ul>
+    <li><span class="campo">Status</span> — do <em>Não iniciado</em> ao
+      <em>Encerrado</em>/<em>Cancelado</em>, passando por um <em>Aguardando —</em> pra cada
+      frente (Brasil, Suécia, fabricante, cliente, peça, devolução, informação); lista editável,
+      ver acima.</li>
+    <li><span class="campo">Prioridade</span> — Baixa/Normal/Alta/Crítica por padrão, também
+      editável; não depende do tipo de defeito.</li>
+    <li><span class="campo">Próxima ação</span> + <span class="campo">Aguardando de</span> —
+      pra nunca depender de descobrir de cabeça o que falta fazer. Sem isso definido (e a
+      ocorrência ainda aberta), a tela mostra um aviso.</li>
+    <li><span class="campo">Ações Brasil/Suécia/Fabricante</span> — três blocos separados, cada
+      um com a última ação/situação em destaque e um histórico completo por trás. Registrar
+      uma ação nova nunca apaga as anteriores.</li>
+    <li><span class="campo">Histórico</span> — timeline com toda mudança (criação, atualização,
+      ação de qualquer frente, status, responsável, prioridade, reabertura, resultado final,
+      anexo) e quem fez. Nada aqui é sobrescrito.</li>
+    <li><span class="campo">Arquivos</span> — imagens, PDF, .txt, .csv, .xlsx ou .zip
+      (sem vídeo por enquanto). Baixados sempre como anexo, nunca abertos direto no navegador.</li>
+  </ul>
+
+  <h3>Tela de detalhe</h3>
+  <p>
+    Organizada em abas — <strong>Resumo</strong>, <strong>Diagnóstico</strong>,
+    <strong>Ações</strong>, <strong>Histórico</strong> e <strong>Arquivos</strong> — com uma
+    barra de ações fixa em cima (Mudar status, Resolver/Reabrir, Arquivar). Editar qualquer
+    campo, mudar status, registrar uma ação ou anexar um arquivo abre um <strong>popup</strong>
+    pequeno, no mesmo estilo usado em outras partes do sistema, em vez de formulários grandes
+    sempre abertos na tela.
+  </p>
+  <div class="nota">
+    <strong>Arquivar, não excluir.</strong> Uma ocorrência arquivada some das listas de trabalho,
+    mas o histórico continua existindo — é a mesma lógica de "desative em vez de excluir" usada
+    pra usuário e outros cadastros do sistema.
+  </div>
+  <div class="cuidado">
+    Resolver uma ocorrência <strong>não mexe no estoque sozinho</strong>. A situação física do
+    equipamento (em bancada, em RMA, devolvido...) é só informativa nesta tela — qualquer
+    movimentação real de estoque continua seguindo as regras já existentes em Itens &amp; Estoque.
+  </div>
+</div>
+
+<!-- 11 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="verificacao">
-  <h2>10. Verificação do kit</h2>
+  <h2>11. Verificação do kit</h2>
   <p>
     Depois de produzido, o kit passa pela conferência item a item. Cada item conferido
     fica marcado com quem conferiu e quando; conferir um item de conjunto marca o
@@ -1196,7 +1297,7 @@
 
 <!-- 11 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="relatorios">
-  <h2>11. Relatórios</h2>
+  <h2>12. Relatórios</h2>
   <ul>
     <li><strong>Kits</strong> — todos os kits com filtro de período, operador e tipo, e
       exportação em Excel (a exportação leva exatamente o mesmo filtro da tela).</li>
@@ -1220,7 +1321,7 @@
 
 <!-- 12 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="usuarios">
-  <h2>12. Usuários e Auditoria</h2>
+  <h2>13. Usuários e Auditoria</h2>
   <p>
     Dois perfis de base: <strong>admin</strong> (faz tudo) e <strong>comum</strong>. Sobre o
     perfil comum, cada permissão pode ser tirada individualmente. Toda permissão
@@ -1282,7 +1383,7 @@
 
 <!-- 13 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="rede">
-  <h2>13. Rede</h2>
+  <h2>14. Rede</h2>
   <p>
     Endereços de acesso ao sistema (HTTPS e HTTP) e os QR codes pra abrir no celular.
     Visível só pra quem tem a permissão <em>Ver a tela Rede</em>.
@@ -1317,7 +1418,7 @@
 
 <!-- 14 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="backup">
-  <h2>14. Backup do banco</h2>
+  <h2>15. Backup do banco</h2>
   <p>
     Todo o sistema mora num arquivo só — kits, bipagens, estoque, veículos,
     auditoria. Perder esse arquivo é perder tudo, e é por isso que a cópia não pode
@@ -1388,7 +1489,7 @@
 
 <!-- 15 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="avisos">
-  <h2>15. Avisos e erros — o que significam</h2>
+  <h2>16. Avisos e erros — o que significam</h2>
   <div class="table-scroll">
   <table>
     <thead>
@@ -1487,7 +1588,7 @@
 
 <!-- 15 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="regras">
-  <h2>16. Regras que nunca mudam</h2>
+  <h2>17. Regras que nunca mudam</h2>
   <ul>
     <li><strong>Estoque nunca trava o operador em campo.</strong> Desconto automático durante
       a bipagem sempre passa, mesmo negativando o saldo. Quem bloqueia por falta de

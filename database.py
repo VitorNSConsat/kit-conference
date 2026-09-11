@@ -202,6 +202,8 @@ def _backup_antes_de_migrar() -> str | None:
         or "remessa_id" not in colunas_scan_session
         or "correcao" not in colunas_scan_session_items
         or ("remessa_kit" in tabelas and "veiculo_id" not in colunas_remessa_kit)
+        or "hardware_ocorrencia" not in tabelas
+        or "hardware_status_opcao" not in tabelas
     )
     if not pendente:
         return None
@@ -412,6 +414,190 @@ def init_db():
                 criado_em TEXT NOT NULL
             );
         """)
+
+        # Gestão de Hardware: ocorrências de defeito/RMA, do registro até a
+        # solução. Cadastro de produto é próprio e separado do item_tipo do
+        # estoque de propósito — são realidades diferentes (equipamento
+        # completo com defeito x peça de reposição), e misturar os dois
+        # faria a busca de produto de uma ocorrência aparecer cheia de
+        # parafuso e cabo.
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS hardware_produto (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome       TEXT NOT NULL UNIQUE,
+                fabricante TEXT DEFAULT '',
+                categoria  TEXT DEFAULT '',
+                ativo      INTEGER NOT NULL DEFAULT 1,
+                criado_em  TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS hardware_ocorrencia (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                status               TEXT NOT NULL DEFAULT 'nao_iniciado',
+                prioridade           TEXT NOT NULL DEFAULT 'normal',
+                cliente              TEXT NOT NULL DEFAULT '',
+                hardware_produto_id  INTEGER REFERENCES hardware_produto(id),
+                produto_nome         TEXT DEFAULT '',
+                serial_patrimonio    TEXT DEFAULT '',
+                item_master_id       INTEGER REFERENCES item_master(id),
+                quantidade           INTEGER NOT NULL DEFAULT 1,
+                categoria_defeito    TEXT DEFAULT '',
+                subcategoria_defeito TEXT DEFAULT '',
+                descricao_defeito    TEXT DEFAULT '',
+                diagnostico_texto    TEXT DEFAULT '',
+                localizacao          TEXT DEFAULT '',
+                localizacao_detalhe  TEXT DEFAULT '',
+                responsavel_id       INTEGER REFERENCES users(id),
+                aguardando_de        TEXT DEFAULT '',
+                proxima_acao         TEXT DEFAULT '',
+                proxima_acao_data    TEXT,
+                resultado_final      TEXT,
+                solucao_texto        TEXT,
+                data_registro        TEXT NOT NULL,
+                data_solucao         TEXT,
+                criado_por           INTEGER REFERENCES users(id),
+                criado_em            TEXT NOT NULL,
+                atualizado_em        TEXT NOT NULL,
+                ativo                INTEGER NOT NULL DEFAULT 1
+            );
+
+            -- Append-only: uma linha por evento (comentário, ação de uma das
+            -- frentes, mudança de status/responsável, reabertura...). Nunca
+            -- é editada nem apagada — é o que garante que a timeline da tela
+            -- de detalhe nunca perde histórico.
+            CREATE TABLE IF NOT EXISTS hardware_ocorrencia_evento (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                ocorrencia_id INTEGER NOT NULL REFERENCES hardware_ocorrencia(id),
+                tipo          TEXT NOT NULL,
+                conteudo      TEXT DEFAULT '',
+                situacao      TEXT,
+                usuario_id    INTEGER REFERENCES users(id),
+                criado_em     TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS hardware_anexo (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                ocorrencia_id INTEGER NOT NULL REFERENCES hardware_ocorrencia(id),
+                evento_id     INTEGER REFERENCES hardware_ocorrencia_evento(id),
+                nome_arquivo  TEXT NOT NULL,
+                caminho_disco TEXT NOT NULL,
+                tamanho       INTEGER,
+                tipo_mime     TEXT,
+                enviado_por   INTEGER REFERENCES users(id),
+                enviado_em    TEXT NOT NULL
+            );
+
+            -- Catálogos editáveis dos campos de lista da ocorrência (status,
+            -- prioridade, categoria de defeito, localização). "sistema=1"
+            -- marca as poucas chaves que o próprio código grava direto
+            -- (criar/resolver/reabrir) — essas não podem ser excluídas, só
+            -- renomeadas/recoloridas. Exclusão é sempre soft (ativo=0):
+            -- ocorrência antiga que já usou o valor continua exibindo
+            -- certo, só some da lista de opções pra ocorrência nova.
+            CREATE TABLE IF NOT EXISTS hardware_status_opcao (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                chave       TEXT NOT NULL UNIQUE,
+                nome        TEXT NOT NULL,
+                cor         TEXT NOT NULL DEFAULT '#246b84',
+                eh_terminal INTEGER NOT NULL DEFAULT 0,
+                sistema     INTEGER NOT NULL DEFAULT 0,
+                ordem       INTEGER NOT NULL DEFAULT 0,
+                ativo       INTEGER NOT NULL DEFAULT 1,
+                criado_em   TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS hardware_prioridade_opcao (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                chave     TEXT NOT NULL UNIQUE,
+                nome      TEXT NOT NULL,
+                cor       TEXT NOT NULL DEFAULT '#246b84',
+                sistema   INTEGER NOT NULL DEFAULT 0,
+                ordem     INTEGER NOT NULL DEFAULT 0,
+                ativo     INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL
+            );
+
+            -- Categoria de defeito não tem chave separada -- o próprio nome
+            -- É o valor gravado na ocorrência (igual sempre foi, como lista
+            -- fixa em Python).
+            CREATE TABLE IF NOT EXISTS hardware_categoria_opcao (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome      TEXT NOT NULL UNIQUE,
+                sistema   INTEGER NOT NULL DEFAULT 0,
+                ordem     INTEGER NOT NULL DEFAULT 0,
+                ativo     INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS hardware_localizacao_opcao (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                chave     TEXT NOT NULL UNIQUE,
+                nome      TEXT NOT NULL,
+                sistema   INTEGER NOT NULL DEFAULT 0,
+                ordem     INTEGER NOT NULL DEFAULT 0,
+                ativo     INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL
+            );
+        """)
+
+        # Seed dos catálogos acima com os valores que já eram fixos em
+        # Python -- idempotente (INSERT OR IGNORE por UNIQUE), então
+        # rodar de novo não duplica nem sobrescreve edição do usuário.
+        _ts_seed = now_brt()
+        _status_seed = [
+            ("nao_iniciado",          "Não iniciado",          "#99a1ab", 0, 1, 0),
+            ("em_analise",            "Em análise",            "#246b84", 0, 0, 1),
+            ("em_andamento",          "Em andamento",          "#246b84", 0, 1, 2),
+            ("aguardando_informacao", "Aguardando informação", "#b45309", 0, 0, 3),
+            ("aguardando_brasil",     "Aguardando Brasil",     "#b45309", 0, 0, 4),
+            ("aguardando_suecia",     "Aguardando Suécia",     "#b45309", 0, 0, 5),
+            ("aguardando_fabricante", "Aguardando fabricante", "#b45309", 0, 0, 6),
+            ("aguardando_cliente",    "Aguardando cliente",    "#b45309", 0, 0, 7),
+            ("aguardando_peca",       "Aguardando peça",       "#b45309", 0, 0, 8),
+            ("aguardando_devolucao",  "Aguardando devolução",  "#b45309", 0, 0, 9),
+            ("resolvido",             "Resolvido",             "#15803d", 1, 1, 10),
+            ("encerrado",             "Encerrado",             "#15803d", 1, 0, 11),
+            ("cancelado",             "Cancelado",             "#99a1ab", 1, 0, 12),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO hardware_status_opcao "
+            "(chave, nome, cor, eh_terminal, sistema, ordem, criado_em) VALUES (?,?,?,?,?,?,?)",
+            [(*row, _ts_seed) for row in _status_seed])
+
+        _prioridade_seed = [
+            ("baixa",   "Baixa",   "#99a1ab", 0, 0),
+            ("normal",  "Normal",  "#246b84", 1, 1),
+            ("alta",    "Alta",    "#b45309", 0, 2),
+            ("critica", "Crítica", "#b42318", 0, 3),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO hardware_prioridade_opcao "
+            "(chave, nome, cor, sistema, ordem, criado_em) VALUES (?,?,?,?,?,?)",
+            [(*row, _ts_seed) for row in _prioridade_seed])
+
+        _categoria_seed = [
+            "Alimentação", "Não liga", "Sistema não inicia", "GPS", "Rede/IP", "Tela",
+            "Touch screen", "Comunicação", "Sem imagem", "Hardware interno",
+            "Software/Firmware", "Superaquecimento", "Conector/Cabo", "Outros",
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO hardware_categoria_opcao (nome, ordem, criado_em) VALUES (?,?,?)",
+            [(nome, i, _ts_seed) for i, nome in enumerate(_categoria_seed)])
+
+        _localizacao_seed = [
+            ("em_estoque",     "Em estoque"),
+            ("em_bancada",     "Em bancada"),
+            ("com_cliente",    "Com cliente"),
+            ("em_transito",    "Em trânsito"),
+            ("com_fabricante", "Com o fabricante"),
+            ("em_rma",         "Em RMA"),
+            ("devolvido",      "Devolvido"),
+            ("descartado",     "Descartado"),
+            ("substituido",    "Substituído"),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO hardware_localizacao_opcao (chave, nome, ordem, criado_em) VALUES (?,?,?,?)",
+            [(chave, nome, i, _ts_seed) for i, (chave, nome) in enumerate(_localizacao_seed)])
 
         # Trilha de auditoria: toda ação que altera dados, de admin ou não.
         # user_id sem FOREIGN KEY de propósito — o log precisa sobreviver à
@@ -809,6 +995,15 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_em_sessao ON estoque_movimentos(sessao_id)",
             "CREATE INDEX IF NOT EXISTS idx_kv_kit ON kit_validacoes(kit_id)",
             "CREATE INDEX IF NOT EXISTS idx_kti_template ON kit_template_items(kit_template_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ho_status ON hardware_ocorrencia(status)",
+            "CREATE INDEX IF NOT EXISTS idx_ho_ativo ON hardware_ocorrencia(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_ho_atualizado_em ON hardware_ocorrencia(atualizado_em)",
+            "CREATE INDEX IF NOT EXISTS idx_hoe_ocorrencia ON hardware_ocorrencia_evento(ocorrencia_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ha_ocorrencia ON hardware_anexo(ocorrencia_id)",
+            "CREATE INDEX IF NOT EXISTS idx_hso_ativo ON hardware_status_opcao(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_hpo_ativo ON hardware_prioridade_opcao(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_hco_ativo ON hardware_categoria_opcao(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_hlo_ativo ON hardware_localizacao_opcao(ativo)",
         ]:
             try:
                 conn.execute(idx)

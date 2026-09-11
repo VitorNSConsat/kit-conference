@@ -46,6 +46,7 @@ import app.backup as backup_mod
 import app.inatividade as inatividade_mod
 import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
+import app.hardware as hardware_mod
 
 load_dotenv()
 
@@ -4107,12 +4108,15 @@ _ORDENS_PRODUCAO = {
 }
 
 
-def _ler_ordem(request: Request, prefixo: str) -> tuple[str, str]:
+def _ler_ordem(request: Request, prefixo: str, mapa: dict | None = None) -> tuple[str, str]:
     """Lê ord_<prefixo>/dir_<prefixo> da URL — coluna clicada e sentido.
     Coluna que não existe no mapa dessa etapa é ignorada (lista fica na
-    ordem de sempre), então um link/URL velho nunca quebra a tela."""
+    ordem de sempre), então um link/URL velho nunca quebra a tela.
+    `mapa` deixa a mesma função servir outras telas além de Produção
+    (default `_ORDENS_PRODUCAO`, pra não mudar nenhuma chamada existente)."""
+    mapa = _ORDENS_PRODUCAO if mapa is None else mapa
     campo = request.query_params.get(f"ord_{prefixo}", "")
-    if campo not in _ORDENS_PRODUCAO[prefixo]:
+    if campo not in mapa[prefixo]:
         campo = ""
     direcao = request.query_params.get(f"dir_{prefixo}", "asc")
     if direcao not in ("asc", "desc"):
@@ -5372,6 +5376,10 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         "garagens_por_cliente": garagens_por_cliente,
         "clientes_por_garagem": clientes_por_garagem,
         "filtro_cliente": cliente,
+        # Lista filtrada COMPLETA (antes de paginar) -- o botão "Exportar
+        # Excel" usa exatamente isso, pra planilha bater com o que a tela
+        # está mostrando (mesmos filtros, só sem paginação).
+        "veiculos_export": veiculos,
     }
 
 
@@ -5490,6 +5498,68 @@ async def admin_veiculos_modelo(request: Request):
     return _Resp(content=buf.read(),
                  media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                  headers={"Content-Disposition": "attachment; filename=modelo_veiculos.xlsx"})
+
+
+@app.get("/admin/veiculos/exportar.xlsx")
+@require_login
+async def admin_veiculos_exportar(request: Request, busca: str = "",
+                                   cliente: list[str] = Query(default=[]),
+                                   modelo: list[str] = Query(default=[]),
+                                   situacao: list[str] = Query(default=[]),
+                                   garagem: list[str] = Query(default=[]),
+                                   imp_ini: str = "", imp_fim: str = "", ordem: str = ""):
+    """Exporta os veículos filtrados -- os MESMOS filtros da tela (cliente,
+    garagem, modelo, situação, busca, datas), reaproveitando
+    _admin_veiculos_context() pra planilha nunca discordar do que a lista
+    mostra. Sem filtro nenhum, exporta todos os veículos ativos do sistema."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+    from fastapi.responses import Response as _Resp
+
+    ctx = _admin_veiculos_context(cliente, 1, busca, modelo, situacao, garagem, imp_ini, imp_fim, ordem)
+    veiculos = ctx["veiculos_export"]
+
+    wb = openpyxl.Workbook()
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+    ws = wb.active
+    ws.title = "Veículos"
+    colunas = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Localização atual",
+               "Kits enviados", "Último envio", "Cadastrado em"]
+    for col, h in enumerate(colunas, 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for i, v in enumerate(veiculos):
+        row = i + 2
+        ws.cell(row, 1, v["numero"])
+        ws.cell(row, 2, v["cliente"])
+        ws.cell(row, 3, v["garagem"] or "")
+        ws.cell(row, 4, v["modelo"] or "")
+        ws.cell(row, 5, v.get("localizacao") or "")
+        ws.cell(row, 6, v["total_kits"])
+        ws.cell(row, 7, v.get("ultimo_kit_em") or "")
+        ws.cell(row, 8, v.get("criado_em") or "")
+        if i % 2 == 0:
+            for col in range(1, len(colunas) + 1):
+                ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col, w in zip("ABCDEFGH", (16, 26, 22, 26, 20, 14, 20, 20)):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    # Nome do arquivo carrega o filtro de cliente quando é só um -- facilita
+    # achar o arquivo certo depois de várias exportações seguidas.
+    sufixo = cliente[0].replace(" ", "-").lower() if len(cliente) == 1 else "todos"
+    filename = f"veiculos_{sufixo}_{now_brt()[:10]}.xlsx"
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/admin/veiculos/import", response_class=HTMLResponse)
@@ -6033,6 +6103,391 @@ async def reset_confirm(request: Request, confirmacao: str = Form("")):
     # Limpa a sessão (o próprio usuário foi apagado)
     request.session.clear()
     return RedirectResponse("/login?ok=reset", status_code=302)
+
+
+# ── Gestão de Hardware — ocorrências de defeito/RMA de equipamento ─────────────
+
+_ORDENS_HARDWARE = {
+    "hw": {
+        "id": "id", "cliente": "cliente", "produto": "produto_exibido",
+        "status": "status_texto", "prioridade": "prioridade",
+        "responsavel": "responsavel_nome", "atualizado": "atualizado_em",
+        "registro": "data_registro",
+    },
+}
+
+
+async def _ler_anexo(request: Request, arquivo) -> tuple[bytes, str]:
+    """Mesmo cuidado de _ler_upload (freio de taxa, teto de tamanho), mas
+    extensão mais ampla (validada em hardware_mod.salvar_anexo). Reaproveita
+    _upload_liberado — o path é diferente do de importação de planilha,
+    então já é um balde de tentativas separado, sem precisar de nada novo."""
+    if not _upload_liberado(request):
+        raise ValueError("Muitos envios de arquivo em pouco tempo. Espere alguns minutos e tente de novo.")
+    conteudo = await arquivo.read()
+    if len(conteudo) > hardware_mod.MAX_ANEXO_BYTES:
+        raise ValueError(
+            f"Arquivo muito grande ({len(conteudo) // (1024*1024)} MB). "
+            f"O limite é {hardware_mod.MAX_ANEXO_BYTES // (1024*1024)} MB.")
+    return conteudo, (getattr(arquivo, "content_type", "") or "")
+
+
+def _hardware_filtros(request: Request) -> dict:
+    qp = request.query_params
+    return {
+        "status": qp.getlist("status"),
+        "prioridade": qp.getlist("prioridade"),
+        "cliente": qp.get("cliente", ""),
+        "hardware_produto_id": int(qp["hardware_produto_id"]) if qp.get("hardware_produto_id", "").isdigit() else None,
+        "categoria_defeito": qp.get("categoria_defeito", ""),
+        "responsavel_id": int(qp["responsavel_id"]) if qp.get("responsavel_id", "").isdigit() else None,
+        "aguardando_de": qp.getlist("aguardando_de"),
+        "busca": qp.get("busca", ""),
+        "registro_ini": qp.get("registro_ini", ""),
+        "registro_fim": qp.get("registro_fim", ""),
+        "com_solucao": qp.get("com_solucao", ""),
+        "critico": qp.get("critico", "") == "1",
+        "sem_atualizacao_dias": qp.get("sem_atualizacao_dias", ""),
+    }
+
+
+def _hardware_contexto_formulario() -> dict:
+    """Pedaço de contexto repetido entre a lista (filtros) e os formulários
+    de criar/editar ocorrência — um lugar só pra não desencontrar as opções.
+    Status/prioridade/localização/categoria viraram catálogos editáveis no
+    banco (hardware_mod.listar_opcoes) -- aqui só pegamos o formato
+    (chave, nome) que os templates/macros de filtro já esperavam quando
+    eram tuplas fixas em Python, pra não precisar mexer em cada template."""
+    return {
+        "status_opcoes": [(o["chave"], o["nome"]) for o in hardware_mod.listar_opcoes("status")],
+        "prioridade_opcoes": [(o["chave"], o["nome"]) for o in hardware_mod.listar_opcoes("prioridade")],
+        "aguardando_opcoes": hardware_mod.AGUARDANDO_DE,
+        "localizacao_opcoes": [(o["chave"], o["nome"]) for o in hardware_mod.listar_opcoes("localizacao")],
+        "categorias_defeito": [o["nome"] for o in hardware_mod.listar_opcoes("categoria")],
+        "resultados_finais": hardware_mod.RESULTADOS_FINAIS,
+        "produtos": hardware_mod.listar_produtos(),
+        "usuarios_ativos": [u for u in usuarios_mod.listar() if u["ativo"]],
+        "clientes_cadastrados": clientes_mod.listar(),
+    }
+
+
+@app.get("/admin/hardware", response_class=HTMLResponse)
+@require_login
+async def admin_hardware(request: Request):
+    filtros = _hardware_filtros(request)
+    contexto = {
+        **_hardware_contexto_formulario(),
+        "status_andamento": hardware_mod.status_chaves_andamento(),
+        "status_terminais": hardware_mod.status_terminais(),
+        "sem_atualizacao_dias_padrao": hardware_mod.SEM_ATUALIZACAO_DIAS_PADRAO,
+        "filtros": filtros,
+        "ok": request.query_params.get("ok", ""),
+    }
+    # Sem cliente escolhido: painel de entrada, um card por cliente (visão
+    # geral, com os KPIs condensados). Com cliente escolhido (via "Ver
+    # detalhes" do card, ou filtro avançado): só a lista cheia daquele
+    # cliente — os KPIs globais não fazem sentido mais aqui, já filtrado.
+    if not filtros.get("cliente"):
+        ordenar_cliente = request.query_params.get("ordenar_cliente", "nome_asc")
+        busca_cliente = request.query_params.get("busca_cliente", "").strip()
+        clientes_resumo = hardware_mod.resumo_por_cliente(filtros, ordenar_cliente)
+        if busca_cliente:
+            termo = busca_cliente.lower()
+            clientes_resumo = [c for c in clientes_resumo if termo in c["cliente"].lower()]
+        contexto["visao"] = "clientes"
+        contexto["resumo"] = hardware_mod.resumo()
+        contexto["ordenar_cliente"] = ordenar_cliente
+        contexto["busca_cliente"] = busca_cliente
+        contexto["clientes_resumo"] = clientes_resumo
+    else:
+        lista = hardware_mod.listar(filtros)
+        ord_hw, dir_hw = _ler_ordem(request, "hw", _ORDENS_HARDWARE)
+        lista = paginacao_mod.ordenar(lista, _ORDENS_HARDWARE["hw"].get(ord_hw), dir_hw)
+        pag_hw = max(1, int(request.query_params.get("pag_hw", 1) or 1))
+        contexto["visao"] = "lista"
+        contexto["pag"] = paginacao_mod.paginar(lista, pag_hw)
+        contexto["ord_hw"], contexto["dir_hw"] = ord_hw, dir_hw
+    return render(request, "admin_hardware.html", contexto)
+
+
+@app.get("/admin/hardware/produtos", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_produtos(request: Request):
+    return render(request, "admin_hardware_produtos.html", {
+        "produtos": hardware_mod.listar_produtos(incluir_inativos=True),
+        "ok": request.query_params.get("ok", ""),
+        "erro": request.query_params.get("erro", ""),
+    })
+
+
+@app.post("/admin/hardware/produtos")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_produtos_criar(request: Request):
+    form = await request.form()
+    try:
+        hardware_mod.criar_produto(
+            str(form.get("nome", "")), str(form.get("fabricante", "")), str(form.get("categoria", "")))
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/produtos?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse("/admin/hardware/produtos?ok=criado", status_code=302)
+
+
+@app.post("/admin/hardware/produtos/{produto_id:int}/desativar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_produto_desativar(request: Request, produto_id: int):
+    hardware_mod.desativar_produto(produto_id)
+    return RedirectResponse("/admin/hardware/produtos?ok=desativado", status_code=302)
+
+
+@app.post("/admin/hardware/produtos/{produto_id:int}/reativar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_produto_reativar(request: Request, produto_id: int):
+    hardware_mod.reativar_produto(produto_id)
+    return RedirectResponse("/admin/hardware/produtos?ok=reativado", status_code=302)
+
+
+@app.get("/admin/hardware/nova", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_nova(request: Request):
+    return render(request, "admin_hardware_nova.html", {
+        **_hardware_contexto_formulario(),
+        # Versão completa dos catálogos (id, cor, eh_terminal, ativo) pros
+        # popups de gerenciar -- os *_opcoes acima só têm (chave, nome), o
+        # bastante pro <select> da ocorrência.
+        "catalogo_status": hardware_mod.listar_opcoes("status", incluir_inativas=True),
+        "catalogo_prioridade": hardware_mod.listar_opcoes("prioridade", incluir_inativas=True),
+        "catalogo_categoria": hardware_mod.listar_opcoes("categoria", incluir_inativas=True),
+        "catalogo_localizacao": hardware_mod.listar_opcoes("localizacao", incluir_inativas=True),
+        "erro": request.query_params.get("erro", ""),
+    })
+
+
+@app.post("/admin/hardware/opcoes/{tipo}/criar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_opcao_criar(request: Request, tipo: str):
+    form = await request.form()
+    destino = _voltar_para(request, "/admin/hardware/nova")
+    try:
+        hardware_mod.criar_opcao(
+            tipo, str(form.get("nome", "")), str(form.get("cor", "")),
+            eh_terminal=form.get("eh_terminal") == "on")
+    except ValueError as e:
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(destino, status_code=302)
+
+
+@app.post("/admin/hardware/opcoes/{tipo}/{opcao_id:int}/editar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_opcao_editar(request: Request, tipo: str, opcao_id: int):
+    form = await request.form()
+    destino = _voltar_para(request, "/admin/hardware/nova")
+    try:
+        hardware_mod.editar_opcao(
+            tipo, opcao_id, str(form.get("nome", "")), str(form.get("cor", "")),
+            eh_terminal=(form.get("eh_terminal") == "on") if "eh_terminal" in form else None)
+    except ValueError as e:
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(destino, status_code=302)
+
+
+@app.post("/admin/hardware/opcoes/{tipo}/{opcao_id:int}/desativar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_opcao_desativar(request: Request, tipo: str, opcao_id: int):
+    destino = _voltar_para(request, "/admin/hardware/nova")
+    try:
+        hardware_mod.desativar_opcao(tipo, opcao_id)
+    except ValueError as e:
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(destino, status_code=302)
+
+
+@app.post("/admin/hardware/opcoes/{tipo}/{opcao_id:int}/reativar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_opcao_reativar(request: Request, tipo: str, opcao_id: int):
+    hardware_mod.reativar_opcao(tipo, opcao_id)
+    return RedirectResponse(_voltar_para(request, "/admin/hardware/nova"), status_code=302)
+
+
+@app.get("/admin/hardware/anexo/{anexo_id:int}")
+@require_login
+async def admin_hardware_anexo_baixar(request: Request, anexo_id: int):
+    anexo = hardware_mod.buscar_anexo(anexo_id)
+    if not anexo or not os.path.exists(anexo["caminho_disco"]):
+        raise HTTPException(status_code=404)
+    from fastapi.responses import Response as _Resp
+    with open(anexo["caminho_disco"], "rb") as f:
+        conteudo = f.read()
+    # Sempre "attachment", nunca inline — mesmo pra imagem/PDF: evita que um
+    # arquivo disfarçado seja executado pelo navegador dentro do domínio do
+    # sistema. X-Content-Type-Options:nosniff já vem de _CabecalhosSegurancaMiddleware.
+    return _Resp(
+        content=conteudo,
+        media_type=anexo["tipo_mime"] or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{anexo["nome_arquivo"]}"'},
+    )
+
+
+@app.get("/admin/hardware/{ocorrencia_id:int}", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_detalhe(request: Request, ocorrencia_id: int):
+    o = hardware_mod.buscar(ocorrencia_id)
+    if not o:
+        raise HTTPException(status_code=404)
+    return render(request, "admin_hardware_detalhe.html", {
+        **_hardware_contexto_formulario(),
+        "o": o,
+        "eventos": hardware_mod.listar_eventos(ocorrencia_id),
+        "eventos_area": {area: hardware_mod.listar_eventos_area(ocorrencia_id, area)
+                          for area in hardware_mod.AREAS_ACAO},
+        "anexos": hardware_mod.listar_anexos(ocorrencia_id),
+        "area_texto": hardware_mod.AREA_TEXTO,
+        "max_anexo_mb": hardware_mod.MAX_ANEXO_BYTES // (1024 * 1024),
+        "voltar_para": _voltar_para(request, "/admin/hardware"),
+        "ok": request.query_params.get("ok", ""),
+        "erro": request.query_params.get("erro", ""),
+    })
+
+
+@app.post("/admin/hardware")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_criar(request: Request):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        ocorrencia_id = hardware_mod.criar(dict(form), user["id"])
+    except ValueError as e:
+        destino = _voltar_para(request, "/admin/hardware")
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=criada", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/editar")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_editar(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.editar_basico(ocorrencia_id, dict(form), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=editado", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/status")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_status(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.mudar_status(
+            ocorrencia_id, str(form.get("status", "")), str(form.get("observacao", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=status", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/responsavel")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_responsavel(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    resp = form.get("responsavel_id", "")
+    hardware_mod.definir_responsavel(ocorrencia_id, int(resp) if str(resp).isdigit() else None, user["id"])
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=responsavel", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/proxima-acao")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_proxima_acao(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.definir_proxima_acao(
+            ocorrencia_id, str(form.get("proxima_acao", "")), str(form.get("proxima_acao_data", "")),
+            str(form.get("aguardando_de", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=proxima_acao", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/atualizacao")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_atualizacao(request: Request, ocorrencia_id: int,
+                                     arquivo: UploadFile = File(None)):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        evento_id = hardware_mod.registrar_atualizacao(ocorrencia_id, str(form.get("conteudo", "")), user["id"])
+        if arquivo is not None and getattr(arquivo, "filename", ""):
+            conteudo, tipo_mime = await _ler_anexo(request, arquivo)
+            hardware_mod.salvar_anexo(ocorrencia_id, arquivo.filename, conteudo, tipo_mime,
+                                      user["id"], evento_id=evento_id)
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=atualizacao", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/acao")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_acao(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.registrar_acao(
+            ocorrencia_id, str(form.get("area", "")), str(form.get("conteudo", "")),
+            str(form.get("situacao", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=acao", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/resolver")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_resolver(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.resolver(
+            ocorrencia_id, str(form.get("resultado_final", "")), str(form.get("solucao_texto", "")),
+            str(form.get("data_solucao", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=resolvida", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/reabrir")
+@require_permission("hardware_encerrar_reabrir")
+async def admin_hardware_reabrir(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        hardware_mod.reabrir(ocorrencia_id, str(form.get("motivo", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=reaberta", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/arquivar")
+@require_permission("hardware_excluir")
+async def admin_hardware_arquivar(request: Request, ocorrencia_id: int):
+    hardware_mod.arquivar(ocorrencia_id)
+    return RedirectResponse("/admin/hardware?ok=arquivada", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/anexo")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_anexo_enviar(request: Request, ocorrencia_id: int, arquivo: UploadFile = File(...)):
+    user = get_current_user(request)
+    try:
+        conteudo, tipo_mime = await _ler_anexo(request, arquivo)
+        hardware_mod.salvar_anexo(ocorrencia_id, arquivo.filename, conteudo, tipo_mime, user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=anexo", status_code=302)
 
 
 if __name__ == "__main__":

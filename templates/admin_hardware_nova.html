@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% block title %}Nova ocorrência — Gestão de Hardware{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Voltar</a>
+{% endblock %}
+
+{% macro campo_catalogo(id_modal, tipo, titulo, itens, tem_cor, tem_terminal) %}
+<div class="modal-lista hw-modal" id="{{ id_modal }}">
+  <div class="modal-cabecalho">
+    <div><strong>{{ titulo }}</strong><span class="modal-sub">Adicionar, renomear ou excluir opções</span></div>
+    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+  </div>
+  <div class="modal-corpo">
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
+      {% for o in itens %}
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;{{ 'opacity:.55;' if not o.ativo }}">
+        <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/editar"
+              style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+          {% if tem_cor %}
+          <input type="color" name="cor" value="{{ o.cor }}" title="Cor"
+                 style="width:26px;height:26px;padding:0;border:0;border-radius:6px;flex-shrink:0;" {{ 'disabled' if not o.ativo }}>
+          {% endif %}
+          <input type="text" name="nome" value="{{ o.nome }}" style="flex:1;min-width:0;margin:0;" {{ 'disabled' if not o.ativo }}>
+          {% if tem_terminal %}
+          <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;"
+                 title="Conta como concluído nos indicadores">
+            <input type="checkbox" name="eh_terminal" {{ 'checked' if o.eh_terminal }} {{ 'disabled' if not o.ativo }}> terminal
+          </label>
+          {% endif %}
+          {% if o.sistema %}
+          <span title="Usado pelo sistema — não pode ser excluído, só renomeado" style="flex-shrink:0;color:var(--text-muted-2);">{{ ic.svg('cadeado', 13) }}</span>
+          {% endif %}
+          {% if o.ativo %}
+          <button type="submit" class="btn btn-sm" style="padding:3px 6px;flex-shrink:0;" title="Salvar">{{ ic.svg('check', 13) }}</button>
+          {% else %}
+          <span class="badge" style="flex-shrink:0;font-size:10px;">inativo</span>
+          {% endif %}
+        </form>
+        {% if o.ativo %}
+          {% if not o.sistema %}
+          <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/desativar" style="flex-shrink:0;">
+            <button type="submit" class="btn btn-sm btn-danger" style="padding:3px 6px;" title="Excluir">{{ ic.svg('excluir', 13) }}</button>
+          </form>
+          {% endif %}
+        {% else %}
+        <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/reativar" style="flex-shrink:0;">
+          <button type="submit" class="btn btn-sm btn-secondary" style="padding:3px 6px;" title="Reativar">{{ ic.svg('reiniciar', 13) }}</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);font-size:13px;">Nenhum item cadastrado ainda.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/criar"
+          style="display:flex;gap:6px;align-items:center;border-top:1px solid var(--border);padding-top:12px;">
+      {% if tem_cor %}
+      <input type="color" name="cor" value="#246b84" style="width:26px;height:26px;padding:0;border:0;border-radius:6px;flex-shrink:0;">
+      {% endif %}
+      <input type="text" name="nome" placeholder="Nome do novo item..." required style="flex:1;margin:0;">
+      {% if tem_terminal %}
+      <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">
+        <input type="checkbox" name="eh_terminal"> terminal
+      </label>
+      {% endif %}
+      <button type="submit" class="btn btn-sm btn-primary" style="flex-shrink:0;">{{ ic.svg('mais', 13) }} Adicionar</button>
+    </form>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+  <div>
+    <h1 style="margin:0 0 4px;">Nova ocorrência</h1>
+    <p style="color:var(--text-muted);font-size:13px;margin:0;">Registrar um equipamento com defeito.</p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-cat-categoria')">{{ ic.svg('paleta', 14) }} Categorias</button>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-cat-localizacao')">{{ ic.svg('caixa', 14) }} Localizações</button>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-cat-prioridade')">{{ ic.svg('alerta', 14) }} Prioridades</button>
+    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-cat-status')">{{ ic.svg('clipboard', 14) }} Status</button>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post" action="/admin/hardware">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:10px;">
+      <div class="form-group" style="margin:0;">
+        <label>Cliente *</label>
+        <input type="text" name="cliente" required list="lista-clientes-hw" style="margin:0;">
+        <datalist id="lista-clientes-hw">
+          {% for c in clientes_cadastrados %}<option value="{{ c.nome }}">{% endfor %}
+        </datalist>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Produto cadastrado</label>
+        <select name="hardware_produto_id" style="margin:0;">
+          <option value="">— selecione —</option>
+          {% for p in produtos %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Ou produto sem cadastro <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">— ignorado se selecionou acima</span></label>
+        <input type="text" name="produto_nome" style="margin:0;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Serial / Patrimônio</label>
+        <input type="text" name="serial_patrimonio" style="margin:0;" title="Se bater com um patrimônio já cadastrado, o vínculo é feito automaticamente">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Quantidade</label>
+        <input type="number" name="quantidade" min="1" value="1" style="margin:0;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Prioridade</label>
+        <select name="prioridade" style="margin:0;">
+          {% for chave, texto in prioridade_opcoes %}
+          <option value="{{ chave }}" {{ 'selected' if chave == 'normal' }}>{{ texto }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Categoria do defeito</label>
+        <select name="categoria_defeito" style="margin:0;">
+          <option value="">— selecione —</option>
+          {% for c in categorias_defeito %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Subcategoria</label>
+        <input type="text" name="subcategoria_defeito" style="margin:0;" placeholder="ex: Touch screen não responde">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Localização atual</label>
+        <select name="localizacao" style="margin:0;">
+          <option value="">— selecione —</option>
+          {% for chave, texto in localizacao_opcoes %}<option value="{{ chave }}">{{ texto }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Responsável</label>
+        <select name="responsavel_id" style="margin:0;">
+          <option value="">— sem responsável ainda —</option>
+          {% for u in usuarios_ativos %}<option value="{{ u.id }}">{{ u.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Data de registro</label>
+        <input type="datetime-local" name="data_registro" style="margin:0;" title="Deixe em branco pra usar agora">
+      </div>
+    </div>
+    <div class="form-group" style="margin:10px 0 0;">
+      <label>Descrição do defeito</label>
+      <textarea name="descricao_defeito" rows="2" placeholder="Sintomas observados..."></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar ocorrência</button>
+  </form>
+</div>
+
+<div class="modal-fundo" id="modal-fundo-hw" onclick="fecharModaisHw()"></div>
+{{ campo_catalogo('modal-cat-categoria', 'categoria', 'Categorias de defeito', catalogo_categoria, false, false) }}
+{{ campo_catalogo('modal-cat-localizacao', 'localizacao', 'Localizações', catalogo_localizacao, false, false) }}
+{{ campo_catalogo('modal-cat-prioridade', 'prioridade', 'Prioridades', catalogo_prioridade, true, false) }}
+{{ campo_catalogo('modal-cat-status', 'status', 'Status', catalogo_status, true, true) }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function abrirModalHw(id) {
+    document.querySelectorAll('.hw-modal').forEach(function (m) { m.classList.remove('aberto'); });
+    var alvo = document.getElementById(id);
+    if (!alvo) return;
+    alvo.classList.add('aberto');
+    document.getElementById('modal-fundo-hw').classList.add('aberto');
+}
+function fecharModaisHw() {
+    document.querySelectorAll('.hw-modal').forEach(function (m) { m.classList.remove('aberto'); });
+    document.getElementById('modal-fundo-hw').classList.remove('aberto');
+}
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') fecharModaisHw();
+});
+</script>
+{% endblock %}
