@@ -394,6 +394,48 @@ def test_resumo_por_cliente_ignora_somente_arquivadas(usuario_id):
     assert all(c["cliente"] != "ClienteSomenteArq2" for c in resumo)
 
 
+# ── Excluir (definitivo, diferente de arquivar) ─────────────────────────────
+
+def test_excluir_remove_ocorrencia_e_historico(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    hw.excluir(oid)
+    assert hw.buscar(oid) is None
+    with db() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM hardware_ocorrencia_evento WHERE ocorrencia_id = ?", (oid,)
+        ).fetchone()[0] == 0
+
+
+def test_excluir_remove_anexo_do_disco(tmp_path, usuario_id, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    oid = _criar_ocorrencia(usuario_id)
+    hw.salvar_anexo(oid, "relatorio.pdf", b"%PDF-1.4 conteudo", "application/pdf", usuario_id)
+    caminho = hw.listar_anexos(oid)[0]["caminho_disco"]
+    assert os.path.exists(caminho)
+    hw.excluir(oid)
+    assert not os.path.exists(caminho)
+
+
+def test_excluir_solta_vinculo_da_importacao_mas_preserva_a_linha(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO hardware_importacao (arquivo, criada_em) VALUES ('teste.xlsx', '2026-01-01')")
+        imp_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO hardware_importacao_item (importacao_id, linha, rotulo, situacao, ocorrencia_id) "
+            "VALUES (?, 1, ?, 'novo', ?)", (imp_id, hw.rotulo(oid), oid))
+
+    hw.excluir(oid)
+
+    with db() as conn:
+        item = conn.execute(
+            "SELECT ocorrencia_id, situacao FROM hardware_importacao_item WHERE importacao_id = ?",
+            (imp_id,)).fetchone()
+    assert item["ocorrencia_id"] is None
+    assert item["situacao"] == "novo"  # a linha da conferência continua existindo
+
+
 # ── Importação por planilha ──────────────────────────────────────────────────
 
 def _planilha(headers, linhas, linhas_antes_do_cabecalho=0):
@@ -417,7 +459,7 @@ _CAB_PADRAO = ["Cliente", "Produto", "Categoria do Defeito", "Serial / Patrimôn
                "Quantidade", "Status", "Responsável", "Data de Registro",
                "Ação Corretiva - Brasil", "Ação Corretiva - Suécia",
                "Ação Corretiva - Fabricante", "Data de Solução", "Observações",
-               "ID de Referência"]
+               "Identificador do RMA"]
 
 
 def test_importar_cria_ocorrencia_nova(usuario_id):
@@ -456,7 +498,10 @@ def test_importar_reconhece_cabecalho_com_bandeira_e_titulo_antes(usuario_id):
     assert o["cliente"] == cliente
     assert o["produto_nome"] == "CDT07"
     assert o["status"] == "resolvido"  # "FEITO" reconhecido via sinônimo
-    assert o["ref_externo"] == "elemento-1"
+    # "Name" (RMA1) tem prioridade sobre "ID do elemento" -- é o identificador
+    # que o operador de fato usa/reconhece, o "ID do elemento" é só um id
+    # interno do Monday.com que ninguém lê.
+    assert o["ref_externo"] == "RMA1"
     eventos = hw.listar_eventos(oid)
     assert any(e["tipo"] == "acao_brasil" and "Flash feito" in e["conteudo"] for e in eventos)
 

@@ -28,11 +28,12 @@
   </p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
     Pode importar a mesma planilha quantas vezes precisar <strong>se ela tiver a coluna
-    "ID de Referência"</strong> preenchida (a planilha antiga já traz isso na coluna
-    "ID do elemento") — é o que identifica a ocorrência entre uma importação e outra,
-    já que serial/patrimônio é opcional e pode se repetir. Nela, <strong>a planilha
-    manda</strong>: célula preenchida sobrescreve o cadastro, célula vazia preserva.
-    Sem essa coluna, toda linha vira uma ocorrência nova.
+    "Identificador do RMA"</strong> preenchida (ex.: "RMA1", "RMA1-E" — o código que você já
+    usa pra se referir àquele caso; a planilha antiga também funciona, usando a coluna "Name")
+    — é o que identifica a ocorrência entre uma importação e outra, igual o Número já
+    identifica o veículo. Nela, <strong>a planilha manda</strong>: célula preenchida
+    sobrescreve o cadastro, célula vazia preserva. Sem essa coluna preenchida, toda linha
+    vira sempre uma ocorrência nova.
   </p>
   <form method="post" enctype="multipart/form-data">
     <div class="form-group">

@@ -853,6 +853,31 @@ def reativar(ocorrencia_id: int, usuario_id: int | None = None) -> None:
         _evento(conn, ocorrencia_id, "reativado", usuario_id=usuario_id, quando=agora)
 
 
+def excluir(ocorrencia_id: int) -> None:
+    """Exclusão DE VERDADE — ao contrário de arquivar(), não dá pra desfazer.
+    Some a ocorrência, o histórico (timeline) e os anexos (arquivo em disco
+    incluído). A única coisa preservada é a conferência de uma importação
+    antiga que tenha criado esta ocorrência: a linha continua lá com
+    cliente/produto/status em texto, só o link pra ocorrência (que não
+    existe mais) é solto -- mesmo princípio da exclusão de veículo, que
+    preserva o texto e solta só o vínculo."""
+    with db() as conn:
+        anexos = conn.execute(
+            "SELECT caminho_disco FROM hardware_anexo WHERE ocorrencia_id = ?", (ocorrencia_id,)
+        ).fetchall()
+        conn.execute("DELETE FROM hardware_anexo WHERE ocorrencia_id = ?", (ocorrencia_id,))
+        conn.execute("DELETE FROM hardware_ocorrencia_evento WHERE ocorrencia_id = ?", (ocorrencia_id,))
+        conn.execute(
+            "UPDATE hardware_importacao_item SET ocorrencia_id = NULL WHERE ocorrencia_id = ?",
+            (ocorrencia_id,))
+        conn.execute("DELETE FROM hardware_ocorrencia WHERE id = ?", (ocorrencia_id,))
+    for a in anexos:
+        try:
+            os.remove(a["caminho_disco"])
+        except OSError:
+            pass  # arquivo já sumiu do disco -- não impede a exclusão do cadastro
+
+
 # ── Anexos ───────────────────────────────────────────────────────────────────
 
 def _extensao_valida(nome_arquivo: str, tipo_mime: str) -> str:
@@ -933,11 +958,12 @@ def importar_excel(file_bytes: bytes, usuario_id: int) -> dict:
     atrapalham.
 
     Reimportar a MESMA linha não duplica só quando ela carrega um valor na
-    coluna de referência externa ("ID do elemento"/"ID de referência") --
-    é a única chave que sobrevive a uma troca de serial/patrimônio, que é
-    opcional e não é único (o mesmo equipamento pode ter várias ocorrências
-    ao longo do tempo, cada reparo é uma linha nova). Linha sem essa coluna
-    preenchida é SEMPRE uma ocorrência nova.
+    coluna de identificador do RMA -- o "nome"/código que o próprio operador
+    já usa pra se referir àquela ocorrência (ex.: "RMA1", "RMA1-E"), igual o
+    Número já funciona pra veículo. É a única chave que sobrevive a uma troca
+    de serial/patrimônio, que é opcional e não é único (o mesmo equipamento
+    pode ter várias ocorrências ao longo do tempo, cada reparo é uma linha
+    nova). Linha sem essa coluna preenchida é SEMPRE uma ocorrência nova.
 
     Célula preenchida sobrescreve o cadastro já existente (produto, defeito,
     responsável, status, quantidade, descrição, data de solução); célula
@@ -981,9 +1007,13 @@ def importar_excel(file_bytes: bytes, usuario_id: int) -> dict:
     col_registro    = achar(("registro",))
     col_solucao     = achar(("solucao",))
     col_observacoes = achar(("observ",))
-    # ("elemento",) sozinho bateria com "Subelementos" (contém "elemento"
-    # como substring) -- exige "id" junto, que só aparece em "ID do elemento".
-    col_ref         = achar(("referencia",), ("id", "elemento"))
+    # Ordem de prioridade: "Identificador" (nosso modelo) > "Name" (planilha
+    # antiga, onde já vem "RMA1", "RMA2"...) > "Referência" (nome antigo
+    # desta mesma coluna) > "ID do elemento" (o id interno do Monday.com --
+    # existe na planilha antiga, mas ninguém digita/lê esse número, então só
+    # entra como último recurso). ("elemento",) sozinho bateria com
+    # "Subelementos" (contém "elemento" como substring) -- exige "id" junto.
+    col_ref         = achar(("identificador",), ("name",), ("referencia",), ("id", "elemento"))
     col_acao_br     = achar(("corretiva", "brasil"), ("acao", "brasil"))
     col_acao_se     = achar(("corretiva", "suecia"), ("acao", "suecia"))
     col_acao_fab    = achar(("corretiva", "fab"), ("acao", "fab"))

@@ -105,6 +105,8 @@
 <div class="alert alert-success">Ocorrência arquivada.</div>
 {% elif ok == 'renomeado' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Cliente renomeado — o nome novo já vale em veículos, RMAs, kits e remessas.</div>
+{% elif ok == 'excluidas' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('qtd', '0') }} ocorrência(s) excluída(s) permanentemente.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
@@ -311,6 +313,14 @@
 <div class="card table-scroll" id="lista-hardware">
   {{ pg.contagem(pag, "ocorrências") }}
   {% if pag.itens %}
+  {% if pode('hardware_excluir') %}
+  {# Form separado (não pode ficar aninhado dentro do form de exportar) --
+     os ids marcados são copiados pra cá via JS antes de enviar, igual a
+     nota fiscal em lote faz em Produção. #}
+  <form method="post" action="/admin/hardware/excluir-em-massa" id="form-excluir-hw">
+    <input type="hidden" name="voltar" value="{{ filtros.cliente }}">
+  </form>
+  {% endif %}
   <form method="get" action="/admin/hardware/exportar.xlsx" id="form-exportar-hw">
     {% for s in filtros.status %}<input type="hidden" name="status" value="{{ s }}">{% endfor %}
     {% for s in filtros.prioridade %}<input type="hidden" name="prioridade" value="{{ s }}">{% endfor %}
@@ -372,9 +382,16 @@
     <button type="submit" class="btn btn-sm btn-secondary" id="btn-exportar-hw">
       {{ ic.svg('baixar', 13) }} <span id="rotulo-exportar-hw">Exportar todos ({{ pag.total }})</span>
     </button>
+    {% if pode('hardware_excluir') %}
+    <button type="button" class="btn btn-sm btn-danger" id="btn-excluir-hw" disabled
+            onclick="excluirSelecionadosHardware()">
+      {{ ic.svg('excluir', 13) }} Excluir selecionados (<span id="qtd-excluir-hw">0</span>)
+    </button>
+    {% endif %}
     <span style="font-size:12px;color:var(--text-muted-2);">
       Sem nada marcado, exporta todas as {{ pag.total }} ocorrência{{ 's' if pag.total != 1 }} deste filtro
-      (não só a página atual). Marque linhas acima pra exportar só elas.
+      (não só a página atual). Marque linhas acima pra exportar só elas, ou pra excluí-las
+      permanentemente.
     </span>
   </div>
   {% if pag.total_paginas > 1 %}
@@ -523,6 +540,34 @@ function atualizarBotaoExportarHardware() {
     }
     const chefe = document.getElementById('marcar-todos-hw');
     if (chefe) chefe.checked = qtd > 0 && qtd === total;
+    // Excluir é o oposto de exportar: sem nada marcado, o botão fica
+    // DESABILITADO -- diferente de exportar, aqui "nada marcado" nunca pode
+    // significar "todos".
+    const btnExcluir = document.getElementById('btn-excluir-hw');
+    if (btnExcluir) btnExcluir.disabled = qtd === 0;
+    const qtdExcluir = document.getElementById('qtd-excluir-hw');
+    if (qtdExcluir) qtdExcluir.textContent = qtd;
+}
+
+function excluirSelecionadosHardware() {
+    const sel = [...document.querySelectorAll('.chk-hardware:checked')];
+    if (!sel.length) return;
+    const rotulos = sel.map(c => {
+        const linha = c.closest('tr');
+        return linha ? linha.querySelector('a')?.textContent?.trim() : c.value;
+    });
+    if (!confirm('Excluir PERMANENTEMENTE ' + sel.length + ' ocorrência(s)?\n\n'
+                 + rotulos.join(', ')
+                 + '\n\nIsso apaga o histórico e os anexos de cada uma. Não pode ser desfeito '
+                 + '-- se quiser poder recuperar depois, use Arquivar em vez de Excluir.')) return;
+    const form = document.getElementById('form-excluir-hw');
+    form.querySelectorAll('input[name="ocorrencia_ids"]').forEach(e => e.remove());
+    sel.forEach(c => {
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'ocorrencia_ids'; h.value = c.value;
+        form.appendChild(h);
+    });
+    form.submit();
 }
 </script>
 {% endblock %}

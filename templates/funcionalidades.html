@@ -1318,12 +1318,12 @@
   </p>
   <p>
     Reimportar a <strong>mesma planilha depois</strong> não duplica nada, desde que ela tenha a
-    coluna <span class="campo">ID de Referência</span> preenchida (a planilha antiga já traz isso
-    em "ID do elemento") — é o que identifica a ocorrência entre uma importação e outra. Nela, a
-    planilha manda: célula preenchida sobrescreve o cadastro, célula vazia preserva. Sem essa
-    coluna, toda linha da planilha vira sempre uma ocorrência nova. Ação Brasil/Suécia/Fabricante
-    só entra na timeline na <strong>criação</strong> — reimportar a mesma linha não duplica a
-    ação.
+    coluna <span class="campo">Identificador do RMA</span> preenchida — o código que você já usa
+    pra aquele caso (ex.: "RMA1", "RMA1-E"), igual o Número já identifica o veículo. A planilha
+    antiga funciona do mesmo jeito, usando a coluna "Name" dela. Nela, a planilha manda: célula
+    preenchida sobrescreve o cadastro, célula vazia preserva. Sem essa coluna preenchida, toda
+    linha vira sempre uma ocorrência nova. Ação Brasil/Suécia/Fabricante só entra na timeline na
+    <strong>criação</strong> — reimportar a mesma linha não duplica a ação.
   </p>
   <p>
     Toda importação fica registrada em <strong>Importações anteriores</strong>: uma conferência
@@ -1338,6 +1338,14 @@
     cada uma) e <strong>Histórico</strong> (a timeline completa, cronológica, cruzada pelo RMA de
     cada linha).
   </p>
+  <div class="cuidado">
+    <strong>Excluir selecionados</strong>, ao lado do botão Exportar, usa a mesma marcação por
+    checkbox — mas ao contrário de <strong>Arquivar</strong>, é <strong>definitivo</strong>: apaga
+    a ocorrência, todo o histórico (timeline) e os anexos dela, sem volta. Pede confirmação com
+    a lista de RMAs marcados antes de excluir. Se existe a chance de precisar recuperar depois,
+    use Arquivar — Excluir é só pra remover mesmo um cadastro que não deveria existir
+    (ex.: duplicata, teste).
+  </div>
 </div>
 
 <!-- 11 ────────────────────────────────────────────────────────────────── -->

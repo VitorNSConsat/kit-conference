@@ -6479,11 +6479,10 @@ async def admin_hardware_modelo(request: Request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Ocorrências"
-    colunas = ["Cliente", "Produto", "Categoria do Defeito", "Serial / Patrimônio",
-               "Quantidade", "Status", "Responsável", "Data de Registro",
-               "Ação Corretiva - Brasil", "Ação Corretiva - Suécia",
-               "Ação Corretiva - Fabricante", "Data de Solução", "Observações",
-               "ID de Referência"]
+    colunas = ["Identificador do RMA", "Cliente", "Produto", "Categoria do Defeito",
+               "Serial / Patrimônio", "Quantidade", "Status", "Responsável",
+               "Data de Registro", "Ação Corretiva - Brasil", "Ação Corretiva - Suécia",
+               "Ação Corretiva - Fabricante", "Data de Solução", "Observações"]
     for col, h in enumerate(colunas, 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
@@ -6492,12 +6491,12 @@ async def admin_hardware_modelo(request: Request):
     status_nomes = [o["nome"] for o in hardware_mod.listar_opcoes("status")]
     ex1 = status_nomes[0] if status_nomes else "Não iniciado"
     ex2 = next((s for s in status_nomes if s != ex1), ex1)
-    ws.append(["Exemplo Cliente", "CDT07", "GPS", "TSCE91001019/000963", 1, ex1,
+    ws.append(["RMA1", "Exemplo Cliente", "CDT07", "GPS", "TSCE91001019/000963", 1, ex1,
                 "Nome do responsável", "2026-01-26", "", "", "",
-                "", "Sinal de GPS não aparece.", ""])
-    ws.append(["Outro Cliente", "MX4", "Não liga", "", 1, ex2,
+                "", "Sinal de GPS não aparece."])
+    ws.append(["RMA2", "Outro Cliente", "MX4", "Não liga", "", 1, ex2,
                 "", "", "Flash realizado com o pendrive FIX.", "", "",
-                "", "", ""])
+                "", ""])
     ws2 = wb.create_sheet("Status válidos")
     c = ws2.cell(1, 1, "Status aceitos (nome como aparece na tela)")
     c.font = Font(bold=True, color=branco)
@@ -6515,7 +6514,7 @@ async def admin_hardware_modelo(request: Request):
         dv.promptTitle = "Status"
         dv.showInputMessage = True
         ws.add_data_validation(dv)
-        dv.add(f"F2:F500")
+        dv.add(f"G2:G500")
 
     buf = BytesIO()
     wb.save(buf); buf.seek(0)
@@ -6591,6 +6590,20 @@ async def admin_hardware_conferencia(request: Request, importacao_id: int):
     if ctx is None:
         return RedirectResponse("/admin/hardware/importacoes?erro=nao_encontrada", status_code=302)
     return render(request, "admin_hardware_conferencia.html", ctx)
+
+
+@app.post("/admin/hardware/excluir-em-massa")
+@require_permission("hardware_excluir")
+async def admin_hardware_excluir_em_massa(request: Request):
+    """Exclui várias ocorrências de uma vez -- ao contrário de Arquivar, é
+    definitivo (mesmo padrão de veiculos_mod.deletar()/excluir-em-massa)."""
+    form = await request.form()
+    ids = [int(x) for x in form.getlist("ocorrencia_ids") if str(x).isdigit()]
+    for oid in ids:
+        hardware_mod.excluir(oid)
+    voltar = str(form.get("voltar", "")).strip()
+    destino = "/admin/hardware" + (f"?cliente={quote(voltar)}&" if voltar else "?")
+    return RedirectResponse(destino + f"ok=excluidas&qtd={len(ids)}", status_code=302)
 
 
 @app.get("/admin/hardware/{ocorrencia_id:int}", response_class=HTMLResponse)
