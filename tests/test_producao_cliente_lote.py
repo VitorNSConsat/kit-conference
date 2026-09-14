@@ -59,3 +59,19 @@ def test_marca_em_lote_so_os_que_estao_instalando():
 
 def test_lista_vazia_nao_faz_nada():
     assert producao_mod.marcar_cliente_concluido_lote([]) == 0
+
+
+def test_marcar_cliente_instalando_lote_so_os_que_estao_em_transito():
+    n = producao_mod.marcar_cliente_instalando_lote(["K1", "K2", "K3", "K4"])
+    assert n == 1  # só K4 estava em trânsito
+    with db() as conn:
+        status = {r["kit_id"]: r["status_producao"] for r in
+                   conn.execute("SELECT kit_id, status_producao FROM kit_record").fetchall()}
+    assert status["K4"] == "cliente_instalando"
+    assert status["K1"] == "cliente_instalando"  # já estava, não muda
+    assert status["K2"] == "cliente_instalando"  # já estava, não muda
+    assert status["K3"] == "cliente_concluido"  # não estava em trânsito, ignorado
+
+
+def test_marcar_cliente_instalando_lote_lista_vazia_nao_faz_nada():
+    assert producao_mod.marcar_cliente_instalando_lote([]) == 0

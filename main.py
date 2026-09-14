@@ -4643,6 +4643,16 @@ async def admin_producao_cliente_instalando(request: Request, kit_id: str):
     return RedirectResponse("/admin/producao?ok=instalando", status_code=302)
 
 
+@app.post("/admin/producao/cliente-instalando-lote")
+@require_permission("producao_mover_estagio")
+async def admin_producao_cliente_instalando_lote(request: Request):
+    form = await request.form()
+    kit_ids = form.getlist("kit_ids")
+    n = producao_mod.marcar_cliente_instalando_lote(kit_ids)
+    request.state.auditoria_detalhe = f"{n} kit(s) movido(s) para Cliente (instalação)"
+    return RedirectResponse(f"/admin/producao?ok=instalando_lote&n={n}", status_code=302)
+
+
 @app.post("/admin/producao/{kit_id}/cliente-concluido")
 @require_permission("producao_mover_estagio")
 async def admin_producao_cliente_concluido(request: Request, kit_id: str):

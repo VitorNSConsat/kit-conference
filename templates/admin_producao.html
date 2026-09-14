@@ -83,6 +83,8 @@
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('n') }} kit(s) marcado(s) como Em Trânsito.</div>
 {% elif request.query_params.get('ok') == 'instalando' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Kit marcado como chegando no cliente.</div>
+{% elif request.query_params.get('ok') == 'instalando_lote' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('n') }} kit(s) marcado(s) como chegando no cliente.</div>
 {% elif request.query_params.get('ok') == 'concluido' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Instalação marcada como concluída.</div>
 {% elif request.query_params.get('ok') == 'concluido_lote' %}
@@ -519,11 +521,14 @@
 
   {% if transito.itens %}
   {# A nota costuma sair DEPOIS do despacho: o kit já está em trânsito quando
-     o número chega. Sem o lote aqui, era um por um, linha a linha. #}
+     o número chega. Sem o lote aqui, era um por um, linha a linha. O mesmo
+     checkbox agora também alimenta "mover tudo pro cliente de uma vez" —
+     igual ao lote de Produzido→Trânsito e de Instalando→Concluído. #}
+  <form id="form-cliente-instalando-lote" method="post" action="/admin/producao/cliente-instalando-lote"></form>
   <div style="overflow-x:auto;">
   <table>
     <thead><tr>
-      {% if pode('producao_nota_fiscal') %}
+      {% if pode('producao_mover_estagio') or pode('producao_nota_fiscal') %}
       <th style="width:32px;"><input type="checkbox" id="chk-todos-transito"
             onchange="marcarTodos(this, 'transito')" title="Marcar todos"></th>
       {% endif %}
@@ -537,9 +542,9 @@
     {% for k in transito.itens %}
     {% set cor = cor_do_cliente(k.cliente) %}
     <tr>
-      {% if pode('producao_nota_fiscal') %}
-      <td><input type="checkbox" value="{{ k.kit_id }}" class="chk-transito"
-                 onchange="atualizarSelecao('transito')"
+      {% if pode('producao_mover_estagio') or pode('producao_nota_fiscal') %}
+      <td><input type="checkbox" name="kit_ids" value="{{ k.kit_id }}" form="form-cliente-instalando-lote"
+                 class="chk-transito" onchange="atualizarSelecao('transito')"
                  data-veiculo="{{ k.veiculo or k.kit_nome }}" style="margin:0;width:auto;"></td>
       {% endif %}
       <td><a href="/kit/{{ k.kit_id }}" target="_blank" class="marca-cliente" style="color:{{ cor }};"
@@ -589,16 +594,21 @@
   </div>
   {% endif %}
 
-  {% if pode('producao_nota_fiscal') %}
+  {% if pode('producao_mover_estagio') or pode('producao_nota_fiscal') %}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    {% if pode('producao_mover_estagio') %}
+    <button type="submit" form="form-cliente-instalando-lote" class="btn btn-primary"
+            id="btn-cliente-instalando-lote" data-lote="transito" disabled>
+      {{ ic.svg('check', 14) }} Marcar selecionados como chegando no cliente (<span class="qtd-sel-transito">0</span>)
+    </button>
+    {% endif %}
+    {% if pode('producao_nota_fiscal') %}
     <button type="button" class="btn btn-secondary" data-lote="transito" disabled
             onclick="abrirNotaLote('transito')">
       {{ ic.svg('kits', 14) }} Atribuir nota aos selecionados (<span class="qtd-sel-transito">0</span>)
     </button>
-    <span style="font-size:12px;color:#888;">
-      A mesma nota e a mesma data pros marcados. Quem já tem nota só é
-      sobrescrito com motivo.
-    </span>
+    {% endif %}
+    <span style="font-size:12px;color:#888;">As ações valem só pros marcados.</span>
   </div>
   {% endif %}
   {% else %}
@@ -784,6 +794,16 @@ if (formTransitoLote) {
         const sel = selecionadosProduzido();
         if (!sel.length) { ev.preventDefault(); return; }
         if (!confirm('Marcar ' + sel.length + ' veículo(s) como Em Trânsito?\n\n'
+                     + sel.map(c => c.dataset.veiculo).join(', '))) ev.preventDefault();
+    });
+}
+
+const formClienteInstalandoLote = document.getElementById('form-cliente-instalando-lote');
+if (formClienteInstalandoLote) {
+    formClienteInstalandoLote.addEventListener('submit', (ev) => {
+        const sel = selecionados('transito');
+        if (!sel.length) { ev.preventDefault(); return; }
+        if (!confirm('Marcar ' + sel.length + ' veículo(s) como chegando no cliente?\n\n'
                      + sel.map(c => c.dataset.veiculo).join(', '))) ev.preventDefault();
     });
 }
