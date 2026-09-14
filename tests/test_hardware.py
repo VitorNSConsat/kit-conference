@@ -16,6 +16,12 @@ from database import init_db, db
 import app.hardware as hw
 
 
+def _limpar_tabelas_hardware(conn):
+    for tabela in ("hardware_importacao_item", "hardware_importacao", "hardware_anexo",
+                   "hardware_ocorrencia_evento", "hardware_ocorrencia", "hardware_produto"):
+        conn.execute(f"DELETE FROM {tabela}")
+
+
 @pytest.fixture(autouse=True)
 def setup_db():
     init_db()
@@ -23,9 +29,16 @@ def setup_db():
     # hardware antes de cada teste pra um teste não ver as ocorrências que
     # o teste anterior criou (users fica intocado, cada teste cria o seu).
     with db() as conn:
-        for tabela in ("hardware_anexo", "hardware_ocorrencia_evento", "hardware_ocorrencia", "hardware_produto"):
-            conn.execute(f"DELETE FROM {tabela}")
+        _limpar_tabelas_hardware(conn)
     yield
+    # E depois também: o último teste do arquivo, se criar ocorrência,
+    # deixava users referenciados por hardware_ocorrencia.criado_por vivos
+    # pro resto da sessão de pytest -- outros arquivos de teste que fazem
+    # "DELETE FROM users" (test_permissoes.py, etc.) quebravam com
+    # FOREIGN KEY constraint failed. Sem isso o pytest -q completo (todos
+    # os arquivos juntos) falhava mesmo com cada arquivo passando sozinho.
+    with db() as conn:
+        _limpar_tabelas_hardware(conn)
 
 
 @pytest.fixture
@@ -295,3 +308,220 @@ def test_status_terminais_reflete_catalogo_dinamico():
     novo_id = hw.criar_opcao("status", f"Status terminal teste {uuid.uuid4().hex[:8]}", eh_terminal=True)
     chave = next(o["chave"] for o in hw.listar_opcoes("status") if o["id"] == novo_id)
     assert chave in hw.status_terminais()
+
+
+# ── Responsável (texto livre, não é mais FK pra users) ──────────────────────
+
+def test_criar_ocorrencia_com_responsavel_nome(usuario_id):
+    nome = f"Responsável teste {uuid.uuid4().hex[:8]}"
+    oid = _criar_ocorrencia(usuario_id, responsavel_nome=nome)
+    assert hw.buscar(oid)["responsavel_nome"] == nome
+
+
+def test_definir_responsavel_grava_nome_e_evento(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    nome = f"Responsável teste {uuid.uuid4().hex[:8]}"
+    hw.definir_responsavel(oid, nome, usuario_id)
+    o = hw.buscar(oid)
+    assert o["responsavel_nome"] == nome
+    eventos = hw.listar_eventos(oid)
+    assert any(e["tipo"] == "responsavel" and nome in e["conteudo"] for e in eventos)
+
+
+def test_definir_responsavel_para_vazio_limpa_o_campo(usuario_id):
+    oid = _criar_ocorrencia(usuario_id, responsavel_nome="Alguém")
+    hw.definir_responsavel(oid, "", usuario_id)
+    assert hw.buscar(oid)["responsavel_nome"] == ""
+
+
+def test_editar_opcao_responsavel_propaga_para_ocorrencias_existentes(usuario_id):
+    nome = f"Responsável teste {uuid.uuid4().hex[:8]}"
+    resp_id = hw.criar_opcao("responsavel", nome)
+    oid = _criar_ocorrencia(usuario_id, responsavel_nome=nome)
+
+    hw.editar_opcao("responsavel", resp_id, nome + " renomeado")
+    assert hw.buscar(oid)["responsavel_nome"] == nome + " renomeado"
+
+
+# ── Arquivar / reativar ──────────────────────────────────────────────────────
+
+def test_arquivar_depois_reativar_volta_pra_listar(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    hw.arquivar(oid, usuario_id)
+    assert all(o["id"] != oid for o in hw.listar())
+    # buscar() continua achando -- é isso que permite acessar a ocorrência
+    # de novo (tela de detalhe) mesmo depois de arquivada.
+    assert hw.buscar(oid) is not None
+    assert hw.buscar(oid)["ativo"] == 0
+
+    hw.reativar(oid, usuario_id)
+    assert any(o["id"] == oid for o in hw.listar())
+    assert hw.buscar(oid)["ativo"] == 1
+
+
+def test_listar_incluir_arquivadas_mostra_as_duas(usuario_id):
+    oid_ativa = _criar_ocorrencia(usuario_id, cliente="ClienteArquivoTeste")
+    oid_arquivada = _criar_ocorrencia(usuario_id, cliente="ClienteArquivoTeste")
+    hw.arquivar(oid_arquivada, usuario_id)
+
+    so_ativas = hw.listar({"cliente": "ClienteArquivoTeste"})
+    assert {o["id"] for o in so_ativas} == {oid_ativa}
+
+    com_arquivadas = hw.listar({"cliente": "ClienteArquivoTeste", "incluir_arquivadas": True})
+    assert {o["id"] for o in com_arquivadas} == {oid_ativa, oid_arquivada}
+
+
+def test_resumo_por_cliente_ignora_incluir_arquivadas(usuario_id):
+    oid = _criar_ocorrencia(usuario_id, cliente="ClienteArquivoTeste2")
+    hw.arquivar(oid, usuario_id)
+    resumo = hw.resumo_por_cliente({"incluir_arquivadas": True})
+    assert all(c["cliente"] != "ClienteArquivoTeste2" for c in resumo)
+
+
+# ── Importação por planilha ──────────────────────────────────────────────────
+
+def _planilha(headers, linhas, linhas_antes_do_cabecalho=0):
+    """Monta uma planilha .xlsx em memória (bytes) -- `linhas_antes_do_cabecalho`
+    simula título/instrução antes do cabeçalho, como a planilha antiga real."""
+    import openpyxl
+    from io import BytesIO
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for _ in range(linhas_antes_do_cabecalho):
+        ws.append(["Texto de título qualquer"])
+    ws.append(headers)
+    for linha in linhas:
+        ws.append(linha)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+_CAB_PADRAO = ["Cliente", "Produto", "Categoria do Defeito", "Serial / Patrimônio",
+               "Quantidade", "Status", "Responsável", "Data de Registro",
+               "Ação Corretiva - Brasil", "Ação Corretiva - Suécia",
+               "Ação Corretiva - Fabricante", "Data de Solução", "Observações",
+               "ID de Referência"]
+
+
+def test_importar_cria_ocorrencia_nova(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    xlsx = _planilha(_CAB_PADRAO, [
+        [cliente, "MX4", "Não liga", "SER123", 2, "", "", "", "", "", "", "", "Não liga mesmo.", ""],
+    ])
+    r = hw.importar_excel(xlsx, usuario_id)
+    assert r["inseridos"] == 1
+    assert r["itens"][0]["situacao"] == "novo"
+    oid = r["itens"][0]["ocorrencia_id"]
+    o = hw.buscar(oid)
+    assert o["cliente"] == cliente
+    assert o["produto_nome"] == "MX4"
+    assert o["quantidade"] == 2
+    assert o["status"] == "nao_iniciado"
+    assert o["descricao_defeito"] == "Não liga mesmo."
+    assert o["rotulo"].startswith("RMA-")
+
+
+def test_importar_reconhece_cabecalho_com_bandeira_e_titulo_antes(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    cab = ["Name", "Registro", "Serial N° / Patrimônio", "Produto", "Defeito",
+           "Ação Corretiva 🇧🇷", "Ação Corretiva 🇸🇪", "Ação corretiva FAB",
+           "Cliente", "Responsável", "Status", "Data de Solução", "Quantidade",
+           "Observações", "ID do elemento"]
+    xlsx = _planilha(cab, [
+        ["RMA1", "2026-01-26", "TSCE91001019", "CDT07", "GPS",
+         "Flash feito", "", "", cliente, "alder@consat.com", "FEITO", "", 1,
+         "Sinal de GPS não aparece.", "elemento-1"],
+    ], linhas_antes_do_cabecalho=4)
+    r = hw.importar_excel(xlsx, usuario_id)
+    assert r["inseridos"] == 1
+    oid = r["itens"][0]["ocorrencia_id"]
+    o = hw.buscar(oid)
+    assert o["cliente"] == cliente
+    assert o["produto_nome"] == "CDT07"
+    assert o["status"] == "resolvido"  # "FEITO" reconhecido via sinônimo
+    assert o["ref_externo"] == "elemento-1"
+    eventos = hw.listar_eventos(oid)
+    assert any(e["tipo"] == "acao_brasil" and "Flash feito" in e["conteudo"] for e in eventos)
+
+
+def test_importar_cria_categoria_e_responsavel_automaticamente(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    categoria_nova = f"Categoria Nova {uuid.uuid4().hex[:8]}"
+    responsavel_novo = f"Responsável Novo {uuid.uuid4().hex[:8]}"
+    xlsx = _planilha(_CAB_PADRAO, [
+        [cliente, "CDD", categoria_nova, "", 1, "", responsavel_novo, "", "", "", "", "", "", ""],
+    ])
+    r = hw.importar_excel(xlsx, usuario_id)
+    assert r["inseridos"] == 1
+    item = r["itens"][0]
+    assert "criada automaticamente" in item["erro"]
+    o = hw.buscar(item["ocorrencia_id"])
+    assert o["categoria_defeito"] == categoria_nova
+    assert o["responsavel_nome"] == responsavel_novo
+    assert categoria_nova in [c["nome"] for c in hw.listar_opcoes("categoria")]
+    assert responsavel_novo in [c["nome"] for c in hw.listar_opcoes("responsavel")]
+
+
+def test_importar_status_nao_reconhecido_vira_nao_iniciado_com_aviso(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    xlsx = _planilha(_CAB_PADRAO, [
+        [cliente, "MX4", "", "", 1, "Status Que Não Existe", "", "", "", "", "", "", "", ""],
+    ])
+    r = hw.importar_excel(xlsx, usuario_id)
+    item = r["itens"][0]
+    o = hw.buscar(item["ocorrencia_id"])
+    assert o["status"] == "nao_iniciado"
+    assert "não reconhecido" in item["erro"]
+
+
+def test_importar_ignora_linha_sem_cliente(usuario_id):
+    xlsx = _planilha(_CAB_PADRAO, [
+        ["", "MX4", "", "", 1, "", "", "", "", "", "", "", "", ""],
+    ])
+    r = hw.importar_excel(xlsx, usuario_id)
+    assert r["inseridos"] == 0
+    assert r["itens"][0]["situacao"] == "erro"
+
+
+def test_importar_cabecalho_invalido_retorna_erro(usuario_id):
+    xlsx = _planilha(["Coluna A", "Coluna B"], [["x", "y"]])
+    r = hw.importar_excel(xlsx, usuario_id)
+    assert r["itens"] == []
+    assert r["erros"]
+
+
+def test_importar_reimportar_mesma_referencia_atualiza_sem_duplicar(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    ref = f"ref-{uuid.uuid4().hex[:8]}"
+    linha1 = [cliente, "MX4", "Não liga", "", 1, "Não iniciado", "", "", "Ação BR", "", "", "", "", ref]
+    xlsx1 = _planilha(_CAB_PADRAO, [linha1])
+    r1 = hw.importar_excel(xlsx1, usuario_id)
+    assert r1["inseridos"] == 1 and r1["itens"][0]["situacao"] == "novo"
+    oid = r1["itens"][0]["ocorrencia_id"]
+
+    linha2 = [cliente, "MX4", "Não liga", "", 1, "Em andamento", "", "", "Ação BR de novo", "", "", "", "", ref]
+    xlsx2 = _planilha(_CAB_PADRAO, [linha2])
+    r2 = hw.importar_excel(xlsx2, usuario_id)
+    assert r2["inseridos"] == 0
+    assert r2["itens"][0]["situacao"] == "alterado"
+    assert r2["itens"][0]["ocorrencia_id"] == oid
+
+    o = hw.buscar(oid)
+    assert o["status"] == "em_andamento"
+    # Ação só é registrada na CRIAÇÃO -- reimportar a mesma linha não duplica
+    # o evento na timeline (é histórico append-only).
+    eventos_acao = [e for e in hw.listar_eventos(oid) if e["tipo"] == "acao_brasil"]
+    assert len(eventos_acao) == 1
+    assert "Ação BR de novo" not in eventos_acao[0]["conteudo"]
+
+
+def test_importar_sem_referencia_sempre_cria_nova(usuario_id):
+    cliente = f"ClienteImport{uuid.uuid4().hex[:8]}"
+    linha = [cliente, "MX4", "", "", 1, "", "", "", "", "", "", "", "", ""]
+    xlsx = _planilha(_CAB_PADRAO, [linha])
+    r1 = hw.importar_excel(xlsx, usuario_id)
+    r2 = hw.importar_excel(xlsx, usuario_id)
+    assert r1["inseridos"] == 1
+    assert r2["inseridos"] == 1
+    assert r1["itens"][0]["ocorrencia_id"] != r2["itens"][0]["ocorrencia_id"]

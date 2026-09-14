@@ -204,6 +204,8 @@ def _backup_antes_de_migrar() -> str | None:
         or ("remessa_kit" in tabelas and "veiculo_id" not in colunas_remessa_kit)
         or "hardware_ocorrencia" not in tabelas
         or "hardware_status_opcao" not in tabelas
+        or "hardware_responsavel_opcao" not in tabelas
+        or "hardware_importacao" not in tabelas
     )
     if not pendente:
         return None
@@ -537,6 +539,49 @@ def init_db():
                 ordem     INTEGER NOT NULL DEFAULT 0,
                 ativo     INTEGER NOT NULL DEFAULT 1,
                 criado_em TEXT NOT NULL
+            );
+
+            -- Responsável não é mais FK pra users (login) -- vira cadastro
+            -- de texto livre, igual categoria de defeito, pra não exigir
+            -- conta no sistema pra alguém ser responsável por um reparo.
+            CREATE TABLE IF NOT EXISTS hardware_responsavel_opcao (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome      TEXT NOT NULL UNIQUE,
+                sistema   INTEGER NOT NULL DEFAULT 0,
+                ordem     INTEGER NOT NULL DEFAULT 0,
+                ativo     INTEGER NOT NULL DEFAULT 1,
+                criado_em TEXT NOT NULL
+            );
+
+            -- Importação de ocorrências por planilha: o placar (esta tabela)
+            -- e o detalhe linha-a-linha (a próxima), no mesmo molde de
+            -- importacao/importacao_item (veículos) -- mas com tabela
+            -- própria, porque aquelas duas são veiculo-específicas
+            -- (colunas cliente/garagem/modelo, FK pra veiculos).
+            CREATE TABLE IF NOT EXISTS hardware_importacao (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                arquivo    TEXT DEFAULT '',
+                criada_em  TEXT NOT NULL,
+                criada_por INTEGER REFERENCES users(id),
+                total      INTEGER DEFAULT 0,
+                novos      INTEGER DEFAULT 0,
+                iguais     INTEGER DEFAULT 0,
+                alterados  INTEGER DEFAULT 0,
+                erros      INTEGER DEFAULT 0,
+                avisos     INTEGER DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS hardware_importacao_item (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                importacao_id  INTEGER NOT NULL REFERENCES hardware_importacao(id) ON DELETE CASCADE,
+                linha          INTEGER,
+                rotulo         TEXT,
+                situacao       TEXT NOT NULL,
+                ocorrencia_id  INTEGER REFERENCES hardware_ocorrencia(id),
+                cliente_antes TEXT, cliente_depois TEXT,
+                produto_antes TEXT, produto_depois TEXT,
+                status_antes  TEXT, status_depois  TEXT,
+                erro TEXT DEFAULT ''
             );
         """)
 
@@ -957,11 +1002,43 @@ def init_db():
             # cadastro manual ou planilha mandam so o numero cru — vazio
             # deixa o numero digitado como veio, sem mexer.
             "ALTER TABLE clientes ADD COLUMN prefixo TEXT DEFAULT ''",
+            # Responsável de uma ocorrência de hardware deixou de ser um
+            # usuário de login (FK responsavel_id) e virou texto livre, igual
+            # cliente/categoria_defeito -- vira cadastro próprio
+            # (hardware_responsavel_opcao), sem precisar de conta no sistema.
+            # responsavel_id fica na tabela, sem uso, só como histórico de
+            # antes desta coluna existir.
+            "ALTER TABLE hardware_ocorrencia ADD COLUMN responsavel_nome TEXT DEFAULT ''",
+            # Chave da linha de origem (ex.: "ID do elemento" de uma planilha
+            # externa) -- só ela permite reimportar o mesmo arquivo sem
+            # duplicar ocorrência, já que serial/patrimônio é opcional e não
+            # é único (o mesmo equipamento pode ter várias ocorrências ao
+            # longo do tempo). Vazio quando a ocorrência não veio de importação.
+            "ALTER TABLE hardware_ocorrencia ADD COLUMN ref_externo TEXT DEFAULT ''",
         ]:
             try:
                 conn.execute(stmt)
             except Exception:
                 pass
+
+    # Backfill: responsavel_nome a partir do antigo responsavel_id (FK pra
+    # users) -- cada ocorrência que já tinha um responsável de login ganha
+    # o NOME dele aqui, e esse nome também é semeado no catálogo novo, pra
+    # já aparecer pronto na lista de responsáveis disponíveis. Idempotente:
+    # só mexe em quem ainda está com responsavel_nome vazio.
+    with db() as conn:
+        try:
+            conn.execute(
+                "UPDATE hardware_ocorrencia SET responsavel_nome = "
+                "(SELECT nome FROM users WHERE users.id = hardware_ocorrencia.responsavel_id) "
+                "WHERE responsavel_id IS NOT NULL AND (responsavel_nome IS NULL OR responsavel_nome = '')")
+            conn.execute(
+                "INSERT OR IGNORE INTO hardware_responsavel_opcao (nome, ordem, criado_em) "
+                "SELECT DISTINCT u.nome, 0, ? FROM hardware_ocorrencia ho "
+                "JOIN users u ON u.id = ho.responsavel_id WHERE ho.responsavel_id IS NOT NULL",
+                (now_brt(),))
+        except Exception:
+            pass
 
     # ── Índices de consulta ────────────────────────────────────────────────
     # scan_session_items é a tabela que mais cresce (uma linha por unidade
@@ -1004,6 +1081,9 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_hpo_ativo ON hardware_prioridade_opcao(ativo)",
             "CREATE INDEX IF NOT EXISTS idx_hco_ativo ON hardware_categoria_opcao(ativo)",
             "CREATE INDEX IF NOT EXISTS idx_hlo_ativo ON hardware_localizacao_opcao(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_hro_ativo ON hardware_responsavel_opcao(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_ho_ref_externo ON hardware_ocorrencia(ref_externo)",
+            "CREATE INDEX IF NOT EXISTS idx_hii_importacao ON hardware_importacao_item(importacao_id)",
         ]:
             try:
                 conn.execute(idx)

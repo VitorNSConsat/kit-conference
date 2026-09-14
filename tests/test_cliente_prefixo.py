@@ -10,25 +10,27 @@ import app.clientes as clientes_mod
 import app.veiculos as veiculos_mod
 
 
+def _limpar(conn):
+    conn.executescript("""
+        DELETE FROM veiculos;
+        DELETE FROM garagens;
+        DELETE FROM clientes;
+        DELETE FROM hardware_ocorrencia_evento;
+        DELETE FROM hardware_ocorrencia;
+    """)
+
+
 @pytest.fixture(autouse=True)
 def setup_db():
     init_db()
     with db() as conn:
-        conn.executescript("""
-            DELETE FROM veiculos;
-            DELETE FROM garagens;
-            DELETE FROM clientes;
-        """)
+        _limpar(conn)
     yield
     # Banco em memória é compartilhado entre arquivos de teste na mesma
     # sessão do pytest — sem isso, o próximo arquivo a rodar herdaria
     # clientes/garagens/veículos daqui.
     with db() as conn:
-        conn.executescript("""
-            DELETE FROM veiculos;
-            DELETE FROM garagens;
-            DELETE FROM clientes;
-        """)
+        _limpar(conn)
 
 
 # ── formatar_numero: função pura, sem banco ─────────────────────────────────
@@ -113,3 +115,41 @@ def test_importar_excel_cliente_sem_prefixo_mantem_numero_da_planilha():
     resultado = veiculos_mod.importar_excel(xlsx)
     assert resultado["inseridos"] == 1
     assert veiculos_mod.listar()[0]["numero"] == "VH-100"
+
+
+# ── renomear(): edita o cadastro e propaga pro texto livre já gravado ───────
+
+def test_renomear_atualiza_o_cadastro():
+    cid = clientes_mod.criar("Nome Antigo")
+    clientes_mod.renomear(cid, "Nome Novo")
+    assert clientes_mod.buscar(cid)["nome"] == "Nome Novo"
+
+
+def test_renomear_recusa_nome_vazio():
+    cid = clientes_mod.criar("Cliente X")
+    with pytest.raises(ValueError):
+        clientes_mod.renomear(cid, "  ")
+
+
+def test_renomear_recusa_duplicado():
+    clientes_mod.criar("Cliente A")
+    cid_b = clientes_mod.criar("Cliente B")
+    with pytest.raises(ValueError):
+        clientes_mod.renomear(cid_b, "cliente a")  # sem diferenciar caixa
+
+
+def test_renomear_propaga_para_veiculos_e_hardware_ocorrencia():
+    cid = clientes_mod.criar("Cliente Propagação")
+    veiculo_id = veiculos_mod.criar("01", "Cliente Propagação", "Garagem X")
+    with db() as conn:
+        conn.execute(
+            "INSERT INTO hardware_ocorrencia (cliente, data_registro, criado_em, atualizado_em) "
+            "VALUES ('Cliente Propagação', '2026-01-01', '2026-01-01', '2026-01-01')")
+        oid = conn.execute("SELECT id FROM hardware_ocorrencia WHERE cliente = 'Cliente Propagação'").fetchone()["id"]
+
+    clientes_mod.renomear(cid, "Cliente Renomeado")
+
+    assert veiculos_mod.buscar(veiculo_id)["cliente"] == "Cliente Renomeado"
+    with db() as conn:
+        ho = conn.execute("SELECT cliente FROM hardware_ocorrencia WHERE id = ?", (oid,)).fetchone()
+    assert ho["cliente"] == "Cliente Renomeado"

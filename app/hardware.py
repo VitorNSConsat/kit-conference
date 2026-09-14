@@ -21,6 +21,17 @@ from datetime import datetime, timedelta
 
 from database import db, now_brt
 
+
+def _normalizar(texto) -> str:
+    """minúsculo, sem acento, sem pontuação -- usado pra casar cabeçalho de
+    planilha e texto de status/catálogo sem depender de escrita exata.
+    Bandeiras de país (🇧🇷/🇸🇪) viram a palavra do país ANTES da conversão pra
+    ascii, senão o emoji simplesmente some e "Ação Corretiva 🇧🇷" e
+    "Ação Corretiva 🇸🇪" ficariam idênticos depois de normalizados."""
+    texto = str(texto or "").replace("🇧🇷", " brasil ").replace("🇸🇪", " suecia ")
+    texto = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", " ", texto.lower()).strip()
+
 # Status, prioridade, categoria de defeito e localização são catálogos
 # editáveis no banco (hardware_*_opcao) — ver seção "Catálogos" abaixo.
 # "Aguardando de" continua fixo: é a estrutura das 3 frentes de ação
@@ -41,6 +52,29 @@ RESULTADOS_FINAIS = (
     "Descartado", "Devolvido ao estoque", "Outro",
 )
 
+# Vocabulário alternativo pra coluna Status de planilha antiga (ex.: "FEITO"
+# em vez de "Resolvido") -- chave já normalizada por _normalizar(). Só entra
+# em jogo quando o texto não bate com o NOME de nenhum status do catálogo
+# atual (que já cobre o caso comum de re-importar com o nome exato).
+_STATUS_SINONIMOS_IMPORTACAO = {
+    "nao iniciado":          "nao_iniciado",
+    "em analise":            "em_analise",
+    "em andamento":          "em_andamento",
+    "aguardando informacao": "aguardando_informacao",
+    "aguardando brasil":     "aguardando_brasil",
+    "aguardando suecia":     "aguardando_suecia",
+    "aguardando fabricante": "aguardando_fabricante",
+    "aguardando cliente":    "aguardando_cliente",
+    "aguardando peca":       "aguardando_peca",
+    "aguardando devolucao":  "aguardando_devolucao",
+    "resolvido":             "resolvido",
+    "feito":                 "resolvido",
+    "concluido":             "resolvido",
+    "pronto":                "resolvido",
+    "encerrado":             "encerrado",
+    "cancelado":             "cancelado",
+}
+
 AREAS_ACAO = ("brasil", "suecia", "fabricante")
 AREA_TEXTO = {"brasil": "Brasil", "suecia": "Suécia", "fabricante": "Fabricante"}
 
@@ -56,6 +90,8 @@ EVENTO_TEXTO = {
     "reabertura":      "Reaberta",
     "resultado_final": "Resultado final registrado",
     "anexo":           "Arquivo anexado",
+    "arquivado":       "Arquivada",
+    "reativado":       "Reativada",
 }
 
 # Extensão E content-type declarado são checados juntos — um .zip renomeado
@@ -77,9 +113,9 @@ SEM_ATUALIZACAO_DIAS_PADRAO = 7
 
 
 def rotulo(ocorrencia_id: int) -> str:
-    """"HW-0001" — derivado do id, nunca guardado (nada pra congelar aqui,
+    """"RMA-0001" — derivado do id, nunca guardado (nada pra congelar aqui,
     diferente do nome de produto/cliente, que pode mudar depois)."""
-    return f"HW-{ocorrencia_id:04d}"
+    return f"RMA-{ocorrencia_id:04d}"
 
 
 # ── Catálogos editáveis (status, prioridade, categoria de defeito, localização) ──
@@ -95,7 +131,13 @@ _CATALOGOS = {
     "prioridade":  {"tabela": "hardware_prioridade_opcao",  "tem_chave": True,  "tem_cor": True,  "tem_terminal": False},
     "categoria":   {"tabela": "hardware_categoria_opcao",   "tem_chave": False, "tem_cor": False, "tem_terminal": False},
     "localizacao": {"tabela": "hardware_localizacao_opcao", "tem_chave": True,  "tem_cor": False, "tem_terminal": False},
+    "responsavel": {"tabela": "hardware_responsavel_opcao", "tem_chave": False, "tem_cor": False, "tem_terminal": False},
 }
+# Colunas de hardware_ocorrencia que guardam o NOME direto (sem chave
+# própria) -- editar_opcao() propaga renomear pra essas ocorrências já
+# gravadas, senão elas ficariam com um valor que não existe mais em
+# catálogo nenhum.
+_COLUNA_PROPAGACAO_RENOMEAR = {"categoria": "categoria_defeito", "responsavel": "responsavel_nome"}
 
 
 def _slugify(texto: str) -> str:
@@ -178,21 +220,22 @@ def editar_opcao(tipo: str, opcao_id: int, nome: str, cor: str = "", eh_terminal
     if cfg["tem_terminal"] and eh_terminal is not None:
         campos.append("eh_terminal = ?")
         valores.append(1 if eh_terminal else 0)
+    coluna_propagacao = _COLUNA_PROPAGACAO_RENOMEAR.get(tipo)
     with db() as conn:
         nome_antigo = None
-        if tipo == "categoria":
+        if coluna_propagacao:
             row = conn.execute(f"SELECT nome FROM {cfg['tabela']} WHERE id = ?", (opcao_id,)).fetchone()
             nome_antigo = row["nome"] if row else None
         try:
             conn.execute(f"UPDATE {cfg['tabela']} SET {', '.join(campos)} WHERE id = ?", (*valores, opcao_id))
         except Exception:
             raise ValueError(f'Já existe um item chamado "{nome}".')
-        # Categoria não tem chave própria — o nome É o valor gravado na
-        # ocorrência, então renomear precisa propagar pro que já foi salvo,
-        # senão a ocorrência antiga fica com um rótulo que não existe mais
-        # em lugar nenhum da tela.
+        # Categoria e responsável não têm chave própria — o nome É o valor
+        # gravado na ocorrência, então renomear precisa propagar pro que já
+        # foi salvo, senão a ocorrência antiga fica com um rótulo que não
+        # existe mais em lugar nenhum da tela.
         if nome_antigo and nome_antigo != nome:
-            conn.execute("UPDATE hardware_ocorrencia SET categoria_defeito = ? WHERE categoria_defeito = ?",
+            conn.execute(f"UPDATE hardware_ocorrencia SET {coluna_propagacao} = ? WHERE {coluna_propagacao} = ?",
                          (nome, nome_antigo))
 
 
@@ -274,15 +317,17 @@ def reativar_produto(produto_id: int) -> None:
 
 _CAMPOS = (
     "ho.*, COALESCE(hp.nome, ho.produto_nome) AS produto_exibido, "
-    "u.nome AS responsavel_nome, uc.nome AS criado_por_nome"
+    "uc.nome AS criado_por_nome"
 )
 
 
 def _query_base() -> str:
+    # responsavel_nome já vem de ho.* (texto livre, não é mais FK pra
+    # users) -- só criado_por continua sendo um login de verdade, então só
+    # ele precisa de JOIN.
     return (
         f"SELECT {_CAMPOS} FROM hardware_ocorrencia ho "
         "LEFT JOIN hardware_produto hp ON hp.id = ho.hardware_produto_id "
-        "LEFT JOIN users u ON u.id = ho.responsavel_id "
         "LEFT JOIN users uc ON uc.id = ho.criado_por "
     )
 
@@ -358,7 +403,13 @@ def _com_calculos(itens: list[dict]) -> list[dict]:
 
 def listar(filtros: dict | None = None) -> list[dict]:
     filtros = filtros or {}
-    where = ["ho.ativo = 1"]
+    # incluir_arquivadas: sem isso, uma ocorrência arquivada nunca mais
+    # aparecia em lugar nenhum -- "arquivar" tinha virado "excluir" na
+    # prática, mesmo com o dado preservado no banco. Com o filtro marcado,
+    # mostra as duas (arquivada some do resumo/KPI de qualquer forma,
+    # porque resumo() e resumo_por_cliente() chamam listar() sem passar
+    # esse filtro).
+    where = [] if filtros.get("incluir_arquivadas") else ["ho.ativo = 1"]
     params: list = []
 
     if filtros.get("status"):
@@ -378,9 +429,9 @@ def listar(filtros: dict | None = None) -> list[dict]:
     if filtros.get("categoria_defeito"):
         where.append("ho.categoria_defeito = ?")
         params.append(filtros["categoria_defeito"])
-    if filtros.get("responsavel_id"):
-        where.append("ho.responsavel_id = ?")
-        params.append(filtros["responsavel_id"])
+    if filtros.get("responsavel"):
+        where.append("ho.responsavel_nome = ?")
+        params.append(filtros["responsavel"])
     if filtros.get("aguardando_de"):
         marcas = ",".join("?" * len(filtros["aguardando_de"]))
         where.append(f"ho.aguardando_de IN ({marcas})")
@@ -388,7 +439,7 @@ def listar(filtros: dict | None = None) -> list[dict]:
     if filtros.get("busca"):
         termo = f"%{filtros['busca'].strip()}%"
         where.append("(ho.cliente LIKE ? OR ho.produto_nome LIKE ? OR ho.serial_patrimonio LIKE ? "
-                      "OR ('HW-' || printf('%04d', ho.id)) LIKE ?)")
+                      "OR ('RMA-' || printf('%04d', ho.id)) LIKE ?)")
         params += [termo, termo, termo, termo]
     if filtros.get("registro_ini"):
         where.append("ho.data_registro >= ?")
@@ -410,7 +461,7 @@ def listar(filtros: dict | None = None) -> list[dict]:
     elif filtros.get("com_solucao") == "nao":
         where.append("(ho.solucao_texto IS NULL OR TRIM(ho.solucao_texto) = '')")
 
-    sql = _query_base() + " WHERE " + " AND ".join(where) + " ORDER BY ho.atualizado_em DESC"
+    sql = _query_base() + (f" WHERE {' AND '.join(where)}" if where else "") + " ORDER BY ho.atualizado_em DESC"
     with db() as conn:
         rows = conn.execute(sql, params).fetchall()
     return _com_calculos([dict(r) for r in rows])
@@ -470,6 +521,9 @@ def resumo_por_cliente(filtros: dict | None = None, ordenar: str = "nome_asc") -
     detalhada mostra depois de clicar "Ver detalhes"."""
     filtros = dict(filtros or {})
     filtros.pop("cliente", None)
+    # O painel por cliente é sempre sobre trabalho ATIVO -- arquivada nunca
+    # entra na conta aqui, mesmo que o parâmetro tenha vindo de algum jeito.
+    filtros.pop("incluir_arquivadas", None)
     itens = listar(filtros)
     terminais = status_terminais()
     mapa_status = opcoes_mapa("status")
@@ -605,7 +659,7 @@ def criar(dados: dict, usuario_id: int) -> int:
             "INSERT INTO hardware_ocorrencia ("
             "  status, prioridade, cliente, hardware_produto_id, produto_nome, serial_patrimonio,"
             "  item_master_id, quantidade, categoria_defeito, subcategoria_defeito, descricao_defeito,"
-            "  localizacao, localizacao_detalhe, responsavel_id, data_registro,"
+            "  localizacao, localizacao_detalhe, responsavel_nome, data_registro,"
             "  criado_por, criado_em, atualizado_em, ativo"
             ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
             (
@@ -615,7 +669,7 @@ def criar(dados: dict, usuario_id: int) -> int:
                 (dados.get("descricao_defeito") or "").strip(),
                 (dados.get("localizacao") or "").strip(),
                 (dados.get("localizacao_detalhe") or "").strip(),
-                dados.get("responsavel_id") or None, data_registro,
+                (dados.get("responsavel_nome") or "").strip(), data_registro,
                 usuario_id, agora, agora,
             ))
         ocorrencia_id = cur.lastrowid
@@ -698,20 +752,17 @@ def mudar_status(ocorrencia_id: int, novo_status: str, observacao: str, usuario_
         _evento(conn, ocorrencia_id, "status", conteudo, usuario_id=usuario_id, quando=agora)
 
 
-def definir_responsavel(ocorrencia_id: int, responsavel_id: int | None, usuario_id: int) -> None:
+def definir_responsavel(ocorrencia_id: int, responsavel_nome: str, usuario_id: int) -> None:
     o = buscar(ocorrencia_id)
     if not o:
         raise ValueError("Ocorrência não encontrada.")
+    responsavel_nome = (responsavel_nome or "").strip()
     agora = now_brt()
     with db() as conn:
-        conn.execute("UPDATE hardware_ocorrencia SET responsavel_id=?, atualizado_em=? WHERE id=?",
-                     (responsavel_id, agora, ocorrencia_id))
-        nome_novo = "ninguém"
-        if responsavel_id:
-            r = conn.execute("SELECT nome FROM users WHERE id = ?", (responsavel_id,)).fetchone()
-            nome_novo = r["nome"] if r else "ninguém"
+        conn.execute("UPDATE hardware_ocorrencia SET responsavel_nome=?, atualizado_em=? WHERE id=?",
+                     (responsavel_nome, agora, ocorrencia_id))
         _evento(conn, ocorrencia_id, "responsavel",
-                f"Responsável alterado para {nome_novo}.", usuario_id=usuario_id, quando=agora)
+                f"Responsável alterado para {responsavel_nome or 'ninguém'}.", usuario_id=usuario_id, quando=agora)
 
 
 def definir_proxima_acao(ocorrencia_id: int, texto: str, data_prevista: str | None,
@@ -777,11 +828,25 @@ def reabrir(ocorrencia_id: int, motivo: str, usuario_id: int) -> None:
         _evento(conn, ocorrencia_id, "reabertura", motivo, usuario_id=usuario_id, quando=agora)
 
 
-def arquivar(ocorrencia_id: int) -> None:
+def arquivar(ocorrencia_id: int, usuario_id: int | None = None) -> None:
     """Soft delete — preserva histórico e evita duplicidade de patrimônio;
-    nunca some do banco, só das listas de trabalho."""
+    nunca some do banco, só das listas de trabalho. Reversível: ver
+    reativar()."""
+    agora = now_brt()
     with db() as conn:
-        conn.execute("UPDATE hardware_ocorrencia SET ativo = 0 WHERE id = ?", (ocorrencia_id,))
+        conn.execute("UPDATE hardware_ocorrencia SET ativo = 0, atualizado_em = ? WHERE id = ?",
+                     (agora, ocorrencia_id))
+        _evento(conn, ocorrencia_id, "arquivado", usuario_id=usuario_id, quando=agora)
+
+
+def reativar(ocorrencia_id: int, usuario_id: int | None = None) -> None:
+    """Desfaz arquivar() — a ocorrência volta a aparecer nas listas de
+    trabalho normalmente, sem perder nada do histórico."""
+    agora = now_brt()
+    with db() as conn:
+        conn.execute("UPDATE hardware_ocorrencia SET ativo = 1, atualizado_em = ? WHERE id = ?",
+                     (agora, ocorrencia_id))
+        _evento(conn, ocorrencia_id, "reativado", usuario_id=usuario_id, quando=agora)
 
 
 # ── Anexos ───────────────────────────────────────────────────────────────────
@@ -838,3 +903,295 @@ def buscar_anexo(anexo_id: int) -> dict | None:
     with db() as conn:
         row = conn.execute("SELECT * FROM hardware_anexo WHERE id = ?", (anexo_id,)).fetchone()
     return dict(row) if row else None
+
+
+# ── Importação por planilha ──────────────────────────────────────────────────
+
+def _linha_cabecalho(ws) -> int:
+    """Acha a linha de cabeçalho procurando "produto" e "cliente" juntos nas
+    10 primeiras linhas -- cobre tanto o modelo baixado (cabeçalho na linha 1)
+    quanto uma planilha antiga com linhas de título/instrução antes dele."""
+    limite = min(10, ws.max_row or 1)
+    for r in range(1, limite + 1):
+        celulas = [_normalizar(c.value) for c in next(ws.iter_rows(min_row=r, max_row=r))]
+        texto_linha = " ".join(celulas)
+        if "produto" in texto_linha and "cliente" in texto_linha:
+            return r
+    return 1
+
+
+def importar_excel(file_bytes: bytes, usuario_id: int) -> dict:
+    """Importa ocorrências de uma planilha -- o modelo baixado em
+    /admin/hardware/modelo.xlsx, ou uma planilha de controle de defeito já em
+    uso antes deste sistema. Cabeçalho é reconhecido por palavra-chave (não
+    por posição), então ordem de coluna e variação de texto no cabeçalho
+    (com ou sem acento, "Ação Corretiva 🇧🇷" ou "Ação Corretiva Brasil") não
+    atrapalham.
+
+    Reimportar a MESMA linha não duplica só quando ela carrega um valor na
+    coluna de referência externa ("ID do elemento"/"ID de referência") --
+    é a única chave que sobrevive a uma troca de serial/patrimônio, que é
+    opcional e não é único (o mesmo equipamento pode ter várias ocorrências
+    ao longo do tempo, cada reparo é uma linha nova). Linha sem essa coluna
+    preenchida é SEMPRE uma ocorrência nova.
+
+    Célula preenchida sobrescreve o cadastro já existente (produto, defeito,
+    responsável, status, quantidade, descrição, data de solução); célula
+    vazia preserva -- mesma regra da importação de veículos (planilha manda,
+    mas só no que ela de fato preencheu). Ação Brasil/Suécia/Fabricante só é
+    registrada na timeline na CRIAÇÃO -- reimportar uma linha já existente
+    não duplica a ação (ela é histórico append-only, não um campo comum).
+
+    Categoria de defeito, produto e responsável ausentes do catálogo são
+    criados automaticamente (a mesma lista editável pela tela) -- um aviso
+    na linha avisa quando isso acontece. Status sem correspondência
+    reconhecida vira "Não iniciado" com aviso, em vez de erro -- a linha
+    sempre entra."""
+    import openpyxl
+    import io as _io
+    wb = openpyxl.load_workbook(_io.BytesIO(file_bytes), data_only=True)
+    ws = wb.active
+    linha_cab = _linha_cabecalho(ws)
+    headers_raw = [str(c.value or "") for c in next(ws.iter_rows(min_row=linha_cab, max_row=linha_cab))]
+    headers = [_normalizar(h) for h in headers_raw]
+
+    def achar(*grupos: tuple[str, ...]) -> int | None:
+        for grupo in grupos:
+            for i, h in enumerate(headers):
+                if all(p in h for p in grupo):
+                    return i
+        return None
+
+    col_cliente = achar(("cliente",))
+    col_produto = achar(("produto",))
+    if col_cliente is None or col_produto is None:
+        return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "itens": [],
+                "erros": ["Cabeçalhos não encontrados. Use o modelo baixado em "
+                          '"Baixar planilha modelo" -- é preciso ter ao menos '
+                          'as colunas "Cliente" e "Produto".']}
+    col_serial      = achar(("serial",), ("patrimonio",))
+    col_defeito     = achar(("categoria", "defeito"), ("defeito",))
+    col_responsavel = achar(("responsavel",))
+    col_status      = achar(("status",))
+    col_quantidade  = achar(("quantidade",))
+    col_registro    = achar(("registro",))
+    col_solucao     = achar(("solucao",))
+    col_observacoes = achar(("observ",))
+    # ("elemento",) sozinho bateria com "Subelementos" (contém "elemento"
+    # como substring) -- exige "id" junto, que só aparece em "ID do elemento".
+    col_ref         = achar(("referencia",), ("id", "elemento"))
+    col_acao_br     = achar(("corretiva", "brasil"), ("acao", "brasil"))
+    col_acao_se     = achar(("corretiva", "suecia"), ("acao", "suecia"))
+    col_acao_fab    = achar(("corretiva", "fab"), ("acao", "fab"))
+
+    def valor(row: tuple, col: int | None) -> str:
+        if col is None or col >= len(row):
+            return ""
+        v = row[col]
+        if v is None:
+            return ""
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(v, float) and v.is_integer():
+            return str(int(v))
+        return str(v).strip()
+
+    mapa_categoria     = {r["nome"].lower(): r for r in listar_opcoes("categoria", incluir_inativas=True)}
+    mapa_responsavel    = {r["nome"].lower(): r for r in listar_opcoes("responsavel", incluir_inativas=True)}
+    opcoes_status        = listar_opcoes("status", incluir_inativas=True)
+    mapa_status_por_nome  = {r["nome"].lower(): r for r in opcoes_status}
+    mapa_status_por_chave = {r["chave"]: r for r in opcoes_status}
+    produtos_existentes  = {p["nome"].lower(): p for p in listar_produtos(incluir_inativos=True)}
+    ordem_categoria   = max([r["ordem"] for r in mapa_categoria.values()], default=-1)
+    ordem_responsavel = max([r["ordem"] for r in mapa_responsavel.values()], default=-1)
+    prioridade = prioridade_padrao()
+
+    itens: list[dict] = []
+    inseridos = atualizados = ignorados = 0
+
+    def anota(linha, rotulo_txt, situacao, ocorrencia_id=None,
+              antes=None, depois=None, erro=""):
+        antes = antes or {}
+        depois = depois or {}
+        itens.append({
+            "linha": linha, "rotulo": rotulo_txt, "situacao": situacao,
+            "ocorrencia_id": ocorrencia_id, "erro": erro,
+            "cliente_antes": antes.get("cliente", ""), "cliente_depois": depois.get("cliente", ""),
+            "produto_antes": antes.get("produto", ""), "produto_depois": depois.get("produto", ""),
+            "status_antes": antes.get("status", ""), "status_depois": depois.get("status", ""),
+        })
+
+    with db() as conn:
+        for row_idx, row in enumerate(ws.iter_rows(min_row=linha_cab + 1, values_only=True), linha_cab + 1):
+            cliente = valor(row, col_cliente)
+            produto_digitado = valor(row, col_produto)
+            if not cliente and not produto_digitado and not valor(row, col_serial):
+                continue  # linha em branco no fim da planilha -- não é erro de ninguém
+            if not cliente:
+                ignorados += 1
+                anota(row_idx, "", "erro", erro="Linha ignorada -- sem cliente.")
+                continue
+
+            avisos_linha: list[str] = []
+
+            # Produto: casa por nome sem diferenciar maiúscula/minúscula; não
+            # bate com nenhum cadastrado -> cria (mesma regra de
+            # criar_produto(), mas na MESMA conexão/transação -- abrir uma
+            # segunda conexão aqui travaria o banco, igual ao comentário da
+            # importação de veículos).
+            produto_id = None
+            produto_nome = produto_digitado
+            if produto_digitado:
+                existente_p = produtos_existentes.get(produto_digitado.lower())
+                if existente_p:
+                    produto_id = existente_p["id"]
+                    produto_nome = existente_p["nome"]
+                else:
+                    cur = conn.execute(
+                        "INSERT INTO hardware_produto (nome, criado_em) VALUES (?, ?)",
+                        (produto_digitado, now_brt()))
+                    produto_id = cur.lastrowid
+                    produtos_existentes[produto_digitado.lower()] = {"id": produto_id, "nome": produto_digitado}
+                    avisos_linha.append(f'Produto "{produto_digitado}" criado automaticamente.')
+
+            categoria_digitada = valor(row, col_defeito)
+            categoria = categoria_digitada
+            if categoria_digitada:
+                existente_c = mapa_categoria.get(categoria_digitada.lower())
+                if existente_c:
+                    categoria = existente_c["nome"]
+                else:
+                    ordem_categoria += 1
+                    conn.execute(
+                        "INSERT INTO hardware_categoria_opcao (nome, ordem, criado_em) VALUES (?, ?, ?)",
+                        (categoria_digitada, ordem_categoria, now_brt()))
+                    mapa_categoria[categoria_digitada.lower()] = {"nome": categoria_digitada}
+                    avisos_linha.append(f'Categoria de defeito "{categoria_digitada}" criada automaticamente.')
+
+            responsavel_digitado = valor(row, col_responsavel)
+            responsavel = responsavel_digitado
+            if responsavel_digitado:
+                existente_r = mapa_responsavel.get(responsavel_digitado.lower())
+                if existente_r:
+                    responsavel = existente_r["nome"]
+                else:
+                    ordem_responsavel += 1
+                    conn.execute(
+                        "INSERT INTO hardware_responsavel_opcao (nome, ordem, criado_em) VALUES (?, ?, ?)",
+                        (responsavel_digitado, ordem_responsavel, now_brt()))
+                    mapa_responsavel[responsavel_digitado.lower()] = {"nome": responsavel_digitado}
+                    avisos_linha.append(f'Responsável "{responsavel_digitado}" criado automaticamente.')
+
+            status_digitado = valor(row, col_status)
+            status_chave = "nao_iniciado"
+            if status_digitado:
+                por_nome = mapa_status_por_nome.get(status_digitado.lower())
+                if por_nome:
+                    status_chave = por_nome["chave"]
+                else:
+                    status_chave = _STATUS_SINONIMOS_IMPORTACAO.get(_normalizar(status_digitado), "")
+                    if not status_chave:
+                        status_chave = "nao_iniciado"
+                        avisos_linha.append(
+                            f'Status "{status_digitado}" não reconhecido -- '
+                            'importado como "Não iniciado".')
+
+            quantidade_raw = valor(row, col_quantidade)
+            try:
+                quantidade = max(1, int(float(quantidade_raw))) if quantidade_raw else 1
+            except ValueError:
+                quantidade = 1
+
+            serial = valor(row, col_serial)
+            data_registro = valor(row, col_registro) or now_brt()
+            data_solucao = valor(row, col_solucao)
+            descricao = valor(row, col_observacoes)
+            ref_externo = valor(row, col_ref)
+            status_nome = mapa_status_por_chave.get(status_chave, {}).get("nome", status_chave)
+
+            existe = None
+            if ref_externo:
+                existe = conn.execute(
+                    "SELECT * FROM hardware_ocorrencia WHERE ref_externo = ?", (ref_externo,)).fetchone()
+
+            agora = now_brt()
+            if existe:
+                antes = {"cliente": existe["cliente"] or "", "produto": existe["produto_nome"] or "",
+                         "status": mapa_status_por_chave.get(existe["status"], {}).get("nome", existe["status"])}
+                campos_set, valores_set = [], []
+                if cliente and cliente != antes["cliente"]:
+                    campos_set.append("cliente=?"); valores_set.append(cliente)
+                if produto_nome and produto_nome != antes["produto"]:
+                    campos_set += ["hardware_produto_id=?", "produto_nome=?"]
+                    valores_set += [produto_id, produto_nome]
+                if categoria and categoria != (existe["categoria_defeito"] or ""):
+                    campos_set.append("categoria_defeito=?"); valores_set.append(categoria)
+                if serial and serial != (existe["serial_patrimonio"] or ""):
+                    campos_set += ["serial_patrimonio=?", "item_master_id=?"]
+                    valores_set += [serial, _tentar_vincular_patrimonio(serial)]
+                if responsavel and responsavel != (existe["responsavel_nome"] or ""):
+                    campos_set.append("responsavel_nome=?"); valores_set.append(responsavel)
+                if descricao and descricao != (existe["descricao_defeito"] or ""):
+                    campos_set.append("descricao_defeito=?"); valores_set.append(descricao)
+                if data_solucao and data_solucao != (existe["data_solucao"] or ""):
+                    campos_set.append("data_solucao=?"); valores_set.append(data_solucao)
+                if quantidade != existe["quantidade"]:
+                    campos_set.append("quantidade=?"); valores_set.append(quantidade)
+
+                if campos_set:
+                    campos_set.append("atualizado_em=?"); valores_set.append(agora)
+                    conn.execute(f"UPDATE hardware_ocorrencia SET {', '.join(campos_set)} WHERE id=?",
+                                 (*valores_set, existe["id"]))
+
+                status_mudou = status_chave != existe["status"]
+                if status_mudou:
+                    de = mapa_status_por_chave.get(existe["status"])
+                    conn.execute("UPDATE hardware_ocorrencia SET status=?, atualizado_em=? WHERE id=?",
+                                 (status_chave, agora, existe["id"]))
+                    _evento(conn, existe["id"], "status",
+                            f"Status alterado de {de['nome'] if de else existe['status']} "
+                            f"para {status_nome}. (reimportação)", usuario_id=usuario_id, quando=agora)
+
+                mudou = bool(campos_set) or status_mudou
+                depois = {"cliente": cliente or antes["cliente"], "produto": produto_nome or antes["produto"],
+                          "status": status_nome if status_mudou else antes["status"]}
+                if mudou:
+                    atualizados += 1
+                else:
+                    ignorados += 1
+                anota(row_idx, rotulo(existe["id"]), "alterado" if mudou else "igual",
+                      existe["id"], antes, depois, "; ".join(avisos_linha))
+                continue
+
+            # Linha nova -- INSERT direto (não chama criar(), que abriria uma
+            # segunda conexão SQLite enquanto esta ainda está com transação
+            # aberta e travaria o banco).
+            cur = conn.execute(
+                "INSERT INTO hardware_ocorrencia ("
+                "  status, prioridade, cliente, hardware_produto_id, produto_nome, serial_patrimonio,"
+                "  item_master_id, quantidade, categoria_defeito, descricao_defeito, responsavel_nome,"
+                "  data_registro, data_solucao, criado_por, criado_em, atualizado_em, ativo, ref_externo"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                (status_chave, prioridade, cliente, produto_id, produto_nome, serial,
+                 _tentar_vincular_patrimonio(serial), quantidade, categoria, descricao, responsavel,
+                 data_registro, data_solucao or None, usuario_id, agora, agora, ref_externo))
+            nova_id = cur.lastrowid
+            _evento(conn, nova_id, "criacao",
+                    f"Ocorrência importada da planilha para {produto_nome or 'produto não informado'} "
+                    f"({cliente}).", usuario_id=usuario_id, quando=data_registro)
+            if status_chave != "nao_iniciado":
+                _evento(conn, nova_id, "status", f"Status inicial da importação: {status_nome}.",
+                        usuario_id=usuario_id, quando=data_registro)
+            for area, texto_acao in (("brasil", valor(row, col_acao_br)),
+                                      ("suecia", valor(row, col_acao_se)),
+                                      ("fabricante", valor(row, col_acao_fab))):
+                if texto_acao:
+                    _evento(conn, nova_id, f"acao_{area}", texto_acao,
+                            usuario_id=usuario_id, quando=data_registro)
+
+            inseridos += 1
+            anota(row_idx, rotulo(nova_id), "novo", nova_id, {},
+                  {"cliente": cliente, "produto": produto_nome, "status": status_nome},
+                  "; ".join(avisos_linha))
+
+    return {"inseridos": inseridos, "atualizados": atualizados, "ignorados": ignorados, "itens": itens}

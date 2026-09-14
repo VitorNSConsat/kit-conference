@@ -505,10 +505,7 @@
             </div>
         </div>
         {% endfor %}
-
-        <!-- Fundo escurecido: fecha ao clicar fora e deixa claro que a janela
-             é modal (antes era transparente, e a tela atrás parecia clicável) -->
-        <div id="popup-overlay" onclick="fecharPopup()"></div>
+        {# Fundo escurecido agora é global (templates/base.html:#popup-overlay). #}
 
         {% else %}
         <p style="color:var(--text-muted-2);">Nenhum tipo cadastrado ainda. Cadastre na aba "Novo Item".</p>
@@ -1130,40 +1127,8 @@ function abrirImportarAjuste() {
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
 }
 
-let _popupAberto = null;
-
-function abrirPopup(event, tipoId) {
-    event.stopPropagation();
-    if (_popupAberto === tipoId) { fecharPopup(); return; }
-    fecharPopup();
-    // Sem cálculo de posição: a janela é centralizada pelo CSS. Antes a
-    // posição vinha do botão, e a engrenagem da última linha abria o
-    // pop-up colado no rodapé.
-    document.getElementById('popup-' + tipoId).classList.add('aberto');
-    document.getElementById('popup-overlay').classList.add('aberto');
-    // Trava a rolagem do fundo pra o clique de fechar não mover a página.
-    // A largura da barra de rolagem vira padding: sem isso a página inteira
-    // dava um pulo lateral no instante em que a janela abria — o "tranco"
-    // que dava a impressão de a janela travar pra aparecer.
-    const barra = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = 'hidden';
-    if (barra > 0) document.body.style.paddingRight = barra + 'px';
-    _popupAberto = tipoId;
-}
-
-function fecharPopup() {
-    if (_popupAberto !== null) {
-        const el = document.getElementById('popup-' + _popupAberto);
-        if (el) el.classList.remove('aberto');
-        _popupAberto = null;
-    }
-    const overlay = document.getElementById('popup-overlay');
-    if (overlay) overlay.classList.remove('aberto');
-    document.body.style.overflow = '';
-    document.body.style.paddingRight = '';
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });
+// abrirPopup/fecharPopup/_popupAberto agora são globais (templates/base.html)
+// -- o mesmo mecanismo passou a servir outras telas também.
 
 function editarNome(tipoId) {
     document.getElementById('nome-texto-' + tipoId).style.display = 'none';

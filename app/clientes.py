@@ -166,6 +166,44 @@ def panorama(nome: str) -> dict | None:
             "totais": totais, "kits": kits, "producao": producao}
 
 
+# Tabelas onde o nome do cliente é gravado como TEXTO LIVRE (nunca FK) —
+# renomear o cadastro precisa propagar aqui, senão veículo/ocorrência/kit já
+# existentes ficam apontando pro nome antigo, que não existe mais em cadastro
+# nenhum. Mesma lógica de "editar_opcao propaga" já usada nos catálogos de
+# RMA (categoria de defeito, responsável).
+_TABELAS_PROPAGACAO_CLIENTE = (
+    ("veiculos", "cliente"),
+    ("kit_template", "cliente"),
+    ("hardware_ocorrencia", "cliente"),
+    ("remessa", "cliente"),
+    ("estoque_movimentos", "cliente"),
+)
+
+
+def renomear(cliente_id: int, novo_nome: str) -> None:
+    novo_nome = (novo_nome or "").strip()
+    if not novo_nome:
+        raise ValueError("Informe o nome do cliente.")
+    with db() as conn:
+        atual = conn.execute("SELECT nome FROM clientes WHERE id = ?", (cliente_id,)).fetchone()
+        if not atual:
+            raise ValueError("Cliente não encontrado.")
+        nome_antigo = atual["nome"]
+        if nome_antigo == novo_nome:
+            return
+        duplicado = conn.execute(
+            "SELECT id FROM clientes WHERE UPPER(TRIM(nome)) = UPPER(?) AND id != ?",
+            (novo_nome, cliente_id)
+        ).fetchone()
+        if duplicado:
+            raise ValueError(f'Já existe um cliente chamado "{novo_nome}".')
+        conn.execute("UPDATE clientes SET nome = ? WHERE id = ?", (novo_nome, cliente_id))
+        for tabela, coluna in _TABELAS_PROPAGACAO_CLIENTE:
+            conn.execute(f"UPDATE {tabela} SET {coluna} = ? WHERE {coluna} = ?",
+                         (novo_nome, nome_antigo))
+    _recarregar_ids()   # a cor é calculada pelo id do cadastro, que não muda -- só o cache de nome->id precisa atualizar
+
+
 def deletar(cliente_id: int):
     with db() as conn:
         conn.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))

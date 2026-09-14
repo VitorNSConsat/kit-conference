@@ -47,6 +47,7 @@ import app.inatividade as inatividade_mod
 import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 import app.hardware as hardware_mod
+import app.hardware_importacoes as hardware_importacoes_mod
 
 load_dotenv()
 
@@ -5923,6 +5924,17 @@ async def admin_cliente_detalhe(request: Request, cliente_id: int, ok: str = "",
     })
 
 
+@app.post("/admin/clientes/{cliente_id}/renomear")
+@require_login
+async def admin_cliente_renomear(request: Request, cliente_id: int):
+    form = await request.form()
+    try:
+        clientes_mod.renomear(cliente_id, str(form.get("nome", "")))
+    except ValueError as e:
+        return RedirectResponse(f"/admin/clientes/{cliente_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/clientes/{cliente_id}?ok=renomeado", status_code=302)
+
+
 @app.post("/admin/clientes/{cliente_id}/prefixo")
 @require_login
 async def admin_cliente_prefixo(request: Request, cliente_id: int):
@@ -6140,7 +6152,7 @@ def _hardware_filtros(request: Request) -> dict:
         "cliente": qp.get("cliente", ""),
         "hardware_produto_id": int(qp["hardware_produto_id"]) if qp.get("hardware_produto_id", "").isdigit() else None,
         "categoria_defeito": qp.get("categoria_defeito", ""),
-        "responsavel_id": int(qp["responsavel_id"]) if qp.get("responsavel_id", "").isdigit() else None,
+        "responsavel": qp.get("responsavel", ""),
         "aguardando_de": qp.getlist("aguardando_de"),
         "busca": qp.get("busca", ""),
         "registro_ini": qp.get("registro_ini", ""),
@@ -6148,6 +6160,7 @@ def _hardware_filtros(request: Request) -> dict:
         "com_solucao": qp.get("com_solucao", ""),
         "critico": qp.get("critico", "") == "1",
         "sem_atualizacao_dias": qp.get("sem_atualizacao_dias", ""),
+        "incluir_arquivadas": qp.get("incluir_arquivadas", "") == "1",
     }
 
 
@@ -6164,9 +6177,9 @@ def _hardware_contexto_formulario() -> dict:
         "aguardando_opcoes": hardware_mod.AGUARDANDO_DE,
         "localizacao_opcoes": [(o["chave"], o["nome"]) for o in hardware_mod.listar_opcoes("localizacao")],
         "categorias_defeito": [o["nome"] for o in hardware_mod.listar_opcoes("categoria")],
+        "responsavel_opcoes": [o["nome"] for o in hardware_mod.listar_opcoes("responsavel")],
         "resultados_finais": hardware_mod.RESULTADOS_FINAIS,
         "produtos": hardware_mod.listar_produtos(),
-        "usuarios_ativos": [u for u in usuarios_mod.listar() if u["ativo"]],
         "clientes_cadastrados": clientes_mod.listar(),
     }
 
@@ -6182,6 +6195,14 @@ async def admin_hardware(request: Request):
         "sem_atualizacao_dias_padrao": hardware_mod.SEM_ATUALIZACAO_DIAS_PADRAO,
         "filtros": filtros,
         "ok": request.query_params.get("ok", ""),
+        # Versão completa dos catálogos (id, cor, eh_terminal, ativo) pro
+        # popup de "Nova ocorrência" gerenciar -- os *_opcoes acima só têm
+        # (chave, nome), o bastante pro <select> do formulário.
+        "catalogo_status": hardware_mod.listar_opcoes("status", incluir_inativas=True),
+        "catalogo_prioridade": hardware_mod.listar_opcoes("prioridade", incluir_inativas=True),
+        "catalogo_categoria": hardware_mod.listar_opcoes("categoria", incluir_inativas=True),
+        "catalogo_localizacao": hardware_mod.listar_opcoes("localizacao", incluir_inativas=True),
+        "catalogo_responsavel": hardware_mod.listar_opcoes("responsavel", incluir_inativas=True),
     }
     # Sem cliente escolhido: painel de entrada, um card por cliente (visão
     # geral, com os KPIs condensados). Com cliente escolhido (via "Ver
@@ -6246,27 +6267,11 @@ async def admin_hardware_produto_reativar(request: Request, produto_id: int):
     return RedirectResponse("/admin/hardware/produtos?ok=reativado", status_code=302)
 
 
-@app.get("/admin/hardware/nova", response_class=HTMLResponse)
-@require_login
-async def admin_hardware_nova(request: Request):
-    return render(request, "admin_hardware_nova.html", {
-        **_hardware_contexto_formulario(),
-        # Versão completa dos catálogos (id, cor, eh_terminal, ativo) pros
-        # popups de gerenciar -- os *_opcoes acima só têm (chave, nome), o
-        # bastante pro <select> da ocorrência.
-        "catalogo_status": hardware_mod.listar_opcoes("status", incluir_inativas=True),
-        "catalogo_prioridade": hardware_mod.listar_opcoes("prioridade", incluir_inativas=True),
-        "catalogo_categoria": hardware_mod.listar_opcoes("categoria", incluir_inativas=True),
-        "catalogo_localizacao": hardware_mod.listar_opcoes("localizacao", incluir_inativas=True),
-        "erro": request.query_params.get("erro", ""),
-    })
-
-
 @app.post("/admin/hardware/opcoes/{tipo}/criar")
 @require_permission("hardware_gerenciar")
 async def admin_hardware_opcao_criar(request: Request, tipo: str):
     form = await request.form()
-    destino = _voltar_para(request, "/admin/hardware/nova")
+    destino = _voltar_para(request, "/admin/hardware")
     try:
         hardware_mod.criar_opcao(
             tipo, str(form.get("nome", "")), str(form.get("cor", "")),
@@ -6281,7 +6286,7 @@ async def admin_hardware_opcao_criar(request: Request, tipo: str):
 @require_permission("hardware_gerenciar")
 async def admin_hardware_opcao_editar(request: Request, tipo: str, opcao_id: int):
     form = await request.form()
-    destino = _voltar_para(request, "/admin/hardware/nova")
+    destino = _voltar_para(request, "/admin/hardware")
     try:
         hardware_mod.editar_opcao(
             tipo, opcao_id, str(form.get("nome", "")), str(form.get("cor", "")),
@@ -6295,7 +6300,7 @@ async def admin_hardware_opcao_editar(request: Request, tipo: str, opcao_id: int
 @app.post("/admin/hardware/opcoes/{tipo}/{opcao_id:int}/desativar")
 @require_permission("hardware_gerenciar")
 async def admin_hardware_opcao_desativar(request: Request, tipo: str, opcao_id: int):
-    destino = _voltar_para(request, "/admin/hardware/nova")
+    destino = _voltar_para(request, "/admin/hardware")
     try:
         hardware_mod.desativar_opcao(tipo, opcao_id)
     except ValueError as e:
@@ -6308,7 +6313,7 @@ async def admin_hardware_opcao_desativar(request: Request, tipo: str, opcao_id: 
 @require_permission("hardware_gerenciar")
 async def admin_hardware_opcao_reativar(request: Request, tipo: str, opcao_id: int):
     hardware_mod.reativar_opcao(tipo, opcao_id)
-    return RedirectResponse(_voltar_para(request, "/admin/hardware/nova"), status_code=302)
+    return RedirectResponse(_voltar_para(request, "/admin/hardware"), status_code=302)
 
 
 @app.get("/admin/hardware/anexo/{anexo_id:int}")
@@ -6328,6 +6333,230 @@ async def admin_hardware_anexo_baixar(request: Request, anexo_id: int):
         media_type=anexo["tipo_mime"] or "application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{anexo["nome_arquivo"]}"'},
     )
+
+
+@app.get("/admin/hardware/exportar.xlsx")
+@require_login
+async def admin_hardware_exportar(request: Request):
+    """Exporta ocorrências pra Excel -- os IDS marcados na tela (checkbox),
+    ou, sem nenhum marcado, TODAS as que batem com o filtro atual (mesmo
+    princípio da exportação de veículos: a planilha nunca discorda do que a
+    lista mostra). Duas abas: uma linha por ocorrência com todos os campos,
+    e o histórico completo (timeline + ações Brasil/Suécia/Fabricante) de
+    cada uma, cronológico, cruzado pelo RMA."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from io import BytesIO
+    from fastapi.responses import Response as _Resp
+
+    qp = request.query_params
+    ids_marcados = [int(x) for x in qp.getlist("ocorrencia_ids") if str(x).isdigit()]
+    if ids_marcados:
+        ocorrencias = [o for o in (hardware_mod.buscar(oid) for oid in ids_marcados) if o]
+    else:
+        ocorrencias = hardware_mod.listar(_hardware_filtros(request))
+
+    wb = openpyxl.Workbook()
+    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
+    ws = wb.active
+    ws.title = "Ocorrências"
+    colunas = ["RMA", "Cliente", "Produto", "Serial/Patrimônio", "Quantidade",
+               "Categoria do defeito", "Subcategoria", "Descrição do defeito",
+               "Diagnóstico técnico", "Status", "Prioridade", "Localização",
+               "Responsável", "Aguardando de", "Próxima ação", "Previsão da próxima ação",
+               "Resultado final", "Solução", "Data de registro", "Data de solução",
+               "Criado por", "Criado em", "Atualizado em", "Dias em aberto",
+               "Dias sem atualização", "Arquivada"]
+    for col, h in enumerate(colunas, 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    for i, o in enumerate(ocorrencias):
+        row = i + 2
+        valores = [
+            o["rotulo"], o["cliente"], o["produto_exibido"] or "", o["serial_patrimonio"] or "",
+            o["quantidade"], o["categoria_defeito"] or "", o["subcategoria_defeito"] or "",
+            o["descricao_defeito"] or "", o["diagnostico_texto"] or "",
+            o["status_texto"], o["prioridade_texto"], o["localizacao_texto"] or "",
+            o["responsavel_nome"] or "", o["aguardando_texto"] or "",
+            o["proxima_acao"] or "", o["proxima_acao_data"] or "",
+            o["resultado_final"] or "", o["solucao_texto"] or "",
+            o["data_registro"] or "", o["data_solucao"] or "",
+            o["criado_por_nome"] or "", o["criado_em"] or "", o["atualizado_em"] or "",
+            o["dias_em_aberto"] if o["dias_em_aberto"] is not None else "",
+            o["dias_sem_atualizacao"] if o["dias_sem_atualizacao"] is not None else "",
+            "" if o["ativo"] else "Sim",
+        ]
+        for col, v in enumerate(valores, 1):
+            ws.cell(row, col, v)
+        if i % 2 == 0:
+            for col in range(1, len(colunas) + 1):
+                ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
+    for col in range(1, len(colunas) + 1):
+        ws.column_dimensions[ws.cell(1, col).column_letter].width = 20
+    ws.freeze_panes = "A2"
+
+    ws2 = wb.create_sheet("Histórico")
+    colunas2 = ["RMA", "Cliente", "Quando", "Tipo", "Situação", "Conteúdo", "Usuário"]
+    for col, h in enumerate(colunas2, 1):
+        c = ws2.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+    linha = 2
+    for o in ocorrencias:
+        eventos = sorted(hardware_mod.listar_eventos(o["id"]), key=lambda e: (e["criado_em"], e["id"]))
+        for e in eventos:
+            ws2.cell(linha, 1, o["rotulo"])
+            ws2.cell(linha, 2, o["cliente"])
+            ws2.cell(linha, 3, e["criado_em"])
+            ws2.cell(linha, 4, e["tipo_texto"])
+            ws2.cell(linha, 5, e["situacao"] or "")
+            ws2.cell(linha, 6, e["conteudo"] or "")
+            ws2.cell(linha, 7, e["usuario_nome"] or "")
+            linha += 1
+    for col, w in zip("ABCDEFG", (12, 20, 18, 20, 16, 60, 20)):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = "A2"
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    clientes_no_export = {o["cliente"] for o in ocorrencias}
+    sufixo = next(iter(clientes_no_export)).replace(" ", "-").lower() if len(clientes_no_export) == 1 else "todos"
+    filename = f"rmas_{sufixo}_{now_brt()[:10]}.xlsx"
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/admin/hardware/modelo.xlsx")
+@require_login
+async def admin_hardware_modelo(request: Request):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from io import BytesIO
+    from fastapi.responses import Response as _Resp
+    azul, branco = "1A3A5C", "FFFFFF"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Ocorrências"
+    colunas = ["Cliente", "Produto", "Categoria do Defeito", "Serial / Patrimônio",
+               "Quantidade", "Status", "Responsável", "Data de Registro",
+               "Ação Corretiva - Brasil", "Ação Corretiva - Suécia",
+               "Ação Corretiva - Fabricante", "Data de Solução", "Observações",
+               "ID de Referência"]
+    for col, h in enumerate(colunas, 1):
+        c = ws.cell(1, col, h)
+        c.font = Font(bold=True, color=branco)
+        c.fill = PatternFill("solid", fgColor=azul)
+        ws.column_dimensions[c.column_letter].width = 24
+    status_nomes = [o["nome"] for o in hardware_mod.listar_opcoes("status")]
+    ex1 = status_nomes[0] if status_nomes else "Não iniciado"
+    ex2 = next((s for s in status_nomes if s != ex1), ex1)
+    ws.append(["Exemplo Cliente", "CDT07", "GPS", "TSCE91001019/000963", 1, ex1,
+                "Nome do responsável", "2026-01-26", "", "", "",
+                "", "Sinal de GPS não aparece.", ""])
+    ws.append(["Outro Cliente", "MX4", "Não liga", "", 1, ex2,
+                "", "", "Flash realizado com o pendrive FIX.", "", "",
+                "", "", ""])
+    ws2 = wb.create_sheet("Status válidos")
+    c = ws2.cell(1, 1, "Status aceitos (nome como aparece na tela)")
+    c.font = Font(bold=True, color=branco)
+    c.fill = PatternFill("solid", fgColor=azul)
+    ws2.column_dimensions["A"].width = 30
+    for i, nome in enumerate(status_nomes, 2):
+        ws2.cell(i, 1, nome)
+    if status_nomes:
+        dv = DataValidation(type="list",
+                             formula1=f"='Status válidos'!$A$2:$A${len(status_nomes) + 1}",
+                             allow_blank=True, showErrorMessage=False)
+        dv.prompt = ("Escolha um status da lista, ou digite outro -- o sistema tenta "
+                     "reconhecer variações comuns (ex.: \"Feito\" vira \"Resolvido\"). "
+                     "Vazio vira \"Não iniciado\".")
+        dv.promptTitle = "Status"
+        dv.showInputMessage = True
+        ws.add_data_validation(dv)
+        dv.add(f"F2:F500")
+
+    buf = BytesIO()
+    wb.save(buf); buf.seek(0)
+    return _Resp(content=buf.read(),
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": "attachment; filename=modelo_ocorrencias_hardware.xlsx"})
+
+
+@app.get("/admin/hardware/importar", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_importar_form(request: Request):
+    return render(request, "admin_hardware_importar.html", {
+        "voltar_para": _voltar_para(request, "/admin/hardware"),
+    })
+
+
+@app.post("/admin/hardware/importar", response_class=HTMLResponse)
+@require_permission("hardware_gerenciar")
+async def admin_hardware_importar_post(request: Request):
+    form = await request.form()
+    arquivo = form.get("arquivo")
+    if not arquivo or not arquivo.filename:
+        return render(request, "admin_hardware_importar.html", {"erro": "Selecione um arquivo .xlsx."})
+    try:
+        file_bytes = await _ler_upload(request, arquivo)
+    except ValueError as e:
+        return render(request, "admin_hardware_importar.html", {"erro": str(e)})
+    user = request.state.user
+    try:
+        resultado = hardware_mod.importar_excel(file_bytes, user["id"])
+    except Exception as e:
+        return render(request, "admin_hardware_importar.html",
+                       {"erro": _erro_usuario(e, "Não foi possível ler esta planilha.")})
+    if not resultado.get("itens") and resultado.get("erros"):
+        return render(request, "admin_hardware_importar.html", {"erro": resultado["erros"][0]})
+    imp_id = hardware_importacoes_mod.registrar(
+        resultado, getattr(arquivo, "filename", "") or "", user["id"])
+    return RedirectResponse(f"/admin/hardware/importar/{imp_id}", status_code=302)
+
+
+def _hardware_conferencia_context(request: Request, importacao_id: int) -> dict | None:
+    imp = hardware_importacoes_mod.uma(importacao_id)
+    if not imp:
+        return None
+    situacao = (request.query_params.get("situacao") or "").strip()
+    busca = (request.query_params.get("busca") or "").strip()
+    so_avisos = request.query_params.get("avisos") == "1"
+    return {
+        "imp": imp,
+        "contagens": hardware_importacoes_mod.contagens(importacao_id),
+        "linhas": hardware_importacoes_mod.itens(importacao_id, situacao, busca, so_avisos),
+        "situacao": situacao,
+        "busca": busca,
+        "so_avisos": so_avisos,
+        "situacoes": hardware_importacoes_mod.SITUACOES,
+        "voltar_para": _voltar_para(request, "/admin/hardware"),
+    }
+
+
+@app.get("/admin/hardware/importacoes", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_importacoes(request: Request):
+    return render(request, "admin_hardware_importacoes.html", {
+        "importacoes": hardware_importacoes_mod.listar(),
+        "voltar_para": _voltar_para(request, "/admin/hardware"),
+    })
+
+
+@app.get("/admin/hardware/importar/{importacao_id:int}", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_conferencia(request: Request, importacao_id: int):
+    ctx = _hardware_conferencia_context(request, importacao_id)
+    if ctx is None:
+        return RedirectResponse("/admin/hardware/importacoes?erro=nao_encontrada", status_code=302)
+    return render(request, "admin_hardware_conferencia.html", ctx)
 
 
 @app.get("/admin/hardware/{ocorrencia_id:int}", response_class=HTMLResponse)
@@ -6368,50 +6597,30 @@ async def admin_hardware_criar(request: Request):
 @app.post("/admin/hardware/{ocorrencia_id:int}/editar")
 @require_permission("hardware_gerenciar")
 async def admin_hardware_editar(request: Request, ocorrencia_id: int):
+    """Um único popup, um único "Salvar" pra tudo (resumo, diagnóstico,
+    responsável, próxima ação e status) -- reaproveita as mesmas funções de
+    negócio de sempre, só chamando as que mudam de fato pra não gerar
+    evento de "alterado de X para X" na timeline à toa."""
     user = get_current_user(request)
     form = await request.form()
+    dados = dict(form)
     try:
-        hardware_mod.editar_basico(ocorrencia_id, dict(form), user["id"])
+        o = hardware_mod.buscar(ocorrencia_id)
+        if not o:
+            raise ValueError("Ocorrência não encontrada.")
+        hardware_mod.editar_basico(ocorrencia_id, dados, user["id"])
+        novo_responsavel = str(dados.get("responsavel_nome", "")).strip()
+        if novo_responsavel != (o["responsavel_nome"] or ""):
+            hardware_mod.definir_responsavel(ocorrencia_id, novo_responsavel, user["id"])
+        hardware_mod.definir_proxima_acao(
+            ocorrencia_id, str(dados.get("proxima_acao", "")), str(dados.get("proxima_acao_data", "")),
+            str(dados.get("aguardando_de", "")), user["id"])
+        novo_status = str(dados.get("status", ""))
+        if novo_status and novo_status != o["status"]:
+            hardware_mod.mudar_status(ocorrencia_id, novo_status, str(dados.get("observacao", "")), user["id"])
     except ValueError as e:
         return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
     return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=editado", status_code=302)
-
-
-@app.post("/admin/hardware/{ocorrencia_id:int}/status")
-@require_permission("hardware_gerenciar")
-async def admin_hardware_status(request: Request, ocorrencia_id: int):
-    user = get_current_user(request)
-    form = await request.form()
-    try:
-        hardware_mod.mudar_status(
-            ocorrencia_id, str(form.get("status", "")), str(form.get("observacao", "")), user["id"])
-    except ValueError as e:
-        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
-    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=status", status_code=302)
-
-
-@app.post("/admin/hardware/{ocorrencia_id:int}/responsavel")
-@require_permission("hardware_gerenciar")
-async def admin_hardware_responsavel(request: Request, ocorrencia_id: int):
-    user = get_current_user(request)
-    form = await request.form()
-    resp = form.get("responsavel_id", "")
-    hardware_mod.definir_responsavel(ocorrencia_id, int(resp) if str(resp).isdigit() else None, user["id"])
-    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=responsavel", status_code=302)
-
-
-@app.post("/admin/hardware/{ocorrencia_id:int}/proxima-acao")
-@require_permission("hardware_gerenciar")
-async def admin_hardware_proxima_acao(request: Request, ocorrencia_id: int):
-    user = get_current_user(request)
-    form = await request.form()
-    try:
-        hardware_mod.definir_proxima_acao(
-            ocorrencia_id, str(form.get("proxima_acao", "")), str(form.get("proxima_acao_data", "")),
-            str(form.get("aguardando_de", "")), user["id"])
-    except ValueError as e:
-        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
-    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=proxima_acao", status_code=302)
 
 
 @app.post("/admin/hardware/{ocorrencia_id:int}/atualizacao")
@@ -6474,8 +6683,20 @@ async def admin_hardware_reabrir(request: Request, ocorrencia_id: int):
 @app.post("/admin/hardware/{ocorrencia_id:int}/arquivar")
 @require_permission("hardware_excluir")
 async def admin_hardware_arquivar(request: Request, ocorrencia_id: int):
-    hardware_mod.arquivar(ocorrencia_id)
-    return RedirectResponse("/admin/hardware?ok=arquivada", status_code=302)
+    user = get_current_user(request)
+    hardware_mod.arquivar(ocorrencia_id, user["id"])
+    # Fica na própria tela (não volta pra lista): arquivar não é excluir --
+    # quem arquivou por engano precisa do botão Reativar à mão, não sair
+    # daqui sem conseguir achar a ocorrência de novo.
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=arquivada", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/reativar")
+@require_permission("hardware_excluir")
+async def admin_hardware_reativar(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    hardware_mod.reativar(ocorrencia_id, user["id"])
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=reativada", status_code=302)
 
 
 @app.post("/admin/hardware/{ocorrencia_id:int}/anexo")

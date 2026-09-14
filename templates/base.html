@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=37">
+    <link rel="stylesheet" href="/static/style.css?v=39">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -32,7 +32,7 @@
     'ver_bipagem':         ('Bipagem', 'bipagem'),
     'ver_impressao':       ('Impressão', 'impressao'),
     'ver_producao':        ('Produção', 'producao'),
-    'ver_hardware':        ('Gestão de Hardware', 'clipboard'),
+    'ver_hardware':        ('RMAs', 'clipboard'),
     'ver_prateleira':      ('Prateleira', 'prateleira'),
     'ver_veiculos':        ('Veículos e Clientes', 'veiculos'),
     'ver_itens':           ('Itens & Estoque', 'itens'),
@@ -218,6 +218,57 @@ function fecharJanelaPainel() {
 function _voltaAtual() {
     return encodeURIComponent(window.location.pathname + window.location.search);
 }
+
+// ── Popup de configuração (.config-popup) ─────────────────────────────────
+// Padrão único pra qualquer "clicar no lápis abre um pop-up organizado":
+// nasceu em Itens & Estoque e agora é global, pra toda tela nova usar o
+// mesmo mecanismo em vez de reinventar um popup próprio. Um só aberto por
+// vez (id pode ser número ou string, tanto faz).
+let _popupAberto = null;
+// Popups "pausados" atrás do atual -- ver abrirPopup/fecharPopup: navegar
+// de um popup pra outro (ex: Categorias aberto de dentro de Nova
+// Ocorrência) empilha em vez de fechar tudo, senão "voltar" (Esc/X/clicar
+// fora) perdia o de trás e obrigava reabrir do zero, jogando fora o que já
+// tinha sido preenchido.
+let _popupPilha = [];
+
+function abrirPopup(event, id) {
+    event.stopPropagation();
+    if (_popupAberto === id) { fecharPopup(); return; }
+    if (_popupAberto !== null) {
+        document.getElementById('popup-' + _popupAberto).classList.remove('aberto');
+        _popupPilha.push(_popupAberto);
+    }
+    // Sem cálculo de posição: a janela é centralizada pelo CSS. Antes a
+    // posição vinha do botão, e a engrenagem da última linha abria o
+    // pop-up colado no rodapé.
+    document.getElementById('popup-' + id).classList.add('aberto');
+    document.getElementById('popup-overlay').classList.add('aberto');
+    // Trava a rolagem do fundo pra o clique de fechar não mover a página.
+    const barra = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (barra > 0) document.body.style.paddingRight = barra + 'px';
+    _popupAberto = id;
+}
+
+function fecharPopup() {
+    if (_popupAberto !== null) {
+        const el = document.getElementById('popup-' + _popupAberto);
+        if (el) el.classList.remove('aberto');
+    }
+    if (_popupPilha.length > 0) {
+        _popupAberto = _popupPilha.pop();
+        document.getElementById('popup-' + _popupAberto).classList.add('aberto');
+        return;
+    }
+    _popupAberto = null;
+    const overlay = document.getElementById('popup-overlay');
+    if (overlay) overlay.classList.remove('aberto');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });
 function abrirPainelPatrimonio(codigo) {
     abrirJanelaPainel('/admin/items/patrimonio/' + encodeURIComponent(codigo)
                       + '/painel?voltar=' + _voltaAtual(), 'Patrimônio', codigo);
@@ -412,6 +463,12 @@ if (!window.location.pathname.startsWith('/session/')) {
 </script>
 {% endif %}
 <div class="container">
+    {# Fundo único pra qualquer .config-popup da página (ver abrirPopup/
+       fecharPopup no script acima) -- precisa estar DENTRO de .container:
+       como .container tem position:relative (vira contexto de empilhamento
+       próprio), um overlay FORA dele fica noutro contexto e o z-index deixa
+       de valer contra o que está dentro -- o popup nunca ganhava do fundo. #}
+    <div id="popup-overlay" onclick="fecharPopup()"></div>
     {% block content %}{% endblock %}
 </div>
 </div>

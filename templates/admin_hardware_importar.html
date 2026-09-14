@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% block title %}Importar Ocorrências{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/hardware/importacoes" class="btn btn-secondary btn-sm">{{ ic.svg('relogio', 15) }} Importações anteriores</a>
+<a href="{{ voltar_para }}" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
+{% block content %}
+
+{% if erro is defined and erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="card">
+  <h2>Arquivo Excel</h2>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">
+    A planilha precisa ter ao menos as colunas <strong>Cliente</strong> e <strong>Produto</strong>.
+    Categoria do defeito, produto e responsável que ainda não existirem no cadastro são
+    criados automaticamente. <a href="/admin/hardware/modelo.xlsx">Baixar planilha modelo</a>
+  </p>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">
+    O cabeçalho é reconhecido por <strong>palavra-chave</strong>, não por posição — então
+    também aceita a planilha antiga de controle de defeito, sem precisar reorganizar
+    coluna nenhuma. <strong>Status</strong> sem correspondência exata é reconhecido pelas
+    variações mais comuns (ex.: "Feito" vira "Resolvido"); o que não bater vira
+    "Não iniciado" com um aviso na linha — nunca erro.
+  </p>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">
+    Pode importar a mesma planilha quantas vezes precisar <strong>se ela tiver a coluna
+    "ID de Referência"</strong> preenchida (a planilha antiga já traz isso na coluna
+    "ID do elemento") — é o que identifica a ocorrência entre uma importação e outra,
+    já que serial/patrimônio é opcional e pode se repetir. Nela, <strong>a planilha
+    manda</strong>: célula preenchida sobrescreve o cadastro, célula vazia preserva.
+    Sem essa coluna, toda linha vira uma ocorrência nova.
+  </p>
+  <form method="post" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>Planilha (.xlsx)</label>
+      <input type="file" name="arquivo" accept=".xlsx" required>
+    </div>
+    <button type="submit" class="btn btn-success">{{ ic.svg('importar', 15) }} Importar</button>
+    <p style="color:#555;font-size:13px;margin:12px 0 0;">
+      Ao terminar, o sistema abre a <strong>conferência</strong>: a planilha inteira
+      linha a linha, dizendo o que cada uma virou (novo, já existente, alterado ou
+      erro) e, nos alterados, o valor <strong>antes e depois</strong> de cada campo.
+    </p>
+  </form>
+</div>
+{% endblock %}

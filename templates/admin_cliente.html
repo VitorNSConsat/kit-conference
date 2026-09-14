@@ -17,8 +17,14 @@
 {% if ok == 'prefixo' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Prefixo salvo.</div>
 {% endif %}
+{% if ok == 'renomeado' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Cliente renomeado — o nome novo já vale em veículos, RMAs, kits e remessas.</div>
+{% endif %}
 {% if erro == 'destino' %}
 <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Escolha uma garagem de destino que já esteja cadastrada.</div>
+{% endif %}
+{% if erro and erro != 'destino' %}
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ erro }}</div>
 {% endif %}
 
 <!-- Resumo -->
@@ -59,6 +65,20 @@
     <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}" class="btn btn-sm btn-primary">{{ ic.svg('veiculos', 14) }} Ver veículos deste cliente</a>
     <a href="/admin/veiculos?cliente={{ cliente.nome | urlencode }}&situacao=a_produzir"
        class="btn btn-sm btn-secondary">{{ ic.svg('producao', 14) }} Ver o que falta produzir</a>
+    <form method="post" action="/admin/clientes/{{ cliente.id }}/renomear"
+          style="display:flex;gap:8px;align-items:flex-end;">
+      <div class="form-group" style="margin:0;">
+        <label>Nome do cliente
+          <span style="font-weight:400;color:#888;font-size:11px;">
+            renomeia em veículos, RMAs, kits e remessas já cadastrados
+          </span>
+        </label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="text" name="nome" value="{{ cliente.nome }}" required style="width:200px;margin:0;">
+          <button type="submit" class="btn btn-sm" style="padding:3px 6px;flex-shrink:0;" title="Salvar">{{ ic.svg('check', 13) }}</button>
+        </div>
+      </div>
+    </form>
     <form method="post" action="/admin/clientes/{{ cliente.id }}/prefixo"
           style="display:flex;gap:8px;align-items:flex-end;">
       <div class="form-group" style="margin:0;">

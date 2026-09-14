@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
-{% block title %}Produtos — Gestão de Hardware{% endblock %}
+{% block title %}Produtos — RMAs{% endblock %}
 {% block acoes_topo %}
-<a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Voltar</a>
+<a href="/admin/hardware" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Voltar</a>
 {% endblock %}
 {% block content %}
 {% if ok == 'criado' %}
@@ -17,7 +17,7 @@
 {% endif %}
 
 <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">
-    Cadastro de equipamento (modelo/produto) usado em Gestão de Hardware — separado do catálogo de
+    Cadastro de equipamento (modelo/produto) usado em RMAs — separado do catálogo de
     peças de estoque de propósito, pra não misturar equipamento completo com parafuso e cabo.
 </p>
 

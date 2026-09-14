@@ -28,7 +28,7 @@ TELAS = (
                                                                         "/admin/garagens")),
     ("ver_prateleira",     "Prateleira",         "/admin/prateleira", ("/admin/prateleira", "/prateleira")),
     ("ver_producao",       "Produção",           "/admin/producao",  ("/admin/producao", "/producao")),
-    ("ver_hardware",       "Gestão de Hardware", "/admin/hardware",  ("/admin/hardware",)),
+    ("ver_hardware",       "RMAs",               "/admin/hardware",  ("/admin/hardware",)),
     ("ver_relatorios",     "Relatórios",         "/reports",         ("/reports",)),
     ("ver_rede",           "Rede",               "/rede",            ("/rede",)),
     ("ver_funcionalidades", "Funcionalidades",   "/funcionalidades", ("/funcionalidades",)),
@@ -92,7 +92,7 @@ GRUPOS = (
     ("Pedidos", PERMISSOES_PEDIDOS),
     ("Bipagem", PERMISSOES_BIPAGEM),
     ("Sistema", PERMISSOES_SISTEMA),
-    ("Gestão de Hardware", PERMISSOES_HARDWARE),
+    ("RMAs", PERMISSOES_HARDWARE),
 )
 
 # Toda chave nova nasce PERMITIDA pra quem já existe: tem_permissao() nega só

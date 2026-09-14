@@ -2,7 +2,7 @@
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
-{% block title %}Gestão de Hardware{% endblock %}
+{% block title %}RMAs{% endblock %}
 
 {% macro th_ord(rotulo, campo, ord_atual, dir_atual) %}
 {% set ativo = (ord_atual == campo) %}
@@ -15,8 +15,83 @@
 </th>
 {% endmacro %}
 
+{% macro campo_catalogo(popup_id, tipo, titulo, itens, tem_cor, tem_terminal) %}
+<div id="popup-{{ popup_id }}" class="config-popup" role="dialog" aria-modal="true"
+     aria-labelledby="popup-titulo-{{ popup_id }}">
+  <div class="config-cabecalho">
+    <div>
+      <strong id="popup-titulo-{{ popup_id }}">{{ titulo }}</strong>
+      <span class="config-sub">{{ itens | selectattr('ativo') | list | length }} opção(ões) ativa(s)</span>
+    </div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <h4>Itens cadastrados</h4>
+      <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 0;">
+        {% for o in itens %}
+        <div style="display:flex;align-items:center;gap:6px;{{ 'opacity:.5;' if not o.ativo }}">
+          <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/editar" class="cfg-campo-linha" style="flex:1;min-width:0;">
+            {% if tem_cor %}
+            <input type="color" name="cor" value="{{ o.cor }}" title="Cor"
+                   style="width:26px;height:26px;padding:0;border:0;border-radius:6px;flex-shrink:0;" {{ 'disabled' if not o.ativo }}>
+            {% endif %}
+            <input type="text" name="nome" value="{{ o.nome }}" class="cfg-mono" style="flex:1;min-width:0;" {{ 'disabled' if not o.ativo }}>
+            {% if tem_terminal %}
+            <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;"
+                   title="Conta como concluído nos indicadores">
+              <input type="checkbox" name="eh_terminal" {{ 'checked' if o.eh_terminal }} {{ 'disabled' if not o.ativo }}> terminal
+            </label>
+            {% endif %}
+            {% if o.sistema %}
+            <span title="Usado pelo sistema — não pode ser excluído, só renomeado" style="flex-shrink:0;color:var(--text-muted-2);">{{ ic.svg('cadeado', 13) }}</span>
+            {% endif %}
+            {% if o.ativo %}
+            <button type="submit" class="btn btn-sm" style="padding:3px 6px;flex-shrink:0;" title="Salvar">{{ ic.svg('check', 13) }}</button>
+            {% else %}
+            <span class="badge" style="flex-shrink:0;font-size:10px;">inativo</span>
+            {% endif %}
+          </form>
+          {% if o.ativo and not o.sistema %}
+          <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/desativar" style="flex-shrink:0;">
+            <button type="submit" class="btn btn-sm btn-danger" style="padding:3px 6px;" title="Excluir">{{ ic.svg('excluir', 13) }}</button>
+          </form>
+          {% elif not o.ativo %}
+          <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/{{ o.id }}/reativar" style="flex-shrink:0;">
+            <button type="submit" class="btn btn-sm btn-secondary" style="padding:3px 6px;" title="Reativar">{{ ic.svg('reiniciar', 13) }}</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted);font-size:13px;">Nenhum item cadastrado ainda.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <h4>Adicionar novo</h4>
+      <form method="post" action="/admin/hardware/opcoes/{{ tipo }}/criar" class="cfg-campo-linha">
+        {% if tem_cor %}
+        <input type="color" name="cor" value="#246b84" style="width:26px;height:26px;padding:0;border:0;border-radius:6px;flex-shrink:0;">
+        {% endif %}
+        <input type="text" name="nome" placeholder="Nome do novo item..." required class="cfg-mono" style="flex:1;">
+        {% if tem_terminal %}
+        <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">
+          <input type="checkbox" name="eh_terminal"> terminal
+        </label>
+        {% endif %}
+        <button type="submit" class="btn btn-sm btn-primary" style="flex-shrink:0;">{{ ic.svg('mais', 13) }} Adicionar</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endmacro %}
+
 {% block acoes_topo %}
-<a href="/admin/hardware/nova" class="btn btn-sm btn-primary">{{ ic.svg('mais', 14) }} Nova ocorrência</a>
+{% if visao == 'lista' %}
+<a href="/admin/hardware" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Clientes</a>
+{% endif %}
+<button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'nova-ocorrencia')">{{ ic.svg('mais', 14) }} Nova ocorrência</button>
+<a href="/admin/hardware/importar" class="btn btn-sm btn-secondary">{{ ic.svg('importar', 14) }} Importar planilha</a>
 <a href="/admin/hardware/produtos" class="btn btn-sm btn-secondary">{{ ic.svg('itens', 14) }} Produtos cadastrados</a>
 {% endblock %}
 
@@ -154,7 +229,6 @@
 <!-- ── Lista de ocorrências (de um cliente, ou de um filtro avançado) ──────── -->
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Clientes</a>
     <h1 style="margin:0;font-size:18px;">
       {% if filtros.cliente %}Ocorrências — <span style="color:{{ cor_do_cliente(filtros.cliente) }};">{{ filtros.cliente }}</span>
       {% else %}Ocorrências (filtro avançado){% endif %}
@@ -167,7 +241,7 @@
 <details class="card">
   <summary style="cursor:pointer;font-weight:600;">{{ ic.svg('filtro', 14) }} Filtros avançados</summary>
   <form method="get" action="/admin/hardware" class="busca-form" style="margin-top:12px;margin-bottom:0;">
-    <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por HW-000X, cliente, produto ou serial...">
+    <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por RMA-000X, cliente, produto ou serial...">
     {{ f.multi('status', 'Status', status_opcoes, filtros.status, 'todos') }}
     {{ f.multi('prioridade', 'Prioridade', prioridade_opcoes, filtros.prioridade, 'todas') }}
     {{ f.multi('aguardando_de', 'Aguardando de', aguardando_opcoes, filtros.aguardando_de, 'ninguém') }}
@@ -183,8 +257,12 @@
       <option value="{{ p.id }}" {{ 'selected' if filtros.hardware_produto_id == p.id }}>{{ p.nome }}</option>
       {% endfor %}
     </select>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;color:var(--text-muted);">
+      <input type="checkbox" name="incluir_arquivadas" value="1" {{ 'checked' if filtros.incluir_arquivadas }}>
+      Incluir arquivadas
+    </label>
     <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
-    {% if filtros.busca or filtros.status or filtros.prioridade or filtros.aguardando_de or filtros.cliente or filtros.hardware_produto_id or filtros.critico or filtros.sem_atualizacao_dias %}
+    {% if filtros.busca or filtros.status or filtros.prioridade or filtros.aguardando_de or filtros.cliente or filtros.hardware_produto_id or filtros.critico or filtros.sem_atualizacao_dias or filtros.incluir_arquivadas %}
     <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar tudo</a>
     {% endif %}
   </form>
@@ -194,8 +272,20 @@
 <div class="card table-scroll" id="lista-hardware">
   {{ pg.contagem(pag, "ocorrências") }}
   {% if pag.itens %}
+  <form method="get" action="/admin/hardware/exportar.xlsx" id="form-exportar-hw">
+    {% for s in filtros.status %}<input type="hidden" name="status" value="{{ s }}">{% endfor %}
+    {% for s in filtros.prioridade %}<input type="hidden" name="prioridade" value="{{ s }}">{% endfor %}
+    {% for s in filtros.aguardando_de %}<input type="hidden" name="aguardando_de" value="{{ s }}">{% endfor %}
+    {% if filtros.cliente %}<input type="hidden" name="cliente" value="{{ filtros.cliente }}">{% endif %}
+    {% if filtros.hardware_produto_id %}<input type="hidden" name="hardware_produto_id" value="{{ filtros.hardware_produto_id }}">{% endif %}
+    {% if filtros.busca %}<input type="hidden" name="busca" value="{{ filtros.busca }}">{% endif %}
+    {% if filtros.incluir_arquivadas %}<input type="hidden" name="incluir_arquivadas" value="1">{% endif %}
   <table>
     <thead><tr>
+      <th style="width:30px;text-align:center;">
+        <input type="checkbox" id="marcar-todos-hw" onchange="marcarTodosHardware(this)"
+               title="Marcar todas as ocorrências desta página">
+      </th>
       {{ th_ord('ID', 'id', ord_hw, dir_hw) }}
       {{ th_ord('Cliente', 'cliente', ord_hw, dir_hw) }}
       {{ th_ord('Produto', 'produto', ord_hw, dir_hw) }}
@@ -211,8 +301,15 @@
     <tbody>
     {% for o in pag.itens %}
     {% set cor = cor_do_cliente(o.cliente) %}
-    <tr>
-      <td><a href="/admin/hardware/{{ o.id }}" style="font-weight:700;color:var(--brand-ink);text-decoration:none;">{{ o.rotulo }}</a></td>
+    <tr {{ 'style="opacity:.55;"' | safe if not o.ativo }}>
+      <td style="text-align:center;">
+        <input type="checkbox" name="ocorrencia_ids" value="{{ o.id }}"
+               class="chk-hardware" onchange="atualizarBotaoExportarHardware()">
+      </td>
+      <td>
+        <a href="/admin/hardware/{{ o.id }}" style="font-weight:700;color:var(--brand-ink);text-decoration:none;">{{ o.rotulo }}</a>
+        {% if not o.ativo %}<span class="badge" style="margin-left:4px;font-size:10px;">arquivada</span>{% endif %}
+      </td>
       <td style="color:{{ cor }};font-weight:600;">{{ o.cliente }}</td>
       <td>{{ o.produto_exibido or '—' }}</td>
       <td><span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span></td>
@@ -232,6 +329,15 @@
     {% endfor %}
     </tbody>
   </table>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+    <button type="submit" class="btn btn-sm btn-secondary" id="btn-exportar-hw">
+      {{ ic.svg('baixar', 13) }} <span id="rotulo-exportar-hw">Exportar todos ({{ pag.total }})</span>
+    </button>
+    <span style="font-size:12px;color:var(--text-muted-2);">
+      Sem nada marcado, exporta todas as {{ pag.total }} ocorrência{{ 's' if pag.total != 1 }} deste filtro
+      (não só a página atual). Marque linhas acima pra exportar só elas.
+    </span>
+  </div>
   {% if pag.total_paginas > 1 %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }} · {{ pag.total }} no total</span>
@@ -244,9 +350,140 @@
     {% endfor %}
   </div>
   {% endif %}
+  </form>
   {% else %}
   <p style="color:var(--text-muted);text-align:center;padding:24px;">Nenhuma ocorrência encontrada.</p>
   {% endif %}
 </div>
 {% endif %}
+
+<!-- ── Pop-up: Nova ocorrência (com atalhos pros catálogos) ────────────────── -->
+<div id="popup-nova-ocorrencia" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Nova ocorrência</strong><span class="config-sub">Registrar um equipamento com defeito</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo">
+    <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:2px;">
+      <span style="font-size:12px;color:var(--text-muted-2);">Catálogos desta tela:</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'cat-categoria')">Categorias</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'cat-localizacao')">Localizações</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'cat-prioridade')">Prioridades</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'cat-status')">Status</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'cat-responsavel')">Responsáveis</button>
+      </div>
+    </div>
+    <form method="post" action="/admin/hardware" style="display:contents;">
+      <section class="cfg-secao">
+        <h4><span style="color:var(--brand);">{{ ic.svg('caixa', 13) }}</span> Equipamento</h4>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Cliente *</span>
+          <input type="text" name="cliente" required list="lista-clientes-hw">
+          <datalist id="lista-clientes-hw">
+            {% for c in clientes_cadastrados %}<option value="{{ c.nome }}">{% endfor %}
+          </datalist>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Produto cadastrado</span>
+          <select name="hardware_produto_id">
+            <option value="">— selecione —</option>
+            {% for p in produtos %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Ou produto sem cadastro <span class="cfg-ajuda">ignorado se selecionou acima</span></span>
+          <input type="text" name="produto_nome">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Serial / Patrimônio</span>
+          <input type="text" name="serial_patrimonio" title="Se bater com um patrimônio já cadastrado, o vínculo é feito automaticamente">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Quantidade</span>
+          <input type="number" name="quantidade" min="1" value="1">
+        </div>
+      </section>
+      <section class="cfg-secao">
+        <h4><span style="color:var(--brand);">{{ ic.svg('filtro', 13) }}</span> Classificação e contexto</h4>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Prioridade</span>
+          <select name="prioridade">
+            {% for chave, texto in prioridade_opcoes %}
+            <option value="{{ chave }}" {{ 'selected' if chave == 'normal' }}>{{ texto }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Categoria do defeito</span>
+          <select name="categoria_defeito">
+            <option value="">— selecione —</option>
+            {% for c in categorias_defeito %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Subcategoria</span>
+          <input type="text" name="subcategoria_defeito" placeholder="ex: Touch screen não responde">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Localização atual</span>
+          <select name="localizacao">
+            <option value="">— selecione —</option>
+            {% for chave, texto in localizacao_opcoes %}<option value="{{ chave }}">{{ texto }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Responsável</span>
+          <select name="responsavel_nome">
+            <option value="">— sem responsável ainda —</option>
+            {% for nome in responsavel_opcoes %}<option value="{{ nome }}">{{ nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Data de registro <span class="cfg-ajuda">em branco usa agora</span></span>
+          <input type="datetime-local" name="data_registro">
+        </div>
+      </section>
+      <section class="cfg-secao" style="grid-column:1/-1;">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Descrição do defeito</span>
+          <textarea name="descricao_defeito" rows="2" placeholder="Sintomas observados..."></textarea>
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar ocorrência</button>
+        </div>
+      </section>
+    </form>
+  </div>
+</div>
+
+{{ campo_catalogo('cat-categoria', 'categoria', 'Categorias de defeito', catalogo_categoria, false, false) }}
+{{ campo_catalogo('cat-localizacao', 'localizacao', 'Localizações', catalogo_localizacao, false, false) }}
+{{ campo_catalogo('cat-prioridade', 'prioridade', 'Prioridades', catalogo_prioridade, true, false) }}
+{{ campo_catalogo('cat-status', 'status', 'Status', catalogo_status, true, true) }}
+{{ campo_catalogo('cat-responsavel', 'responsavel', 'Responsáveis', catalogo_responsavel, false, false) }}
+
+<script>
+// Seleção pra exportar: o quadradinho do topo marca/desmarca a página
+// inteira; o botão nunca desabilita -- sem nada marcado, exporta TODO o
+// filtro atual (não só a página), e o rótulo deixa isso claro.
+function marcarTodosHardware(chefe) {
+    document.querySelectorAll('.chk-hardware').forEach(c => { c.checked = chefe.checked; });
+    atualizarBotaoExportarHardware();
+}
+
+function atualizarBotaoExportarHardware() {
+    const qtd = document.querySelectorAll('.chk-hardware:checked').length;
+    const total = document.querySelectorAll('.chk-hardware').length;
+    const rotulo = document.getElementById('rotulo-exportar-hw');
+    if (rotulo) {
+        rotulo.textContent = qtd > 0
+            ? `Exportar selecionados (${qtd})`
+            : `Exportar todos ({{ pag.total if pag is defined else 0 }})`;
+    }
+    const chefe = document.getElementById('marcar-todos-hw');
+    if (chefe) chefe.checked = qtd > 0 && qtd === total;
+}
+</script>
 {% endblock %}

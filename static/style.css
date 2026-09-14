@@ -173,7 +173,12 @@ body {
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; padding: 10px 26px; gap: 14px;
     flex-wrap: wrap;
-    position: sticky; top: 0; z-index: 150;
+    /* 250, não 150: .ds-topbar e .container são irmãos dentro de .ds-main
+       (que não cria contexto de empilhamento própria), então concorrem no
+       MESMO nível que .container (201, ver comentário lá embaixo) -- sem
+       isso, rolar a página fazia o conteúdo do card passar POR CIMA do
+       título fixo no topo, já que 201 > 150. */
+    position: sticky; top: 0; z-index: 250;
 }
 .ds-topbar h1 { font-size: 19px; margin: 0; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
 .ds-topbar-acoes { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
@@ -233,7 +238,18 @@ button.ds-hamburguer {
     text-decoration: underline; text-underline-offset: 2px;
 }
 
-.container { max-width: 1500px; margin: 0 auto; padding: 26px 30px 42px; position: relative; z-index: 1; }
+/* z-index 201 (não 1): .container é "position: relative", então vira
+   contexto de empilhamento próprio -- QUALQUER position:fixed lá dentro
+   (ex: .config-popup, centralizado por cima da tela toda) fica com seu
+   z-index local (1001) preso a ESTE valor quando comparado com irmãos
+   fora do .container, como a sidebar (z-index 200). Com z-index 1 aqui,
+   a sidebar sempre ganhava e cobria a metade esquerda de qualquer popup
+   largo o bastante pra passar por baixo dela. 201 é só o suficiente pra
+   virar a mesa, sem se aproximar dos z-index de 1000+ usados por
+   modal/popup em si -- e .ds-topbar (irmão de .container dentro de
+   .ds-main) precisou subir pra 250 por causa disso, senão o conteúdo
+   rolando por baixo passava por CIMA do título fixo no topo. */
+.container { max-width: 1500px; margin: 0 auto; padding: 26px 30px 42px; position: relative; z-index: 201; }
 
 .card {
     background: var(--surface);
@@ -345,6 +361,12 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
 .btn-warning { background: var(--surface); border-color: var(--warn-border); color: var(--warn-text); }
 .btn-warning:hover { background: var(--warn-bg); }
 .btn-secondary { background: var(--surface); border-color: var(--border); color: var(--text); }
+/* Botão "Voltar"/"Clientes" (qualquer coisa que volte a tela) -- pequeno
+   destaque vermelho pra ficar reconhecível de longe, sempre no mesmo canto
+   (bloco acoes_topo) em toda a Gestão de Hardware. Mesmo visual de
+   .btn-danger, mas com nome próprio -- não é uma ação destrutiva. */
+.btn-voltar  { background: var(--surface); border-color: var(--danger-border); color: var(--danger-text); }
+.btn-voltar:hover { background: var(--danger-bg); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--brand); box-shadow: none; }
 .btn-ghost:hover { background: var(--surface-alt); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }

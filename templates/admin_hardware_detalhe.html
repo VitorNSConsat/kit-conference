@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
-{% block title %}{{ o.rotulo }} — Gestão de Hardware{% endblock %}
+{% block title %}{{ o.rotulo }} — RMAs{% endblock %}
 {% block acoes_topo %}
-<a href="{{ voltar_para }}" class="btn btn-sm btn-secondary">{{ ic.svg('voltar', 14) }} Voltar</a>
+<a href="{{ voltar_para }}" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Voltar</a>
 {% endblock %}
 {% block content %}
 {% set ok_textos = {
   'criada': 'Ocorrência registrada.', 'editado': 'Dados atualizados.', 'status': 'Status alterado.',
   'responsavel': 'Responsável atualizado.', 'proxima_acao': 'Próxima ação atualizada.',
   'atualizacao': 'Atualização registrada.', 'acao': 'Ação registrada.', 'resolvida': 'Ocorrência resolvida.',
-  'reaberta': 'Ocorrência reaberta.', 'anexo': 'Arquivo anexado.'
+  'reaberta': 'Ocorrência reaberta.', 'anexo': 'Arquivo anexado.', 'arquivada': 'Ocorrência arquivada.',
+  'reativada': 'Ocorrência reativada.',
 } %}
 {% if ok and ok in ok_textos %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok_textos[ok] }}</div>
@@ -20,6 +21,17 @@
 
 {% set cor = cor_do_cliente(o.cliente) %}
 {% set aberta = o.status not in ('resolvido', 'encerrado', 'cancelado') %}
+
+{% if not o.ativo %}
+<div class="alert alert-danger" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+  <span>{{ ic.svg('excluir', 14) }} Esta ocorrência está <strong>arquivada</strong> — some das listas de trabalho, mas continua aqui com todo o histórico.</span>
+  {% if pode('hardware_excluir') %}
+  <form method="post" action="/admin/hardware/{{ o.id }}/reativar">
+    <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('reiniciar', 13) }} Reativar</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
 
 <!-- ── Cabeçalho ──────────────────────────────────────────────────────────── -->
 <div class="card" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
@@ -42,13 +54,11 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px,1fr));gap:10px;margin-bottom:16px;">
   <div class="card" style="padding:12px 16px;margin:0;"><p class="ds-kpi-label">Dias em aberto</p><p class="ds-kpi-value">{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</p></div>
   <div class="card" style="padding:12px 16px;margin:0;"><p class="ds-kpi-label">Sem atualização há</p><p class="ds-kpi-value">{{ o.dias_sem_atualizacao if o.dias_sem_atualizacao is not none else '—' }}d</p></div>
-  <div class="card" style="padding:12px 16px;margin:0;display:flex;justify-content:space-between;align-items:flex-start;">
-    <div><p class="ds-kpi-label">Responsável</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.responsavel_nome or '—' }}</p></div>
-    <button type="button" class="btn btn-sm" style="padding:3px 6px;" title="Alterar responsável" onclick="abrirModalHw('modal-hw-responsavel')">{{ ic.svg('editar', 13) }}</button>
+  <div class="card" style="padding:12px 16px;margin:0;">
+    <p class="ds-kpi-label">Responsável</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.responsavel_nome or '—' }}</p>
   </div>
-  <div class="card" style="padding:12px 16px;margin:0;display:flex;justify-content:space-between;align-items:flex-start;">
-    <div><p class="ds-kpi-label">Aguardando</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.aguardando_texto or '—' }}</p></div>
-    <button type="button" class="btn btn-sm" style="padding:3px 6px;" title="Definir próxima ação" onclick="abrirModalHw('modal-hw-proxima-acao')">{{ ic.svg('editar', 13) }}</button>
+  <div class="card" style="padding:12px 16px;margin:0;">
+    <p class="ds-kpi-label">Aguardando</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.aguardando_texto or '—' }}</p>
   </div>
 </div>
 
@@ -58,24 +68,19 @@
   {% if o.aguardando_texto %} — responsável: {{ o.aguardando_texto }}{% endif %}
   {% if o.proxima_acao_data %} — previsão: {{ o.proxima_acao_data }}{% endif %}
 </div>
-{% elif aberta %}
-<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Sem próxima ação definida.
-  <a href="#" onclick="abrirModalHw('modal-hw-proxima-acao');return false;" style="font-weight:600;">Definir agora</a>
-</div>
 {% endif %}
 
 <!-- ── Barra de ações — sempre visível, qualquer que seja a aba aberta ─────── -->
 <div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-  <strong style="font-size:13px;color:var(--text-muted);margin-right:4px;">Ações:</strong>
-  <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-hw-status')">{{ ic.svg('check', 13) }} Mudar status</button>
+  <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 13) }} Editar</button>
   {% if aberta %}
-  <button type="button" class="btn btn-sm btn-success" onclick="abrirModalHw('modal-hw-resolver')">{{ ic.svg('check-circulo', 13) }} Resolver</button>
+  <button type="button" class="btn btn-sm btn-success" onclick="abrirPopup(event, 'resolver')">{{ ic.svg('check-circulo', 13) }} Resolver</button>
   {% elif pode('hardware_encerrar_reabrir') %}
-  <button type="button" class="btn btn-sm btn-warning" onclick="abrirModalHw('modal-hw-reabrir')">{{ ic.svg('voltar', 13) }} Reabrir</button>
+  <button type="button" class="btn btn-sm btn-warning" onclick="abrirPopup(event, 'reabrir')">{{ ic.svg('voltar', 13) }} Reabrir</button>
   {% endif %}
-  {% if pode('hardware_excluir') %}
+  {% if pode('hardware_excluir') and o.ativo %}
   <form method="post" action="/admin/hardware/{{ o.id }}/arquivar" style="margin-left:auto;"
-        onsubmit="return confirm('Arquivar esta ocorrência? Ela some das listas de trabalho, mas o histórico continua existindo.');">
+        onsubmit="return confirm('Arquivar esta ocorrência? Ela some das listas de trabalho, mas o histórico continua existindo — e dá pra reativar depois.');">
     <button type="submit" class="btn btn-sm btn-danger">{{ ic.svg('excluir', 13) }} Arquivar</button>
   </form>
   {% endif %}
@@ -92,46 +97,61 @@
 <!-- ── Abas ───────────────────────────────────────────────────────────────── -->
 <div class="tabs-menu">
   <button type="button" class="tab-btn hw-tab-btn active" data-aba="resumo" onclick="trocarAbaHw('resumo')">Resumo</button>
-  <button type="button" class="tab-btn hw-tab-btn" data-aba="diagnostico" onclick="trocarAbaHw('diagnostico')">Diagnóstico</button>
   <button type="button" class="tab-btn hw-tab-btn" data-aba="acoes" onclick="trocarAbaHw('acoes')">Ações (Brasil/Suécia/Fabricante)</button>
-  <button type="button" class="tab-btn hw-tab-btn" data-aba="historico" onclick="trocarAbaHw('historico')">Histórico <span class="cont" style="margin-left:4px;">{{ eventos | length }}</span></button>
   <button type="button" class="tab-btn hw-tab-btn" data-aba="arquivos" onclick="trocarAbaHw('arquivos')">Arquivos <span class="cont" style="margin-left:4px;">{{ anexos | length }}</span></button>
 </div>
 
-<!-- ── Aba: Resumo ────────────────────────────────────────────────────────── -->
-<div class="card hw-tab-panel" data-aba="resumo">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <h2 style="margin:0;">Resumo</h2>
-    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-hw-editar-resumo')">{{ ic.svg('editar', 13) }} Editar</button>
+<!-- ── Aba: Resumo (resumo + diagnóstico + histórico) ─────────────────────── -->
+<div class="hw-tab-panel" data-aba="resumo">
+  <div class="card">
+    <h2 style="margin:0 0 4px;">Resumo</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:14px;margin-top:14px;">
+      <div><p class="ds-kpi-label">Cliente</p><p style="margin:0;font-weight:600;color:{{ cor }};">{{ o.cliente }}</p></div>
+      <div><p class="ds-kpi-label">Produto</p><p style="margin:0;">{{ o.produto_exibido or '—' }}</p></div>
+      <div><p class="ds-kpi-label">Serial / Patrimônio</p><p style="margin:0;font-family:monospace;">{{ o.serial_patrimonio or '—' }}</p></div>
+      <div><p class="ds-kpi-label">Quantidade</p><p style="margin:0;">{{ o.quantidade }}</p></div>
+      <div><p class="ds-kpi-label">Localização</p><p style="margin:0;">{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</p></div>
+      <div><p class="ds-kpi-label">Data de registro</p><p style="margin:0;">{{ o.data_registro[:16] if o.data_registro else '—' }}</p></div>
+      <div><p class="ds-kpi-label">Criado por</p><p style="margin:0;">{{ o.criado_por_nome or '—' }}</p></div>
+    </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:14px;margin-top:14px;">
-    <div><p class="ds-kpi-label">Cliente</p><p style="margin:0;font-weight:600;color:{{ cor }};">{{ o.cliente }}</p></div>
-    <div><p class="ds-kpi-label">Produto</p><p style="margin:0;">{{ o.produto_exibido or '—' }}</p></div>
-    <div><p class="ds-kpi-label">Serial / Patrimônio</p><p style="margin:0;font-family:monospace;">{{ o.serial_patrimonio or '—' }}</p></div>
-    <div><p class="ds-kpi-label">Quantidade</p><p style="margin:0;">{{ o.quantidade }}</p></div>
-    <div><p class="ds-kpi-label">Localização</p><p style="margin:0;">{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</p></div>
-    <div><p class="ds-kpi-label">Data de registro</p><p style="margin:0;">{{ o.data_registro[:16] if o.data_registro else '—' }}</p></div>
-    <div><p class="ds-kpi-label">Criado por</p><p style="margin:0;">{{ o.criado_por_nome or '—' }}</p></div>
-  </div>
-</div>
 
-<!-- ── Aba: Diagnóstico ───────────────────────────────────────────────────── -->
-<div class="card hw-tab-panel" data-aba="diagnostico" hidden>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <h2 style="margin:0;">Diagnóstico</h2>
-    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalHw('modal-hw-editar-diagnostico')">{{ ic.svg('editar', 13) }} Editar</button>
+  <div class="card">
+    <h2 style="margin:0 0 4px;">Diagnóstico</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:14px;margin:14px 0;">
+      <div><p class="ds-kpi-label">Categoria do defeito</p><p style="margin:0;">{{ o.categoria_defeito or '—' }}</p></div>
+      <div><p class="ds-kpi-label">Subcategoria</p><p style="margin:0;">{{ o.subcategoria_defeito or '—' }}</p></div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <p class="ds-kpi-label">Descrição do defeito / sintomas</p>
+      <p style="margin:0;white-space:pre-wrap;">{{ o.descricao_defeito or '—' }}</p>
+    </div>
+    <div>
+      <p class="ds-kpi-label">Diagnóstico técnico / possível causa</p>
+      <p style="margin:0;white-space:pre-wrap;">{{ o.diagnostico_texto or '—' }}</p>
+    </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:14px;margin:14px 0;">
-    <div><p class="ds-kpi-label">Categoria do defeito</p><p style="margin:0;">{{ o.categoria_defeito or '—' }}</p></div>
-    <div><p class="ds-kpi-label">Subcategoria</p><p style="margin:0;">{{ o.subcategoria_defeito or '—' }}</p></div>
-  </div>
-  <div style="margin-bottom:14px;">
-    <p class="ds-kpi-label">Descrição do defeito / sintomas</p>
-    <p style="margin:0;white-space:pre-wrap;">{{ o.descricao_defeito or '—' }}</p>
-  </div>
-  <div>
-    <p class="ds-kpi-label">Diagnóstico técnico / possível causa</p>
-    <p style="margin:0;white-space:pre-wrap;">{{ o.diagnostico_texto or '—' }}</p>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h2 style="margin:0;">Histórico <span class="cont" style="margin-left:4px;">{{ eventos | length }}</span></h2>
+      <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'atualizacao')">{{ ic.svg('mais', 13) }} Nova atualização</button>
+    </div>
+    <div style="max-height:420px;overflow-y:auto;">
+      {% for e in eventos %}
+      <div class="hw-evento hw-evento-{{ e.tipo }}">
+        <div class="hw-evento-cabecalho">
+          <span class="hw-evento-tipo">{{ e.tipo_texto }}</span>
+          <span class="hw-evento-autor">{{ e.usuario_nome or '—' }}</span>
+          {% if e.situacao %}<span class="badge">{{ e.situacao }}</span>{% endif %}
+          <span class="hw-evento-quando">{{ e.criado_em[:16] }}</span>
+        </div>
+        {% if e.conteudo %}<div class="hw-evento-conteudo">{{ e.conteudo }}</div>{% endif %}
+      </div>
+      {% else %}
+      <p style="color:var(--text-muted);text-align:center;padding:16px;">Nenhum evento ainda.</p>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
@@ -144,7 +164,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <h2 style="margin:0;">{{ area_texto[area] }}</h2>
         <button type="button" class="btn btn-sm btn-secondary"
-                onclick="abrirModalAcaoHw('{{ area }}', '{{ area_texto[area] }}')">{{ ic.svg('mais', 13) }} Registrar</button>
+                onclick="abrirPopupAcao(event, '{{ area }}', '{{ area_texto[area] }}')">{{ ic.svg('mais', 13) }} Registrar</button>
       </div>
       {% if ultima %}
       <p style="font-size:13px;margin:0 0 4px;">{{ ultima.conteudo }}</p>
@@ -177,34 +197,11 @@
   </div>
 </div>
 
-<!-- ── Aba: Histórico (timeline completa) ─────────────────────────────────── -->
-<div class="card hw-tab-panel" data-aba="historico" hidden>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <h2 style="margin:0;">Histórico</h2>
-    <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalHw('modal-hw-atualizacao')">{{ ic.svg('mais', 13) }} Nova atualização</button>
-  </div>
-  <div style="max-height:480px;overflow-y:auto;">
-    {% for e in eventos %}
-    <div class="hw-evento hw-evento-{{ e.tipo }}">
-      <div class="hw-evento-cabecalho">
-        <span class="hw-evento-tipo">{{ e.tipo_texto }}</span>
-        <span class="hw-evento-autor">{{ e.usuario_nome or '—' }}</span>
-        {% if e.situacao %}<span class="badge">{{ e.situacao }}</span>{% endif %}
-        <span class="hw-evento-quando">{{ e.criado_em[:16] }}</span>
-      </div>
-      {% if e.conteudo %}<div class="hw-evento-conteudo">{{ e.conteudo }}</div>{% endif %}
-    </div>
-    {% else %}
-    <p style="color:var(--text-muted);text-align:center;padding:16px;">Nenhum evento ainda.</p>
-    {% endfor %}
-  </div>
-</div>
-
 <!-- ── Aba: Arquivos ──────────────────────────────────────────────────────── -->
 <div class="card hw-tab-panel" data-aba="arquivos" hidden>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
     <h2 style="margin:0;">Arquivos</h2>
-    <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalHw('modal-hw-anexo')">{{ ic.svg('importar', 13) }} Anexar arquivo</button>
+    <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'anexo')">{{ ic.svg('importar', 13) }} Anexar arquivo</button>
   </div>
   <p style="font-size:12px;color:var(--text-muted-2);margin:0 0 12px;">
     Imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB.
@@ -230,287 +227,243 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════
-     Pop-ups — mesmo padrão de janela central já usado no resto do sistema
-     (.modal-lista/.modal-fundo). Um fundo só, compartilhado por todos: só
-     um pop-up fica aberto de cada vez. ═══════════════════════════════════ -->
-<div class="modal-fundo" id="modal-fundo-hw" onclick="fecharModaisHw()"></div>
+     Pop-ups — mesmo padrão de "clicar no lápis" já usado em Itens & Estoque
+     (.config-popup / #popup-overlay, globais em base.html). ═══════════════ -->
 
-<div class="modal-lista hw-modal" id="modal-hw-editar-resumo">
-  <div class="modal-cabecalho">
-    <div><strong>Editar resumo</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-editar" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Editar ocorrência</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/editar">
-      <div class="form-group">
-        <label>Cliente *</label>
-        <input type="text" name="cliente" value="{{ o.cliente }}" required>
-      </div>
-      <div class="form-group">
-        <label>Produto cadastrado</label>
-        <select name="hardware_produto_id">
-          <option value="">— selecione —</option>
-          {% for p in produtos %}<option value="{{ p.id }}" {{ 'selected' if p.id == o.hardware_produto_id }}>{{ p.nome }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Ou produto sem cadastro</label>
-        <input type="text" name="produto_nome" value="{{ o.produto_nome }}">
-      </div>
-      <div class="form-group">
-        <label>Serial / Patrimônio</label>
-        <input type="text" name="serial_patrimonio" value="{{ o.serial_patrimonio }}">
-      </div>
-      <div class="form-group">
-        <label>Quantidade</label>
-        <input type="number" name="quantidade" min="1" value="{{ o.quantidade }}">
-      </div>
-      <div class="form-group">
-        <label>Localização atual</label>
-        <select name="localizacao">
-          <option value="">— selecione —</option>
-          {% for chave, texto in localizacao_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.localizacao }}>{{ texto }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Detalhe da localização</label>
-        <input type="text" name="localizacao_detalhe" value="{{ o.localizacao_detalhe }}" placeholder="ex: prateleira B3">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
+  <div class="config-corpo">
+    <form method="post" action="/admin/hardware/{{ o.id }}/editar" style="display:contents;">
+      <section class="cfg-secao">
+        <h4><span style="color:var(--brand);">{{ ic.svg('caixa', 13) }}</span> Resumo</h4>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Cliente *</span>
+          <input type="text" name="cliente" value="{{ o.cliente }}" required>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Produto cadastrado</span>
+          <select name="hardware_produto_id">
+            <option value="">— selecione —</option>
+            {% for p in produtos %}<option value="{{ p.id }}" {{ 'selected' if p.id == o.hardware_produto_id }}>{{ p.nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Ou produto sem cadastro</span>
+          <input type="text" name="produto_nome" value="{{ o.produto_nome }}">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Serial / Patrimônio</span>
+          <input type="text" name="serial_patrimonio" value="{{ o.serial_patrimonio }}">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Quantidade</span>
+          <input type="number" name="quantidade" min="1" value="{{ o.quantidade }}">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Localização atual</span>
+          <select name="localizacao">
+            <option value="">— selecione —</option>
+            {% for chave, texto in localizacao_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.localizacao }}>{{ texto }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Detalhe da localização</span>
+          <input type="text" name="localizacao_detalhe" value="{{ o.localizacao_detalhe }}" placeholder="ex: prateleira B3">
+        </div>
+      </section>
+      <section class="cfg-secao">
+        <h4><span style="color:var(--brand);">{{ ic.svg('filtro', 13) }}</span> Diagnóstico</h4>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Categoria do defeito</span>
+          <select name="categoria_defeito">
+            <option value="">— selecione —</option>
+            {% for c in categorias_defeito %}<option value="{{ c }}" {{ 'selected' if c == o.categoria_defeito }}>{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Subcategoria</span>
+          <input type="text" name="subcategoria_defeito" value="{{ o.subcategoria_defeito }}">
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Descrição do defeito / sintomas</span>
+          <textarea name="descricao_defeito" rows="2">{{ o.descricao_defeito }}</textarea>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Diagnóstico técnico / possível causa</span>
+          <textarea name="diagnostico_texto" rows="2">{{ o.diagnostico_texto }}</textarea>
+        </div>
+      </section>
+      <section class="cfg-secao" style="grid-column:1/-1;">
+        <h4><span style="color:var(--brand);">{{ ic.svg('relogio', 13) }}</span> Responsável, próxima ação e status</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Responsável</span>
+            <select name="responsavel_nome">
+              <option value="">— sem responsável —</option>
+              {% for nome in responsavel_opcoes %}<option value="{{ nome }}" {{ 'selected' if nome == o.responsavel_nome }}>{{ nome }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Próxima ação</span>
+            <input type="text" name="proxima_acao" value="{{ o.proxima_acao }}">
+          </div>
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Aguardando</span>
+            <select name="aguardando_de">
+              <option value="">— ninguém —</option>
+              {% for chave, texto in aguardando_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.aguardando_de }}>{{ texto }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Previsão</span>
+            <input type="date" name="proxima_acao_data" value="{{ o.proxima_acao_data or '' }}">
+          </div>
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Novo status</span>
+            <select name="status">
+              {% for chave, texto in status_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.status }}>{{ texto }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="cfg-linha-coluna">
+            <span class="cfg-rotulo">Observação <span class="cfg-ajuda">só se o status estiver mudando</span></span>
+            <input type="text" name="observacao">
+          </div>
+        </div>
+      </section>
+      <div class="cfg-acoes" style="grid-column:1/-1;">
+        <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar tudo</button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="modal-lista hw-modal" id="modal-hw-editar-diagnostico">
-  <div class="modal-cabecalho">
-    <div><strong>Editar diagnóstico</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-acao" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong id="hw-acao-titulo">Registrar ação</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/editar">
-      <div class="form-group">
-        <label>Categoria do defeito</label>
-        <select name="categoria_defeito">
-          <option value="">— selecione —</option>
-          {% for c in categorias_defeito %}<option value="{{ c }}" {{ 'selected' if c == o.categoria_defeito }}>{{ c }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Subcategoria</label>
-        <input type="text" name="subcategoria_defeito" value="{{ o.subcategoria_defeito }}">
-      </div>
-      <div class="form-group">
-        <label>Descrição do defeito / sintomas</label>
-        <textarea name="descricao_defeito" rows="3">{{ o.descricao_defeito }}</textarea>
-      </div>
-      <div class="form-group">
-        <label>Diagnóstico técnico / possível causa</label>
-        <textarea name="diagnostico_texto" rows="3">{{ o.diagnostico_texto }}</textarea>
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
-      </div>
-    </form>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/hardware/{{ o.id }}/acao">
+        <input type="hidden" name="area" id="hw-acao-area" value="brasil">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">O que foi feito</span>
+          <textarea name="conteudo" rows="3" required></textarea>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Situação <span class="cfg-ajuda">ex: concluída, aguardando retorno</span></span>
+          <input type="text" name="situacao">
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 
-<div class="modal-lista hw-modal" id="modal-hw-responsavel">
-  <div class="modal-cabecalho">
-    <div><strong>Alterar responsável</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-atualizacao" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Nova atualização</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/responsavel">
-      <div class="form-group">
-        <label>Responsável</label>
-        <select name="responsavel_id">
-          <option value="">— sem responsável —</option>
-          {% for u in usuarios_ativos %}<option value="{{ u.id }}" {{ 'selected' if u.id == o.responsavel_id }}>{{ u.nome }}</option>{% endfor %}
-        </select>
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-lista hw-modal" id="modal-hw-proxima-acao">
-  <div class="modal-cabecalho">
-    <div><strong>Próxima ação</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
-  </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/proxima-acao">
-      <div class="form-group">
-        <label>Próxima ação</label>
-        <input type="text" name="proxima_acao" value="{{ o.proxima_acao }}">
-      </div>
-      <div class="form-group">
-        <label>Aguardando</label>
-        <select name="aguardando_de">
-          <option value="">— ninguém —</option>
-          {% for chave, texto in aguardando_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.aguardando_de }}>{{ texto }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Previsão</label>
-        <input type="date" name="proxima_acao_data" value="{{ o.proxima_acao_data or '' }}">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
-      </div>
-    </form>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" enctype="multipart/form-data">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Conteúdo</span>
+          <textarea name="conteudo" rows="3" required placeholder="O que aconteceu..."></textarea>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Anexar arquivo <span class="cfg-ajuda">opcional</span></span>
+          <input type="file" name="arquivo">
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Adicionar</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 
-<div class="modal-lista hw-modal" id="modal-hw-acao">
-  <div class="modal-cabecalho">
-    <div><strong id="hw-acao-titulo">Registrar ação</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-anexo" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Anexar arquivo</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/acao">
-      <input type="hidden" name="area" id="hw-acao-area" value="brasil">
-      <div class="form-group">
-        <label>O que foi feito</label>
-        <textarea name="conteudo" rows="3" required></textarea>
-      </div>
-      <div class="form-group">
-        <label>Situação <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">— ex: concluída, aguardando retorno</span></label>
-        <input type="text" name="situacao">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-lista hw-modal" id="modal-hw-atualizacao">
-  <div class="modal-cabecalho">
-    <div><strong>Nova atualização</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
-  </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" enctype="multipart/form-data">
-      <div class="form-group">
-        <label>Conteúdo</label>
-        <textarea name="conteudo" rows="3" required placeholder="O que aconteceu..."></textarea>
-      </div>
-      <div class="form-group">
-        <label>Anexar arquivo <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">— opcional</span></label>
-        <input type="file" name="arquivo">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Adicionar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-lista hw-modal" id="modal-hw-anexo">
-  <div class="modal-cabecalho">
-    <div><strong>Anexar arquivo</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
-  </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/anexo" enctype="multipart/form-data">
-      <div class="form-group">
-        <label>Arquivo</label>
-        <input type="file" name="arquivo" required>
-      </div>
-      <p style="font-size:12px;color:var(--text-muted-2);margin:-6px 0 12px;">
-        Imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB.
-      </p>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 14) }} Enviar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-lista hw-modal" id="modal-hw-status">
-  <div class="modal-cabecalho">
-    <div><strong>Mudar status</strong><span class="modal-sub">{{ o.rotulo }} — atual: {{ o.status_texto }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
-  </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/status">
-      <div class="form-group">
-        <label>Novo status</label>
-        <select name="status">
-          {% for chave, texto in status_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.status }}>{{ texto }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Observação <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">— opcional</span></label>
-        <input type="text" name="observacao">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Aplicar</button>
-      </div>
-    </form>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/hardware/{{ o.id }}/anexo" enctype="multipart/form-data">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Arquivo <span class="cfg-ajuda">imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB</span></span>
+          <input type="file" name="arquivo" required>
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 14) }} Enviar</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 
 {% if aberta %}
-<div class="modal-lista hw-modal" id="modal-hw-resolver">
-  <div class="modal-cabecalho">
-    <div><strong>Resolver ocorrência</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-resolver" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Resolver ocorrência</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/resolver">
-      <div class="form-group">
-        <label>Resultado final *</label>
-        <select name="resultado_final" required>
-          <option value="">— selecione —</option>
-          {% for r in resultados_finais %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Descrição da solução</label>
-        <textarea name="solucao_texto" rows="3"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Data da solução <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">— em branco usa agora</span></label>
-        <input type="date" name="data_solucao">
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-success">{{ ic.svg('check-circulo', 14) }} Resolver</button>
-      </div>
-    </form>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/hardware/{{ o.id }}/resolver">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Resultado final *</span>
+          <select name="resultado_final" required>
+            <option value="">— selecione —</option>
+            {% for r in resultados_finais %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Descrição da solução</span>
+          <textarea name="solucao_texto" rows="3"></textarea>
+        </div>
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Data da solução <span class="cfg-ajuda">em branco usa agora</span></span>
+          <input type="date" name="data_solucao">
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-success">{{ ic.svg('check-circulo', 14) }} Resolver</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 {% else %}
-<div class="modal-lista hw-modal" id="modal-hw-reabrir">
-  <div class="modal-cabecalho">
-    <div><strong>Reabrir ocorrência</strong><span class="modal-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="modal-fechar" onclick="fecharModaisHw()">{{ ic.svg('fechar', 16) }}</button>
+<div id="popup-reabrir" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Reabrir ocorrência</strong><span class="config-sub">{{ o.rotulo }}</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
-  <div class="modal-corpo">
-    <form method="post" action="/admin/hardware/{{ o.id }}/reabrir">
-      <div class="form-group">
-        <label>Motivo da reabertura *</label>
-        <input type="text" name="motivo" required>
-      </div>
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button type="button" class="btn btn-secondary" onclick="fecharModaisHw()">Cancelar</button>
-        <button type="submit" class="btn btn-warning">{{ ic.svg('voltar', 14) }} Reabrir</button>
-      </div>
-    </form>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/hardware/{{ o.id }}/reabrir">
+        <div class="cfg-linha-coluna">
+          <span class="cfg-rotulo">Motivo da reabertura *</span>
+          <input type="text" name="motivo" required>
+        </div>
+        <div class="cfg-acoes">
+          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
+          <button type="submit" class="btn btn-warning">{{ ic.svg('voltar', 14) }} Reabrir</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 {% endif %}
@@ -522,24 +475,10 @@ function trocarAbaHw(nome) {
     document.querySelectorAll('.hw-tab-panel').forEach(function (p) { p.hidden = (p.dataset.aba !== nome); });
     document.querySelectorAll('.hw-tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.aba === nome); });
 }
-function abrirModalHw(id) {
-    document.querySelectorAll('.hw-modal').forEach(function (m) { m.classList.remove('aberto'); });
-    var alvo = document.getElementById(id);
-    if (!alvo) return;
-    alvo.classList.add('aberto');
-    document.getElementById('modal-fundo-hw').classList.add('aberto');
-}
-function fecharModaisHw() {
-    document.querySelectorAll('.hw-modal').forEach(function (m) { m.classList.remove('aberto'); });
-    document.getElementById('modal-fundo-hw').classList.remove('aberto');
-}
-function abrirModalAcaoHw(area, rotulo) {
+function abrirPopupAcao(event, area, rotulo) {
     document.getElementById('hw-acao-area').value = area;
     document.getElementById('hw-acao-titulo').textContent = 'Registrar ação — ' + rotulo;
-    abrirModalHw('modal-hw-acao');
+    abrirPopup(event, 'acao');
 }
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') fecharModaisHw();
-});
 </script>
 {% endblock %}

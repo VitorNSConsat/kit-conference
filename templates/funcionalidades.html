@@ -53,7 +53,7 @@
     <a href="#veiculos">7. Veículos e Clientes</a>
     <a href="#prateleira">8. Prateleira</a>
     <a href="#producao">9. Produção</a>
-    <a href="#hardware">10. Gestão de Hardware</a>
+    <a href="#hardware">10. RMAs</a>
     <a href="#verificacao">11. Verificação do kit</a>
     <a href="#relatorios">12. Relatórios</a>
     <a href="#usuarios">13. Usuários e Auditoria</a>
@@ -749,6 +749,14 @@
     prefixa de novo, e continua valendo digitar o número por extenso pra quem não usa esse
     padrão. Cliente sem prefixo cadastrado não muda nada.
   </p>
+  <p>
+    <strong>Renomear cliente</strong> (mesma página): muda o nome do cadastro e
+    <strong>propaga pro texto já gravado</strong> em veículos, RMAs, kits e remessas — não fica
+    nenhum registro antigo apontando pro nome anterior, que não existiria mais em cadastro
+    nenhum. <strong>Excluir</strong> um cliente (na janela de Clientes, admin) some só com o
+    cadastro de apoio (cor, prefixo) — os veículos/RMAs que já usavam aquele nome continuam
+    existindo com o texto como estava, igual sempre foi.
+  </p>
 
   <h3>Importação por planilha</h3>
   <ul>
@@ -1180,11 +1188,13 @@
 
 <!-- 10 ────────────────────────────────────────────────────────────────── -->
 <div class="card" id="hardware">
-  <h2>10. Gestão de Hardware</h2>
+  <h2>10. RMAs</h2>
   <p>
     Acompanhamento de equipamento com defeito/RMA, do registro do problema até a solução final —
     inclusive as três frentes que costumam entrar numa ocorrência: <strong>Brasil</strong>,
-    <strong>Suécia</strong> e <strong>fabricante</strong>.
+    <strong>Suécia</strong> e <strong>fabricante</strong>. Cada ocorrência ganha um identificador
+    automático (<span class="campo">RMA-0001</span>, <span class="campo">RMA-0002</span>...),
+    derivado do id — nunca precisa digitar nem escolher.
   </p>
   <p>
     <strong>Produto é um cadastro à parte</strong> (em <em>Produtos cadastrados</em>, no topo da
@@ -1207,20 +1217,26 @@
 
   <h3>Nova ocorrência</h3>
   <p>
-    Tela própria (botão <strong>Nova ocorrência</strong>, ao lado de <em>Produtos
-    cadastrados</em>), com quatro botões no topo — <strong>Categorias</strong>,
-    <strong>Localizações</strong>, <strong>Prioridades</strong> e <strong>Status</strong> — que
-    abrem um popup pra <strong>adicionar, renomear ou excluir</strong> as opções de cada lista,
-    sem precisar mexer em código. Excluir é sempre <em>desativar</em>: some do formulário de
-    ocorrência nova, mas uma ocorrência antiga que já usava aquele valor continua mostrando
-    certo.
+    Abre em popup (botão <strong>Nova ocorrência</strong>, ao lado de <em>Produtos
+    cadastrados</em>), com cinco botões no topo do formulário — <strong>Categorias</strong>,
+    <strong>Localizações</strong>, <strong>Prioridades</strong>, <strong>Status</strong> e
+    <strong>Responsáveis</strong> — que trocam pra outro popup, o de <strong>adicionar, renomear
+    ou excluir</strong> as opções de cada lista, sem precisar mexer em código. Excluir é sempre
+    <em>desativar</em>: some do formulário de ocorrência nova, mas uma ocorrência antiga que já
+    usava aquele valor continua mostrando certo. <strong>Responsáveis</strong> é um cadastro
+    próprio só de nomes — não depende de ter login no sistema.
   </p>
   <div class="nota">
     <strong>Três status e a prioridade "Normal" são protegidos</strong> (ícone de cadeado, sem
     botão de excluir) — são os valores que o próprio sistema grava sozinho ao criar, reabrir ou
     resolver uma ocorrência. Dá pra renomear e recolorir à vontade, só não pra excluir. Todo o
-    resto (Categoria de defeito e Localização inteiras, mais os outros status/prioridades) é
-    livre.
+    resto (Categoria de defeito, Localização e Responsáveis inteiros, mais os outros
+    status/prioridades) é livre.
+  </div>
+  <div class="nota">
+    Abrir <strong>Categorias/Localizações/Prioridades/Status/Responsáveis</strong> de dentro do
+    popup de Nova ocorrência não fecha o formulário — ele fica "pausado" atrás. Fechar o popup do
+    catálogo volta pra ele exatamente como estava, sem perder o que já tinha sido preenchido.
   </div>
 
   <p>Cada ocorrência tem:</p>
@@ -1231,9 +1247,10 @@
       ver acima.</li>
     <li><span class="campo">Prioridade</span> — Baixa/Normal/Alta/Crítica por padrão, também
       editável; não depende do tipo de defeito.</li>
+    <li><span class="campo">Responsável</span> — nome livre, vindo do cadastro de
+      Responsáveis (mesmo popup de catálogo das outras listas).</li>
     <li><span class="campo">Próxima ação</span> + <span class="campo">Aguardando de</span> —
-      pra nunca depender de descobrir de cabeça o que falta fazer. Sem isso definido (e a
-      ocorrência ainda aberta), a tela mostra um aviso.</li>
+      pra nunca depender de descobrir de cabeça o que falta fazer.</li>
     <li><span class="campo">Ações Brasil/Suécia/Fabricante</span> — três blocos separados, cada
       um com a última ação/situação em destaque e um histórico completo por trás. Registrar
       uma ação nova nunca apaga as anteriores.</li>
@@ -1246,23 +1263,69 @@
 
   <h3>Tela de detalhe</h3>
   <p>
-    Organizada em abas — <strong>Resumo</strong>, <strong>Diagnóstico</strong>,
-    <strong>Ações</strong>, <strong>Histórico</strong> e <strong>Arquivos</strong> — com uma
-    barra de ações fixa em cima (Mudar status, Resolver/Reabrir, Arquivar). Editar qualquer
-    campo, mudar status, registrar uma ação ou anexar um arquivo abre um <strong>popup</strong>
-    pequeno, no mesmo estilo usado em outras partes do sistema, em vez de formulários grandes
-    sempre abertos na tela.
+    Organizada em três abas — <strong>Resumo</strong> (que já traz Diagnóstico e Histórico
+    juntos, pra não espalhar informação relacionada em aba demais), <strong>Ações</strong>
+    (Brasil/Suécia/Fabricante) e <strong>Arquivos</strong> — com uma barra de ações fixa em cima
+    (<strong>Editar</strong>, Resolver/Reabrir, Arquivar).
+  </p>
+  <p>
+    <strong>Editar</strong> é um botão só pra tudo: abre um único popup organizado em seções
+    (Resumo, Diagnóstico, Responsável/próxima ação/Status juntos numa seção só) e um
+    <strong>único "Salvar tudo"</strong> no rodapé aplica as mudanças de uma vez — só grava no
+    histórico o que de fato mudou (mudar o responsável sem tocar no status não cria um evento de
+    status à toa). Registrar uma ação de uma das frentes, anexar um arquivo ou adicionar uma
+    atualização no histórico continuam com o popup próprio deles, já que são registros novos, não
+    edição do que já existe.
   </p>
   <div class="nota">
-    <strong>Arquivar, não excluir.</strong> Uma ocorrência arquivada some das listas de trabalho,
-    mas o histórico continua existindo — é a mesma lógica de "desative em vez de excluir" usada
-    pra usuário e outros cadastros do sistema.
+    <strong>Arquivar, não excluir.</strong> Uma ocorrência arquivada some das listas de trabalho
+    (a não ser que marque <span class="campo">Incluir arquivadas</span> nos filtros avançados,
+    onde ela aparece esmaecida com um selo "arquivada"), mas o histórico continua existindo e a
+    página de detalhe continua acessível pelo link direto — é a mesma lógica de "desative em vez
+    de excluir" usada pra usuário e outros cadastros do sistema. Dá pra <strong>reativar</strong>
+    a qualquer momento, tanto pelo botão que aparece na própria página da ocorrência arquivada
+    quanto reabrindo o link dela.
   </div>
   <div class="cuidado">
     Resolver uma ocorrência <strong>não mexe no estoque sozinho</strong>. A situação física do
     equipamento (em bancada, em RMA, devolvido...) é só informativa nesta tela — qualquer
     movimentação real de estoque continua seguindo as regras já existentes em Itens &amp; Estoque.
   </div>
+
+  <h3>Importar e exportar por planilha</h3>
+  <p>
+    Botão <strong>Importar planilha</strong> (ao lado de <em>Nova ocorrência</em>) abre a tela de
+    importação: baixe a <strong>planilha modelo</strong>, preencha e devolva ao sistema. O
+    cabeçalho é reconhecido por <strong>palavra-chave</strong>, não por posição de coluna — então
+    também aceita a planilha antiga de controle de defeito (com "Ação Corretiva 🇧🇷"/🇸🇪, "ID do
+    elemento" etc.), sem precisar reorganizar nada nela antes. Produto, categoria de defeito e
+    responsável que ainda não existirem no cadastro são <strong>criados automaticamente</strong>;
+    <span class="campo">Status</span> sem correspondência exata é reconhecido pelas variações mais
+    comuns (ex.: "Feito" vira "Resolvido") e, no que não reconhecer, vira "Não iniciado" com um
+    aviso na linha — nunca erro.
+  </p>
+  <p>
+    Reimportar a <strong>mesma planilha depois</strong> não duplica nada, desde que ela tenha a
+    coluna <span class="campo">ID de Referência</span> preenchida (a planilha antiga já traz isso
+    em "ID do elemento") — é o que identifica a ocorrência entre uma importação e outra. Nela, a
+    planilha manda: célula preenchida sobrescreve o cadastro, célula vazia preserva. Sem essa
+    coluna, toda linha da planilha vira sempre uma ocorrência nova. Ação Brasil/Suécia/Fabricante
+    só entra na timeline na <strong>criação</strong> — reimportar a mesma linha não duplica a
+    ação.
+  </p>
+  <p>
+    Toda importação fica registrada em <strong>Importações anteriores</strong>: uma conferência
+    linha a linha (novo/já existente/alterado/erro/aviso) pra saber exatamente o que a planilha
+    mudou, a qualquer momento depois do upload — não só no instante em que ela foi feita.
+  </p>
+  <p>
+    <strong>Exportar</strong> fica na lista de ocorrências (dentro de um cliente, ou com qualquer
+    filtro avançado aplicado): marque linhas com o checkbox pra exportar só elas, ou não marque
+    nada pra exportar <strong>todas</strong> as ocorrências daquele filtro (não só a página
+    visível). A planilha sai com duas abas — <strong>Ocorrências</strong> (todos os campos de
+    cada uma) e <strong>Histórico</strong> (a timeline completa, cronológica, cruzada pelo RMA de
+    cada linha).
+  </p>
 </div>
 
 <!-- 11 ────────────────────────────────────────────────────────────────── -->
