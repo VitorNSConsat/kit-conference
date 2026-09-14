@@ -408,8 +408,11 @@ def listar(filtros: dict | None = None) -> list[dict]:
     # prática, mesmo com o dado preservado no banco. Com o filtro marcado,
     # mostra as duas (arquivada some do resumo/KPI de qualquer forma,
     # porque resumo() e resumo_por_cliente() chamam listar() sem passar
-    # esse filtro).
-    where = [] if filtros.get("incluir_arquivadas") else ["ho.ativo = 1"]
+    # esse filtro). somente_arquivadas é o extremo oposto -- só as
+    # arquivadas, pra tela de "itens arquivados" (ver o que tem, reativar).
+    where = [] if (filtros.get("incluir_arquivadas") or filtros.get("somente_arquivadas")) else ["ho.ativo = 1"]
+    if filtros.get("somente_arquivadas"):
+        where.append("ho.ativo = 0")
     params: list = []
 
     if filtros.get("status"):
@@ -524,6 +527,7 @@ def resumo_por_cliente(filtros: dict | None = None, ordenar: str = "nome_asc") -
     # O painel por cliente é sempre sobre trabalho ATIVO -- arquivada nunca
     # entra na conta aqui, mesmo que o parâmetro tenha vindo de algum jeito.
     filtros.pop("incluir_arquivadas", None)
+    filtros.pop("somente_arquivadas", None)
     itens = listar(filtros)
     terminais = status_terminais()
     mapa_status = opcoes_mapa("status")

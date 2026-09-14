@@ -5927,12 +5927,29 @@ async def admin_cliente_detalhe(request: Request, cliente_id: int, ok: str = "",
 @app.post("/admin/clientes/{cliente_id}/renomear")
 @require_login
 async def admin_cliente_renomear(request: Request, cliente_id: int):
+    # Volta pra onde o form foi enviado -- da página do cliente (Veículos e
+    # Clientes) ou de dentro da lista de RMAs desse cliente, ambas têm o
+    # mesmo campo de renomear e devem voltar pra si mesmas depois de salvar.
+    destino = _voltar_para(request, f"/admin/clientes/{cliente_id}")
     form = await request.form()
     try:
         clientes_mod.renomear(cliente_id, str(form.get("nome", "")))
     except ValueError as e:
-        return RedirectResponse(f"/admin/clientes/{cliente_id}?erro={quote(str(e))}", status_code=302)
-    return RedirectResponse(f"/admin/clientes/{cliente_id}?ok=renomeado", status_code=302)
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    # Voltar pra lista de RMAs filtrada por este cliente precisa apontar pro
+    # nome NOVO -- senão o filtro (o nome antigo, preso na URL de origem)
+    # não bate com ocorrência nenhuma depois da propagação, e a lista volta
+    # vazia logo após um renomear bem-sucedido.
+    if destino.startswith("/admin/hardware") and "cliente=" in destino:
+        from urllib.parse import urlsplit, urlunsplit, parse_qs, urlencode
+        cliente = clientes_mod.buscar(cliente_id)
+        partes = urlsplit(destino)
+        qs = parse_qs(partes.query)
+        qs["cliente"] = [cliente["nome"]] if cliente else qs.get("cliente", [])
+        destino = urlunsplit((partes.scheme, partes.netloc, partes.path, urlencode(qs, doseq=True), partes.fragment))
+    sep = "&" if "?" in destino else "?"
+    return RedirectResponse(f"{destino}{sep}ok=renomeado", status_code=302)
 
 
 @app.post("/admin/clientes/{cliente_id}/prefixo")
@@ -6161,6 +6178,7 @@ def _hardware_filtros(request: Request) -> dict:
         "critico": qp.get("critico", "") == "1",
         "sem_atualizacao_dias": qp.get("sem_atualizacao_dias", ""),
         "incluir_arquivadas": qp.get("incluir_arquivadas", "") == "1",
+        "somente_arquivadas": qp.get("somente_arquivadas", "") == "1",
     }
 
 
@@ -6204,11 +6222,12 @@ async def admin_hardware(request: Request):
         "catalogo_localizacao": hardware_mod.listar_opcoes("localizacao", incluir_inativas=True),
         "catalogo_responsavel": hardware_mod.listar_opcoes("responsavel", incluir_inativas=True),
     }
-    # Sem cliente escolhido: painel de entrada, um card por cliente (visão
-    # geral, com os KPIs condensados). Com cliente escolhido (via "Ver
-    # detalhes" do card, ou filtro avançado): só a lista cheia daquele
-    # cliente — os KPIs globais não fazem sentido mais aqui, já filtrado.
-    if not filtros.get("cliente"):
+    # Sem cliente escolhido nem "só arquivadas": painel de entrada, um card
+    # por cliente (visão geral, com os KPIs condensados). Com cliente
+    # escolhido (via "Ver detalhes" do card, ou filtro avançado) ou pedindo
+    # a lista geral de arquivadas: a lista cheia — os KPIs globais não fazem
+    # sentido mais aqui, já filtrado.
+    if not filtros.get("cliente") and not filtros.get("somente_arquivadas"):
         ordenar_cliente = request.query_params.get("ordenar_cliente", "nome_asc")
         busca_cliente = request.query_params.get("busca_cliente", "").strip()
         clientes_resumo = hardware_mod.resumo_por_cliente(filtros, ordenar_cliente)
@@ -6220,6 +6239,7 @@ async def admin_hardware(request: Request):
         contexto["ordenar_cliente"] = ordenar_cliente
         contexto["busca_cliente"] = busca_cliente
         contexto["clientes_resumo"] = clientes_resumo
+        contexto["total_arquivadas"] = len(hardware_mod.listar({"somente_arquivadas": True}))
     else:
         lista = hardware_mod.listar(filtros)
         ord_hw, dir_hw = _ler_ordem(request, "hw", _ORDENS_HARDWARE)
@@ -6228,6 +6248,10 @@ async def admin_hardware(request: Request):
         contexto["visao"] = "lista"
         contexto["pag"] = paginacao_mod.paginar(lista, pag_hw)
         contexto["ord_hw"], contexto["dir_hw"] = ord_hw, dir_hw
+        if filtros.get("cliente"):
+            contexto["cliente_atual"] = clientes_mod.buscar_por_nome(filtros["cliente"])
+            contexto["arquivadas_deste_cliente"] = len(
+                hardware_mod.listar({"cliente": filtros["cliente"], "somente_arquivadas": True}))
     return render(request, "admin_hardware.html", contexto)
 
 

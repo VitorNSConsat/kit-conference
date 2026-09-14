@@ -378,6 +378,22 @@ def test_resumo_por_cliente_ignora_incluir_arquivadas(usuario_id):
     assert all(c["cliente"] != "ClienteArquivoTeste2" for c in resumo)
 
 
+def test_listar_somente_arquivadas_mostra_so_a_arquivada(usuario_id):
+    oid_ativa = _criar_ocorrencia(usuario_id, cliente="ClienteSomenteArq")
+    oid_arquivada = _criar_ocorrencia(usuario_id, cliente="ClienteSomenteArq")
+    hw.arquivar(oid_arquivada, usuario_id)
+
+    so_arquivadas = hw.listar({"cliente": "ClienteSomenteArq", "somente_arquivadas": True})
+    assert {o["id"] for o in so_arquivadas} == {oid_arquivada}
+
+
+def test_resumo_por_cliente_ignora_somente_arquivadas(usuario_id):
+    oid = _criar_ocorrencia(usuario_id, cliente="ClienteSomenteArq2")
+    hw.arquivar(oid, usuario_id)
+    resumo = hw.resumo_por_cliente({"somente_arquivadas": True})
+    assert all(c["cliente"] != "ClienteSomenteArq2" for c in resumo)
+
+
 # ── Importação por planilha ──────────────────────────────────────────────────
 
 def _planilha(headers, linhas, linhas_antes_do_cabecalho=0):

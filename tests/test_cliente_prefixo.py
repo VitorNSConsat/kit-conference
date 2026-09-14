@@ -119,6 +119,16 @@ def test_importar_excel_cliente_sem_prefixo_mantem_numero_da_planilha():
 
 # ── renomear(): edita o cadastro e propaga pro texto livre já gravado ───────
 
+def test_buscar_por_nome_encontra_sem_diferenciar_caixa():
+    cid = clientes_mod.criar("Cliente Busca")
+    assert clientes_mod.buscar_por_nome("cliente busca")["id"] == cid
+    assert clientes_mod.buscar_por_nome("CLIENTE BUSCA")["id"] == cid
+
+
+def test_buscar_por_nome_inexistente_retorna_none():
+    assert clientes_mod.buscar_por_nome("Não Existe Nenhum") is None
+
+
 def test_renomear_atualiza_o_cadastro():
     cid = clientes_mod.criar("Nome Antigo")
     clientes_mod.renomear(cid, "Nome Novo")

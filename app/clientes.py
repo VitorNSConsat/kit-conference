@@ -79,6 +79,21 @@ def buscar(cliente_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def buscar_por_nome(nome: str) -> dict | None:
+    """Acha o cadastro pelo nome exato (sem diferenciar caixa) -- usado em
+    telas que já sabem o nome do cliente (ex.: lista de RMAs filtrada) e
+    precisam do id só pra montar o link/form de uma ação (renomear)."""
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id, nome, prefixo, criado_em FROM clientes WHERE UPPER(TRIM(nome)) = UPPER(?)",
+            (nome,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def buscar_prefixo(nome: str) -> str:
     """Prefixo de numeração cadastrado pra este cliente (vazio se não tiver
     ou não existir). Comparação sem caixa/espaço, igual ao resto do

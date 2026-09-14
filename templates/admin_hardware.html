@@ -93,6 +93,9 @@
 <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'nova-ocorrencia')">{{ ic.svg('mais', 14) }} Nova ocorrência</button>
 <a href="/admin/hardware/importar" class="btn btn-sm btn-secondary">{{ ic.svg('importar', 14) }} Importar planilha</a>
 <a href="/admin/hardware/produtos" class="btn btn-sm btn-secondary">{{ ic.svg('itens', 14) }} Produtos cadastrados</a>
+{% if visao == 'clientes' %}
+<a href="/admin/hardware?somente_arquivadas=1" class="btn btn-sm btn-secondary">{{ ic.svg('excluir', 14) }} Arquivadas ({{ total_arquivadas }})</a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -100,6 +103,8 @@
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Ocorrência registrada.</div>
 {% elif ok == 'arquivada' %}
 <div class="alert alert-success">Ocorrência arquivada.</div>
+{% elif ok == 'renomeado' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Cliente renomeado — o nome novo já vale em veículos, RMAs, kits e remessas.</div>
 {% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>
@@ -228,14 +233,48 @@
 {% else %}
 <!-- ── Lista de ocorrências (de um cliente, ou de um filtro avançado) ──────── -->
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div style="display:flex;align-items:center;gap:8px;">
     <h1 style="margin:0;font-size:18px;">
       {% if filtros.cliente %}Ocorrências — <span style="color:{{ cor_do_cliente(filtros.cliente) }};">{{ filtros.cliente }}</span>
+      {% elif filtros.somente_arquivadas %}Ocorrências arquivadas
       {% else %}Ocorrências (filtro avançado){% endif %}
     </h1>
+    {% if filtros.cliente and cliente_atual %}
+    <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 6px;"
+            onclick="abrirPopup(event, 'renomear-cliente')" title="Renomear cliente">
+      {{ ic.svg('editar', 14) }}
+    </button>
+    {% endif %}
   </div>
-  <span style="font-size:12.5px;color:var(--text-muted);">{{ pag.total }} ocorrência{{ 's' if pag.total != 1 }}</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    {% if filtros.cliente and not filtros.somente_arquivadas %}
+    <a href="?cliente={{ filtros.cliente | urlencode }}&somente_arquivadas=1" class="btn btn-sm btn-secondary">
+      {{ ic.svg('excluir', 13) }} Arquivadas ({{ arquivadas_deste_cliente }})
+    </a>
+    {% elif filtros.cliente and filtros.somente_arquivadas %}
+    <a href="?cliente={{ filtros.cliente | urlencode }}" class="btn btn-sm btn-secondary">Ver ativas</a>
+    {% endif %}
+    <span style="font-size:12.5px;color:var(--text-muted);">{{ pag.total }} ocorrência{{ 's' if pag.total != 1 }}</span>
+  </div>
 </div>
+
+{% if filtros.cliente and cliente_atual %}
+<div id="popup-renomear-cliente" class="config-popup" role="dialog" aria-modal="true" aria-labelledby="popup-titulo-renomear-cliente">
+  <div class="config-cabecalho">
+    <div><strong id="popup-titulo-renomear-cliente">Renomear cliente</strong>
+      <span class="config-sub">vale pra veículos, RMAs, kits e remessas já cadastrados</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo">
+    <section class="cfg-secao" style="grid-column:1/-1;">
+      <form method="post" action="/admin/clientes/{{ cliente_atual.id }}/renomear" class="cfg-campo-linha">
+        <input type="text" name="nome" value="{{ cliente_atual.nome }}" required class="cfg-mono" style="flex:1;">
+        <button type="submit" class="btn btn-sm" style="padding:3px 6px;flex-shrink:0;" title="Salvar">{{ ic.svg('check', 13) }}</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endif %}
 
 <!-- ── Filtros ────────────────────────────────────────────────────────────── -->
 <details class="card">
