@@ -216,6 +216,65 @@
     color: #888;
   }
 
+  /* ── Modo "um item por vez" ────────────────── */
+  .modo-toggle-btn {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #eef3f7;
+    color: #246b84;
+    border: 1.5px solid #cfe0e8;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .modo-toggle-btn:active { background: #dfe9ef; }
+  .modo-unico-contador {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: .5px;
+    margin-bottom: 8px;
+  }
+  /* Some tudo, mostra só a linha com .ativo -- reaproveita o item-row que já
+     existe (mesmo toque, mesmo toggleItem()), só amplia o destaque. */
+  #lista-itens.modo-unico .item-row { display: none; }
+  #lista-itens.modo-unico .item-row.ativo {
+    display: flex;
+    border: 2px solid #246b84;
+    border-radius: 12px;
+    padding: 22px 14px;
+    margin-bottom: 4px;
+  }
+  #lista-itens.modo-unico .item-row.ativo.checked { border-color: #18804b; }
+  #lista-itens.modo-unico .item-tipo { font-size: 19px; }
+  #lista-itens.modo-unico .item-qtd { width: 48px; height: 48px; font-size: 17px; }
+  #lista-itens.modo-unico .item-check-icon { font-size: 30px; width: 36px; }
+  #nav-modo-unico-botoes {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .modo-unico-nav-btn {
+    flex: 1;
+    padding: 12px;
+    background: #fff;
+    color: #246b84;
+    border: 1.5px solid #cfe0e8;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .modo-unico-nav-btn:active { background: #eef3f7; }
+  .modo-unico-nav-btn:disabled { opacity: .35; cursor: default; }
+
   /* ── Rodapé ───────────────────────────────── */
   .footer {
     text-align: center;
@@ -486,6 +545,11 @@
         <div class="progress-fill" id="progress-fill" style="width:0%"></div>
       </div>
     </div>
+    {% if user and itens | rejectattr('fora_do_template') | list | length > 1 %}
+    <button type="button" class="modo-toggle-btn" id="btn-modo-toggle" onclick="alternarModoItem()">
+      Ver um item por vez
+    </button>
+    {% endif %}
     {% endif %}
 
     {% if not user %}
@@ -493,6 +557,15 @@
       Faça login para conferir os itens.
     </div>
     {% endif %}
+
+    {# Modo "um por vez": some a lista inteira, mostra só o item da vez em
+       destaque, com Anterior/Próximo pra revisar sem perder o toque de
+       confirmar (que continua sendo o mesmo toggleItem() de sempre). #}
+    <div id="nav-modo-unico" style="display:none;">
+      <div class="modo-unico-contador" id="modo-unico-contador">1 de {{ itens | length }}</div>
+    </div>
+
+    <div id="lista-itens">
     {% for item in itens %}
     {% set is_checked = item.item_tipo_id in conferidos %}
     <div class="item-row {{ 'checked' if is_checked else '' }} {{ 'fora-template' if item.fora_do_template else '' }}"
@@ -545,6 +618,16 @@
     {% else %}
     <p style="color:#aaa;font-size:13px;">Nenhum item encontrado.</p>
     {% endfor %}
+    </div>
+
+    <div id="nav-modo-unico-botoes" style="display:none;">
+      <button type="button" class="modo-unico-nav-btn" id="btn-item-anterior" onclick="irParaItem(-1)">
+        {{ ic.svg('voltar', 16) }} Anterior
+      </button>
+      <button type="button" class="modo-unico-nav-btn" id="btn-item-proximo" onclick="irParaItem(1)">
+        Próximo {{ ic.svg('seta-direita', 16) }}
+      </button>
+    </div>
   </div>
 
   {% if operadores_kit and operadores_kit | length > 1 %}
@@ -767,6 +850,79 @@ async function toggleItem(row) {
     row.style.opacity = '1';
   }
   atualizarProgresso();
+  if (modoUnico && marcar) avancarAposConfirmar();
+}
+
+// ── Modo "um item por vez" ───────────────────────────────────────────────
+// Não duplica o item-row (mesma marcação, mesmo toggleItem) -- só esconde
+// todos menos o "ativo" e amplia esse. Confirmar avança sozinho pro próximo
+// que falta; terminando todos, volta pra lista cheia pra fechar a
+// verificação. Dá pra alternar entre os dois modos a qualquer momento.
+let modoUnico = false;
+let indiceAtual = 0;
+
+function linhasNavegaveis() {
+  return [...document.querySelectorAll('#lista-itens .item-row:not([data-fora])')];
+}
+
+function alternarModoItem() {
+  modoUnico ? desativarModoUnico() : ativarModoUnico();
+}
+
+function ativarModoUnico() {
+  const linhas = linhasNavegaveis();
+  if (!linhas.length) return;
+  modoUnico = true;
+  const primeiraPendente = linhas.findIndex((r) => !r.classList.contains('checked'));
+  indiceAtual = primeiraPendente >= 0 ? primeiraPendente : 0;
+  document.getElementById('lista-itens').classList.add('modo-unico');
+  document.getElementById('nav-modo-unico').style.display = 'block';
+  document.getElementById('nav-modo-unico-botoes').style.display = 'flex';
+  document.getElementById('btn-modo-toggle').textContent = 'Ver lista completa';
+  atualizarExibicaoModoUnico();
+}
+
+function desativarModoUnico() {
+  modoUnico = false;
+  document.getElementById('lista-itens').classList.remove('modo-unico');
+  linhasNavegaveis().forEach((r) => r.classList.remove('ativo'));
+  document.getElementById('nav-modo-unico').style.display = 'none';
+  document.getElementById('nav-modo-unico-botoes').style.display = 'none';
+  const btn = document.getElementById('btn-modo-toggle');
+  if (btn) btn.textContent = 'Ver um item por vez';
+}
+
+function irParaItem(delta) {
+  const linhas = linhasNavegaveis();
+  indiceAtual = Math.max(0, Math.min(linhas.length - 1, indiceAtual + delta));
+  atualizarExibicaoModoUnico();
+}
+
+function atualizarExibicaoModoUnico() {
+  const linhas = linhasNavegaveis();
+  linhas.forEach((r, i) => r.classList.toggle('ativo', i === indiceAtual));
+  document.getElementById('modo-unico-contador').textContent =
+    (indiceAtual + 1) + ' de ' + linhas.length;
+  document.getElementById('btn-item-anterior').disabled = indiceAtual === 0;
+  document.getElementById('btn-item-proximo').disabled = indiceAtual === linhas.length - 1;
+}
+
+function avancarAposConfirmar() {
+  const linhas = linhasNavegaveis();
+  // Procura o próximo pendente a partir daqui, dando a volta se precisar --
+  // assim quem confirma fora de ordem (voltou pra corrigir um) continua
+  // sendo levado pro que falta, não simplesmente pro próximo da lista.
+  for (let passo = 1; passo <= linhas.length; passo++) {
+    const i = (indiceAtual + passo) % linhas.length;
+    if (!linhas[i].classList.contains('checked')) {
+      indiceAtual = i;
+      atualizarExibicaoModoUnico();
+      return;
+    }
+  }
+  // Não sobrou nenhum pendente: a lista volta pra tela pra fechar a
+  // verificação (o botão "Confirmar Verificação" já libera sozinho).
+  desativarModoUnico();
 }
 
 function atualizarProgresso() {
