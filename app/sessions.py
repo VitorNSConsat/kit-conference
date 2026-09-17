@@ -1,5 +1,3 @@
-import re
-
 from database import db, now_brt
 import app.items as items_mod
 import app.kit_templates as templates_mod
@@ -8,27 +6,10 @@ import app.codigos_gerados as codigos_gerados_mod
 import app.datas as datas_mod
 import app.filtros as filtros_mod
 
-
-# Separador real varia: ":"/"-" são o padrão, mas o leitor configurado pro
-# layout de teclado do QR do CVC sai com "Ç"/"ç" no lugar de ":" -- ex.:
-# "00Ç10ÇF3ÇE0ÇE8Ç3C" é o MAC 00:10:F3:E0:E8:3C. Aceita os três em vez de
-# depender de reconfigurar o leitor.
-_MAC_RE = re.compile(
-    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]'
-    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})'
-)
-
-
-def _extrair_mac_address(texto: str) -> str | None:
-    """Acha um MAC address dentro do texto lido -- o QR de equipamentos como
-    o CVC vem com várias informações emendadas (ex.:
-    "CON-001-0022_TSCFB2002846_B718_00Ç10ÇF3ÇE0ÇE8Ç3C;3D") e o MAC é uma
-    delas. None quando não acha nenhum. Sempre devolve normalizado, maiúsculo
-    e com ":": "00:10:F3:E0:E8:3C"."""
-    m = _MAC_RE.search(texto or "")
-    if not m:
-        return None
-    return ":".join(g.upper() for g in m.groups())
+# A extração de MAC mora em app/items.py agora (onde_esta() também precisa
+# dela, pra itens bipados antes de mac_address existir como coluna) -- este
+# alias evita ter que trocar toda referência já espalhada por este arquivo.
+_extrair_mac_address = items_mod.extrair_mac_address
 
 
 def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
@@ -1333,7 +1314,7 @@ def itens_do_kit(kit_id: str) -> list[dict]:
     """
     with db() as conn:
         rows = conn.execute("""
-            SELECT si.codigo_barra, si.serial_number, si.bipado_em, si.observacao,
+            SELECT si.codigo_barra, si.serial_number, si.mac_address, si.bipado_em, si.observacao,
                    si.codigo_caixa, COALESCE(si.quantidade, 1) AS quantidade,
                    it.nome AS tipo, COALESCE(it.unidade, 'un') AS unidade,
                    it.codigo_fixo AS codigo_fixo_do_tipo,
@@ -1350,6 +1331,11 @@ def itens_do_kit(kit_id: str) -> list[dict]:
     for r in rows:
         d = dict(r)
         d["linhas"] = 1
+        # Bipagem de antes da coluna mac_address existir não tem o valor
+        # salvo, mas o MAC continua ali dentro do serial cru -- extrai na
+        # leitura em vez de deixar esses itens mais antigos sem MAC exibido.
+        if not d["mac_address"]:
+            d["mac_address"] = items_mod.extrair_mac_address(d["serial_number"])
         if d["e_patrimonio"]:
             patrimonios.append(d)
             continue
@@ -1363,6 +1349,7 @@ def itens_do_kit(kit_id: str) -> list[dict]:
             # total, não um dos códigos, que seria escolher um por acaso.
             alvo["codigo_barra"] = ""
             alvo["serial_number"] = None
+            alvo["mac_address"] = None
 
     for d in por_tipo.values():
         d["quantidade_texto"] = _qtd_texto(d["quantidade"], d["unidade"])

@@ -120,6 +120,9 @@
         {%- if item_sel.serial_number %} · série {{ item_sel.serial_number }}{% endif %}
         {%- if item_sel.codigo_caixa %} · caixa (lote) {{ item_sel.codigo_caixa }}{% endif %}
       </div>
+      {%- if item_sel.mac_address %}
+      <div class="pat-sub vp-mac">MAC {{ item_sel.mac_address }}</div>
+      {%- endif %}
       <div class="pat-atalhos">
         <a href="/admin/items/patrimonio/{{ codigo_barra | urlencode }}"
            class="btn btn-sm btn-secondary">Histórico completo →</a>
@@ -263,6 +266,14 @@
               {%- else %}{{ i.linhas }} {{ 'bipagens somadas' if i.linhas > 1 else 'bipagem somada' }}
               {%- endif %}
             </div>
+            {%- if i.mac_address %}
+            {# O nº de série de item como o CVC vem colado com outras
+               informações (código do conector, checksum...) e ilegível de
+               olho -- o MAC já sai separado e normalizado na bipagem
+               (ver sessions._extrair_mac_address), então mostra ele limpo
+               aqui em vez de obrigar quem está lendo a garimpar no serial. #}
+            <div class="vp-codigo vp-mac">MAC {{ i.mac_address }}</div>
+            {%- endif %}
           </div>
           {% if i.e_patrimonio %}
           {# Foca o item SEM sair da janela do veículo: trocar pro painel curto

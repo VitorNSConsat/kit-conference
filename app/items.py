@@ -1,5 +1,30 @@
 import io
+import re
 from database import db, now_brt
+
+
+# Separador real varia: ":"/"-" são o padrão, mas o leitor configurado pro
+# layout de teclado do QR do CVC sai com "Ç"/"ç" no lugar de ":" -- ex.:
+# "00Ç10ÇF3ÇE0ÇE8Ç3C" é o MAC 00:10:F3:E0:E8:3C. Aceita os três em vez de
+# depender de reconfigurar o leitor. Mora aqui (não em app/sessions.py, que
+# a usava sozinha até agora) porque onde_esta() também precisa dela pra
+# itens bipados ANTES da coluna mac_address existir -- ver extrair_mac_address.
+_MAC_RE = re.compile(
+    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]'
+    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})'
+)
+
+
+def extrair_mac_address(texto: str) -> str | None:
+    """Acha um MAC address dentro do texto lido -- o QR de equipamentos como
+    o CVC vem com várias informações emendadas (ex.:
+    "CON-001-0022_TSCFB2002846_B718_00Ç10ÇF3ÇE0ÇE8Ç3C;3D") e o MAC é uma
+    delas. None quando não acha nenhum. Sempre devolve normalizado, maiúsculo
+    e com ":": "00:10:F3:E0:E8:3C"."""
+    m = _MAC_RE.search(texto or "")
+    if not m:
+        return None
+    return ":".join(g.upper() for g in m.groups())
 
 
 # ── Tipos de item ──────────────────────────────────────────────────────────────
@@ -305,7 +330,11 @@ def historico_patrimonio(codigo_barra: str) -> list[dict]:
             WHERE si.codigo_barra = ?
             ORDER BY si.bipado_em DESC, si.id DESC
         """, (codigo_barra,)).fetchall()
-    return [dict(r) for r in rows]
+    itens = [dict(r) for r in rows]
+    for d in itens:
+        if not d["mac_address"]:
+            d["mac_address"] = extrair_mac_address(d["serial_number"])
+    return itens
 
 
 def bipados_na_mesma_sessao(sessao_id: int, codigo_barra: str) -> list[dict]:
@@ -375,7 +404,7 @@ def onde_esta(codigo_barra: str) -> dict | None:
     with db() as conn:
         row = conn.execute("""
             SELECT si.id AS si_id, si.sessao_id, si.bipado_em, si.serial_number,
-                   si.codigo_caixa, si.item_tipo_id, it.nome AS tipo_nome,
+                   si.mac_address, si.codigo_caixa, si.item_tipo_id, it.nome AS tipo_nome,
                    ss.status AS sessao_status,
                    kt.nome AS kit_nome, kt.cliente,
                    kr.kit_id, kr.status_producao,
@@ -394,7 +423,14 @@ def onde_esta(codigo_barra: str) -> dict | None:
               AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado'))
             ORDER BY si.bipado_em DESC, si.id DESC LIMIT 1
         """, (codigo_barra,)).fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    # Mesmo caso de itens_do_kit(): bipagem de antes da coluna mac_address
+    # existir não tem o valor salvo, mas o MAC continua no serial cru.
+    if not d["mac_address"]:
+        d["mac_address"] = extrair_mac_address(d["serial_number"])
+    return d
 
 
 def kit_do_veiculo(numero: str) -> dict | None:
