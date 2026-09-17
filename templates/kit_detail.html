@@ -921,8 +921,13 @@ function avancarAposConfirmar() {
     }
   }
   // Não sobrou nenhum pendente: a lista volta pra tela pra fechar a
-  // verificação (o botão "Confirmar Verificação" já libera sozinho).
+  // verificação (o botão "Confirmar Verificação" já libera sozinho) e a
+  // tela rola sozinha até ele -- sem isso o operador precisa procurar o
+  // botão depois de confirmar o último item, o que é o scroll manual que
+  // o modo "um por vez" tenta evitar.
   desativarModoUnico();
+  const alvo = document.getElementById('val-form-wrap');
+  if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function atualizarProgresso() {
@@ -945,6 +950,15 @@ function atualizarProgresso() {
 }
 
 atualizarProgresso();
+
+// Padrão é "um item por vez" -- mais fácil de usar no celular, onde esta
+// tela é aberta na maioria das vezes. O botão continua ali pra quem
+// preferir ver a lista inteira (ativarModoUnico() já troca o texto dele
+// pra "Ver lista completa"). Só ativa quando o botão existe de verdade
+// (mesma condição do Jinja: logado e mais de um item pra conferir).
+if (document.getElementById('btn-modo-toggle')) {
+  ativarModoUnico();
+}
 </script>
 
 </body>

@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=39">
+    <link rel="stylesheet" href="/static/style.css?v=41">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -279,6 +279,9 @@ function abrirPainelVeiculo(id, numero, item) {
     abrirJanelaPainel('/admin/veiculos/' + id + '/painel?voltar=' + _voltaAtual()
                       + (item ? '&item=' + encodeURIComponent(item) : ''),
                       'Veículo', numero || '', true);
+}
+function abrirPainelPedido(id, nome) {
+    abrirJanelaPainel('/admin/templates/' + id + '/painel', 'Pedido', nome || '', true);
 }
 // Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
 // conferindo origem e destino não pode perder a lista de trás.

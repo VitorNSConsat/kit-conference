@@ -957,6 +957,14 @@ tr:hover td { background: var(--surface-alt); }
    clica?" aparece. */
 .marca-cliente { font-weight: 700; text-decoration: none; }
 a.marca-cliente:hover { text-decoration: underline; }
+
+/* Nome do pedido na lista: abre o painel (abrirPainelPedido), mesmo texto
+   sem parecer um botão -- é um <button> por baixo (não <a>, sem URL própria). */
+.btn-link-pedido {
+    background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+    font: inherit; color: var(--brand-ink); font-weight: 700; text-decoration: none;
+}
+.btn-link-pedido:hover { text-decoration: underline; }
 .pat-atalhos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 .pat-acao {
@@ -1277,6 +1285,24 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     padding: 3px 9px; border-radius: 6px; cursor: pointer; align-self: flex-start;
 }
 .cfg-acoes { display: flex; gap: 6px; margin-top: 12px; }
+
+/* Agrupa Quantidade Atual / Mínima / Entrada-Saída num canto só do popup de
+   estoque (em vez de espalhados em linhas separadas) + destaque de "o que
+   mudou, quem mudou" logo abaixo, quando houver alteração recente. */
+.cfg-grupo-saldo {
+    border: 1px solid var(--border-subtle); border-radius: 10px;
+    padding: 2px 12px 10px; margin: 10px 0;
+}
+.cfg-grupo-titulo {
+    margin: 10px 0 2px; font-size: 12px; font-weight: 700; color: var(--text);
+}
+.cfg-destaque-alteracao {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    padding: 6px 10px; border-radius: 8px; font-size: 11px; line-height: 1.4;
+    background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+    color: var(--text-muted); border: 1px solid var(--brand-border);
+}
+.cfg-destaque-alteracao svg { flex-shrink: 0; opacity: .8; }
 .cfg-acoes .btn { flex: 1; text-align: center; }
 
 /* O estilo do menu de abas mora em static/style.css, carregado no <head> —

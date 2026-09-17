@@ -1492,7 +1492,14 @@ def _admin_items_context(sobressalente_cliente: str = "",
 
     elif aba == "catalogo":
         tipos = items_mod.listar_tipos()
+        cfg_alerta = estoque_mod.get_alerta_config()
         estoque_por_tipo = {e["item_tipo_id"]: e for e in estoque_mod.listar_estoque()}
+        # Destaque "o que mudou, quem mudou" embaixo do bloco de saldo, no
+        # popup de configuração -- mesma janela de horas do aviso de estoque
+        # baixo (ver alerta_destaque_horas).
+        alteracoes = estoque_mod.ultimas_alteracoes(cfg_alerta["alerta_destaque_horas"])
+        for e in estoque_por_tipo.values():
+            e["ultima_alteracao"] = alteracoes.get(e["id"])
         if busca:
             # O código de barras do tipo mora no estoque, não no tipo — junta
             # os dois pra busca achar tanto por nome quanto por código.
@@ -1505,7 +1512,6 @@ def _admin_items_context(sobressalente_cliente: str = "",
         # faixa de aviso — filtrar por "no vermelho" e o aviso do topo não
         # podem discordar sobre o que é vermelho. A margem de "atenção" vem
         # da mesma configuração.
-        cfg_alerta = estoque_mod.get_alerta_config()
         margem = cfg_alerta["alerta_margem"]
 
         def _nivel(t):
@@ -2127,6 +2133,24 @@ async def admin_templates_post(request: Request):
         })
     templates_mod.criar_template(nome, cliente, user["id"], itens, tipo=tipo)
     return RedirectResponse(f"/admin/templates?ok=1&tab={tipo}", status_code=302)
+
+
+@app.get("/admin/templates/{template_id}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_template_painel(request: Request, template_id: int):
+    """Resumo rápido do pedido (ou kit) — mesmo mecanismo de abrirJanelaPainel
+    já usado pra veículo/patrimônio, aberto clicando no nome em Criar
+    Kit/Pedido. Edição de verdade continua na tela "Editar"."""
+    template = templates_mod.buscar_template(template_id)
+    if not template:
+        return HTMLResponse("<p class='pat-ajuda'>Pedido não encontrado.</p>", status_code=404)
+    itens = templates_mod.get_itens_template(template_id)
+    unidades = pedidos_mod.listar_unidades(template_id) if template.get("tipo") == "pedido" else []
+    return render(request, "_painel_pedido.html", {
+        "pedido": template,
+        "itens": itens,
+        "unidades": unidades,
+    })
 
 
 @app.get("/admin/templates/{template_id}/edit", response_class=HTMLResponse)
@@ -5006,6 +5030,7 @@ async def admin_estoque_alertas(request: Request):
         "alerta_segundos": form.get("alerta_segundos", ""),
         "alerta_telas": str(form.get("alerta_telas", "")),
         "alerta_cor_critico": str(form.get("alerta_cor_critico", "")),
+        "alerta_destaque_horas": form.get("alerta_destaque_horas", ""),
     })
     return RedirectResponse(_voltar_items_catalogo(request, "alertas"), status_code=302)
 
@@ -5017,6 +5042,12 @@ async def admin_estoque(request: Request):
     itens = estoque_mod.listar_estoque()
     alertas = estoque_mod.alertas_abaixo_minimo()
     url_http = getattr(app.state, "url_http", _zpl.SERVIDOR_URL)
+    # Destaque "o que mudou, quem mudou" embaixo da linha -- uma consulta só
+    # pra lista inteira (ver estoque_mod.ultimas_alteracoes).
+    destaque_horas = estoque_mod.get_alerta_config()["alerta_destaque_horas"]
+    alteracoes = estoque_mod.ultimas_alteracoes(destaque_horas)
+    for it in itens:
+        it["ultima_alteracao"] = alteracoes.get(it["id"])
     return render(request, "admin_estoque.html", {
         "itens": itens,
         "alertas": alertas,

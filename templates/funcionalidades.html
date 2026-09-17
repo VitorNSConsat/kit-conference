@@ -337,6 +337,20 @@
     travar quem está em campo: aqui é ação de escritório, com alguém conferindo o número.
   </div>
   <p>
+    Na janela de configuração, <strong>Quantidade Atual</strong>, <strong>Quantidade
+    Mínima</strong> e <strong>Entrada / Saída</strong> ficam agrupados num quadro só
+    ("Saldo — N unidade(s)"), nessa ordem, em vez de espalhados em linhas separadas.
+    Logo abaixo da linha de cada item — nesta lista e também em <strong>Controle de
+    Estoque</strong> — aparece um <strong>destaque</strong> com a última alteração
+    <strong>manual</strong> de saldo (corrigir quantidade, ou + Adicionar / − Remover),
+    quem fez e quando, sem precisar abrir o item pra conferir, enquanto ela estiver
+    dentro da janela de tempo configurada. O desconto automático de kit ou pedido
+    bipado <strong>não entra</strong> nesse destaque — a bipagem já mexe o dia inteiro,
+    então repetir "Saída — Kit" a cada peça só criaria ruído; o destaque é só pra
+    alteração que alguém fez de propósito na tela de estoque. Mínimo e status de
+    compra também não entram: já mostram o valor atual direto no próprio campo.
+  </p>
+  <p>
     <strong>Filtro por quantidade:</strong> além da busca por nome/código, dá pra listar
     só o que está <em>zerado</em>, <em>no mínimo ou abaixo</em>, <em>perto do mínimo</em>,
     <em>acima do mínimo</em>, <em>sem estoque cadastrado</em>, ou informar uma faixa
@@ -363,6 +377,9 @@
       ou só a tela inicial.</li>
     <li><span class="campo">Cor</span> — uma cor só pro aviso inteiro (fundo, borda e o
       traço do lado de cada item no quadro). Item zerado ainda ganha o aviso.</li>
+    <li><span class="campo">Destacar alteração por (h)</span> — por quanto tempo o
+      destaque "o que mudou, quem mudou" (ver acima) fica visível depois de uma
+      entrada, saída ou correção de estoque. 0 = desliga o destaque.</li>
   </ul>
   <div class="cuidado">
     <strong>Atualização em massa pela planilha:</strong> baixe a planilha
@@ -659,6 +676,13 @@
     <li><strong>Conjuntos</strong> — quais conjuntos são conferidos em bloco e quais são
       conferidos item a item.</li>
   </ul>
+  <p>
+    Clicando no <strong>número do pedido</strong>, na lista da aba Pedido, abre o mesmo
+    painel deslizante usado pra veículo e patrimônio, com um resumo rápido: cliente, versão,
+    status, itens exigidos e as unidades já cadastradas (ICCID/telefone/CDT/ID hardware, até
+    20 de uma vez). É só consulta — pra editar de verdade (linha a linha, com busca e
+    inclusão em massa) o painel tem um atalho direto pra tela <strong>Editar</strong>.
+  </p>
   <p>Em cada item do kit define-se:</p>
   <ul>
     <li><span class="campo">Quantidade exigida</span> — quantos entram no kit.</li>
@@ -1381,12 +1405,13 @@
     Um kit pode ter 1ª, 2ª, 3ª verificação — todas ficam no histórico.
   </p>
   <p>
-    <strong>Um item por vez:</strong> o botão acima da lista ("Ver um item por vez") esconde
-    a lista inteira e mostra só o item da vez, em destaque — toca pra confirmar e o próprio
-    sistema já avança sozinho pro próximo que falta. Terminando todos, a lista volta
-    automaticamente pra tela, já pronta pra "Confirmar Verificação". Dá pra voltar pra lista
-    completa ("Ver lista completa") a qualquer momento no meio da conferência, e recolher de
-    novo pra um item por vez quando quiser — o app lembra em qual item parou.
+    <strong>Um item por vez:</strong> a tela já abre nesse modo — mostra só o item da vez,
+    em destaque, sem a lista inteira atrapalhando. Toca pra confirmar e o próprio sistema já
+    avança sozinho pro próximo que falta. Terminando todos, a lista completa volta
+    automaticamente pra tela e a página já rola sozinha até "Confirmar Verificação", sem
+    precisar procurar o botão. Dá pra expandir a lista inteira a qualquer momento pelo botão
+    "Ver lista completa" (e recolher de novo pra "um item por vez" quando quiser) — o app
+    lembra em qual item parou.
   </p>
   <p><strong>A verificação sempre segue o template ATUAL do kit.</strong> Consequências:</p>
   <ul>

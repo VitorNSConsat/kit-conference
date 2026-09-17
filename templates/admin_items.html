@@ -304,6 +304,15 @@
                     {% endif %}
                 </td>
             </tr>
+            {% if est and est.ultima_alteracao %}
+            <tr class="linha-destaque-alteracao">
+                <td colspan="5">
+                    <div class="cfg-destaque-alteracao" style="margin:0;">
+                        {{ ic.svg('historico', 12) }} {{ est.ultima_alteracao.texto }}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
             {% endfor %}
             </tbody>
         </table>
@@ -422,39 +431,46 @@
                     <h4>Estoque</h4>
                     {% if est %}
                     {% if pode('estoque_editar') %}
-                    <div class="cfg-linha cfg-linha-coluna">
-                        <span class="cfg-rotulo">Quantidade Atual
-                            <span class="cfg-ajuda">corrige o valor direto — para acertar contagem divergente</span>
-                        </span>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/corrigir" class="cfg-campo-linha">
-                            <input type="number" name="quantidade_atual" value="{{ est.quantidade_atual }}" min="0"
-                                   class="cfg-numero">
-                            <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('check', 13) }} Corrigir</button>
-                        </form>
-                    </div>
-                    <div class="cfg-linha cfg-linha-coluna">
-                        <span class="cfg-rotulo">Quantidade Mínima
-                            <span class="cfg-ajuda">dispara o alerta de estoque baixo nesse valor</span>
-                        </span>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/minimo" class="cfg-campo-linha">
-                            <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
-                                   class="cfg-numero">
-                            <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar</button>
-                        </form>
-                    </div>
-                    <div class="cfg-linha cfg-linha-coluna">
-                        <span class="cfg-rotulo">Entrada / Saída
-                            <span class="cfg-ajuda">informe só quanto chegou ou saiu — o saldo atual ({{ est.quantidade_atual }}) é atualizado sozinho</span>
-                        </span>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/ajustar" class="cfg-campo-linha">
-                            <input type="number" name="quantidade" value="1" min="1" class="cfg-numero" required>
-                            <input type="text" name="motivo" placeholder="motivo (opcional)"
-                                   style="flex:1;min-width:0;margin-bottom:0;font-size:13px;padding:7px 9px;">
-                            <button type="submit" name="tipo" value="entrada"
-                                    class="btn btn-sm btn-success" style="flex-shrink:0;">+ Adicionar</button>
-                            <button type="submit" name="tipo" value="saida"
-                                    class="btn btn-sm btn-danger" style="flex-shrink:0;">− Remover</button>
-                        </form>
+                    {# As três formas de mexer no saldo, juntas num canto só:
+                       corrigir o valor (contagem divergente), o mínimo que
+                       dispara o alerta, e o movimento do dia a dia
+                       (entrada/saída pela diferença). #}
+                    <div class="cfg-grupo-saldo">
+                        <div class="cfg-grupo-titulo">Saldo — {{ est.quantidade_atual }} unidade(s)</div>
+                        <div class="cfg-linha cfg-linha-coluna" style="border-top:none;padding-top:2px;">
+                            <span class="cfg-rotulo">Quantidade Atual
+                                <span class="cfg-ajuda">corrige o valor direto — para acertar contagem divergente</span>
+                            </span>
+                            <form method="post" action="/admin/estoque/{{ est.id }}/corrigir" class="cfg-campo-linha">
+                                <input type="number" name="quantidade_atual" value="{{ est.quantidade_atual }}" min="0"
+                                       class="cfg-numero">
+                                <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('check', 13) }} Corrigir</button>
+                            </form>
+                        </div>
+                        <div class="cfg-linha cfg-linha-coluna">
+                            <span class="cfg-rotulo">Quantidade Mínima
+                                <span class="cfg-ajuda">dispara o alerta de estoque baixo nesse valor</span>
+                            </span>
+                            <form method="post" action="/admin/estoque/{{ est.id }}/minimo" class="cfg-campo-linha">
+                                <input type="number" name="quantidade_minima" value="{{ est.quantidade_minima }}" min="0"
+                                       class="cfg-numero">
+                                <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('check', 13) }} Salvar</button>
+                            </form>
+                        </div>
+                        <div class="cfg-linha cfg-linha-coluna">
+                            <span class="cfg-rotulo">Entrada / Saída
+                                <span class="cfg-ajuda">informe só quanto chegou ou saiu — o saldo acima é atualizado sozinho</span>
+                            </span>
+                            <form method="post" action="/admin/estoque/{{ est.id }}/ajustar" class="cfg-campo-linha">
+                                <input type="number" name="quantidade" value="1" min="1" class="cfg-numero" required>
+                                <input type="text" name="motivo" placeholder="motivo (opcional)"
+                                       style="flex:1;min-width:0;margin-bottom:0;font-size:13px;padding:7px 9px;">
+                                <button type="submit" name="tipo" value="entrada"
+                                        class="btn btn-sm btn-success" style="flex-shrink:0;">+ Adicionar</button>
+                                <button type="submit" name="tipo" value="saida"
+                                        class="btn btn-sm btn-danger" style="flex-shrink:0;">− Remover</button>
+                            </form>
+                        </div>
                     </div>
                     <div class="cfg-linha cfg-linha-coluna">
                         <span class="cfg-rotulo">Status de Compra
@@ -1089,6 +1105,13 @@
           <label>Cor do aviso</label>
           <input type="color" name="alerta_cor_critico" value="{{ alerta_config.alerta_cor_critico }}"
                  style="width:56px;height:34px;padding:2px;margin:0;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Destacar alteração por (h)
+            <span style="font-weight:400;color:var(--text-muted-2);font-size:11px;">0 = desliga o destaque</span>
+          </label>
+          <input type="number" name="alerta_destaque_horas" min="0" max="720"
+                 value="{{ alerta_config.alerta_destaque_horas }}" style="width:110px;margin:0;">
         </div>
       </div>
       <div>

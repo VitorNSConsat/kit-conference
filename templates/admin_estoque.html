@@ -138,6 +138,15 @@
                 {% endif %}
             </td>
         </tr>
+        {% if item.ultima_alteracao %}
+        <tr class="linha-destaque-alteracao">
+            <td colspan="8">
+                <div class="cfg-destaque-alteracao" style="margin:0;">
+                    {{ ic.svg('historico', 12) }} {{ item.ultima_alteracao.texto }}
+                </div>
+            </td>
+        </tr>
+        {% endif %}
         {% endfor %}
         </tbody>
     </table>

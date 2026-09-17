@@ -108,7 +108,13 @@
         <tbody>
         {% for t in pag.itens %}
         <tr class="filtro-item">
-            <td>{{ t.nome }}</td>
+            <td>
+                {% if tipo == 'pedido' %}
+                <button type="button" class="btn-link-pedido" onclick="abrirPainelPedido({{ t.id }}, '{{ t.nome | e }}')">{{ t.nome }}</button>
+                {% else %}
+                {{ t.nome }}
+                {% endif %}
+            </td>
             <td>{{ t.cliente }}</td>
             <td>v{{ t.versao }}</td>
             <td><span class="badge {{ 'badge-success' if t.ativo else 'badge-danger' }}">{{ 'Ativo' if t.ativo else 'Inativo' }}</span></td>

@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timedelta
 from database import db, now_brt
 import app.datas as datas_mod
 import app.filtros as filtros_mod
@@ -489,6 +490,9 @@ ALERTA_PADRAO = {
     # Uma cor só — mostrar duas (crítico/atenção) e o quadro só respeitar
     # a mais grave das duas fazia a segunda cor nunca aparecer na prática.
     "alerta_cor_critico": "#c0392b",
+    # Quantas horas o destaque "o que mudou, quem mudou" fica visível embaixo
+    # da linha do item (lista de Estoque e popup de configuração). 0 = desliga.
+    "alerta_destaque_horas": "24",
 }
 ALERTA_TELAS = {
     "todas": "Em todas as telas",
@@ -505,7 +509,8 @@ def get_alerta_config() -> dict:
             if r["chave"] in cfg:
                 cfg[r["chave"]] = r["valor"]
     # Números saem prontos pra usar; o resto continua texto.
-    for chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos"):
+    for chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos",
+                  "alerta_destaque_horas"):
         try:
             cfg[chave] = max(0, int(cfg[chave]))
         except (TypeError, ValueError):
@@ -525,7 +530,8 @@ def salvar_alerta_config(valores: dict) -> None:
         if chave not in valores:
             continue
         v = valores[chave]
-        if chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos"):
+        if chave in ("alerta_ativo", "alerta_margem", "alerta_limite", "alerta_segundos",
+                     "alerta_destaque_horas"):
             try:
                 v = str(max(0, int(v)))
             except (TypeError, ValueError):
@@ -542,6 +548,79 @@ def salvar_alerta_config(valores: dict) -> None:
                 "ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
                 (chave, valor)
             )
+
+
+# ── Destaque "o que mudou, quem mudou" ───────────────────────────────────────
+# Movimentos que valem o destaque: os três que mexem no SALDO (entrada, saída,
+# correção). Mínimo e status de compra já mostram o valor atual direto no
+# próprio campo — não precisam de mais um aviso embaixo.
+_TIPOS_DESTAQUE = ("entrada", "saida", "correcao")
+# Só alteração MANUAL (corrigir quantidade, + Adicionar / − Remover na tela de
+# estoque). O desconto automático de kit/pedido bipado (registrar_saida) e o
+# estorno de troca de kit sempre gravam sessao_id — sem isso o destaque
+# ficaria repetindo "Saída de 1 unidade(s) — Kit" a cada bipagem, que é
+# exatamente o ruído que o aviso deveria evitar, não reproduzir.
+_FILTRO_MANUAL = "em.sessao_id IS NULL"
+
+
+def _formatar_alteracao(mov: dict) -> dict:
+    if mov["tipo"] == "correcao":
+        # corrigir_quantidade() já grava "Quantidade corrigida: X → Y" na
+        # observação -- é mais claro que eu remontar a partir da quantidade.
+        acao = mov.get("observacao") or "Quantidade corrigida"
+    else:
+        acao = f"{'Entrada' if mov['tipo'] == 'entrada' else 'Saída'} de {mov['quantidade']} unidade(s)"
+        if mov.get("observacao"):
+            acao += f" ({mov['observacao']})"
+    mov["texto"] = f"{acao} — {mov.get('autor_nome') or '—'}, {(mov.get('criado_em') or '')[:16]}"
+    return mov
+
+
+def ultima_alteracao_item(estoque_id: int, horas: int) -> dict | None:
+    """O movimento de saldo mais recente deste item, só se ainda estiver
+    dentro da janela de horas -- é o que alimenta o destaque no popup de
+    configuração (um item só, então uma query direta)."""
+    if horas <= 0:
+        return None
+    limite = (datetime.now() - timedelta(hours=horas)).strftime("%Y-%m-%d %H:%M:%S")
+    marcas = ",".join("?" * len(_TIPOS_DESTAQUE))
+    with db() as conn:
+        row = conn.execute(
+            f"SELECT em.tipo, em.quantidade, em.observacao, em.criado_em, u.nome AS autor_nome "
+            f"FROM estoque_movimentos em LEFT JOIN users u ON u.id = em.criado_por "
+            f"WHERE em.estoque_id = ? AND em.criado_em >= ? AND em.tipo IN ({marcas}) "
+            f"AND {_FILTRO_MANUAL} "
+            f"ORDER BY em.criado_em DESC, em.id DESC LIMIT 1",
+            (estoque_id, limite, *_TIPOS_DESTAQUE)
+        ).fetchone()
+    return _formatar_alteracao(dict(row)) if row else None
+
+
+def ultimas_alteracoes(horas: int) -> dict[int, dict]:
+    """{estoque_id: {...}} com o movimento de saldo mais recente de CADA
+    item dentro da janela de horas -- uma query só pra lista inteira, mesmo
+    padrão de ultimas_acoes() em app/hardware.py (evita 1 consulta por
+    linha)."""
+    if horas <= 0:
+        return {}
+    limite = (datetime.now() - timedelta(hours=horas)).strftime("%Y-%m-%d %H:%M:%S")
+    marcas = ",".join("?" * len(_TIPOS_DESTAQUE))
+    with db() as conn:
+        rows = conn.execute(
+            f"SELECT em.estoque_id, em.tipo, em.quantidade, em.observacao, em.criado_em, "
+            f"u.nome AS autor_nome "
+            f"FROM estoque_movimentos em LEFT JOIN users u ON u.id = em.criado_por "
+            f"WHERE em.criado_em >= ? AND em.tipo IN ({marcas}) "
+            f"AND {_FILTRO_MANUAL} "
+            f"ORDER BY em.criado_em DESC, em.id DESC",
+            (limite, *_TIPOS_DESTAQUE)
+        ).fetchall()
+    mapa: dict[int, dict] = {}
+    for r in rows:
+        if r["estoque_id"] in mapa:
+            continue  # já vem ordenado DESC -- o primeiro de cada item é o mais recente
+        mapa[r["estoque_id"]] = _formatar_alteracao(dict(r))
+    return mapa
 
 
 def nivel_do_item(item: dict, margem: int = 0) -> str:

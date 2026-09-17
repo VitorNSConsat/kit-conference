@@ -1,0 +1,91 @@
+{# Painel do Pedido: mesmo mecanismo de _painel.html (veículo/patrimônio) --
+   aberto pelo número do pedido em Criar Kit/Pedido, injetado por fetch em
+   #janela-painel. Mostra a receita (itens exigidos) e as unidades
+   (ICCID/telefone/CDT/ID Hardware) lado a lado; edição de verdade continua
+   na tela "Editar" (linha a linha, com busca e inclusão em massa) -- aqui é
+   o resumo rápido, pra não duplicar aquele formulário inteiro dentro do
+   popup.
+
+   Fragmento: não estende base.html. #}
+{% import "_icones.html" as ic %}
+{% set cor = cor_do_cliente(pedido.cliente) %}
+<div class="pat-painel pat-largo">
+
+  <div class="pat-onde pat-full">
+    <div class="pat-rotulo">Pedido</div>
+    <div class="pat-veic" style="color:{{ cor }};">{{ ic.svg('kits', 17) }} {{ pedido.nome }}</div>
+    <div class="pat-campos">
+      <div class="pat-campo">
+        <span>Cliente</span>
+        <strong class="pat-marca" style="color:{{ cor }};">{{ pedido.cliente }}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Versão</span>
+        <strong>v{{ pedido.versao }}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Status</span>
+        <strong>{{ 'Ativo' if pedido.ativo else 'Inativo' }}</strong>
+      </div>
+      <div class="pat-campo">
+        <span>Feito</span>
+        <strong>{{ 'Sim' if pedido.concluido else 'Não' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="pat-coluna">
+    <details class="pat-acao" open>
+      <summary>Itens do pedido ({{ itens | length }})</summary>
+      {% if itens %}
+      <div class="vp-itens">
+        {% for i in itens %}
+        <div class="vp-item">
+          <div>
+            <div class="vp-tipo">{{ i.descricao }}
+              <span class="vp-qtd">{{ i.quantidade_exigida }}{{ 'm' if i.unidade == 'm' else ' un' }}</span>
+            </div>
+            <div class="vp-codigo">{{ 'Obrigatório' if i.obrigatorio else 'Opcional' }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="pat-ajuda">Nenhum item cadastrado neste pedido.</p>
+      {% endif %}
+    </details>
+  </div>
+
+  <div class="pat-coluna">
+    <details class="pat-acao" {{ 'open' if unidades }}>
+      <summary>Unidades do pedido ({{ unidades | length }})</summary>
+      {% if unidades %}
+      <div class="vp-itens">
+        {% for u in unidades[:20] %}
+        <div class="vp-item">
+          <div>
+            <div class="vp-tipo">{{ u.id_hardware or '— sem ID Hardware —' }}</div>
+            <div class="vp-codigo">
+              {%- if u.iccid %}ICCID {{ u.iccid }}{% endif -%}
+              {%- if u.telefone %} · Tel {{ u.telefone }}{% endif -%}
+              {%- if u.cdt %} · CDT {{ u.cdt }}{% endif -%}
+              {%- if not (u.iccid or u.telefone or u.cdt) %}— sem outros dados —{% endif -%}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if unidades | length > 20 %}
+      <p class="pat-ajuda">+{{ unidades | length - 20 }} unidade(s) — veja todas em "Editar".</p>
+      {% endif %}
+      {% else %}
+      <p class="pat-ajuda">Nenhuma unidade cadastrada ainda.</p>
+      {% endif %}
+    </details>
+  </div>
+
+  <p class="pat-ajuda pat-full" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="/admin/templates/{{ pedido.id }}/edit" class="btn btn-sm btn-secondary">{{ ic.svg('editar', 13) }} Editar / adicionar unidades</a>
+    <a href="/admin/templates/{{ pedido.id }}/unidades/exportar.xlsx" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }} Excel</a>
+  </p>
+</div>
