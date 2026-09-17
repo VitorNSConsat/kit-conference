@@ -242,7 +242,10 @@
           {% else %}—{% endif %}
         </td>
         <td>{{ h.garagem or '—' }}</td>
-        <td style="font-family:monospace;font-size:12px;">{{ h.serial_number or '—' }}</td>
+        <td style="font-family:monospace;font-size:12px;">
+          {{ h.serial_number or '—' }}
+          {% if h.mac_address %}<div style="color:var(--brand);">MAC {{ h.mac_address }}</div>{% endif %}
+        </td>
         <td style="font-family:monospace;font-size:12px;color:var(--warn-text);">
           {{- h.codigo_caixa or '—' }}</td>
         <td>

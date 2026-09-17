@@ -49,6 +49,13 @@
 <div class="alert alert-success">Status de compra atualizado.</div>
 {% elif request.query_params.get('ok') == 'reposto' %}
 <div class="alert alert-success">Estoque reposto com sucesso.</div>
+{% elif request.query_params.get('ok') == 'ajustado' %}
+<div class="alert alert-success">
+    {{ ic.svg('check-circulo', 14) }}
+    {{ 'Entrada' if request.query_params.get('mov') == 'entrada' else 'Saída' }}
+    de {{ request.query_params.get('qtd') }} unidade(s) registrada —
+    saldo agora: <strong>{{ request.query_params.get('saldo') }}</strong>.
+</div>
 {% elif request.query_params.get('ok') == 'quantidade_corrigida' %}
 <div class="alert alert-success">Quantidade em estoque corrigida.</div>
 {% elif request.query_params.get('ok') == 'alertas' %}
@@ -89,7 +96,7 @@
 {% set ok_livre = request.query_params.get('ok') %}
 {% if ok_livre and ok_livre not in ('1', 'item_criado', 'estoque_criado', 'codigo_atualizado',
                                     'codigo_renomeado', 'minimo', 'status_compra', 'reposto',
-                                    'quantidade_corrigida', 'alertas', 'sobressalente',
+                                    'ajustado', 'quantidade_corrigida', 'alertas', 'sobressalente',
                                     'reconciliado_vazio', 'reconciliado') %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok_livre }}</div>
 {% endif %}
@@ -378,6 +385,19 @@
                         </form>
                     </div>
 
+                    {% if tipo.requer_serial %}
+                    <div class="cfg-linha">
+                        <span class="cfg-rotulo">Exige MAC address
+                            <span class="cfg-ajuda">o serial recusa quem não tiver um MAC reconhecível dentro (ex.: QR do CVC)</span>
+                        </span>
+                        <form method="post" action="/admin/tipos/{{ tipo.id }}/toggle-exigir-mac-address">
+                            <button type="submit" class="btn btn-sm cfg-chave{{ ' ativo' if tipo.exigir_mac_address }}">
+                                {{ 'Sim' if tipo.exigir_mac_address else '— Não' }}
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
                     <div class="cfg-linha cfg-linha-coluna">
                         <span class="cfg-rotulo">Código da Caixa
                             <span class="cfg-ajuda">ao bipar este código o sistema pede o patrimônio em seguida</span>
@@ -423,12 +443,17 @@
                         </form>
                     </div>
                     <div class="cfg-linha cfg-linha-coluna">
-                        <span class="cfg-rotulo">Repor Estoque
-                            <span class="cfg-ajuda">soma ao saldo atual ({{ est.quantidade_atual }})</span>
+                        <span class="cfg-rotulo">Entrada / Saída
+                            <span class="cfg-ajuda">informe só quanto chegou ou saiu — o saldo atual ({{ est.quantidade_atual }}) é atualizado sozinho</span>
                         </span>
-                        <form method="post" action="/admin/estoque/{{ est.id }}/repor" class="cfg-campo-linha">
+                        <form method="post" action="/admin/estoque/{{ est.id }}/ajustar" class="cfg-campo-linha">
                             <input type="number" name="quantidade" value="1" min="1" class="cfg-numero" required>
-                            <button type="submit" class="btn btn-sm btn-success" style="flex:1;">+ Repor</button>
+                            <input type="text" name="motivo" placeholder="motivo (opcional)"
+                                   style="flex:1;min-width:0;margin-bottom:0;font-size:13px;padding:7px 9px;">
+                            <button type="submit" name="tipo" value="entrada"
+                                    class="btn btn-sm btn-success" style="flex-shrink:0;">+ Adicionar</button>
+                            <button type="submit" name="tipo" value="saida"
+                                    class="btn btn-sm btn-danger" style="flex-shrink:0;">− Remover</button>
                         </form>
                     </div>
                     <div class="cfg-linha cfg-linha-coluna">

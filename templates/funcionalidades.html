@@ -171,6 +171,17 @@
     <li>Enquanto o serial não vem, o item fica <em>aguardando serial</em> e não conta como
       completo.</li>
   </ul>
+  <div class="nota">
+    <strong>Exige MAC address</strong> (dentro de "Requer serial", no tipo de item — ex.: CVC):
+    o "serial" deixa de ser um número solto e passa a ser o <strong>QR code inteiro do
+    equipamento</strong>, que traz o endereço MAC emendado com outras informações
+    (ex.: <span class="campo">CON-001-0022_TSCFB2002846_B718_00:10:F3:E0:E8:3C</span>). O
+    sistema procura um MAC dentro do texto lido — tolera tanto ":"/"-" quanto o "Ç" que o
+    leitor devolve nesse QR — e <strong>recusa a bipagem</strong> se não achar nenhum, com o
+    aviso "esse código não tem um MAC address reconhecível". O MAC extraído fica guardado
+    junto (aparece na página do patrimônio e nos relatórios em Excel, coluna
+    <span class="campo">MAC Address</span>), sempre no formato <code>AA:BB:CC:DD:EE:FF</code>.
+  </div>
 
   <h3>Item de estoque</h3>
   <p>
@@ -313,6 +324,18 @@
     a coluna Observação mostra o veículo (ou o pedido) que levou aquele item, com link pro
     kit — não só o rótulo genérico "Kit".
   </p>
+  <div class="nota">
+    <strong>Entrada / Saída x Quantidade Atual — são coisas diferentes.</strong>
+    <span class="campo">Entrada / Saída</span> (na janela de configuração e na coluna da
+    lista de estoque) é <strong>pela diferença</strong>: chegaram 500, digita 500 e
+    <em>+ Adicionar</em> — o saldo se atualiza sozinho, sem ninguém precisar calcular o
+    total novo. <span class="campo">Quantidade Atual</span> continua sendo o
+    <strong>valor absoluto</strong>, pra quando o caso é acertar uma contagem divergente
+    ("contei e são 480, não 500"). Os dois vão pro histórico com autor, data e motivo.
+    <br><strong>Remover trava sem saldo</strong> (avisa quanto tem e quanto foi pedido) —
+    diferente do desconto automático da bipagem, que deixa negativar de propósito pra não
+    travar quem está em campo: aqui é ação de escritório, com alguém conferindo o número.
+  </div>
   <p>
     <strong>Filtro por quantidade:</strong> além da busca por nome/código, dá pra listar
     só o que está <em>zerado</em>, <em>no mínimo ou abaixo</em>, <em>perto do mínimo</em>,

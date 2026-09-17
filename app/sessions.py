@@ -1,3 +1,5 @@
+import re
+
 from database import db, now_brt
 import app.items as items_mod
 import app.kit_templates as templates_mod
@@ -5,6 +7,28 @@ import app.estoque as estoque_mod
 import app.codigos_gerados as codigos_gerados_mod
 import app.datas as datas_mod
 import app.filtros as filtros_mod
+
+
+# Separador real varia: ":"/"-" são o padrão, mas o leitor configurado pro
+# layout de teclado do QR do CVC sai com "Ç"/"ç" no lugar de ":" -- ex.:
+# "00Ç10ÇF3ÇE0ÇE8Ç3C" é o MAC 00:10:F3:E0:E8:3C. Aceita os três em vez de
+# depender de reconfigurar o leitor.
+_MAC_RE = re.compile(
+    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]'
+    r'([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})[:\-Çç]([0-9A-Fa-f]{2})'
+)
+
+
+def _extrair_mac_address(texto: str) -> str | None:
+    """Acha um MAC address dentro do texto lido -- o QR de equipamentos como
+    o CVC vem com várias informações emendadas (ex.:
+    "CON-001-0022_TSCFB2002846_B718_00Ç10ÇF3ÇE0ÇE8Ç3C;3D") e o MAC é uma
+    delas. None quando não acha nenhum. Sempre devolve normalizado, maiúsculo
+    e com ":": "00:10:F3:E0:E8:3C"."""
+    m = _MAC_RE.search(texto or "")
+    if not m:
+        return None
+    return ":".join(g.upper() for g in m.groups())
 
 
 def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, criado_por: int) -> None:
@@ -161,6 +185,19 @@ def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None 
         return {"resultado": "rejeitado",
                 "mensagem": "O serial não pode ser igual ao código do item. Bipe o serial number."}
 
+    # CVC e qualquer outro tipo marcado "Exige MAC address": o serial não é
+    # mais um número solto, é o QR do equipamento inteiro -- sem um MAC
+    # reconhecível ali dentro, a bipagem é recusada em vez de aceitar um
+    # código qualquer que não serve pra identificar o aparelho depois.
+    mac_address = None
+    if items_mod.tipo_exige_mac(pendente["item_tipo_id"]):
+        mac_address = _extrair_mac_address(serial_barra)
+        if not mac_address:
+            return {"resultado": "rejeitado",
+                    "mensagem": f"'{pendente['descricao']}': esse código não tem um MAC address "
+                                "reconhecível. Bipe o QR code completo do equipamento (com o MAC "
+                                "address), não outro código."}
+
     with db() as conn:
         existing = conn.execute(
             "SELECT 1 FROM scan_session_items WHERE sessao_id = ? AND serial_number = ?",
@@ -170,8 +207,8 @@ def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None 
             return {"resultado": "rejeitado",
                     "mensagem": f"Serial '{serial_barra}' já registrado nesta sessão."}
         conn.execute(
-            "UPDATE scan_session_items SET serial_number = ?, status = 'completo' WHERE id = ?",
-            (serial_barra, pendente["id"])
+            "UPDATE scan_session_items SET serial_number = ?, mac_address = ?, status = 'completo' WHERE id = ?",
+            (serial_barra, mac_address, pendente["id"])
         )
 
     session = get_session(sessao_id)
@@ -183,14 +220,16 @@ def registrar_serial(sessao_id: int, serial_barra: str, operador_id: int | None 
     contagem = get_contagem(sessao_id)
     novo_atual = contagem.get(pendente["item_tipo_id"], 0)
     aviso = _aviso_quantidade(template_item)
+    mac_texto = f" MAC {mac_address}." if mac_address else ""
 
     return {
         "resultado": "aceito",
-        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado. ({novo_atual}/{exigido})" + aviso,
+        "mensagem": f"'{pendente['descricao']}' com serial '{serial_barra}' registrado.{mac_texto} ({novo_atual}/{exigido})" + aviso,
         "quantidade_aviso": bool(aviso),
         "contagem_atual": novo_atual,
         "quantidade_exigida": exigido,
         "codigo_barra": pendente["codigo_barra"],
+        "mac_address": mac_address,
         "serial_number": serial_barra,
         "item_tipo_id": pendente["item_tipo_id"],
         "descricao": pendente["descricao"],

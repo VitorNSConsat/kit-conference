@@ -87,6 +87,22 @@ def alternar_requer_serial(tipo_id: int):
         )
 
 
+def alternar_exigir_mac_address(tipo_id: int):
+    with db() as conn:
+        conn.execute(
+            "UPDATE item_tipo SET exigir_mac_address = 1 - COALESCE(exigir_mac_address, 0) WHERE id = ?",
+            (tipo_id,)
+        )
+
+
+def tipo_exige_mac(tipo_id: int) -> bool:
+    with db() as conn:
+        row = conn.execute(
+            "SELECT exigir_mac_address FROM item_tipo WHERE id = ?", (tipo_id,)
+        ).fetchone()
+    return bool(row and row["exigir_mac_address"])
+
+
 def alternar_unidade_tipo(tipo_id: int):
     with db() as conn:
         conn.execute(
@@ -272,7 +288,7 @@ def historico_patrimonio(codigo_barra: str) -> list[dict]:
     depender de o kit ainda ter veículo."""
     with db() as conn:
         rows = conn.execute("""
-            SELECT si.id AS si_id, si.bipado_em, si.serial_number, si.observacao,
+            SELECT si.id AS si_id, si.bipado_em, si.serial_number, si.mac_address, si.observacao,
                    si.codigo_caixa, si.sessao_id, ss.status AS sessao_status,
                    kt.nome AS kit_nome, kt.cliente,
                    kr.kit_id, kr.status AS kit_status,

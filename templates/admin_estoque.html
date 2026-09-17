@@ -12,9 +12,16 @@
 <div class="alert alert-success">Quantidade mínima atualizada.</div>
 {% elif request.query_params.get('ok') == 'status_compra' %}
 <div class="alert alert-success">Status de compra atualizado.</div>
+{% elif request.query_params.get('ok') == 'ajustado' %}
+<div class="alert alert-success">
+    {{ ic.svg('check-circulo', 14) }}
+    {{ 'Entrada' if request.query_params.get('mov') == 'entrada' else 'Saída' }}
+    de {{ request.query_params.get('qtd') }} unidade(s) registrada —
+    saldo agora: <strong>{{ request.query_params.get('saldo') }}</strong>.
+</div>
 {% endif %}
-{% if erro %}
-<div class="alert alert-danger">{{ erro }}</div>
+{% if erro or request.query_params.get('erro') %}
+<div class="alert alert-danger">{{ erro or request.query_params.get('erro') }}</div>
 {% endif %}
 
 {% if alertas %}
@@ -41,7 +48,7 @@
                 <th>Mínimo</th>
                 <th>Status</th>
                 <th>Compra</th>
-                <th>Repor</th>
+                <th title="Informe quanto chegou ou saiu — o saldo se atualiza sozinho">Entrada / Saída</th>
                 <th></th>
             </tr>
         </thead>
@@ -96,13 +103,18 @@
             </td>
             <td>
                 {% if pode('estoque_editar') %}
-                <form method="post" action="/admin/estoque/{{ item.id }}/repor"
+                {# Entrada/saída pela diferença: digita quanto chegou (ou saiu)
+                   e o saldo se atualiza — sem precisar calcular o total novo. #}
+                <form method="post" action="/admin/estoque/{{ item.id }}/ajustar"
                       style="display:flex;gap:4px;align-items:center;">
                     <input type="number" name="quantidade" value="1" min="1"
                            style="width:64px;text-align:center;" required>
-                    <input type="text" name="observacao" placeholder="Obs (opcional)"
-                           style="width:130px;font-size:12px;">
-                    <button type="submit" class="btn btn-sm btn-success">+ Repor</button>
+                    <input type="text" name="motivo" placeholder="Motivo (opcional)"
+                           style="width:120px;font-size:12px;">
+                    <button type="submit" name="tipo" value="entrada"
+                            class="btn btn-sm btn-success" title="Somar ao saldo">+ Adicionar</button>
+                    <button type="submit" name="tipo" value="saida"
+                            class="btn btn-sm btn-danger" title="Descontar do saldo">− Remover</button>
                 </form>
                 {% else %}
                 <span style="color:var(--text-muted-2);">—</span>

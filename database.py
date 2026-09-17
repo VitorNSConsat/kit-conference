@@ -892,6 +892,14 @@ def init_db():
             "ALTER TABLE item_tipo ADD COLUMN codigo_fixo TEXT",
             "ALTER TABLE item_tipo ADD COLUMN controle_externo BOOLEAN DEFAULT 0",
             "ALTER TABLE item_tipo ADD COLUMN requer_serial BOOLEAN DEFAULT 0",
+            # Alguns equipamentos (ex.: CVC) têm o número de série substituído
+            # por um QR maior, com várias informações emendadas -- entre elas
+            # o MAC address do equipamento, que é o que a Suécia usa pra
+            # identificar o aparelho depois. Ligado, bipar o serial que não
+            # tiver um MAC reconhecível é recusado -- ver
+            # sessions.registrar_serial()/_extrair_mac_address().
+            "ALTER TABLE item_tipo ADD COLUMN exigir_mac_address BOOLEAN DEFAULT 0",
+            "ALTER TABLE scan_session_items ADD COLUMN mac_address TEXT",
             "ALTER TABLE kit_template ADD COLUMN tipo TEXT NOT NULL DEFAULT 'kit'",
             "ALTER TABLE kit_template ADD COLUMN concluido BOOLEAN DEFAULT 0",
             "ALTER TABLE kit_record ADD COLUMN modelo TEXT DEFAULT ''",

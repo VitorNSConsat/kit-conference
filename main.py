@@ -1353,6 +1353,13 @@ async def admin_tipo_toggle_requer_serial(request: Request, tipo_id: int):
     return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
 
 
+@app.post("/admin/tipos/{tipo_id}/toggle-exigir-mac-address")
+@require_login
+async def admin_tipo_toggle_exigir_mac_address(request: Request, tipo_id: int):
+    items_mod.alternar_exigir_mac_address(tipo_id)
+    return RedirectResponse(_voltar_items_catalogo(request), status_code=302)
+
+
 @app.post("/admin/tipos/{tipo_id}/toggle-unidade")
 @require_login
 async def admin_tipo_toggle_unidade(request: Request, tipo_id: int):
@@ -3443,7 +3450,7 @@ async def report_excel(request: Request, kit_id: str):
         resumo = [dict(r) for r in resumo]
 
         itens = conn.execute(
-            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, "
+            "SELECT it.nome AS tipo_nome, si.codigo_barra, si.serial_number, si.mac_address, "
             "si.codigo_caixa, si.bipado_em "
             "FROM scan_session_items si "
             "JOIN item_tipo it ON it.id = si.item_tipo_id "
@@ -3501,7 +3508,7 @@ async def report_excel(request: Request, kit_id: str):
     next_row = meta_block(ws2)
     # "Caixa (lote)" entra antes de "Origem": quem lê o relatório procura a
     # peça pelo lote quando um lote inteiro sai com defeito.
-    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Serial Number",
+    for col, h in enumerate(["Tipo de Item", "Código de Barras", "Serial Number", "MAC Address",
                              "Caixa (lote)", "Origem", "Bipado em"], 1):
         hdr_cell(ws2, next_row, col, h)
     for i, item in enumerate(itens):
@@ -3517,18 +3524,20 @@ async def report_excel(request: Request, kit_id: str):
         ws2.cell(row, 1, item["tipo_nome"])
         ws2.cell(row, 2, codigo_display)
         ws2.cell(row, 3, item.get("serial_number") or "")
-        ws2.cell(row, 4, item.get("codigo_caixa") or "")
-        ws2.cell(row, 5, origem)
-        ws2.cell(row, 6, item.get("bipado_em", ""))
+        ws2.cell(row, 4, item.get("mac_address") or "")
+        ws2.cell(row, 5, item.get("codigo_caixa") or "")
+        ws2.cell(row, 6, origem)
+        ws2.cell(row, 7, item.get("bipado_em", ""))
         if i % 2 == 0:
-            for col in (1, 2, 3, 4, 5, 6):
+            for col in (1, 2, 3, 4, 5, 6, 7):
                 ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
     ws2.column_dimensions["A"].width = 32
     ws2.column_dimensions["B"].width = 28
     ws2.column_dimensions["C"].width = 24
     ws2.column_dimensions["D"].width = 22
-    ws2.column_dimensions["E"].width = 18
-    ws2.column_dimensions["F"].width = 22
+    ws2.column_dimensions["E"].width = 22
+    ws2.column_dimensions["F"].width = 18
+    ws2.column_dimensions["G"].width = 22
 
     # ── Aba Unidades do Pedido (ICCID/Telefone/CDT/ID Hardware) ────────────────
     if kit.get("kit_tipo") == "pedido":
@@ -3605,7 +3614,7 @@ async def reports_exportar_todos(request: Request,
             placeholders = ",".join("?" * len(kit_ids))
             rows_itens = conn.execute(
                 "SELECT kr.kit_id, it.nome AS tipo_nome, si.codigo_barra, "
-                "si.serial_number, si.codigo_caixa, si.bipado_em "
+                "si.serial_number, si.mac_address, si.codigo_caixa, si.bipado_em "
                 "FROM scan_session_items si "
                 "JOIN item_tipo it ON it.id = si.item_tipo_id "
                 "JOIN kit_record kr ON kr.sessao_id = si.sessao_id "
@@ -3655,7 +3664,7 @@ async def reports_exportar_todos(request: Request,
     # ── Aba Detalhes ──────────────────────────────────────────────────────────
     ws2 = wb.create_sheet("Detalhes")
     for col, h in enumerate(
-        ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number",
+        ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number", "MAC Address",
          "Caixa (lote)", "Origem", "Bipado em"], 1):
         hdr_cell(ws2, 1, col, h)
     row = 2
@@ -3676,14 +3685,15 @@ async def reports_exportar_todos(request: Request,
             ws2.cell(row, 3, item["tipo_nome"])
             ws2.cell(row, 4, codigo_display)
             ws2.cell(row, 5, item.get("serial_number") or "")
-            ws2.cell(row, 6, item.get("codigo_caixa") or "")
-            ws2.cell(row, 7, origem)
-            ws2.cell(row, 8, item.get("bipado_em") or "")
+            ws2.cell(row, 6, item.get("mac_address") or "")
+            ws2.cell(row, 7, item.get("codigo_caixa") or "")
+            ws2.cell(row, 8, origem)
+            ws2.cell(row, 9, item.get("bipado_em") or "")
             if row % 2 == 0:
-                for col in range(1, 9):
+                for col in range(1, 10):
                     ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
             row += 1
-    for col, w in zip("ABCDEFGH", (34, 16, 28, 24, 20, 20, 16, 20)):
+    for col, w in zip("ABCDEFGHI", (34, 16, 28, 24, 20, 22, 20, 16, 20)):
         ws2.column_dimensions[col].width = w
     ws2.freeze_panes = "A2"
 
@@ -5048,6 +5058,36 @@ async def admin_estoque_repor(request: Request, estoque_id: int):
     observacao = form.get("observacao", "").strip()
     estoque_mod.repor_estoque(estoque_id, quantidade, user["id"], observacao)
     return RedirectResponse(_voltar_items_catalogo(request, "reposto"), status_code=302)
+
+
+@app.post("/admin/estoque/{estoque_id}/ajustar")
+@require_permission("estoque_editar")
+async def admin_estoque_ajustar(request: Request, estoque_id: int):
+    """Entrada/saída pela DIFERENÇA ("chegaram 500"), em vez de obrigar a
+    digitar o total novo. A correção absoluta continua existindo ao lado,
+    pra quando o caso é acertar uma contagem divergente — são coisas
+    diferentes: uma é movimento, a outra é conserto de contagem.
+
+    Saída manual TRAVA sem saldo (ajustar_quantidade), ao contrário do
+    desconto automático da bipagem, que deixa negativar: aqui é ação de
+    escritório, com alguém na frente pra conferir o número."""
+    user = get_current_user(request)
+    form = await request.form()
+    tipo = str(form.get("tipo", "")).strip()
+    quantidade = max(1, int(form.get("quantidade", 1) or 1))
+    motivo = str(form.get("motivo", "") or form.get("observacao", "")).strip()
+    try:
+        nova = estoque_mod.ajustar_quantidade(
+            estoque_id, tipo, quantidade,
+            motivo or ("Entrada manual" if tipo == "entrada" else "Saída manual"),
+            user["id"])
+    except ValueError as e:
+        destino = _voltar_items_catalogo(request)
+        sep = "&" if "?" in destino else "?"
+        return RedirectResponse(f"{destino}{sep}erro={quote(str(e))}", status_code=302)
+    destino = _voltar_items_catalogo(request, "ajustado")
+    return RedirectResponse(
+        f"{destino}&mov={tipo}&qtd={quantidade}&saldo={nova}", status_code=302)
 
 
 @app.post("/admin/estoque/reconciliar-producao")
