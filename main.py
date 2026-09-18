@@ -59,7 +59,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 # o operador quer consultar em campo, com o celular na mão.
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque',
                     '/funcionalidades'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/')
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/', '/hardware/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -6283,6 +6283,26 @@ def _hardware_contexto_formulario() -> dict:
     }
 
 
+# ── Hardware/RMA — consulta pública (escaneada pelo QR da etiqueta) ──────────
+# Mesmo padrão de /kit/{kit_id} e /estoque/{estoque_id}: sem @require_login,
+# fora do prefixo /admin/hardware (pra não herdar a permissão de tela
+# ver_hardware do _PaginaPermitidaMiddleware) e liberada no portão de
+# mobile (_MOBILE_OK_PREFIX). Consulta sempre o banco na hora da leitura --
+# a etiqueta física nunca precisa ser reimpressa quando o status muda.
+@app.get("/hardware/{ocorrencia_id:int}", response_class=HTMLResponse)
+async def hardware_qr(request: Request, ocorrencia_id: int):
+    o = hardware_mod.buscar(ocorrencia_id)
+    if not o:
+        raise HTTPException(status_code=404)
+    return render(request, "hardware_qr.html", {
+        "o": o,
+        "anexos_total": len(hardware_mod.listar_anexos(ocorrencia_id)),
+        "area_texto": hardware_mod.AREA_TEXTO,
+        "eventos_area": {area: hardware_mod.listar_eventos_area(ocorrencia_id, area)
+                          for area in hardware_mod.AREAS_ACAO},
+    })
+
+
 @app.get("/admin/hardware", response_class=HTMLResponse)
 @require_login
 async def admin_hardware(request: Request):
@@ -6663,6 +6683,39 @@ async def admin_hardware_conferencia(request: Request, importacao_id: int):
     return render(request, "admin_hardware_conferencia.html", ctx)
 
 
+def _hardware_url_qr(ocorrencia_id: int) -> str:
+    import app.zpl as _zpl
+    base = getattr(app.state, "servidor_url", _zpl.SERVIDOR_URL)
+    return f"{base}/hardware/{ocorrencia_id}"
+
+
+@app.get("/admin/hardware/etiquetas", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_etiquetas_lote(request: Request, ids: str = ""):
+    """Etiquetas de várias ocorrências de uma vez -- mesma etiqueta do
+    modelo individual, uma por page-break (ver
+    zpl_mod.generate_hardware_html_labels_lote). `ids` vem como querystring
+    separada por vírgula, montada em JS a partir dos checkboxes marcados
+    na lista (mesmo padrão de excluir-em-massa)."""
+    import app.zpl as _zpl
+    ocorrencia_ids = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    etiquetas = []
+    for oid in ocorrencia_ids:
+        o = hardware_mod.buscar(oid)
+        if not o:
+            continue
+        etiquetas.append({
+            "rotulo": o["rotulo"], "produto": o["produto_exibido"],
+            "serial": o["serial_patrimonio"], "status_texto": o["status_texto"],
+            "status_cor": o["status_cor"], "url_qr": _hardware_url_qr(oid),
+            "cliente": o["cliente"], "categoria_defeito": o["categoria_defeito"],
+            "quantidade": o["quantidade"], "data_registro": o["data_registro"],
+        })
+    if not etiquetas:
+        raise HTTPException(status_code=404)
+    return HTMLResponse(content=_zpl.generate_hardware_html_labels_lote(etiquetas))
+
+
 @app.post("/admin/hardware/excluir-em-massa")
 @require_permission("hardware_excluir")
 async def admin_hardware_excluir_em_massa(request: Request):
@@ -6696,6 +6749,26 @@ async def admin_hardware_detalhe(request: Request, ocorrencia_id: int):
         "ok": request.query_params.get("ok", ""),
         "erro": request.query_params.get("erro", ""),
     })
+
+
+@app.get("/admin/hardware/{ocorrencia_id:int}/etiqueta", response_class=HTMLResponse)
+@require_login
+async def admin_hardware_etiqueta(request: Request, ocorrencia_id: int):
+    """Etiqueta individual — mesmo padrão de /admin/estoque/{id}/etiqueta:
+    ação administrativa (exige login), mas o QR dentro dela aponta pra
+    rota pública /hardware/{id}, que não exige nada."""
+    import app.zpl as _zpl
+    o = hardware_mod.buscar(ocorrencia_id)
+    if not o:
+        raise HTTPException(status_code=404)
+    html = _zpl.generate_hardware_html_label(
+        rotulo=o["rotulo"], produto=o["produto_exibido"],
+        serial=o["serial_patrimonio"], status_texto=o["status_texto"],
+        status_cor=o["status_cor"], url_qr=_hardware_url_qr(ocorrencia_id),
+        cliente=o["cliente"], categoria_defeito=o["categoria_defeito"],
+        quantidade=o["quantidade"], data_registro=o["data_registro"],
+    )
+    return HTMLResponse(content=html)
 
 
 @app.post("/admin/hardware")

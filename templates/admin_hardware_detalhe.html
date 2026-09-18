@@ -73,6 +73,8 @@
 <!-- ── Barra de ações — sempre visível, qualquer que seja a aba aberta ─────── -->
 <div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
   <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 13) }} Editar</button>
+  <a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary"
+     title="Gerar etiqueta com QR Code">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
   {% if aberta %}
   <button type="button" class="btn btn-sm btn-success" onclick="abrirPopup(event, 'resolver')">{{ ic.svg('check-circulo', 13) }} Resolver</button>
   {% elif pode('hardware_encerrar_reabrir') %}
@@ -237,7 +239,7 @@
   </div>
   <div class="config-corpo">
     <form method="post" action="/admin/hardware/{{ o.id }}/editar" style="display:contents;">
-      <section class="cfg-secao">
+      <section class="cfg-secao" style="align-self:stretch;">
         <h4><span style="color:var(--brand);">{{ ic.svg('caixa', 13) }}</span> Resumo</h4>
         <div class="cfg-linha-coluna">
           <span class="cfg-rotulo">Cliente *</span>
@@ -274,7 +276,7 @@
           <input type="text" name="localizacao_detalhe" value="{{ o.localizacao_detalhe }}" placeholder="ex: prateleira B3">
         </div>
       </section>
-      <section class="cfg-secao">
+      <section class="cfg-secao" style="align-self:stretch;display:flex;flex-direction:column;">
         <h4><span style="color:var(--brand);">{{ ic.svg('filtro', 13) }}</span> Diagnóstico</h4>
         <div class="cfg-linha-coluna">
           <span class="cfg-rotulo">Categoria do defeito</span>
@@ -289,11 +291,11 @@
         </div>
         <div class="cfg-linha-coluna">
           <span class="cfg-rotulo">Descrição do defeito / sintomas</span>
-          <textarea name="descricao_defeito" rows="2">{{ o.descricao_defeito }}</textarea>
+          <textarea name="descricao_defeito" rows="4">{{ o.descricao_defeito }}</textarea>
         </div>
-        <div class="cfg-linha-coluna">
+        <div class="cfg-linha-coluna" style="flex:1;">
           <span class="cfg-rotulo">Diagnóstico técnico / possível causa</span>
-          <textarea name="diagnostico_texto" rows="2">{{ o.diagnostico_texto }}</textarea>
+          <textarea name="diagnostico_texto" rows="4" style="flex:1;height:100%;">{{ o.diagnostico_texto }}</textarea>
         </div>
       </section>
       <section class="cfg-secao" style="grid-column:1/-1;">
@@ -328,8 +330,8 @@
             </select>
           </div>
           <div class="cfg-linha-coluna">
-            <span class="cfg-rotulo">Observação <span class="cfg-ajuda">só se o status estiver mudando</span></span>
-            <input type="text" name="observacao">
+            <span class="cfg-rotulo">Observação</span>
+            <input type="text" name="observacao" placeholder="só se o status estiver mudando">
           </div>
         </div>
       </section>

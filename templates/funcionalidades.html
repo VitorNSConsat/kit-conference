@@ -1336,6 +1336,41 @@
     atualização no histórico continuam com o popup próprio deles, já que são registros novos, não
     edição do que já existe.
   </p>
+  <h3>Etiqueta com QR Code</h3>
+  <p>
+    Cada ocorrência pode ganhar uma <strong>etiqueta própria</strong>, com o mesmo mecanismo de
+    QR já usado nos kits e no estoque: o QR não guarda dado nenhum, só um link
+    (<code>/hardware/&lt;id&gt;</code>) — quem escaneia sempre vê a informação atual do banco,
+    nunca o que estava certo na hora de imprimir. Mudou o status, a mesma etiqueta já mostra o
+    novo status na próxima leitura, sem precisar reimprimir nada.
+  </p>
+  <ul>
+    <li><span class="campo">Gerar etiqueta</span> — na tela de detalhe (ao lado de Editar) e
+      na lista, um botão por linha. Abre em nova aba, pronta pra imprimir.</li>
+    <li><span class="campo">Gerar etiquetas selecionadas</span> — na lista, marque várias
+      ocorrências (mesma seleção usada por "Excluir selecionados") e gere todas de uma vez, uma
+      etiqueta por página.</li>
+    <li><span class="campo">Consulta pelo QR</span> — a página aberta pelo escaneamento é
+      pública (não pede login) e mostra praticamente tudo: produto, serial/patrimônio, status
+      em destaque, defeito e diagnóstico, cliente, prioridade, localização, responsável,
+      aguardando/próxima ação, data de registro e de solução, resultado final, as
+      <strong>três frentes de ação (Brasil/Suécia/Fabricante)</strong> — última ação de cada
+      uma com histórico completo pra abrir se precisar — e quantos arquivos estão anexados.
+      Quem está logado e tem acesso a RMAs ainda vê um botão
+      <strong>Ver detalhes completos</strong>, que leva pra tela de administração — só os
+      arquivos em si (pra baixar) ficam de fora da consulta rápida, por segurança.</li>
+    <li><span class="campo">Etiqueta física x consulta pelo QR</span> — a etiqueta impressa
+      mostra só produto, serial, cliente, defeito, quantidade e data de registro (além do QR e
+      do status). <strong>Responsável não entra na etiqueta</strong> de propósito — muda mais
+      rápido do que vale a pena reimprimir, e já aparece completo na consulta pelo QR, que
+      está sempre atualizada.</li>
+  </ul>
+  <div class="nota">
+    Ocorrência arquivada continua respondendo ao QR (a etiqueta física não devia virar lixo só
+    porque o registro saiu das listas de trabalho) — a consulta mostra um aviso de "arquivada"
+    junto com os dados normais.
+  </div>
+
   <div class="nota">
     <strong>Arquivar, não excluir.</strong> Uma ocorrência arquivada some das listas de trabalho
     (a não ser que marque <span class="campo">Incluir arquivadas</span> nos filtros avançados,

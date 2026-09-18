@@ -346,6 +346,7 @@
       <th>Próxima ação</th>
       <th>Dias aberto</th>
       {{ th_ord('Última atualização', 'atualizado', ord_hw, dir_hw) }}
+      <th></th>
     </tr></thead>
     <tbody>
     {% for o in pag.itens %}
@@ -374,6 +375,10 @@
         <span title="Sem atualização há {{ o.dias_sem_atualizacao }} dias">{{ ic.svg('alerta', 12) }}</span>
         {% endif %}
       </td>
+      <td style="white-space:nowrap;">
+        <a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank"
+           class="btn btn-sm btn-secondary" title="Gerar etiqueta com QR Code">{{ ic.svg('impressao', 13) }} Etiqueta</a>
+      </td>
     </tr>
     {% endfor %}
     </tbody>
@@ -381,6 +386,10 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="submit" class="btn btn-sm btn-secondary" id="btn-exportar-hw">
       {{ ic.svg('baixar', 13) }} <span id="rotulo-exportar-hw">Exportar todos ({{ pag.total }})</span>
+    </button>
+    <button type="button" class="btn btn-sm btn-secondary" id="btn-etiquetas-hw" disabled
+            onclick="gerarEtiquetasSelecionadasHardware()">
+      {{ ic.svg('impressao', 13) }} Gerar etiquetas selecionadas (<span id="qtd-etiquetas-hw">0</span>)
     </button>
     {% if pode('hardware_excluir') %}
     <button type="button" class="btn btn-sm btn-danger" id="btn-excluir-hw" disabled
@@ -390,8 +399,8 @@
     {% endif %}
     <span style="font-size:12px;color:var(--text-muted-2);">
       Sem nada marcado, exporta todas as {{ pag.total }} ocorrência{{ 's' if pag.total != 1 }} deste filtro
-      (não só a página atual). Marque linhas acima pra exportar só elas, ou pra excluí-las
-      permanentemente.
+      (não só a página atual). Marque linhas acima pra exportar só elas, gerar etiquetas delas, ou
+      pra excluí-las permanentemente.
     </span>
   </div>
   {% if pag.total_paginas > 1 %}
@@ -547,6 +556,20 @@ function atualizarBotaoExportarHardware() {
     if (btnExcluir) btnExcluir.disabled = qtd === 0;
     const qtdExcluir = document.getElementById('qtd-excluir-hw');
     if (qtdExcluir) qtdExcluir.textContent = qtd;
+    // Etiquetas segue a mesma regra do excluir: sem nada marcado, desabilitado
+    // -- gerar etiqueta de TODAS as ocorrências do filtro de uma vez (que
+    // pode ser centenas) não faz sentido como padrão silencioso.
+    const btnEtiquetas = document.getElementById('btn-etiquetas-hw');
+    if (btnEtiquetas) btnEtiquetas.disabled = qtd === 0;
+    const qtdEtiquetas = document.getElementById('qtd-etiquetas-hw');
+    if (qtdEtiquetas) qtdEtiquetas.textContent = qtd;
+}
+
+function gerarEtiquetasSelecionadasHardware() {
+    const sel = [...document.querySelectorAll('.chk-hardware:checked')];
+    if (!sel.length) return;
+    const ids = sel.map(c => c.value).join(',');
+    window.open('/admin/hardware/etiquetas?ids=' + encodeURIComponent(ids), '_blank');
 }
 
 function excluirSelecionadosHardware() {

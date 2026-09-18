@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+<title>{{ o.rotulo }} — {{ o.produto_exibido or 'Hardware' }}</title>
+{% import "_icones.html" as ic %}
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  {# Página standalone (aberta pelo QR sem login) — mesmo padrão de
+     kit_detail.html: não herda static/style.css, tokens repetidos aqui. #}
+  body {
+    font-family: -apple-system, Arial, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: #246b84;
+    color: #fff;
+    padding: 18px 20px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .header .rotulo-sub {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; opacity: .7;
+  }
+  .header h1 { font-size: 20px; font-weight: 800; line-height: 1.2; margin-top: 2px; }
+  .header .subtitulo { font-size: 13px; opacity: .75; margin-top: 4px; }
+
+  .status-badge {
+    display: inline-block;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin-top: 12px;
+  }
+  .badge-arquivada {
+    display: inline-block;
+    background: rgba(255,255,255,.2);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-top: 12px;
+    margin-left: 6px;
+  }
+
+  .container { padding: 16px; max-width: 480px; margin: 0 auto; }
+
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-bottom: 10px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .info-item.full { grid-column: 1 / -1; }
+  .info-item .label {
+    font-size: 10px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .info-item .value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .info-item .value.mono { font-family: monospace; }
+
+  .texto-livre {
+    font-size: 14px; color: #333; line-height: 1.5; white-space: pre-wrap;
+  }
+
+  .btn-detalhes {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: #246b84;
+    color: #fff;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 15px;
+    border-radius: 12px;
+    box-sizing: border-box;
+    margin-top: 4px;
+  }
+
+  .aviso-arquivada {
+    background: #fef3e2; border: 1px solid #f0c987; color: #92600a;
+    border-radius: 10px; padding: 12px 14px; font-size: 13px; font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  {# Ações Brasil/Suécia/Fabricante -- mesma ideia visual de .hw-evento em
+     static/style.css (borda colorida por área), mas essa página é
+     standalone e não herda aquele arquivo. #}
+  .acao-card + .acao-card { margin-top: 12px; }
+  .acao-titulo {
+    font-size: 13px; font-weight: 800; color: #222; margin-bottom: 6px;
+  }
+  .acao-vazia { font-size: 13px; color: #999; }
+  .acao-item {
+    border-left: 3px solid #ccc; padding: 6px 0 6px 10px; margin-bottom: 6px;
+  }
+  .acao-item.area-brasil     { border-left-color: #2668a8; }
+  .acao-item.area-suecia     { border-left-color: #6b3fb5; }
+  .acao-item.area-fabricante { border-left-color: #b45309; }
+  .acao-item .acao-meta {
+    font-size: 11px; color: #999; display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2px;
+  }
+  .acao-item .acao-situacao {
+    font-size: 10px; font-weight: 700; color: #246b84; background: #eef3f7;
+    padding: 1px 7px; border-radius: 10px;
+  }
+  .acao-item .acao-conteudo { font-size: 13px; color: #333; white-space: pre-wrap; }
+  .acao-historico summary {
+    font-size: 11px; color: #888; cursor: pointer; margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="rotulo-sub">Hardware / RMA</div>
+  <h1>{{ o.produto_exibido or '—' }}</h1>
+  <div class="subtitulo">{{ o.rotulo }}{% if o.cliente %} &nbsp;·&nbsp; {{ o.cliente }}{% endif %}</div>
+  <span class="status-badge" style="background:{{ o.status_cor }};">{{ o.status_texto }}</span>
+  {% if not o.ativo %}<span class="badge-arquivada">{{ ic.svg('alerta', 11) }} Arquivada</span>{% endif %}
+</div>
+
+<div class="container">
+
+  {% if not o.ativo %}
+  <div class="aviso-arquivada">
+    {{ ic.svg('alerta', 13) }} Esta ocorrência foi arquivada — os dados abaixo continuam sendo
+    o último registro conhecido, mas o item não está mais em acompanhamento ativo.
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-title">Equipamento</div>
+    <div class="info-grid">
+      <div class="info-item full">
+        <div class="label">Serial / Patrimônio</div>
+        <div class="value mono">{{ o.serial_patrimonio or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Defeito</div>
+        <div class="value">{{ o.categoria_defeito or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Quantidade</div>
+        <div class="value">{{ o.quantidade }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Cliente</div>
+        <div class="value">{{ o.cliente or '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Registro</div>
+        <div class="value">{{ o.data_registro[:10] if o.data_registro else '—' }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Prioridade</div>
+        <div class="value">{{ o.prioridade_texto or '—' }}</div>
+      </div>
+      {% if o.responsavel_nome %}
+      <div class="info-item">
+        <div class="label">Responsável</div>
+        <div class="value">{{ o.responsavel_nome }}</div>
+      </div>
+      {% endif %}
+      {% if o.localizacao_texto %}
+      <div class="info-item">
+        <div class="label">Localização</div>
+        <div class="value">{{ o.localizacao_texto }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</div>
+      </div>
+      {% endif %}
+      {% if o.aguardando_texto %}
+      <div class="info-item">
+        <div class="label">Aguardando</div>
+        <div class="value">{{ o.aguardando_texto }}</div>
+      </div>
+      {% endif %}
+      {% if o.data_solucao %}
+      <div class="info-item">
+        <div class="label">Data de solução</div>
+        <div class="value">{{ o.data_solucao[:10] }}</div>
+      </div>
+      {% endif %}
+      {% if o.proxima_acao %}
+      <div class="info-item full">
+        <div class="label">Próxima ação</div>
+        <div class="value">
+          {{ o.proxima_acao }}{% if o.proxima_acao_data %} — previsão {{ o.proxima_acao_data }}{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if o.subcategoria_defeito or o.descricao_defeito or o.diagnostico_texto %}
+  <div class="card">
+    <div class="card-title">Diagnóstico</div>
+    {% if o.subcategoria_defeito %}
+    <div class="info-item" style="margin-bottom:8px;">
+      <div class="label">Subcategoria</div>
+      <div class="value">{{ o.subcategoria_defeito }}</div>
+    </div>
+    {% endif %}
+    {% if o.descricao_defeito %}
+    <div class="texto-livre" style="margin-bottom:8px;">{{ o.descricao_defeito }}</div>
+    {% endif %}
+    {% if o.diagnostico_texto %}
+    <div class="info-item" style="margin-bottom:4px;">
+      <div class="label">Diagnóstico técnico</div>
+    </div>
+    <div class="texto-livre">{{ o.diagnostico_texto }}</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if o.resultado_final or o.solucao_texto %}
+  <div class="card">
+    <div class="card-title">Resultado</div>
+    {% if o.resultado_final %}
+    <div class="info-item" style="margin-bottom:8px;">
+      <div class="label">Resultado final</div>
+      <div class="value">{{ o.resultado_final }}</div>
+    </div>
+    {% endif %}
+    {% if o.solucao_texto %}
+    <div class="texto-livre">{{ o.solucao_texto }}</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-title">Ações Brasil / Suécia / Fabricante</div>
+    {% for area in ['brasil', 'suecia', 'fabricante'] %}
+    {% set ultima = o.acoes.get(area) %}
+    <div class="acao-card">
+      <div class="acao-titulo">{{ area_texto[area] }}</div>
+      {% if ultima %}
+      <div class="acao-item area-{{ area }}">
+        <div class="acao-meta">
+          <span>{{ ultima.usuario_nome or '—' }}</span>
+          <span>{{ ultima.data[:16] if ultima.data else '' }}</span>
+          {% if ultima.situacao %}<span class="acao-situacao">{{ ultima.situacao }}</span>{% endif %}
+        </div>
+        <div class="acao-conteudo">{{ ultima.conteudo }}</div>
+      </div>
+      {% if eventos_area[area] | length > 1 %}
+      <details class="acao-historico">
+        <summary>Histórico completo ({{ eventos_area[area] | length }})</summary>
+        {% for e in eventos_area[area][1:] %}
+        <div class="acao-item area-{{ area }}">
+          <div class="acao-meta">
+            <span>{{ e.usuario_nome or '—' }}</span>
+            <span>{{ e.criado_em[:16] }}</span>
+            {% if e.situacao %}<span class="acao-situacao">{{ e.situacao }}</span>{% endif %}
+          </div>
+          <div class="acao-conteudo">{{ e.conteudo }}</div>
+        </div>
+        {% endfor %}
+      </details>
+      {% endif %}
+      {% else %}
+      <div class="acao-vazia">Nenhuma ação registrada ainda.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if anexos_total %}
+  <div class="card">
+    <div class="card-title">Arquivos</div>
+    <div class="texto-livre">
+      {{ ic.svg('relatorios', 14) }} {{ anexos_total }} arquivo{{ 's' if anexos_total != 1 }} anexado{{ 's' if anexos_total != 1 }}
+      — disponíve{{ 'is' if anexos_total != 1 else 'l' }} nos detalhes completos.
+    </div>
+  </div>
+  {% endif %}
+
+  {% if user and pode('ver_hardware') %}
+  <a href="/admin/hardware/{{ o.id }}" class="btn-detalhes">Ver detalhes completos →</a>
+  {% endif %}
+
+</div>
+
+</body>
+</html>
