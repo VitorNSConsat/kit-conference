@@ -1241,8 +1241,8 @@
   <h2>10. RMAs</h2>
   <p>
     Acompanhamento de equipamento com defeito/RMA, do registro do problema até a solução final —
-    inclusive as três frentes que costumam entrar numa ocorrência: <strong>Brasil</strong>,
-    <strong>Suécia</strong> e <strong>fabricante</strong>. Cada ocorrência ganha um identificador
+    inclusive as quatro frentes que costumam entrar numa ocorrência: <strong>Brasil</strong>,
+    <strong>Suécia</strong>, <strong>fabricante</strong> e <strong>cliente</strong>. Cada ocorrência ganha um identificador
     automático (<span class="campo">RMA-0001</span>, <span class="campo">RMA-0002</span>...),
     derivado do id — nunca precisa digitar nem escolher.
   </p>
@@ -1310,9 +1310,12 @@
       Responsáveis (mesmo popup de catálogo das outras listas).</li>
     <li><span class="campo">Próxima ação</span> + <span class="campo">Aguardando de</span> —
       pra nunca depender de descobrir de cabeça o que falta fazer.</li>
-    <li><span class="campo">Ações Brasil/Suécia/Fabricante</span> — três blocos separados, cada
-      um com a última ação/situação em destaque e um histórico completo por trás. Registrar
-      uma ação nova nunca apaga as anteriores.</li>
+    <li><span class="campo">Ações</span> — uma timeline só (aba <strong>Ações</strong>), com
+      todas as ações de todas as frentes juntas, mais recente primeiro, cada uma com uma
+      etiqueta colorida dizendo quem fez (<strong>Brasil/Suécia/Fabricante/Cliente</strong>).
+      Um botão só — <strong>Registrar ação</strong> — abre o formulário com "Quem realizou"
+      pra escolher a frente na hora, em vez de decidir antes qual dos quatro blocos clicar.
+      Registrar uma ação nova nunca apaga as anteriores.</li>
     <li><span class="campo">Histórico</span> — timeline com toda mudança (criação, atualização,
       ação de qualquer frente, status, responsável, prioridade, reabertura, resultado final,
       anexo) e quem fez. Nada aqui é sobrescrito.</li>
@@ -1322,10 +1325,13 @@
 
   <h3>Tela de detalhe</h3>
   <p>
-    Organizada em três abas — <strong>Resumo</strong> (que já traz Diagnóstico e Histórico
-    juntos, pra não espalhar informação relacionada em aba demais), <strong>Ações</strong>
-    (Brasil/Suécia/Fabricante) e <strong>Arquivos</strong> — com uma barra de ações fixa em cima
-    (<strong>Editar</strong>, Resolver/Reabrir, Arquivar).
+    Organizada em três abas — <strong>Resumo</strong>, <strong>Ações</strong> e
+    <strong>Arquivos</strong> — com uma barra de ações fixa em cima (<strong>Editar</strong>,
+    Resolver/Reabrir, Arquivar). A aba Resumo tem uma faixa com os dados de identificação
+    (produto, cliente, serial, quantidade, localização, registro, criado por) e, embaixo, três
+    blocos: <strong>Diagnóstico</strong> (com seu próprio atalho "Editar") e <strong>Status
+    atual</strong> lado a lado, e o <strong>Histórico</strong> completo (toda mudança, não só
+    ações) embaixo dos dois, em largura cheia.
   </p>
   <p>
     <strong>Editar</strong> é um botão só pra tudo: abre um único popup organizado em seções
@@ -1354,8 +1360,8 @@
       pública (não pede login) e mostra praticamente tudo: produto, serial/patrimônio, status
       em destaque, defeito e diagnóstico, cliente, prioridade, localização, responsável,
       aguardando/próxima ação, data de registro e de solução, resultado final, as
-      <strong>três frentes de ação (Brasil/Suécia/Fabricante)</strong> — última ação de cada
-      uma com histórico completo pra abrir se precisar — e quantos arquivos estão anexados.
+      <strong>quatro frentes de ação (Brasil/Suécia/Fabricante/Cliente)</strong> — última ação de
+      cada uma com histórico completo pra abrir se precisar — e quantos arquivos estão anexados.
       Quem está logado e tem acesso a RMAs ainda vê um botão
       <strong>Ver detalhes completos</strong>, que leva pra tela de administração — só os
       arquivos em si (pra baixar) ficam de fora da consulta rápida, por segurança.</li>
@@ -1364,6 +1370,12 @@
       do status). <strong>Responsável não entra na etiqueta</strong> de propósito — muda mais
       rápido do que vale a pena reimprimir, e já aparece completo na consulta pelo QR, que
       está sempre atualizada.</li>
+    <li><span class="campo">Atalho no celular</span> — na tela inicial do mobile (<code>/mobile</code>),
+      quem tem acesso a RMAs vê dois atalhos: <strong>RMAs</strong> abre uma lista simplificada
+      (buscar por RMA-000X, produto, serial ou cliente; toca numa linha e abre a mesma consulta
+      do QR) e <strong>Ler RMA</strong> abre a câmera pra escanear a etiqueta direto — mesmo
+      leitor já usado por "Consultar Kit" e "Consultar Item", só que abrindo o RMA
+      correspondente ao terminar de ler.</li>
   </ul>
   <div class="nota">
     Ocorrência arquivada continua respondendo ao QR (a etiqueta física não devia virar lixo só

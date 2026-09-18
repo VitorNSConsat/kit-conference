@@ -307,27 +307,79 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
     border-color: color-mix(in srgb, var(--cor) 35%, var(--surface));
 }
 
-/* Timeline da ocorrência: uma linha por evento, borda esquerda colorida
-   por tipo — mesma ideia visual de um log de commits, sem componente novo
-   pesado. */
-.hw-evento {
-    padding: 8px 12px; margin-bottom: 8px; border-left: 3px solid var(--border);
-    background: var(--surface-alt); border-radius: 0 8px 8px 0; font-size: 13px;
+/* Faixa horizontal do topo da aba Resumo: um ícone + rótulo/valor por
+   campo (produto, cliente, serial, quantidade, localização, registro,
+   criado por), lado a lado -- substitui o cabeçalho + o card "Resumo"
+   separados que repetiam produto/serial/status. */
+.hw-resumo-topo {
+    display: flex; flex-wrap: wrap; gap: 22px 28px;
 }
-.hw-evento-cabecalho {
-    display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; flex-wrap: wrap;
+.hw-resumo-campo { display: flex; align-items: flex-start; gap: 8px; min-width: 130px; }
+.hw-resumo-icone {
+    color: var(--text-muted-2); flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center;
 }
-.hw-evento-tipo { font-weight: 700; color: var(--text); font-size: 12.5px; }
-.hw-evento-quando { color: var(--text-muted-2); font-size: 11.5px; margin-left: auto; }
-.hw-evento-autor { color: var(--text-muted); font-size: 12px; }
-.hw-evento-conteudo { color: var(--text); white-space: pre-wrap; }
-.hw-evento-brasil     { border-left-color: #2668a8; }
-.hw-evento-suecia     { border-left-color: #6b3fb5; }
-.hw-evento-fabricante { border-left-color: #b45309; }
-.hw-evento-status, .hw-evento-prioridade, .hw-evento-responsavel { border-left-color: var(--text-muted-2); }
-.hw-evento-reabertura { border-left-color: var(--warn-text); }
-.hw-evento-resultado_final { border-left-color: var(--ok-text); }
-.hw-evento-criacao { border-left-color: var(--brand); }
+/* Diagnóstico ao lado do status atual, não empilhado — os dois cabem numa
+   tela sem rolar. O histórico (mais longo) vem embaixo, largura cheia.
+   Em telas estreitas volta a empilhar. */
+.hw-resumo-baixo {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-top: 16px;
+}
+@media (max-width: 900px) {
+    .hw-resumo-baixo { grid-template-columns: 1fr; }
+}
+/* Linhas rótulo/valor do card "Status atual". */
+.hw-status-linha {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--border-subtle); font-size: 13px;
+}
+.btn-link {
+    background: none; border: none; padding: 2px 4px; margin: 0; cursor: pointer;
+    font: inherit; font-size: 12px; color: var(--brand); display: inline-flex; align-items: center; gap: 4px;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* Navegação por âncora entre as seções da tela de RMA (Resumo/Ações/
+   Arquivos) -- a página é uma só, rolando; isto só pula pra seção, não
+   esconde as outras (diferente de aba). */
+.hw-secao-nav {
+    display: flex; gap: 4px; margin: 16px 0 4px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.hw-secao-nav a {
+    padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--text-muted);
+    text-decoration: none; border-bottom: 2px solid transparent;
+}
+.hw-secao-nav a:hover { color: var(--brand-ink); border-bottom-color: var(--border-strong); }
+
+/* Formulário de registrar ação, agora inline na própria seção (não é mais
+   popup) -- campos lado a lado, alinhados pela base. */
+.hw-acao-form {
+    display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    padding-bottom: 16px; margin-bottom: 4px; border-bottom: 1px solid var(--border-subtle);
+}
+.hw-acao-form .cfg-linha-coluna { min-width: 170px; }
+.hw-acao-form textarea { min-height: 38px; resize: vertical; }
+
+/* Linha do tempo com marcador + linha conectando os eventos. */
+.hw-timeline { position: relative; }
+.hw-timeline-item { position: relative; padding: 0 0 18px 22px; font-size: 13px; }
+.hw-timeline-item::before {
+    content: ''; position: absolute; left: 3px; top: 4px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--brand); box-shadow: 0 0 0 2px var(--surface);
+}
+.hw-timeline-item::after {
+    content: ''; position: absolute; left: 7px; top: 13px; bottom: -5px;
+    width: 1px; background: var(--border);
+}
+.hw-timeline-item:last-child::after { display: none; }
+.hw-timeline-item:last-child { padding-bottom: 0; }
+.hw-timeline-cabecalho { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.hw-timeline-hora { font-size: 11px; color: var(--text-muted-2); font-weight: 700; }
+.hw-timeline-titulo { font-size: 13px; font-weight: 700; color: var(--text); }
+.hw-timeline-conteudo { color: var(--text-muted); font-size: 12.5px; margin-top: 2px; white-space: pre-wrap; }
+.hw-timeline-autor { color: var(--text-muted-2); font-size: 11.5px; margin-top: 2px; }
 
 .btn {
     display: inline-flex;

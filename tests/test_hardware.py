@@ -197,6 +197,24 @@ def test_registrar_acao_recusa_area_invalida(usuario_id):
         hw.registrar_acao(oid, "marte", "conteudo", "situacao", usuario_id)
 
 
+def test_cliente_e_uma_area_de_acao_valida(usuario_id):
+    # "cliente" entrou como 4ª frente (junto de Brasil/Suécia/Fabricante) --
+    # o formulário de registrar ação virou um só com "quem realizou" em vez
+    # de um botão fixo por frente.
+    oid = _criar_ocorrencia(usuario_id)
+    hw.registrar_acao(oid, "cliente", "Cliente confirmou o recebimento.", "Concluída", usuario_id)
+
+    assert "cliente" in hw.AREAS_ACAO
+    assert hw.AREA_TEXTO["cliente"] == "Cliente"
+
+    o = hw.buscar(oid)
+    assert o["acoes"]["cliente"]["conteudo"] == "Cliente confirmou o recebimento."
+
+    eventos = hw.listar_eventos(oid)
+    evento_cliente = next(e for e in eventos if e["tipo"] == "acao_cliente")
+    assert evento_cliente["tipo_texto"] == "Ação — Cliente"
+
+
 def test_salvar_anexo_recusa_extensao_fora_da_lista(tmp_path, usuario_id, monkeypatch):
     monkeypatch.chdir(tmp_path)
     oid = _criar_ocorrencia(usuario_id)

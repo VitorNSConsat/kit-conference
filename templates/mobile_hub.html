@@ -247,6 +247,8 @@
   <div class="alert-danger">Código não encontrado no estoque.</div>
   {% elif request.query_params.get('erro') == 'kit_nao_encontrado' %}
   <div class="alert-danger">Kit não encontrado.</div>
+  {% elif request.query_params.get('erro') == 'hardware_nao_encontrado' %}
+  <div class="alert-danger">RMA não encontrado.</div>
   {% endif %}
 
   {% if user %}
@@ -337,6 +339,19 @@
       <div class="qb-icon">{{ ic.svg('kits', 24) }}</div>
       <div class="qb-label">Consultar Kit</div>
     </button>
+    {% if pode('ver_hardware') %}
+    {# Lista simplificada de RMAs (a de computador é pesada demais pro
+       celular) -- cada linha já abre a mesma consulta que o QR da
+       etiqueta abre. #}
+    <a href="/hardware/mobile" class="quick-btn">
+      <div class="qb-icon">{{ ic.svg('alerta', 24) }}</div>
+      <div class="qb-label">RMAs</div>
+    </a>
+    <button type="button" class="quick-btn" onclick="abrirConsultaRMA()">
+      <div class="qb-icon">{{ ic.svg('camera', 24) }}</div>
+      <div class="qb-label">Ler RMA</div>
+    </button>
+    {% endif %}
   </div>
 
   {% else %}
@@ -392,15 +407,17 @@
     ];
 
     let _stream = null, _zxingTimer = null, _loop = null, _detector = null, _token = 0;
-    let _destino = 'estoque'; // 'estoque' | 'kit' — para onde o código lido deve navegar
+    let _destino = 'estoque'; // 'estoque' | 'kit' | 'hardware' — para onde o código lido deve navegar
 
     function _urlBusca(codigo) {
-        const base = _destino === 'kit' ? '/kit/buscar' : '/estoque/buscar';
+        const base = _destino === 'kit' ? '/kit/buscar'
+                    : _destino === 'hardware' ? '/hardware/buscar'
+                    : '/estoque/buscar';
         return base + '?codigo=' + encodeURIComponent(codigo);
     }
 
     function _textoAlvo() {
-        return _destino === 'kit' ? 'do kit' : 'do item';
+        return _destino === 'kit' ? 'do kit' : _destino === 'hardware' ? 'do RMA' : 'do item';
     }
 
     // Inicializa BarcodeDetector nativo (Android Chrome) — quando disponível,
@@ -439,6 +456,7 @@
 
     window.abrirConsultaEstoque = function () { _abrirScanner('estoque'); };
     window.abrirConsultaKit     = function () { _abrirScanner('kit'); };
+    window.abrirConsultaRMA     = function () { _abrirScanner('hardware'); };
 
     async function _abrirScanner(destino) {
         _destino = destino;
@@ -485,6 +503,11 @@
                 status.textContent = 'Scanner não disponível neste navegador.';
             }
         } catch (e) {
+            // Log silencioso até aqui deixava "a câmera não abriu" sem
+            // nenhuma pista de por quê (permissão negada, contexto não
+            // seguro, etc.) -- com isso dá pra abrir o console do celular
+            // e ver a causa real em vez de só "algo falhou".
+            console.error('[scanner] getUserMedia falhou para destino=' + destino + ':', e);
             fecharScannerEDigitar();
         }
     }

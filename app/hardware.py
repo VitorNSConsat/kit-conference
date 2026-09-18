@@ -34,9 +34,9 @@ def _normalizar(texto) -> str:
 
 # Status, prioridade, categoria de defeito e localização são catálogos
 # editáveis no banco (hardware_*_opcao) — ver seção "Catálogos" abaixo.
-# "Aguardando de" continua fixo: é a estrutura das 3 frentes de ação
-# (Brasil/Suécia/Fabricante) mais "cliente", amarrada ao resto do código
-# (AREAS_ACAO, as abas de ação), não um simples rótulo de lista.
+# "Aguardando de" continua fixo: é a mesma estrutura das 4 frentes de ação
+# (Brasil/Suécia/Fabricante/Cliente), amarrada ao resto do código
+# (AREAS_ACAO, quem pode registrar uma ação), não um simples rótulo de lista.
 AGUARDANDO_DE = (
     ("brasil",     "Brasil"),
     ("suecia",     "Suécia"),
@@ -75,8 +75,15 @@ _STATUS_SINONIMOS_IMPORTACAO = {
     "cancelado":             "cancelado",
 }
 
-AREAS_ACAO = ("brasil", "suecia", "fabricante")
-AREA_TEXTO = {"brasil": "Brasil", "suecia": "Suécia", "fabricante": "Fabricante"}
+# "cliente" entrou como 4ª frente de ação (junto de Brasil/Suécia/Fabricante)
+# a pedido do usuário -- registrar uma ação virou um formulário só com "quem
+# realizou" em vez de 3 (agora 4) botões fixos separados. Reaproveita o
+# mesmo mecanismo (evento tipo 'acao_<area>'), sem precisar de coluna nova
+# nem migração -- e já bate com AGUARDANDO_DE, que já tinha "cliente".
+AREAS_ACAO = ("brasil", "suecia", "fabricante", "cliente")
+AREA_TEXTO = {"brasil": "Brasil", "suecia": "Suécia", "fabricante": "Fabricante", "cliente": "Cliente"}
+# Cor por frente -- badge da timeline unificada de ações (ver admin_hardware_detalhe.html).
+AREA_COR = {"brasil": "#2668a8", "suecia": "#6b3fb5", "fabricante": "#b45309", "cliente": "#18804b"}
 
 EVENTO_TEXTO = {
     "criacao":         "Ocorrência criada",
@@ -84,6 +91,7 @@ EVENTO_TEXTO = {
     "acao_brasil":     "Ação — Brasil",
     "acao_suecia":     "Ação — Suécia",
     "acao_fabricante": "Ação — Fabricante",
+    "acao_cliente":    "Ação — Cliente",
     "status":          "Status alterado",
     "responsavel":     "Responsável alterado",
     "prioridade":      "Prioridade alterada",
@@ -345,14 +353,14 @@ def _dias_desde(data_texto: str | None, agora: datetime | None = None) -> int | 
 
 
 def ultimas_acoes(ocorrencia_ids: list[int] | None = None) -> dict[int, dict]:
-    """{ocorrencia_id: {"brasil": {...}, "suecia": {...}, "fabricante": {...}}}
+    """{ocorrencia_id: {"brasil": {...}, "suecia": {...}, "fabricante": {...}, "cliente": {...}}}
     com a AÇÃO MAIS RECENTE de cada frente — nunca todas, só a última, que é
     o que a tela de resumo e os cards precisam. O histórico completo por
     área vive em listar_eventos_area()."""
     sql = (
         "SELECT e.ocorrencia_id, e.tipo, e.conteudo, e.situacao, e.criado_em, u.nome AS usuario_nome "
         "FROM hardware_ocorrencia_evento e LEFT JOIN users u ON u.id = e.usuario_id "
-        "WHERE e.tipo IN ('acao_brasil','acao_suecia','acao_fabricante') "
+        "WHERE e.tipo IN ('acao_brasil','acao_suecia','acao_fabricante','acao_cliente') "
     )
     params: list = []
     if ocorrencia_ids:

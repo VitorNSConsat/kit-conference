@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>RMAs — Mobile</title>
+{% import "_icones.html" as ic %}
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#246b84">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-touch-icon" href="/static/icon-192.png">
+<style>
+  {# Tela própria, no mesmo desenho de producao_mobile.html: a de
+     computador (/admin/hardware) tem tabela larga, filtros avançados e
+     popups de catálogo -- coisa de mesa. Aqui é só OLHAR e abrir a
+     consulta de um RMA; editar continua no computador. #}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: #f5f2ec; color: #2b2a27; min-height: 100vh; padding-bottom: 40px;
+  }
+  .header {
+    background: linear-gradient(135deg, #246b84 0%, #1d586c 100%);
+    color: #fff; padding: 14px 16px; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+    position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  .header h1 { font-size: 17px; font-weight: 800; }
+  .header a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 13px;
+              background: rgba(255,255,255,.18); padding: 6px 12px; border-radius: 999px; }
+  .container { padding: 14px; max-width: 520px; margin: 0 auto; }
+
+  .busca-form { display: flex; gap: 8px; margin-bottom: 14px; }
+  .busca-form input {
+    flex: 1; min-width: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid #e3ddce;
+    font-size: 14px; background: #fff;
+  }
+  .busca-form button {
+    flex-shrink: 0; padding: 0 16px; border: none; border-radius: 12px;
+    background: #246b84; color: #fff; font-weight: 700; font-size: 13px;
+  }
+
+  .lista {
+    background: #fff; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(30,73,118,.08);
+  }
+  .linha {
+    display: flex; align-items: center; gap: 10px; padding: 13px 16px;
+    border-top: 1px solid #f0ece2; text-decoration: none; color: inherit;
+  }
+  .lista .linha:first-child { border-top: none; }
+  .linha:active { background: #faf7f1; }
+  .linha .info { flex: 1; min-width: 0; }
+  .linha .titulo { font-weight: 800; font-size: 15px; }
+  {# "RMA-0008" quebrando no hífen (RMA- / 0008) em cards estreitos ficava
+     ilegível -- nowrap só no rótulo, o resto da linha ainda pode quebrar
+     se precisar. #}
+  .linha .rotulo-rma { white-space: nowrap; }
+  .linha .sub { font-size: 12px; color: #7a7468; margin-top: 2px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .linha .badge-status {
+    flex-shrink: 0; font-size: 10px; font-weight: 800; color: #fff;
+    text-transform: uppercase; padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .seta { color: #c6cfd8; font-size: 16px; flex-shrink: 0; }
+  .vazio { padding: 24px 16px; text-align: center; color: #9aa7b4; font-size: 13px; }
+  .corte { padding: 10px 16px; font-size: 11px; color: #9aa7b4; border-top: 1px solid #f0ece2; text-align: center; }
+  .aviso {
+    background: #fff8e6; border: 1px solid #f0d9a0; border-radius: 12px;
+    padding: 10px 12px; font-size: 12px; color: #7a5c1e; margin-bottom: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>RMAs</h1>
+  <a href="/mobile">← Início</a>
+</div>
+
+<div class="container">
+
+  <form method="get" action="/hardware/mobile" class="busca-form">
+    <input type="text" name="busca" value="{{ busca }}"
+           placeholder="Buscar por RMA-000X, produto, serial ou cliente...">
+    <button type="submit">{{ ic.svg('busca', 15) }}</button>
+  </form>
+
+  <div class="aviso">
+    Tela de consulta. Editar, registrar ação e resolver continuam no computador,
+    em <strong>RMAs</strong>. Pra ler o QR de uma etiqueta, use "Ler RMA" na tela inicial.
+  </div>
+
+  <div class="lista">
+    {% for o in itens %}
+    <a class="linha" href="/hardware/{{ o.id }}">
+      <div class="info">
+        <div class="titulo"><span class="rotulo-rma">{{ o.rotulo }}</span> — {{ o.produto_exibido or 'sem produto' }}</div>
+        <div class="sub">{{ o.cliente }}{% if o.serial_patrimonio %} · {{ o.serial_patrimonio }}{% endif %}</div>
+      </div>
+      <span class="badge-status" style="background:{{ o.status_cor }};">{{ o.status_texto }}</span>
+      <div class="seta">›</div>
+    </a>
+    {% else %}
+    <div class="vazio">
+      {% if busca %}Nenhum RMA encontrado para "{{ busca }}".{% else %}Nenhum RMA cadastrado ainda.{% endif %}
+    </div>
+    {% endfor %}
+    {% if cortou %}
+    <div class="corte">mostrando {{ itens | length }} de {{ total }} — refine a busca pra achar mais rápido</div>
+    {% endif %}
+  </div>
+
+</div>
+</body>
+</html>

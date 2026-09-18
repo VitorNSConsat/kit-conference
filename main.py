@@ -6289,6 +6289,64 @@ def _hardware_contexto_formulario() -> dict:
 # ver_hardware do _PaginaPermitidaMiddleware) e liberada no portão de
 # mobile (_MOBILE_OK_PREFIX). Consulta sempre o banco na hora da leitura --
 # a etiqueta física nunca precisa ser reimpressa quando o status muda.
+
+_RE_HARDWARE_ID = re.compile(r'/hardware/(\d+)')
+
+
+def _resolver_hardware_id(texto: str) -> int | None:
+    """Resolve um texto lido (URL do QR da etiqueta de hardware/RMA, o id
+    puro ou o rótulo RMA-000X digitado à mão) pro id da ocorrência
+    correspondente, ou None se não achar -- mesmo espírito de
+    _resolver_kit_id(), só que o id de hardware é um inteiro simples, não
+    um UUID."""
+    texto = (texto or "").strip()
+    if not texto:
+        return None
+    m = _RE_HARDWARE_ID.search(texto)
+    if not m:
+        m = re.fullmatch(r'(?i)\s*(?:rma-)?0*(\d+)\s*', texto)
+    if not m:
+        return None
+    try:
+        ocorrencia_id = int(m.group(1))
+    except ValueError:
+        return None
+    return ocorrencia_id if hardware_mod.buscar(ocorrencia_id) else None
+
+
+@app.get("/hardware/buscar")
+async def hardware_buscar(request: Request, codigo: str = ""):
+    """Resolve o texto lido pro RMA correspondente -- usado pelo scanner
+    do /mobile (mesmo papel de /kit/buscar para kits)."""
+    ocorrencia_id = _resolver_hardware_id(codigo)
+    if not ocorrencia_id:
+        return RedirectResponse("/mobile?erro=hardware_nao_encontrado", status_code=302)
+    return RedirectResponse(f"/hardware/{ocorrencia_id}", status_code=302)
+
+
+_HARDWARE_MOBILE_LIMITE = 40
+
+
+@app.get("/hardware/mobile", response_class=HTMLResponse)
+@require_login
+async def hardware_mobile(request: Request, busca: str = ""):
+    """RMAs no celular, só pra consultar -- lista simplificada, sem
+    filtros avançados nem ações em massa (isso continua sendo tela de
+    computador, ver /admin/hardware). Cada linha abre a mesma consulta
+    pública que o QR da etiqueta abre. Mesmo padrão de /producao/mobile:
+    só exige login, a permissão ver_hardware controla é o atalho aparecer
+    ou não na home."""
+    filtros = {"busca": busca} if busca.strip() else {}
+    itens = hardware_mod.listar(filtros)
+    total = len(itens)
+    return render(request, "hardware_mobile.html", {
+        "itens": itens[:_HARDWARE_MOBILE_LIMITE],
+        "total": total,
+        "busca": busca,
+        "cortou": total > _HARDWARE_MOBILE_LIMITE,
+    })
+
+
 @app.get("/hardware/{ocorrencia_id:int}", response_class=HTMLResponse)
 async def hardware_qr(request: Request, ocorrencia_id: int):
     o = hardware_mod.buscar(ocorrencia_id)
@@ -6736,14 +6794,18 @@ async def admin_hardware_detalhe(request: Request, ocorrencia_id: int):
     o = hardware_mod.buscar(ocorrencia_id)
     if not o:
         raise HTTPException(status_code=404)
+    eventos = hardware_mod.listar_eventos(ocorrencia_id)
     return render(request, "admin_hardware_detalhe.html", {
         **_hardware_contexto_formulario(),
         "o": o,
-        "eventos": hardware_mod.listar_eventos(ocorrencia_id),
-        "eventos_area": {area: hardware_mod.listar_eventos_area(ocorrencia_id, area)
-                          for area in hardware_mod.AREAS_ACAO},
+        "eventos": eventos,
+        # Timeline unificada da aba Ações -- só os eventos acao_<area>, já
+        # filtrados aqui (mais simples que depender de um test do Jinja
+        # existir em toda versão) e na mesma ordem (DESC) de listar_eventos().
+        "acoes_todas": [e for e in eventos if e["tipo"].startswith("acao_")],
         "anexos": hardware_mod.listar_anexos(ocorrencia_id),
         "area_texto": hardware_mod.AREA_TEXTO,
+        "area_cor": hardware_mod.AREA_COR,
         "max_anexo_mb": hardware_mod.MAX_ANEXO_BYTES // (1024 * 1024),
         "voltar_para": _voltar_para(request, "/admin/hardware"),
         "ok": request.query_params.get("ok", ""),

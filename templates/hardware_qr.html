@@ -135,6 +135,7 @@
   .acao-item.area-brasil     { border-left-color: #2668a8; }
   .acao-item.area-suecia     { border-left-color: #6b3fb5; }
   .acao-item.area-fabricante { border-left-color: #b45309; }
+  .acao-item.area-cliente    { border-left-color: #18804b; }
   .acao-item .acao-meta {
     font-size: 11px; color: #999; display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2px;
   }
@@ -266,8 +267,8 @@
   {% endif %}
 
   <div class="card">
-    <div class="card-title">Ações Brasil / Suécia / Fabricante</div>
-    {% for area in ['brasil', 'suecia', 'fabricante'] %}
+    <div class="card-title">Ações Brasil / Suécia / Fabricante / Cliente</div>
+    {% for area in ['brasil', 'suecia', 'fabricante', 'cliente'] %}
     {% set ultima = o.acoes.get(area) %}
     <div class="acao-card">
       <div class="acao-titulo">{{ area_texto[area] }}</div>
