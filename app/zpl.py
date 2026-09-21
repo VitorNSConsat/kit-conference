@@ -6,7 +6,7 @@ import unicodedata
 from datetime import datetime
 
 EMPRESA_NOME = os.getenv("EMPRESA_NOME", "Sua Empresa")
-SERVIDOR_URL = os.getenv("SERVIDOR_URL", "http://localhost:8011")
+SERVIDOR_URL = os.getenv("SERVIDOR_URL", "http://localhost:8080")
 
 
 def _ascii(s: str) -> str:
@@ -755,6 +755,64 @@ def generate_hardware_html_labels_lote(etiquetas: list[dict]) -> str:
 </head>
 <body>
 {blocos}
+<script>window.onload = () => setTimeout(() => window.print(), 500);</script>
+</body>
+</html>"""
+
+
+_SOBRESSALENTE_LABEL_CSS = """
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #e8e8e8; }
+  .sb-label {
+    background: #fff; width: 80mm; height: 120mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 5mm; gap: 4mm;
+    box-shadow: 0 4px 18px rgba(0,0,0,.2); border: 1px solid #ccc; overflow: hidden;
+  }
+  .sb-qr-wrap { display: flex; align-items: center; justify-content: center; }
+  .sb-rodape { font-size: 26px; color: #000; font-family: monospace; font-weight: 900; letter-spacing: 1px; }
+"""
+
+
+def _sobressalente_label_bloco(rotulo: str, url_qr: str) -> str:
+    """Cartão da etiqueta de um pacote de sobressalentes: só o QR e o rótulo
+    SOB-000X. O conteúdo do pacote não vai impresso — quem escaneia (logado)
+    vê o que tem dentro, sempre atualizado."""
+    return f"""<div class="sb-label">
+  <div class="sb-qr-wrap">{_qr_img(url_qr, size_mm=62)}</div>
+  <div class="sb-rodape">{_esc(rotulo)}</div>
+</div>"""
+
+
+def generate_sobressalente_html_label(rotulo: str, url_qr: str) -> str:
+    """Etiqueta HTML 80×120mm do pacote (auto-print no load, igual às de
+    estoque e hardware)."""
+    bloco = _sobressalente_label_bloco(rotulo, url_qr)
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Etiqueta — {_esc(rotulo)}</title>
+<style>
+  @page {{ size: 80mm 120mm; margin: 0; }}
+  {_SOBRESSALENTE_LABEL_CSS}
+  body {{ display: flex; flex-direction: column; align-items: center; padding: 20px; }}
+  @media print {{
+    body {{ background: white; padding: 0; margin: 0; }}
+    .sb-label {{ box-shadow: none; border: none; }}
+    .actions {{ display: none !important; }}
+  }}
+</style>
+</head>
+<body>
+{bloco}
+<div class="actions" style="display:flex;margin-top:14px;width:80mm;">
+  <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
+                 border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
+          onclick="window.print();setTimeout(()=>window.close(),800);">
+    Imprimir e Fechar
+  </button>
+</div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
 </body>
 </html>"""

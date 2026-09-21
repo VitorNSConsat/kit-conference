@@ -617,3 +617,71 @@ def clientes_disponiveis() -> list[str]:
             "SELECT DISTINCT cliente FROM kit_template WHERE ativo=1 ORDER BY cliente"
         ).fetchall()
     return [r[0] for r in rows]
+
+
+def ciclo_do_veiculo(veiculo_id: int) -> dict:
+    """De onde o veículo veio e por onde já passou: a remessa a que pertence e
+    a data de cada etapa (produção iniciada, produzido, em trânsito, no cliente,
+    concluído), mais a nota fiscal quando houver.
+
+    Tudo derivado do que o sistema já grava — nada é campo novo. O kit é o mais
+    recente do veículo (o mesmo que a janela mostra). Sem kit, o veículo pode
+    estar só numa remessa (a produzir) ou com a bipagem em andamento; as etapas
+    que ainda não aconteceram vêm com `data` vazia, pra tela mostrar o caminho
+    inteiro e onde a pessoa está nele."""
+    with db() as conn:
+        kit = conn.execute(
+            "SELECT kr.kit_id, kr.sessao_id, kr.status_producao, kr.finalizado_em, "
+            "       kr.transito_em, kr.cliente_instalando_em, kr.cliente_concluido_em, "
+            "       kr.nota_fiscal, kr.nota_fiscal_data "
+            "FROM kit_record kr WHERE kr.veiculo_id = ? AND kr.status = 'ativo' "
+            "ORDER BY kr.finalizado_em DESC LIMIT 1", (veiculo_id,)).fetchone()
+        kit = dict(kit) if kit else None
+        if kit and kit["sessao_id"]:
+            sessao = conn.execute("SELECT iniciado_em FROM scan_session WHERE id = ?",
+                                  (kit["sessao_id"],)).fetchone()
+        else:
+            sessao = conn.execute(
+                "SELECT iniciado_em FROM scan_session WHERE veiculo_id = ? "
+                "AND status = 'em_andamento' ORDER BY iniciado_em DESC LIMIT 1",
+                (veiculo_id,)).fetchone()
+        # Remessa: pelo kit (se já existe) ou pelo veículo ainda "a produzir".
+        remessa = conn.execute(
+            "SELECT r.id, r.nome, r.cliente, r.status, r.alvo, rk.entrou_em "
+            "FROM remessa_kit rk JOIN remessa r ON r.id = rk.remessa_id "
+            "WHERE rk.veiculo_id = ? OR (? IS NOT NULL AND rk.kit_id = ?) "
+            "ORDER BY rk.entrou_em DESC LIMIT 1",
+            (veiculo_id, kit["kit_id"] if kit else None, kit["kit_id"] if kit else None)).fetchone()
+        if remessa:
+            remessa = dict(remessa)
+            remessa["enviados"] = conn.execute(
+                "SELECT COUNT(*) FROM remessa_kit WHERE remessa_id = ?",
+                (remessa["id"],)).fetchone()[0]
+
+    def data(valor, com_hora=True):
+        """'2026-09-18 14:30:05' -> '18/09/2026 14:30' (ou None se vazio)."""
+        v = (valor or "").strip()
+        if len(v) < 10:
+            return None
+        texto = f"{v[8:10]}/{v[5:7]}/{v[:4]}"
+        return f"{texto} {v[11:16]}" if com_hora and len(v) >= 16 else texto
+
+    etapas = [
+        {"rotulo": "Produção iniciada", "data": data(sessao["iniciado_em"]) if sessao else None},
+        {"rotulo": "Produzido", "data": data(kit["finalizado_em"]) if kit else None},
+        {"rotulo": "Em trânsito", "data": data(kit["transito_em"]) if kit else None},
+        {"rotulo": "Chegou ao cliente", "data": data(kit["cliente_instalando_em"]) if kit else None},
+        {"rotulo": "Instalação concluída", "data": data(kit["cliente_concluido_em"]) if kit else None},
+    ]
+    ultima = max((i for i, e in enumerate(etapas) if e["data"]), default=None)
+    for i, e in enumerate(etapas):
+        e["feita"] = bool(e["data"])
+        e["atual"] = (i == ultima)
+    nota = None
+    if kit and (kit["nota_fiscal"] or "").strip():
+        nota = {"numero": kit["nota_fiscal"].strip(),
+                "data": data(kit["nota_fiscal_data"], com_hora=False)}
+    if remessa:
+        remessa["entrou_br"] = data(remessa["entrou_em"])
+    return {"remessa": remessa, "etapas": etapas, "nota": nota,
+            "tem_kit": kit is not None}

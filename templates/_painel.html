@@ -78,6 +78,41 @@
       </div>
       {% endif %}
     </div>
+    {# Ciclo do veículo: remessa a que pertence e a data de cada etapa, tudo
+       lido do que o sistema já grava (nada é preenchido à mão aqui). #}
+    {% if completo and ciclo %}
+    <div class="pat-ciclo">
+      <div class="pat-ciclo-linha">
+        <span class="pat-ciclo-rotulo">Remessa</span>
+        {% if ciclo.remessa %}
+        <strong>{{ ciclo.remessa.nome }}</strong>
+        <span class="pat-ciclo-info">{{ ciclo.remessa.enviados }}/{{ ciclo.remessa.alvo }}
+          · {{ 'aberta' if ciclo.remessa.status == 'aberta' else 'fechada' if ciclo.remessa.status == 'fechada' else ciclo.remessa.status }}
+          {%- if ciclo.remessa.cliente %} · {{ ciclo.remessa.cliente }}{% endif %}
+          {%- if ciclo.remessa.entrou_br %} · entrou em {{ ciclo.remessa.entrou_br }}{% endif %}</span>
+        {% else %}
+        <span class="pat-ciclo-info">não atribuído a nenhuma remessa</span>
+        {% endif %}
+      </div>
+      <div class="pat-ciclo-linha">
+        <span class="pat-ciclo-rotulo">Nota fiscal</span>
+        {% if ciclo.nota %}
+        <strong>{{ ciclo.nota.numero }}</strong>
+        {% if ciclo.nota.data %}<span class="pat-ciclo-info">emitida em {{ ciclo.nota.data }}</span>{% endif %}
+        {% else %}
+        <span class="pat-ciclo-info">sem nota fiscal</span>
+        {% endif %}
+      </div>
+      <ol class="pat-etapas">
+        {% for e in ciclo.etapas %}
+        <li class="{{ 'feita' if e.feita }} {{ 'atual' if e.atual }}">
+          <span class="pat-etapa-nome">{{ e.rotulo }}</span>
+          <span class="pat-etapa-data">{{ e.data or '—' }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
     <div class="pat-atalhos">
       {% if kit %}<a href="/kit/{{ kit.kit_id }}" target="_blank" class="btn btn-sm btn-secondary">Abrir kit ↗</a>{% endif %}
       <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Cadastro do veículo →</a>

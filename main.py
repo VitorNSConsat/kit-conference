@@ -48,6 +48,7 @@ import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 import app.hardware as hardware_mod
 import app.hardware_importacoes as hardware_importacoes_mod
+import app.sobressalentes as sobressalentes_mod
 
 load_dotenv()
 
@@ -59,7 +60,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 # o operador quer consultar em campo, com o celular na mão.
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque',
                     '/funcionalidades'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/', '/hardware/')
+_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/', '/hardware/', '/sobressalente/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -1469,6 +1470,7 @@ def _admin_items_context(sobressalente_cliente: str = "",
         "sobressalente_data_ini": sobressalente_data_ini,
         "sobressalente_data_fim": sobressalente_data_fim,
         "sobressalente_itens_enviados": [],
+        "sobressalente_pacotes": [],
     }
 
     if aba == "patrimonios":
@@ -1569,6 +1571,8 @@ def _admin_items_context(sobressalente_cliente: str = "",
             ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
                 sobressalente_data_ini, sobressalente_data_fim, sobressalente_cliente
             )
+            ctx["sobressalente_pacotes"] = sobressalentes_mod.listar(
+                sobressalente_cliente, sobressalente_data_ini, sobressalente_data_fim)
     return ctx
 
 
@@ -5137,9 +5141,10 @@ async def admin_estoque_reconciliar_producao(request: Request):
 @app.post("/admin/sobressalente")
 @require_permission("estoque_editar")
 async def admin_sobressalente_enviar(request: Request):
-    """Envia um OU VÁRIOS sobressalentes de uma vez. O formulário manda
-    listas paralelas (estoque_id[], quantidade[], observacao[]), então uma
-    linha só continua funcionando igual — é o mesmo caminho, com uma linha."""
+    """Monta um PACOTE de sobressalentes (o "kit coringa") com um ou vários
+    itens. O formulário manda listas paralelas (estoque_id[], quantidade[],
+    observacao[]); o estoque é descontado na hora, tudo ou nada, e o pacote
+    ganha rótulo, etiqueta com QR e histórico."""
     user = get_current_user(request)
     form = await request.form()
     cliente = str(form.get("cliente", "")).strip()
@@ -5153,15 +5158,53 @@ async def admin_sobressalente_enviar(request: Request):
                "observacao": obs[i] if i < len(obs) else ""}
               for i in range(len(ids))]
     try:
-        r = estoque_mod.registrar_sobressalentes_em_lote(linhas, cliente, user["id"])
+        pacote_id = sobressalentes_mod.criar(
+            linhas, cliente, user["id"], nome=str(form.get("nome", "")),
+            observacao=str(form.get("observacao_pacote", "")))
     except ValueError as e:
         return RedirectResponse(
             destino + "&erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
             status_code=302)
+    pacote = sobressalentes_mod.buscar(pacote_id)
     return RedirectResponse(
-        destino + "&ok=sobressalente&itens=" + str(r["itens"])
-        + "&unidades=" + str(r["unidades"]),
+        destino + "&ok=sobressalente&pacote=" + str(pacote_id)
+        + "&itens=" + str(len(pacote["itens"]))
+        + "&unidades=" + str(pacote["total_unidades"]),
         status_code=302)
+
+
+# ── Pacote de sobressalentes — consulta pelo QR da etiqueta ───────────────────
+# Diferente do QR de kit/RMA, esta consulta EXIGE LOGIN (o conteúdo de um
+# pacote é informação interna). Fica liberada no portão de mobile
+# (_MOBILE_OK_PREFIX) pra a leitura pelo celular abrir direto aqui.
+
+@app.get("/sobressalente/{pacote_id:int}", response_class=HTMLResponse)
+@require_login
+async def sobressalente_pacote(request: Request, pacote_id: int):
+    pacote = sobressalentes_mod.buscar(pacote_id)
+    if not pacote:
+        raise HTTPException(status_code=404)
+    return render(request, "sobressalente_pacote.html", {
+        "pacote": pacote,
+        "voltar_para": (f"/admin/items?tab=sobressalentes&cliente={quote(pacote['cliente'])}"),
+        "ok": request.query_params.get("ok", ""),
+    })
+
+
+@app.get("/admin/sobressalente/{pacote_id:int}/etiqueta", response_class=HTMLResponse)
+@require_login
+async def admin_sobressalente_etiqueta(request: Request, pacote_id: int):
+    """Etiqueta do pacote — o QR aponta pra /sobressalente/{id}. Cada geração
+    fica registrada no histórico do pacote."""
+    user = get_current_user(request)
+    pacote = sobressalentes_mod.buscar(pacote_id)
+    if not pacote:
+        raise HTTPException(status_code=404)
+    base = getattr(app.state, "servidor_url", zpl_mod.SERVIDOR_URL)
+    html = zpl_mod.generate_sobressalente_html_label(
+        rotulo=pacote["rotulo"], url_qr=f"{base}/sobressalente/{pacote_id}")
+    sobressalentes_mod.registrar_etiqueta(pacote_id, user["id"])
+    return HTMLResponse(content=html)
 
 
 @app.post("/admin/estoque/{estoque_id}/corrigir")
@@ -5748,6 +5791,8 @@ def _painel_context(request: Request, veiculo_id: int | None = None,
         # um estágio e a lista atrás dela dizer outro.
         "localizacao": (producao_mod.localizacao_dos_veiculos().get(v["id"])
                         if v else None),
+        # De onde veio e por onde passou: remessa, datas das etapas e NF.
+        "ciclo": veiculos_mod.ciclo_do_veiculo(v["id"]) if v else None,
         "codigo_barra": codigo_barra,
         "item_sel": item_sel,
         "conferencia": sessions_mod.conferencia_com_modelo(kit["kit_id"]) if kit else [],

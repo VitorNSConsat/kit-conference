@@ -441,6 +441,14 @@
       frota antes de ler o nome. É cor, não link — não abre nada. E o
       <em>“CVC não encontrado”</em> aparece dentro do próprio card quando falta alguma
       coisa.</li>
+    <li><strong>Ciclo do veículo</strong> (só na janela inteira, dentro do card do veículo) —
+      a <strong>remessa</strong> a que ele pertence (nome, quantos já entraram e o alvo, se está
+      aberta ou fechada e quando ele entrou; “não atribuído” quando não está em nenhuma), a
+      <strong>nota fiscal</strong> (número e data, quando houver) e a <strong>data e hora de cada
+      etapa</strong>: produção iniciada, produzido, em trânsito (quando foi enviado ao cliente),
+      chegou ao cliente e instalação concluída. A etapa em que ele está agora fica destacada e as
+      que ainda não aconteceram aparecem com “—”. Nada é digitado ali: vem do que a Produção, a
+      bipagem e as Remessas já registram, então se atualiza sozinho.</li>
     <li><strong>Item em foco</strong>, <strong>logo abaixo do veículo</strong> — o item e as
       ações dele (mover, corrigir). É a leitura natural: “este veículo, este item
       dele”; no fim da página, ninguém achava a ação.</li>
@@ -656,12 +664,33 @@
   <h3>Etiquetas &amp; Códigos</h3>
   <p>Geração de códigos internos e etiquetas, incluindo a marcação de reciclável.</p>
 
-  <h3>Sobressalentes</h3>
+  <h3>Sobressalentes — o “kit coringa”</h3>
   <p>
-    Baixa manual de peça enviada fora do kit, sempre amarrada a um <strong>cliente</strong>.
-    Dá pra lançar <strong>vários itens num envio só</strong>. Aqui a regra é
-    <strong>tudo ou nada</strong>: o sistema confere o saldo de todas as linhas antes e, se
-    faltar qualquer uma, não grava nenhuma.
+    Um <strong>pacote de sobressalentes</strong> funciona como um kit, mas sem veículo e sem
+    modelo: você escolhe <strong>os itens e as quantidades</strong> que quiser, sempre para um
+    <strong>cliente</strong>. Na aba <em>Sobressalentes</em> (Itens &amp; Estoque), escolha o
+    cliente, dê um nome ao pacote se quiser, adicione as linhas e clique em <strong>Criar
+    pacote</strong>. A regra é <strong>tudo ou nada</strong>: o sistema confere o saldo de todas as
+    linhas antes e, se faltar qualquer uma, não cria o pacote nem desconta nada.
+  </p>
+  <ul>
+    <li><span class="campo">Estoque</span> — descontado <strong>na criação</strong>, item a item,
+      como o kit faz ao ser montado. Cada baixa fica no histórico do item com o rótulo do pacote
+      (<em>SOB-0007</em>) e o cliente, e continua aparecendo em Relatórios → Sobressalentes.</li>
+    <li><span class="campo">Etiqueta</span> — <strong>Gerar etiqueta</strong> (na mensagem logo após
+      criar, na lista de pacotes ou na página do pacote): 80×120 mm com <strong>só o QR e o
+      rótulo do pacote</strong> (<em>SOB-0007</em>). O conteúdo não vai impresso: quem escaneia vê
+      o que tem dentro, sempre atualizado.</li>
+    <li><span class="campo">Escanear</span> — o QR abre a página do pacote com <strong>o que tem
+      dentro</strong> e o histórico. <strong>Exige login</strong>: sem entrar no sistema, não mostra
+      nada.</li>
+    <li><span class="campo">Onde acompanhar</span> — na própria aba, a lista <strong>Pacotes do
+      cliente</strong> (rótulo, data, itens, unidades e quem criou) e a tabela de itens enviados,
+      agora com a coluna <em>Pacote</em>. Na página de cada pacote fica a linha do tempo: quando foi
+      criado, por quem e cada vez que a etiqueta foi gerada. Nada é sobrescrito.</li>
+  </ul>
+  <p>
+    Envios feitos antes deste recurso continuam na tabela de itens enviados, sem pacote.
   </p>
 </div>
 

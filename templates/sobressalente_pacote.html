@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% block title %}{{ pacote.rotulo }} — {{ pacote.cliente }}{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Voltar</a>
+<a href="/admin/sobressalente/{{ pacote.id }}/etiqueta" target="_blank" class="btn btn-sm btn-primary">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div>
+      <p class="ds-kpi-label" style="margin:0;">Pacote de sobressalentes</p>
+      <h1 style="margin:2px 0 4px;">{{ pacote.rotulo }}{% if pacote.nome %} <span style="font-weight:500;color:var(--text-muted);">— {{ pacote.nome }}</span>{% endif %}</h1>
+      <p style="margin:0;color:var(--text-muted);font-size:13px;">
+        Para <strong style="color:{{ cor_do_cliente(pacote.cliente) }};">{{ pacote.cliente }}</strong>
+        · criado em {{ pacote.criado_em[8:10] }}/{{ pacote.criado_em[5:7] }}/{{ pacote.criado_em[:4] }} {{ pacote.criado_em[11:16] }}
+        · por {{ pacote.criado_por_nome or '—' }}
+      </p>
+    </div>
+    <div style="text-align:right;">
+      <p class="ds-kpi-label" style="margin:0;">Total</p>
+      <p style="margin:0;font-size:22px;font-weight:700;">{{ pacote.total_unidades }} <span style="font-size:13px;font-weight:500;color:var(--text-muted);">unidade(s) · {{ pacote.itens | length }} item(ns)</span></p>
+    </div>
+  </div>
+  {% if pacote.observacao %}<p style="margin:12px 0 0;font-size:13px;white-space:pre-wrap;">{{ pacote.observacao }}</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2 style="margin:0 0 12px;">{{ ic.svg('caixa', 15) }} O que tem dentro</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Item</th><th>Código</th><th style="text-align:right;">Quantidade</th><th>Observação</th></tr></thead>
+    <tbody>
+      {% for i in pacote.itens %}
+      <tr>
+        <td><strong>{{ i.tipo_nome }}</strong></td>
+        <td style="font-family:monospace;font-size:12px;">{{ i.codigo_barra }}</td>
+        <td style="text-align:right;font-weight:700;">{{ i.quantidade }}</td>
+        <td style="font-size:13px;color:var(--text-muted);">{{ i.observacao or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" style="text-align:center;color:var(--text-muted-2);padding:16px;">Pacote sem itens.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:12px;color:var(--text-muted-2);margin:10px 0 0;">
+    O estoque destes itens já foi descontado na criação do pacote — cada baixa aparece no histórico do item como {{ pacote.rotulo }}.
+  </p>
+</div>
+
+<div class="card">
+  <h2 style="margin:0 0 14px;">{{ ic.svg('historico', 15) }} Histórico <span class="cont">{{ pacote.eventos | length }}</span></h2>
+  <div class="hw-hist">
+    {% for e in pacote.eventos %}
+    <div class="hw-hist-linha">
+      <span class="hw-hist-marca"></span>
+      <span class="hw-hist-data">{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }}<br>{{ e.criado_em[11:16] }}</span>
+      <div class="hw-hist-corpo">
+        <strong>{{ e.tipo_texto }}</strong>
+        {% if e.conteudo %}<span class="hw-hist-texto">{{ e.conteudo }}</span>{% endif %}
+      </div>
+      <span class="hw-hist-autor">{{ e.usuario_nome or '—' }}</span>
+    </div>
+    {% else %}
+    <p class="hw-vazio-sec">Nenhum evento.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -65,6 +65,11 @@
     {{ ic.svg('caixa', 14) }} {{ request.query_params.get('itens', '1') }} item(ns)
     · {{ request.query_params.get('unidades', '') }} unidade(s)
     registrado(s) e descontado(s) do estoque.
+    {% if request.query_params.get('pacote') %}
+    {% set pid = request.query_params.get('pacote') %}
+    <a href="/admin/sobressalente/{{ pid }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:8px;">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
+    <a href="/sobressalente/{{ pid }}" class="btn btn-sm btn-secondary">Ver pacote</a>
+    {% endif %}
 </div>
 {% elif request.query_params.get('ok') == 'reconciliado_vazio' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Nenhuma pendência encontrada — todo conjunto já foi debitado do estoque corretamente.</div>
@@ -976,18 +981,26 @@
 
         {% if sobressalente_cliente %}
         <div style="background:var(--surface-alt);border-radius:8px;padding:14px;margin-bottom:20px;">
-            <h3 style="margin:0 0 10px;font-size:14px;">Enviar Sobressalente pra {{ sobressalente_cliente }}</h3>
+            <h3 style="margin:0 0 4px;font-size:14px;">Montar pacote de sobressalentes pra {{ sobressalente_cliente }}</h3>
+            <p style="margin:0 0 10px;font-size:12.5px;color:var(--text-muted);">
+                Um “kit coringa”: escolha os itens e as quantidades, sem veículo. Ao criar, o estoque é
+                descontado e o pacote ganha uma etiqueta com QR — quem escaneia (logado) vê o que tem dentro.
+            </p>
             {# Várias peças num envio só: antes era um item por vez, e mandar
                cinco peças pro mesmo cliente exigia repetir o formulário
                cinco vezes, recarregando a página a cada uma. #}
             <form method="post" action="/admin/sobressalente" id="form-sobressalente">
                 <input type="hidden" name="cliente" value="{{ sobressalente_cliente }}">
+                <div class="form-group" style="margin:0 0 10px;max-width:420px;">
+                    <label>Nome do pacote (opcional)</label>
+                    <input type="text" name="nome" maxlength="80" placeholder="ex: Reposição instalação Sul" style="margin:0;">
+                </div>
                 <div id="linhas-sobressalente"></div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">
                         ＋ Adicionar outro item
                     </button>
-                    <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Enviar (<span id="qtd-linhas-sobr">1</span>)</button>
+                    <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Criar pacote (<span id="qtd-linhas-sobr">1</span> item)</button>
                     <span style="font-size:12px;color:var(--text-muted-2);">
                         Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.
                     </span>
@@ -1019,17 +1032,45 @@
             </template>
         </div>
 
+        <h3 style="font-size:14px;margin-bottom:8px;">Pacotes de {{ sobressalente_cliente }} ({{ sobressalente_pacotes | length }})</h3>
+        {% if sobressalente_pacotes %}
+        <div style="overflow-x:auto;margin-bottom:22px;">
+        <table>
+            <thead><tr><th>Pacote</th><th>Data</th><th>Nome</th><th>Itens</th><th>Unidades</th><th>Criado por</th><th></th></tr></thead>
+            <tbody>
+            {% for pk in sobressalente_pacotes %}
+            <tr>
+                <td style="white-space:nowrap;"><a href="/sobressalente/{{ pk.id }}"><strong>{{ pk.rotulo }}</strong></a></td>
+                <td style="white-space:nowrap;font-size:12px;">{{ pk.criado_em[:16] }}</td>
+                <td>{{ pk.nome or '—' }}</td>
+                <td>{{ pk.total_itens }}</td>
+                <td>{{ pk.total_unidades }}</td>
+                <td>{{ pk.criado_por_nome or '—' }}</td>
+                <td style="white-space:nowrap;">
+                    <a href="/sobressalente/{{ pk.id }}" class="btn btn-sm btn-secondary">Ver conteúdo</a>
+                    <a href="/admin/sobressalente/{{ pk.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary">{{ ic.svg('impressao', 13) }} Etiqueta</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted-2);padding:8px 0 18px;">Nenhum pacote montado pra {{ sobressalente_cliente }} nesse período.</p>
+        {% endif %}
+
         <h3 style="font-size:14px;margin-bottom:8px;">Itens Enviados pra {{ sobressalente_cliente }} ({{ sobressalente_itens_enviados | length }})</h3>
         {% if sobressalente_itens_enviados %}
         <div style="overflow-x:auto;">
         <table>
             <thead>
-                <tr><th>Data</th><th>Código</th><th>Nome</th><th>Quantidade</th><th>Enviado Por</th><th>Observação</th></tr>
+                <tr><th>Data</th><th>Pacote</th><th>Código</th><th>Nome</th><th>Quantidade</th><th>Enviado Por</th><th>Observação</th></tr>
             </thead>
             <tbody>
             {% for r in sobressalente_itens_enviados %}
             <tr>
                 <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
+                <td style="white-space:nowrap;font-size:12px;">{% if r.pacote_id %}<a href="/sobressalente/{{ r.pacote_id }}">{{ r.pacote_rotulo }}</a>{% else %}—{% endif %}</td>
                 <td style="font-family:monospace;font-size:12px;">{{ r.codigo_barra }}</td>
                 <td><strong>{{ r.tipo_nome }}</strong></td>
                 <td>{{ r.quantidade }}</td>

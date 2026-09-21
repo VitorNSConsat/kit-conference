@@ -128,7 +128,8 @@ def registrar_saida(estoque_id: int, quantidade: int,
 
 
 def registrar_sobressalente(estoque_id: int, quantidade: int, cliente: str,
-                            criado_por: int, observacao: str = "") -> None:
+                            criado_por: int, observacao: str = "",
+                            pacote_id: int | None = None) -> None:
     """Baixa manual de peça sobressalente enviada numa instalação — fora do
     que o kit bipado já contabiliza. Desconta do estoque e grava o cliente,
     pra dar pra consultar depois em Relatórios quanto já foi enviado de
@@ -158,15 +159,21 @@ def registrar_sobressalente(estoque_id: int, quantidade: int, cliente: str,
         )
         conn.execute(
             "INSERT INTO estoque_movimentos "
-            "(estoque_id, tipo, quantidade, cliente, criado_por, observacao, criado_em) "
-            "VALUES (?, 'sobressalente', ?, ?, ?, ?, ?)",
-            (estoque_id, quantidade, cliente, criado_por, observacao.strip() or None, now_brt())
+            "(estoque_id, tipo, quantidade, cliente, criado_por, observacao, criado_em, pacote_id) "
+            "VALUES (?, 'sobressalente', ?, ?, ?, ?, ?, ?)",
+            (estoque_id, quantidade, cliente, criado_por, observacao.strip() or None, now_brt(),
+             pacote_id)
         )
 
 
 def registrar_sobressalentes_em_lote(linhas: list[dict], cliente: str,
-                                     criado_por: int) -> dict:
+                                     criado_por: int, pacote_id: int | None = None,
+                                     rotulo_pacote: str = "") -> dict:
     """Vários sobressalentes pro mesmo cliente num envio só.
+
+    Com `pacote_id`, cada baixa fica ligada ao pacote de sobressalentes e a
+    observação do movimento começa pelo rótulo dele (SOB-0007), pra aparecer
+    assim no histórico de cada item.
 
     TUDO OU NADA: primeiro confere o saldo de todas as linhas, e só então
     aplica. registrar_sobressalente() já bloqueia por estoque insuficiente —
@@ -224,16 +231,19 @@ def registrar_sobressalentes_em_lote(linhas: list[dict], cliente: str,
     # 2) Só agora registra, pela mesma função do envio individual.
     enviados = []
     for eid, p in pedidos.items():
+        obs = " | ".join(p["observacoes"])
         registrar_sobressalente(eid, p["quantidade"], cliente, criado_por,
-                                " | ".join(p["observacoes"]))
-        enviados.append({"estoque_id": eid, "quantidade": p["quantidade"]})
+                                " | ".join(x for x in (rotulo_pacote, obs) if x),
+                                pacote_id=pacote_id)
+        enviados.append({"estoque_id": eid, "quantidade": p["quantidade"], "observacao": obs})
     return {"enviados": enviados, "itens": len(enviados),
             "unidades": sum(e["quantidade"] for e in enviados)}
 
 
 def listar_sobressalentes(data_ini: str = "", data_fim: str = "", cliente: str = "") -> list[dict]:
     query = (
-        "SELECT em.*, e.codigo_barra, it.nome AS tipo_nome, u.nome AS operador_nome "
+        "SELECT em.*, e.codigo_barra, it.nome AS tipo_nome, u.nome AS operador_nome, "
+        "       ('SOB-' || substr('0000' || em.pacote_id, -4, 4)) AS pacote_rotulo "
         "FROM estoque_movimentos em "
         "JOIN estoque e ON e.id = em.estoque_id "
         "JOIN item_tipo it ON it.id = e.item_tipo_id "

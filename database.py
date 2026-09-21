@@ -347,6 +347,39 @@ def init_db():
             );
         """)
 
+        # Pacote de sobressalentes: um "kit coringa" — itens e quantidades à
+        # escolha, sem veículo, só pra um cliente. Nasce já descontando o estoque
+        # (uma baixa 'sobressalente' por item, ligada ao pacote), tem etiqueta com
+        # QR e uma linha do tempo própria (criação, etiquetas geradas).
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS sobressalente_pacote (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente TEXT NOT NULL,
+                nome TEXT DEFAULT '',
+                observacao TEXT DEFAULT '',
+                criado_em TEXT NOT NULL,
+                criado_por INTEGER REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS sobressalente_pacote_item (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pacote_id INTEGER NOT NULL REFERENCES sobressalente_pacote(id) ON DELETE CASCADE,
+                estoque_id INTEGER NOT NULL REFERENCES estoque(id),
+                quantidade INTEGER NOT NULL,
+                observacao TEXT DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS sobressalente_pacote_evento (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pacote_id INTEGER NOT NULL REFERENCES sobressalente_pacote(id) ON DELETE CASCADE,
+                tipo TEXT NOT NULL,
+                conteudo TEXT DEFAULT '',
+                usuario_id INTEGER REFERENCES users(id),
+                criado_em TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_sobr_pacote_cliente ON sobressalente_pacote(cliente);
+            CREATE INDEX IF NOT EXISTS idx_sobr_item_pacote ON sobressalente_pacote_item(pacote_id);
+            CREATE INDEX IF NOT EXISTS idx_sobr_evento_pacote ON sobressalente_pacote_evento(pacote_id);
+        """)
+
         # Tabela de validações de kits
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS kit_validacoes (
@@ -942,6 +975,9 @@ def init_db():
             # bipado contabiliza. Nula pra todo o resto dos tipos de
             # movimento (entrada, saida, correcao, etc).
             "ALTER TABLE estoque_movimentos ADD COLUMN cliente TEXT",
+            # Pacote de sobressalentes a que a baixa pertence (nulo nas antigas
+            # e em qualquer outro tipo de movimento).
+            "ALTER TABLE estoque_movimentos ADD COLUMN pacote_id INTEGER",
             # Marca se a baixa de estoque de uma linha de conjunto (COMP:)
             # já foi aplicada. Linhas antigas nascem com 0 (não sabemos se
             # descontaram — de fato não descontavam, era o bug) e o botão
