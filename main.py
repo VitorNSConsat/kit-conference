@@ -6263,6 +6263,74 @@ def _hardware_filtros(request: Request) -> dict:
     }
 
 
+# ── Filtros do RMA: URLs e "chips" de filtro ativo ────────────────────────────
+# Causa do bug antigo: os links de ordenação e de paginação montavam a URL do
+# zero (?pag_hw=1&ord_hw=...) e descartavam cliente/status/busca -- por isso
+# clicar numa coluna "voltava ao início". Agora TODA URL da lista parte da
+# querystring atual e só troca o que mudou (hardware_qs).
+_HW_PARAMS_TRANSITORIOS = ("ok", "erro", "qtd")
+# Chaves que contam como "filtro" (o cliente e somente_arquivadas são o ESCOPO
+# da tela, não filtro -- têm botão próprio -- e ord_/dir_/pag_ são navegação).
+_HW_CHAVES_FILTRO = ("busca", "status", "prioridade", "aguardando_de", "hardware_produto_id",
+                     "categoria_defeito", "responsavel", "registro_ini", "registro_fim",
+                     "sem_atualizacao_dias", "critico", "incluir_arquivadas")
+
+
+def hardware_qs(params, **alterar) -> str:
+    """URL da lista de RMAs com a querystring atual, trocando só o que veio
+    em `alterar` (valor None/""/[] remove a chave; lista repete a chave).
+    `params` é request.query_params.multi_items() (ou lista de pares)."""
+    from urllib.parse import urlencode
+    itens = [(k, v) for k, v in params if k not in alterar and k not in _HW_PARAMS_TRANSITORIOS]
+    for chave, valor in alterar.items():
+        if valor is None or valor == "" or valor == []:
+            continue
+        for v in (valor if isinstance(valor, (list, tuple)) else [valor]):
+            itens.append((chave, str(v)))
+    return "/admin/hardware" + ("?" + urlencode(itens) if itens else "")
+
+
+def _hardware_chips(params, filtros: dict, nomes: dict) -> list[dict]:
+    """Um chip por filtro ativo, cada um com o link que remove SÓ ele (e volta
+    pra página 1, porque o resultado mudou). `nomes` traduz chave -> rótulo
+    (status, prioridade, aguardando, produto)."""
+    params = list(params)
+    chips: list[dict] = []
+
+    def unico(chave, rotulo):
+        chips.append({"rotulo": rotulo, "url": hardware_qs(params, **{chave: None, "pag_hw": None})})
+
+    def de_lista(chave, prefixo, mapa):
+        for valor in filtros.get(chave) or []:
+            restantes = [x for x in filtros[chave] if x != valor]
+            chips.append({"rotulo": f"{prefixo}: {mapa.get(valor, valor)}",
+                          "url": hardware_qs(params, **{chave: restantes, "pag_hw": None})})
+
+    if filtros.get("busca"):
+        unico("busca", f"Busca: {filtros['busca']}")
+    de_lista("status", "Status", nomes.get("status", {}))
+    de_lista("prioridade", "Prioridade", nomes.get("prioridade", {}))
+    de_lista("aguardando_de", "Aguardando", nomes.get("aguardando_de", {}))
+    if filtros.get("hardware_produto_id"):
+        unico("hardware_produto_id", f"Produto: {nomes.get('produto', {}).get(filtros['hardware_produto_id'], filtros['hardware_produto_id'])}")
+    if filtros.get("categoria_defeito"):
+        unico("categoria_defeito", f"Defeito: {filtros['categoria_defeito']}")
+    if filtros.get("responsavel"):
+        unico("responsavel", f"Responsável: {filtros['responsavel']}")
+    if filtros.get("registro_ini"):
+        unico("registro_ini", f"Registro a partir de {filtros['registro_ini']}")
+    if filtros.get("registro_fim"):
+        unico("registro_fim", f"Registro até {filtros['registro_fim']}")
+    if filtros.get("sem_atualizacao_dias"):
+        unico("sem_atualizacao_dias", f"Sem atualização há {filtros['sem_atualizacao_dias']}+ dias")
+    if filtros.get("critico"):
+        unico("critico", "Só críticas em aberto")
+    if filtros.get("incluir_arquivadas"):
+        unico("incluir_arquivadas", "Incluindo arquivadas")
+    return chips
+
+
+
 def _hardware_contexto_formulario() -> dict:
     """Pedaço de contexto repetido entre a lista (filtros) e os formulários
     de criar/editar ocorrência — um lugar só pra não desencontrar as opções.
@@ -6407,6 +6475,22 @@ async def admin_hardware(request: Request):
         contexto["visao"] = "lista"
         contexto["pag"] = paginacao_mod.paginar(lista, pag_hw)
         contexto["ord_hw"], contexto["dir_hw"] = ord_hw, dir_hw
+        params = list(request.query_params.multi_items())
+        contexto["url_hw"] = lambda **alterar: hardware_qs(params, **alterar)
+        contexto["qs_atual"] = hardware_qs(params)[len("/admin/hardware"):]
+        # Filtros (sem página/ordem/avisos) pro formulário de exportar levar
+        # o filtro COMPLETO -- antes só levava alguns campos e o Excel vinha
+        # com mais linhas do que a tela mostrava.
+        contexto["pares_filtro"] = [(k, v) for k, v in params
+                                    if k in _HW_CHAVES_FILTRO + ("cliente", "somente_arquivadas")]
+        contexto["chips_filtro"] = _hardware_chips(params, filtros, {
+            "status": dict(contexto["status_opcoes"]),
+            "prioridade": dict(contexto["prioridade_opcoes"]),
+            "aguardando_de": dict(contexto["aguardando_opcoes"]),
+            "produto": {p["id"]: p["nome"] for p in contexto["produtos"]},
+        })
+        contexto["url_limpar_filtros"] = hardware_qs(
+            params, **{k: None for k in _HW_CHAVES_FILTRO}, pag_hw=None)
         if filtros.get("cliente"):
             contexto["cliente_atual"] = clientes_mod.buscar_por_nome(filtros["cliente"])
             contexto["arquivadas_deste_cliente"] = len(
@@ -6546,7 +6630,7 @@ async def admin_hardware_exportar(request: Request):
     colunas = ["RMA", "Cliente", "Produto", "Serial/Patrimônio", "Quantidade",
                "Categoria do defeito", "Subcategoria", "Descrição do defeito",
                "Diagnóstico técnico", "Status", "Prioridade", "Localização",
-               "Responsável", "Aguardando de", "Próxima ação", "Previsão da próxima ação",
+               "Responsável", "Aguardando de",
                "Resultado final", "Solução", "Data de registro", "Data de solução",
                "Criado por", "Criado em", "Atualizado em", "Dias em aberto",
                "Dias sem atualização", "Arquivada"]
@@ -6563,7 +6647,6 @@ async def admin_hardware_exportar(request: Request):
             o["descricao_defeito"] or "", o["diagnostico_texto"] or "",
             o["status_texto"], o["prioridade_texto"], o["localizacao_texto"] or "",
             o["responsavel_nome"] or "", o["aguardando_texto"] or "",
-            o["proxima_acao"] or "", o["proxima_acao_data"] or "",
             o["resultado_final"] or "", o["solucao_texto"] or "",
             o["data_registro"] or "", o["data_solucao"] or "",
             o["criado_por_nome"] or "", o["criado_em"] or "", o["atualizado_em"] or "",
@@ -6774,6 +6857,35 @@ async def admin_hardware_etiquetas_lote(request: Request, ids: str = ""):
     return HTMLResponse(content=_zpl.generate_hardware_html_labels_lote(etiquetas))
 
 
+def _hardware_destino_lista(qs: str, **extra) -> str:
+    """Volta pra lista exatamente como estava (filtros, ordem, página). `qs`
+    vem do formulário -- só aceita querystring, nunca um caminho, e refaz a
+    URL a partir dos pares pra não abrir redirecionamento pra fora."""
+    from urllib.parse import parse_qsl
+    pares = parse_qsl((qs or "").lstrip("?"), keep_blank_values=False)
+    return hardware_qs(pares, **extra)
+
+
+@app.post("/admin/hardware/arquivar-em-massa")
+@require_permission("hardware_excluir")
+async def admin_hardware_arquivar_em_massa(request: Request):
+    """Arquiva várias ocorrências de uma vez -- o MESMO arquivar() de uma só
+    (soft delete, com evento no histórico e reversível), sem apagar nada. O
+    botão de arquivar de UMA linha da lista usa esta mesma rota com um id."""
+    user = get_current_user(request)
+    form = await request.form()
+    ids = [int(x) for x in form.getlist("ocorrencia_ids") if str(x).isdigit()]
+    feitas = 0
+    for oid in ids:
+        o = hardware_mod.buscar(oid)
+        if o and o["ativo"]:
+            hardware_mod.arquivar(oid, user["id"])
+            feitas += 1
+    return RedirectResponse(
+        _hardware_destino_lista(str(form.get("qs", "")), ok="arquivadas_lote", qtd=feitas, pag_hw=None),
+        status_code=302)
+
+
 @app.post("/admin/hardware/excluir-em-massa")
 @require_permission("hardware_excluir")
 async def admin_hardware_excluir_em_massa(request: Request):
@@ -6803,6 +6915,10 @@ async def admin_hardware_detalhe(request: Request, ocorrencia_id: int):
         # filtrados aqui (mais simples que depender de um test do Jinja
         # existir em toda versão) e na mesma ordem (DESC) de listar_eventos().
         "acoes_todas": [e for e in eventos if e["tipo"].startswith("acao_")],
+        # Anotações do caso: eventos 'atualizacao', mais recente primeiro.
+        "notas": [e for e in eventos if e["tipo"] == "atualizacao"],
+        "data_abertura": hardware_mod.data_br(o.get("data_registro"), com_hora=False),
+        "data_atualizacao": hardware_mod.data_br(o.get("atualizado_em")),
         "anexos": hardware_mod.listar_anexos(ocorrencia_id),
         "area_texto": hardware_mod.AREA_TEXTO,
         "area_cor": hardware_mod.AREA_COR,
@@ -6865,9 +6981,7 @@ async def admin_hardware_editar(request: Request, ocorrencia_id: int):
         novo_responsavel = str(dados.get("responsavel_nome", "")).strip()
         if novo_responsavel != (o["responsavel_nome"] or ""):
             hardware_mod.definir_responsavel(ocorrencia_id, novo_responsavel, user["id"])
-        hardware_mod.definir_proxima_acao(
-            ocorrencia_id, str(dados.get("proxima_acao", "")), str(dados.get("proxima_acao_data", "")),
-            str(dados.get("aguardando_de", "")), user["id"])
+        hardware_mod.definir_aguardando(ocorrencia_id, str(dados.get("aguardando_de", "")), user["id"])
         novo_status = str(dados.get("status", ""))
         if novo_status and novo_status != o["status"]:
             hardware_mod.mudar_status(ocorrencia_id, novo_status, str(dados.get("observacao", "")), user["id"])

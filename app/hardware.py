@@ -87,7 +87,7 @@ AREA_COR = {"brasil": "#2668a8", "suecia": "#6b3fb5", "fabricante": "#b45309", "
 
 EVENTO_TEXTO = {
     "criacao":         "Ocorrência criada",
-    "atualizacao":     "Atualização",
+    "atualizacao":     "Anotação",
     "acao_brasil":     "Ação — Brasil",
     "acao_suecia":     "Ação — Suécia",
     "acao_fabricante": "Ação — Fabricante",
@@ -615,6 +615,15 @@ def _evento(conn, ocorrencia_id: int, tipo: str, conteudo: str = "", situacao: s
     return cur.lastrowid
 
 
+def data_br(valor: str | None, com_hora: bool = True) -> str:
+    """'2026-09-18 14:30:05' -> '18/09/2026 14:30' (ou só a data)."""
+    valor = (valor or "").strip()
+    if len(valor) < 10 or valor[4] != "-":
+        return valor
+    texto = f"{valor[8:10]}/{valor[5:7]}/{valor[:4]}"
+    return f"{texto} {valor[11:16]}" if com_hora and len(valor) >= 16 else texto
+
+
 def listar_eventos(ocorrencia_id: int) -> list[dict]:
     with db() as conn:
         rows = conn.execute(
@@ -625,6 +634,7 @@ def listar_eventos(ocorrencia_id: int) -> list[dict]:
     eventos = [dict(r) for r in rows]
     for e in eventos:
         e["tipo_texto"] = EVENTO_TEXTO.get(e["tipo"], e["tipo"])
+        e["data_br"] = data_br(e["criado_em"])
     return eventos
 
 
@@ -777,22 +787,29 @@ def definir_responsavel(ocorrencia_id: int, responsavel_nome: str, usuario_id: i
                 f"Responsável alterado para {responsavel_nome or 'ninguém'}.", usuario_id=usuario_id, quando=agora)
 
 
-def definir_proxima_acao(ocorrencia_id: int, texto: str, data_prevista: str | None,
-                          aguardando_de: str, usuario_id: int) -> None:
+def definir_aguardando(ocorrencia_id: int, aguardando_de: str, usuario_id: int) -> None:
+    """Quem a ocorrência está esperando (Brasil/Suécia/Fabricante/Cliente ou
+    ninguém). Só mexe nisso -- o RMA é um histórico do caso, não um fluxo de
+    "próximas ações" (as colunas proxima_acao* continuam no banco só pra não
+    perder dado antigo, mas nada mais lê nem grava elas)."""
+    aguardando_de = (aguardando_de or "").strip()
     if aguardando_de and aguardando_de not in AGUARDANDO_TEXTO:
         raise ValueError("Valor de 'aguardando de' inválido.")
-    agora = now_brt()
     with db() as conn:
-        conn.execute(
-            "UPDATE hardware_ocorrencia SET proxima_acao=?, proxima_acao_data=?, aguardando_de=?, "
-            "atualizado_em=? WHERE id=?",
-            ((texto or "").strip(), (data_prevista or "").strip() or None, aguardando_de or "", agora, ocorrencia_id))
+        atual = conn.execute("SELECT aguardando_de FROM hardware_ocorrencia WHERE id = ?",
+                             (ocorrencia_id,)).fetchone()
+        if atual is None or (atual["aguardando_de"] or "") == aguardando_de:
+            return
+        conn.execute("UPDATE hardware_ocorrencia SET aguardando_de = ?, atualizado_em = ? WHERE id = ?",
+                     (aguardando_de, now_brt(), ocorrencia_id))
 
 
 def registrar_atualizacao(ocorrencia_id: int, conteudo: str, usuario_id: int) -> int:
+    """Anotação do caso (aparece como "Anotação" na tela; o tipo de evento
+    continua 'atualizacao' pra não separar as já registradas das novas)."""
     conteudo = (conteudo or "").strip()
     if not conteudo:
-        raise ValueError("Escreva o conteúdo da atualização.")
+        raise ValueError("Escreva o texto da anotação.")
     with db() as conn:
         return _evento(conn, ocorrencia_id, "atualizacao", conteudo, usuario_id=usuario_id)
 

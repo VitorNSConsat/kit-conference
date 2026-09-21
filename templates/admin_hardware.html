@@ -4,11 +4,14 @@
 {% import "_icones.html" as ic %}
 {% block title %}RMAs{% endblock %}
 
+{# Cabeçalho ordenável. O link parte da querystring ATUAL (url_hw) e troca só
+   a ordem -- mantém cliente, filtros e busca; só a página volta pra 1, que é
+   o certo quando a ordem muda. #}
 {% macro th_ord(rotulo, campo, ord_atual, dir_atual) %}
 {% set ativo = (ord_atual == campo) %}
 {% set proxima = 'desc' if (ativo and dir_atual == 'asc') else 'asc' %}
 <th>
-  <a href="?pag_hw=1&ord_hw={{ campo }}&dir_hw={{ proxima }}#lista-hardware"
+  <a href="{{ url_hw(ord_hw=campo, dir_hw=proxima, pag_hw=None) }}#lista-hardware"
      style="color:inherit;text-decoration:none;white-space:nowrap;" title="Ordenar por {{ rotulo }}">
     {{ rotulo }}{% if ativo %}<span style="color:var(--brand);"> {{ '▲' if dir_atual == 'asc' else '▼' }}</span>{% endif %}
   </a>
@@ -94,7 +97,7 @@
 <a href="/admin/hardware/importar" class="btn btn-sm btn-secondary">{{ ic.svg('importar', 14) }} Importar planilha</a>
 <a href="/admin/hardware/produtos" class="btn btn-sm btn-secondary">{{ ic.svg('itens', 14) }} Produtos cadastrados</a>
 {% if visao == 'clientes' %}
-<a href="/admin/hardware?somente_arquivadas=1" class="btn btn-sm btn-secondary">{{ ic.svg('excluir', 14) }} Arquivadas ({{ total_arquivadas }})</a>
+<a href="/admin/hardware?somente_arquivadas=1" class="btn btn-sm btn-secondary">{{ ic.svg('arquivo', 14) }} Arquivadas ({{ total_arquivadas }})</a>
 {% endif %}
 {% endblock %}
 
@@ -105,6 +108,8 @@
 <div class="alert alert-success">Ocorrência arquivada.</div>
 {% elif ok == 'renomeado' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Cliente renomeado — o nome novo já vale em veículos, RMAs, kits e remessas.</div>
+{% elif ok == 'arquivadas_lote' %}
+<div class="alert alert-success">{{ ic.svg('arquivo', 14) }} {{ request.query_params.get('qtd', '0') }} ocorrência(s) arquivada(s). Continuam no banco, com todo o histórico — dá pra ver em "Arquivadas" e reativar.</div>
 {% elif ok == 'excluidas' %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('qtd', '0') }} ocorrência(s) excluída(s) permanentemente.</div>
 {% endif %}
@@ -251,7 +256,7 @@
   <div style="display:flex;align-items:center;gap:10px;">
     {% if filtros.cliente and not filtros.somente_arquivadas %}
     <a href="?cliente={{ filtros.cliente | urlencode }}&somente_arquivadas=1" class="btn btn-sm btn-secondary">
-      {{ ic.svg('excluir', 13) }} Arquivadas ({{ arquivadas_deste_cliente }})
+      {{ ic.svg('arquivo', 13) }} Arquivadas ({{ arquivadas_deste_cliente }})
     </a>
     {% elif filtros.cliente and filtros.somente_arquivadas %}
     <a href="?cliente={{ filtros.cliente | urlencode }}" class="btn btn-sm btn-secondary">Ver ativas</a>
@@ -278,146 +283,225 @@
 </div>
 {% endif %}
 
-<!-- ── Filtros ────────────────────────────────────────────────────────────── -->
-<details class="card">
-  <summary style="cursor:pointer;font-weight:600;">{{ ic.svg('filtro', 14) }} Filtros avançados</summary>
-  <form method="get" action="/admin/hardware" class="busca-form" style="margin-top:12px;margin-bottom:0;">
-    <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por RMA-000X, cliente, produto ou serial...">
-    {{ f.multi('status', 'Status', status_opcoes, filtros.status, 'todos') }}
-    {{ f.multi('prioridade', 'Prioridade', prioridade_opcoes, filtros.prioridade, 'todas') }}
-    {{ f.multi('aguardando_de', 'Aguardando de', aguardando_opcoes, filtros.aguardando_de, 'ninguém') }}
-    <select name="cliente" style="width:auto;margin:0;">
-      <option value="">Cliente: todos</option>
-      {% for c in clientes_cadastrados %}
-      <option value="{{ c.nome }}" {{ 'selected' if filtros.cliente == c.nome }}>{{ c.nome }}</option>
-      {% endfor %}
-    </select>
-    <select name="hardware_produto_id" style="width:auto;margin:0;">
-      <option value="">Produto: todos</option>
-      {% for p in produtos %}
-      <option value="{{ p.id }}" {{ 'selected' if filtros.hardware_produto_id == p.id }}>{{ p.nome }}</option>
-      {% endfor %}
-    </select>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;color:var(--text-muted);">
-      <input type="checkbox" name="incluir_arquivadas" value="1" {{ 'checked' if filtros.incluir_arquivadas }}>
-      Incluir arquivadas
-    </label>
-    <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
-    {% if filtros.busca or filtros.status or filtros.prioridade or filtros.aguardando_de or filtros.cliente or filtros.hardware_produto_id or filtros.critico or filtros.sem_atualizacao_dias or filtros.incluir_arquivadas %}
-    <a href="/admin/hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar tudo</a>
+<!-- ── Filtros: básicos → avançados → ativos ──────────────────────────────── -->
+{% set avancados_ativos = filtros.status or filtros.prioridade or filtros.aguardando_de or filtros.hardware_produto_id
+   or filtros.categoria_defeito or filtros.responsavel or filtros.registro_ini or filtros.registro_fim
+   or filtros.sem_atualizacao_dias or filtros.critico or filtros.incluir_arquivadas %}
+<form method="get" action="/admin/hardware" class="card hw-filtros" id="form-filtros-hw">
+  {# O que é ESCOPO/ordem da tela viaja escondido: aplicar filtro não pode
+     trocar de cliente nem perder a coluna ordenada. A página não vai junto de
+     propósito -- o resultado mudou, então volta pra 1. #}
+  {% if filtros.cliente %}<input type="hidden" name="cliente" value="{{ filtros.cliente }}">{% endif %}
+  {% if filtros.somente_arquivadas %}<input type="hidden" name="somente_arquivadas" value="1">{% endif %}
+  {% if ord_hw %}<input type="hidden" name="ord_hw" value="{{ ord_hw }}"><input type="hidden" name="dir_hw" value="{{ dir_hw }}">{% endif %}
+  <div class="hw-filtros-basico">
+    <input type="search" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por RMA-000X, cliente, produto ou serial...">
+    <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('busca', 13) }} Buscar</button>
+    <button type="button" class="btn btn-sm btn-secondary" id="btn-avancados-hw" aria-expanded="{{ 'true' if avancados_ativos else 'false' }}"
+            onclick="alternarAvancadosHw()">{{ ic.svg('filtro', 13) }} Filtros avançados</button>
+    {% if chips_filtro %}
+    <a href="{{ url_limpar_filtros }}#lista-hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar filtros</a>
     {% endif %}
-  </form>
-</details>
+  </div>
+  <div class="hw-avancados" id="hw-avancados" {{ '' if avancados_ativos else 'hidden' }}>
+    <div class="hw-avancados-grade">
+      <div>{{ f.multi('status', 'Status', status_opcoes, filtros.status, 'todos') }}</div>
+      <div>{{ f.multi('prioridade', 'Prioridade', prioridade_opcoes, filtros.prioridade, 'todas') }}</div>
+      <div>{{ f.multi('aguardando_de', 'Aguardando de', aguardando_opcoes, filtros.aguardando_de, 'ninguém') }}</div>
+      <label class="hw-campo-filtro"><span>Produto</span>
+        <select name="hardware_produto_id">
+          <option value="">Todos</option>
+          {% for p in produtos %}<option value="{{ p.id }}" {{ 'selected' if filtros.hardware_produto_id == p.id }}>{{ p.nome }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="hw-campo-filtro"><span>Categoria do defeito</span>
+        <select name="categoria_defeito">
+          <option value="">Todas</option>
+          {% for c in categorias_defeito %}<option value="{{ c }}" {{ 'selected' if filtros.categoria_defeito == c }}>{{ c }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="hw-campo-filtro"><span>Responsável</span>
+        <select name="responsavel">
+          <option value="">Todos</option>
+          {% for nome in responsavel_opcoes %}<option value="{{ nome }}" {{ 'selected' if filtros.responsavel == nome }}>{{ nome }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="hw-campo-filtro"><span>Registro a partir de</span>
+        <input type="date" name="registro_ini" value="{{ filtros.registro_ini }}">
+      </label>
+      <label class="hw-campo-filtro"><span>Registro até</span>
+        <input type="date" name="registro_fim" value="{{ filtros.registro_fim }}">
+      </label>
+      <label class="hw-campo-filtro"><span>Sem atualização há (dias)</span>
+        <input type="number" name="sem_atualizacao_dias" min="1" value="{{ filtros.sem_atualizacao_dias }}" placeholder="ex: 7">
+      </label>
+    </div>
+    <div class="hw-avancados-rodape">
+      <label class="hw-check"><input type="checkbox" name="critico" value="1" {{ 'checked' if filtros.critico }}> Só críticas em aberto</label>
+      <label class="hw-check"><input type="checkbox" name="incluir_arquivadas" value="1" {{ 'checked' if filtros.incluir_arquivadas }}> Incluir arquivadas</label>
+      <button type="submit" class="btn btn-sm btn-primary" style="margin-left:auto;">{{ ic.svg('check', 13) }} Aplicar filtros</button>
+    </div>
+  </div>
+  {% if chips_filtro %}
+  <div class="hw-chips">
+    <span class="hw-chips-rotulo">Filtros ativos</span>
+    {% for c in chips_filtro %}
+    <a class="hw-chip" href="{{ c.url }}#lista-hardware" title="Remover este filtro">{{ c.rotulo }} {{ ic.svg('fechar', 11) }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</form>
 
-<!-- ── Lista ──────────────────────────────────────────────────────────────── -->
+<!-- ── Resultado ──────────────────────────────────────────────────────────── -->
 <div class="card table-scroll" id="lista-hardware">
   {{ pg.contagem(pag, "ocorrências") }}
   {% if pag.itens %}
+  {# Formulários separados (form não aninha em form): os ids marcados são
+     copiados pra cá por JS antes de enviar. `qs` leva os filtros/ordem/página
+     de volta pro redirect -- arquivar não pode jogar a pessoa pro início. #}
   {% if pode('hardware_excluir') %}
-  {# Form separado (não pode ficar aninhado dentro do form de exportar) --
-     os ids marcados são copiados pra cá via JS antes de enviar, igual a
-     nota fiscal em lote faz em Produção. #}
+  <form method="post" action="/admin/hardware/arquivar-em-massa" id="form-arquivar-hw">
+    <input type="hidden" name="qs" value="{{ qs_atual }}">
+  </form>
   <form method="post" action="/admin/hardware/excluir-em-massa" id="form-excluir-hw">
     <input type="hidden" name="voltar" value="{{ filtros.cliente }}">
   </form>
   {% endif %}
   <form method="get" action="/admin/hardware/exportar.xlsx" id="form-exportar-hw">
-    {% for s in filtros.status %}<input type="hidden" name="status" value="{{ s }}">{% endfor %}
-    {% for s in filtros.prioridade %}<input type="hidden" name="prioridade" value="{{ s }}">{% endfor %}
-    {% for s in filtros.aguardando_de %}<input type="hidden" name="aguardando_de" value="{{ s }}">{% endfor %}
-    {% if filtros.cliente %}<input type="hidden" name="cliente" value="{{ filtros.cliente }}">{% endif %}
-    {% if filtros.hardware_produto_id %}<input type="hidden" name="hardware_produto_id" value="{{ filtros.hardware_produto_id }}">{% endif %}
-    {% if filtros.busca %}<input type="hidden" name="busca" value="{{ filtros.busca }}">{% endif %}
-    {% if filtros.incluir_arquivadas %}<input type="hidden" name="incluir_arquivadas" value="1">{% endif %}
-  <table>
-    <thead><tr>
-      <th style="width:30px;text-align:center;">
-        <input type="checkbox" id="marcar-todos-hw" onchange="marcarTodosHardware(this)"
-               title="Marcar todas as ocorrências desta página">
-      </th>
-      {{ th_ord('ID', 'id', ord_hw, dir_hw) }}
-      {{ th_ord('Cliente', 'cliente', ord_hw, dir_hw) }}
-      {{ th_ord('Produto', 'produto', ord_hw, dir_hw) }}
-      {{ th_ord('Status', 'status', ord_hw, dir_hw) }}
-      {{ th_ord('Prioridade', 'prioridade', ord_hw, dir_hw) }}
-      <th>Serial/Patrimônio</th>
-      {{ th_ord('Responsável', 'responsavel', ord_hw, dir_hw) }}
-      <th>Aguardando</th>
-      <th>Próxima ação</th>
-      <th>Dias aberto</th>
-      {{ th_ord('Última atualização', 'atualizado', ord_hw, dir_hw) }}
-      <th></th>
-    </tr></thead>
-    <tbody>
-    {% for o in pag.itens %}
-    {% set cor = cor_do_cliente(o.cliente) %}
-    <tr {{ 'style="opacity:.55;"' | safe if not o.ativo }}>
-      <td style="text-align:center;">
-        <input type="checkbox" name="ocorrencia_ids" value="{{ o.id }}"
-               class="chk-hardware" onchange="atualizarBotaoExportarHardware()">
-      </td>
-      <td>
-        <a href="/admin/hardware/{{ o.id }}" style="font-weight:700;color:var(--brand-ink);text-decoration:none;">{{ o.rotulo }}</a>
-        {% if not o.ativo %}<span class="badge" style="margin-left:4px;font-size:10px;">arquivada</span>{% endif %}
-      </td>
-      <td style="color:{{ cor }};font-weight:600;">{{ o.cliente }}</td>
-      <td>{{ o.produto_exibido or '—' }}</td>
-      <td><span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span></td>
-      <td><span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span></td>
-      <td style="font-family:monospace;font-size:12px;">{{ o.serial_patrimonio or '—' }}</td>
-      <td>{{ o.responsavel_nome or '—' }}</td>
-      <td>{{ o.aguardando_texto or '—' }}</td>
-      <td style="font-size:12px;max-width:220px;">{{ (o.proxima_acao or '—') | truncate(60) }}</td>
-      <td style="text-align:center;">{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</td>
-      <td style="font-size:12px;color:var(--text-muted);">
-        {{ o.dias_sem_atualizacao }}d atrás
-        {% if o.dias_sem_atualizacao is not none and o.dias_sem_atualizacao >= sem_atualizacao_dias_padrao and o.status not in status_terminais %}
-        <span title="Sem atualização há {{ o.dias_sem_atualizacao }} dias">{{ ic.svg('alerta', 12) }}</span>
-        {% endif %}
-      </td>
-      <td style="white-space:nowrap;">
-        <a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank"
-           class="btn btn-sm btn-secondary" title="Gerar etiqueta com QR Code">{{ ic.svg('impressao', 13) }} Etiqueta</a>
-      </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-    <button type="submit" class="btn btn-sm btn-secondary" id="btn-exportar-hw">
-      {{ ic.svg('baixar', 13) }} <span id="rotulo-exportar-hw">Exportar todos ({{ pag.total }})</span>
-    </button>
-    <button type="button" class="btn btn-sm btn-secondary" id="btn-etiquetas-hw" disabled
-            onclick="gerarEtiquetasSelecionadasHardware()">
-      {{ ic.svg('impressao', 13) }} Gerar etiquetas selecionadas (<span id="qtd-etiquetas-hw">0</span>)
-    </button>
-    {% if pode('hardware_excluir') %}
-    <button type="button" class="btn btn-sm btn-danger" id="btn-excluir-hw" disabled
-            onclick="excluirSelecionadosHardware()">
-      {{ ic.svg('excluir', 13) }} Excluir selecionados (<span id="qtd-excluir-hw">0</span>)
-    </button>
-    {% endif %}
-    <span style="font-size:12px;color:var(--text-muted-2);">
-      Sem nada marcado, exporta todas as {{ pag.total }} ocorrência{{ 's' if pag.total != 1 }} deste filtro
-      (não só a página atual). Marque linhas acima pra exportar só elas, gerar etiquetas delas, ou
-      pra excluí-las permanentemente.
-    </span>
-  </div>
+    {% for k, v in pares_filtro %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <div class="hw-barra">
+      <span class="hw-barra-sel"><strong id="qtd-sel-hw">0</strong> selecionada(s)</span>
+      {% if pode('hardware_excluir') %}
+      <button type="button" class="btn btn-sm btn-secondary hw-btn-arquivar" id="btn-arquivar-hw" disabled
+              onclick="arquivarSelecionadosHardware()">{{ ic.svg('arquivo', 13) }} Arquivar selecionados</button>
+      {% endif %}
+      <button type="button" class="btn btn-sm btn-secondary" id="btn-etiquetas-hw" disabled
+              onclick="gerarEtiquetasSelecionadasHardware()">{{ ic.svg('impressao', 13) }} Etiquetas</button>
+      <button type="submit" class="btn btn-sm btn-secondary" id="btn-exportar-hw">
+        {{ ic.svg('baixar', 13) }} <span id="rotulo-exportar-hw">Exportar todos ({{ pag.total }})</span>
+      </button>
+      {% if pode('hardware_excluir') %}
+      <button type="button" class="btn btn-sm btn-danger" id="btn-excluir-hw" disabled
+              onclick="excluirSelecionadosHardware()" title="Exclusão definitiva — prefira Arquivar">{{ ic.svg('excluir', 13) }} Excluir</button>
+      {% endif %}
+    </div>
+    <div class="hw-rolagem">
+    <table class="hw-tabela">
+      <thead>
+        <tr>
+          <th class="hw-col-sel">
+            <input type="checkbox" id="marcar-todos-hw" onchange="marcarTodosHardware(this)"
+                   title="Marcar todas as ocorrências desta página">
+          </th>
+          <th class="hw-col-acoes">Ações</th>
+          {{ th_ord('ID', 'id', ord_hw, dir_hw) }}
+          {{ th_ord('Cliente', 'cliente', ord_hw, dir_hw) }}
+          {{ th_ord('Produto', 'produto', ord_hw, dir_hw) }}
+          {{ th_ord('Status', 'status', ord_hw, dir_hw) }}
+          {{ th_ord('Prioridade', 'prioridade', ord_hw, dir_hw) }}
+          <th>Serial/Patrimônio</th>
+          {{ th_ord('Responsável', 'responsavel', ord_hw, dir_hw) }}
+          <th>Aguardando</th>
+          <th>Dias aberto</th>
+          {{ th_ord('Última atualização', 'atualizado', ord_hw, dir_hw) }}
+        </tr>
+        {# Filtro direto na coluna: troca só aquele parâmetro na URL atual
+           (aplicarFiltroHw), então mantém ordem/outros filtros e volta pra
+           página 1 -- nunca pro painel inicial. #}
+        <tr class="hw-filtros-coluna">
+          <th class="hw-col-sel"></th><th class="hw-col-acoes"></th><th></th>
+          <th>{% if not filtros.cliente %}
+            <select onchange="aplicarFiltroHw('cliente', this.value)" title="Filtrar por cliente">
+              <option value="">Todos</option>
+              {% for c in clientes_cadastrados %}<option value="{{ c.nome }}">{{ c.nome }}</option>{% endfor %}
+            </select>{% endif %}</th>
+          <th><select onchange="aplicarFiltroHw('hardware_produto_id', this.value)" title="Filtrar por produto">
+              <option value="">Todos</option>
+              {% for p in produtos %}<option value="{{ p.id }}" {{ 'selected' if filtros.hardware_produto_id == p.id }}>{{ p.nome }}</option>{% endfor %}
+            </select></th>
+          <th><select onchange="aplicarFiltroHw('status', this.value)" title="Filtrar por status">
+              <option value="">Todos</option>
+              {% if filtros.status | length > 1 %}<option value="" disabled selected>{{ filtros.status | length }} selecionados</option>{% endif %}
+              {% for chave, texto in status_opcoes %}<option value="{{ chave }}" {{ 'selected' if filtros.status == [chave] }}>{{ texto }}</option>{% endfor %}
+            </select></th>
+          <th><select onchange="aplicarFiltroHw('prioridade', this.value)" title="Filtrar por prioridade">
+              <option value="">Todas</option>
+              {% if filtros.prioridade | length > 1 %}<option value="" disabled selected>{{ filtros.prioridade | length }} selecionadas</option>{% endif %}
+              {% for chave, texto in prioridade_opcoes %}<option value="{{ chave }}" {{ 'selected' if filtros.prioridade == [chave] }}>{{ texto }}</option>{% endfor %}
+            </select></th>
+          <th></th>
+          <th><select onchange="aplicarFiltroHw('responsavel', this.value)" title="Filtrar por responsável">
+              <option value="">Todos</option>
+              {% for nome in responsavel_opcoes %}<option value="{{ nome }}" {{ 'selected' if filtros.responsavel == nome }}>{{ nome }}</option>{% endfor %}
+            </select></th>
+          <th><select onchange="aplicarFiltroHw('aguardando_de', this.value)" title="Filtrar por quem está aguardando">
+              <option value="">Todos</option>
+              {% if filtros.aguardando_de | length > 1 %}<option value="" disabled selected>{{ filtros.aguardando_de | length }} selecionados</option>{% endif %}
+              {% for chave, texto in aguardando_opcoes %}<option value="{{ chave }}" {{ 'selected' if filtros.aguardando_de == [chave] }}>{{ texto }}</option>{% endfor %}
+            </select></th>
+          <th></th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for o in pag.itens %}
+      {% set cor = cor_do_cliente(o.cliente) %}
+      <tr {{ 'style="opacity:.6;"' | safe if not o.ativo }}>
+        <td class="hw-col-sel">
+          <input type="checkbox" name="ocorrencia_ids" value="{{ o.id }}" class="chk-hardware"
+                 onchange="atualizarSelecaoHardware()" data-rotulo="{{ o.rotulo }}">
+        </td>
+        <td class="hw-col-acoes">
+          <a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank" class="hw-icone-btn" title="Gerar etiqueta">{{ ic.svg('impressao', 14) }}</a>
+          {% if pode('hardware_excluir') and o.ativo %}
+          <button type="button" class="hw-icone-btn hw-icone-arquivar" title="Arquivar {{ o.rotulo }}"
+                  onclick="arquivarHardware([{{ o.id }}], '{{ o.rotulo }}')">{{ ic.svg('arquivo', 14) }}</button>
+          {% endif %}
+        </td>
+        <td class="hw-col-id">
+          <a href="/admin/hardware/{{ o.id }}" style="font-weight:700;color:var(--brand-ink);text-decoration:none;">{{ o.rotulo }}</a>
+          {% if not o.ativo %}<span class="badge" style="margin-left:4px;font-size:10px;">arquivada</span>{% endif %}
+        </td>
+        <td style="color:{{ cor }};font-weight:600;">{{ o.cliente }}</td>
+        <td>{{ o.produto_exibido or '—' }}</td>
+        <td><span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span></td>
+        <td><span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span></td>
+        <td style="font-family:monospace;font-size:12px;">{{ o.serial_patrimonio or '—' }}</td>
+        <td>{{ o.responsavel_nome or '—' }}</td>
+        <td>{{ o.aguardando_texto or '—' }}</td>
+        <td style="text-align:center;">{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</td>
+        <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+          {{ o.dias_sem_atualizacao }}d atrás
+          {% if o.dias_sem_atualizacao is not none and o.dias_sem_atualizacao >= sem_atualizacao_dias_padrao and o.status not in status_terminais %}
+          <span title="Sem atualização há {{ o.dias_sem_atualizacao }} dias">{{ ic.svg('alerta', 12) }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </form>
   {% if pag.total_paginas > 1 %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }} · {{ pag.total }} no total</span>
     {% for p in pag.paginas_visiveis %}
       {% if p is none %}<span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="?pag_hw={{ p }}{% if ord_hw %}&ord_hw={{ ord_hw }}&dir_hw={{ dir_hw }}{% endif %}#lista-hardware"
+      <a href="{{ url_hw(pag_hw=p) }}#lista-hardware"
          class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
   </div>
   {% endif %}
-  </form>
   {% else %}
-  <p style="color:var(--text-muted);text-align:center;padding:24px;">Nenhuma ocorrência encontrada.</p>
+  <div class="hw-vazio">
+    {% if chips_filtro %}
+    <p>Nenhuma ocorrência corresponde aos filtros aplicados.</p>
+    <a href="{{ url_limpar_filtros }}#lista-hardware" class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar filtros</a>
+    {% else %}
+    <p>Nenhuma ocorrência encontrada.</p>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
 {% endif %}
@@ -530,67 +614,110 @@
 {{ campo_catalogo('cat-responsavel', 'responsavel', 'Responsáveis', catalogo_responsavel, false, false) }}
 
 <script>
-// Seleção pra exportar: o quadradinho do topo marca/desmarca a página
-// inteira; o botão nunca desabilita -- sem nada marcado, exporta TODO o
-// filtro atual (não só a página), e o rótulo deixa isso claro.
+// ── Filtros ─────────────────────────────────────────────────────────────────
+// Filtro direto na coluna: troca SÓ aquele parâmetro na URL atual. Mantém
+// cliente, ordem e os outros filtros; só a página volta pra 1 (o resultado
+// mudou, então a página antiga poderia nem existir mais).
+function aplicarFiltroHw(nome, valor) {
+    const p = new URLSearchParams(location.search);
+    p.delete(nome);
+    if (valor) p.append(nome, valor);
+    ['pag_hw', 'ok', 'erro', 'qtd'].forEach(k => p.delete(k));
+    const qs = p.toString();
+    location.href = location.pathname + (qs ? '?' + qs : '') + '#lista-hardware';
+}
+
+// Campos vazios não vão pra URL (busca=&responsavel=&...): a URL fica curta e
+// só mostra o que de fato está filtrado. A página nunca vai junto (não há campo
+// pag_hw no formulário), então mudar filtro volta pra página 1.
+document.getElementById('form-filtros-hw').addEventListener('submit', function () {
+    this.querySelectorAll('input, select').forEach(el => {
+        if (!el.name || (el.type === 'hidden')) return;
+        if ((el.type === 'checkbox' || el.type === 'radio') ? !el.checked : el.value === '') el.disabled = true;
+    });
+});
+
+// Voltar do navegador pode restaurar a página com os campos ainda desabilitados.
+window.addEventListener('pageshow', () => {
+    document.querySelectorAll('#form-filtros-hw [disabled]').forEach(el => { el.disabled = false; });
+});
+
+function alternarAvancadosHw() {
+    const painel = document.getElementById('hw-avancados');
+    const btn = document.getElementById('btn-avancados-hw');
+    painel.hidden = !painel.hidden;
+    btn.setAttribute('aria-expanded', String(!painel.hidden));
+}
+
+// ── Seleção ─────────────────────────────────────────────────────────────────
+// Sem nada marcado, Exportar leva TODO o filtro (não só a página). Arquivar,
+// Etiquetas e Excluir ficam desabilitados: "nada marcado" nunca pode virar
+// "todos" numa ação que muda ou imprime em massa.
 function marcarTodosHardware(chefe) {
     document.querySelectorAll('.chk-hardware').forEach(c => { c.checked = chefe.checked; });
-    atualizarBotaoExportarHardware();
+    atualizarSelecaoHardware();
 }
 
-function atualizarBotaoExportarHardware() {
+function atualizarSelecaoHardware() {
     const qtd = document.querySelectorAll('.chk-hardware:checked').length;
     const total = document.querySelectorAll('.chk-hardware').length;
-    const rotulo = document.getElementById('rotulo-exportar-hw');
-    if (rotulo) {
-        rotulo.textContent = qtd > 0
-            ? `Exportar selecionados (${qtd})`
-            : `Exportar todos ({{ pag.total if pag is defined else 0 }})`;
-    }
     const chefe = document.getElementById('marcar-todos-hw');
     if (chefe) chefe.checked = qtd > 0 && qtd === total;
-    // Excluir é o oposto de exportar: sem nada marcado, o botão fica
-    // DESABILITADO -- diferente de exportar, aqui "nada marcado" nunca pode
-    // significar "todos".
-    const btnExcluir = document.getElementById('btn-excluir-hw');
-    if (btnExcluir) btnExcluir.disabled = qtd === 0;
-    const qtdExcluir = document.getElementById('qtd-excluir-hw');
-    if (qtdExcluir) qtdExcluir.textContent = qtd;
-    // Etiquetas segue a mesma regra do excluir: sem nada marcado, desabilitado
-    // -- gerar etiqueta de TODAS as ocorrências do filtro de uma vez (que
-    // pode ser centenas) não faz sentido como padrão silencioso.
-    const btnEtiquetas = document.getElementById('btn-etiquetas-hw');
-    if (btnEtiquetas) btnEtiquetas.disabled = qtd === 0;
-    const qtdEtiquetas = document.getElementById('qtd-etiquetas-hw');
-    if (qtdEtiquetas) qtdEtiquetas.textContent = qtd;
-}
-
-function gerarEtiquetasSelecionadasHardware() {
-    const sel = [...document.querySelectorAll('.chk-hardware:checked')];
-    if (!sel.length) return;
-    const ids = sel.map(c => c.value).join(',');
-    window.open('/admin/hardware/etiquetas?ids=' + encodeURIComponent(ids), '_blank');
-}
-
-function excluirSelecionadosHardware() {
-    const sel = [...document.querySelectorAll('.chk-hardware:checked')];
-    if (!sel.length) return;
-    const rotulos = sel.map(c => {
-        const linha = c.closest('tr');
-        return linha ? linha.querySelector('a')?.textContent?.trim() : c.value;
+    document.getElementById('qtd-sel-hw').textContent = qtd;
+    ['btn-arquivar-hw', 'btn-etiquetas-hw', 'btn-excluir-hw'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = qtd === 0;
     });
-    if (!confirm('Excluir PERMANENTEMENTE ' + sel.length + ' ocorrência(s)?\n\n'
-                 + rotulos.join(', ')
-                 + '\n\nIsso apaga o histórico e os anexos de cada uma. Não pode ser desfeito '
-                 + '-- se quiser poder recuperar depois, use Arquivar em vez de Excluir.')) return;
-    const form = document.getElementById('form-excluir-hw');
+    document.getElementById('rotulo-exportar-hw').textContent = qtd > 0
+        ? `Exportar selecionadas (${qtd})`
+        : `Exportar todas ({{ pag.total if pag is defined else 0 }})`;
+}
+
+function marcadosHardware() {
+    return [...document.querySelectorAll('.chk-hardware:checked')];
+}
+
+function enviarIdsHardware(idForm, ids) {
+    const form = document.getElementById(idForm);
     form.querySelectorAll('input[name="ocorrencia_ids"]').forEach(e => e.remove());
-    sel.forEach(c => {
+    ids.forEach(id => {
         const h = document.createElement('input');
-        h.type = 'hidden'; h.name = 'ocorrencia_ids'; h.value = c.value;
+        h.type = 'hidden'; h.name = 'ocorrencia_ids'; h.value = id;
         form.appendChild(h);
     });
     form.submit();
+}
+
+// ── Arquivar (uma ou várias) ────────────────────────────────────────────────
+function arquivarHardware(ids, descricao) {
+    if (!confirm('Arquivar ' + descricao + '?\n\nElas saem das listas de trabalho, mas continuam no banco '
+                 + 'com todo o histórico — dá pra ver em "Arquivadas" e reativar depois.')) return;
+    enviarIdsHardware('form-arquivar-hw', ids);
+}
+
+function arquivarSelecionadosHardware() {
+    const sel = marcadosHardware();
+    if (!sel.length) return;
+    const rotulos = sel.map(c => c.dataset.rotulo);
+    arquivarHardware(sel.map(c => c.value),
+                     sel.length === 1 ? rotulos[0] : sel.length + ' ocorrências (' + rotulos.slice(0, 6).join(', ')
+                                                      + (rotulos.length > 6 ? '…' : '') + ')');
+}
+
+function gerarEtiquetasSelecionadasHardware() {
+    const sel = marcadosHardware();
+    if (!sel.length) return;
+    window.open('/admin/hardware/etiquetas?ids=' + encodeURIComponent(sel.map(c => c.value).join(',')), '_blank');
+}
+
+function excluirSelecionadosHardware() {
+    const sel = marcadosHardware();
+    if (!sel.length) return;
+    if (!confirm('Excluir PERMANENTEMENTE ' + sel.length + ' ocorrência(s)?\n\n'
+                 + sel.map(c => c.dataset.rotulo).join(', ')
+                 + '\n\nIsso apaga o histórico e os anexos de cada uma. Não pode ser desfeito '
+                 + '-- se quiser poder recuperar depois, use Arquivar em vez de Excluir.')) return;
+    enviarIdsHardware('form-excluir-hw', sel.map(c => c.value));
 }
 </script>
 {% endblock %}

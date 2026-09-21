@@ -1,14 +1,33 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
-{% block title %}{{ o.rotulo }} — RMAs{% endblock %}
+{% block title %}{{ o.rotulo }} — {{ o.cliente }}{% endblock %}
 {% block acoes_topo %}
+{% set aberta = o.status not in ('resolvido', 'encerrado', 'cancelado') %}
 <a href="{{ voltar_para }}" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Voltar</a>
+{% if pode('hardware_gerenciar') %}
+<button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 13) }} Editar</button>
+{% endif %}
+<a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary"
+   title="Gerar etiqueta com QR Code">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
+{% if pode('hardware_gerenciar') %}
+  {% if aberta %}
+  <button type="button" class="btn btn-sm btn-success" onclick="abrirPopup(event, 'resolver')">{{ ic.svg('check-circulo', 13) }} Resolver</button>
+  {% elif pode('hardware_encerrar_reabrir') %}
+  <button type="button" class="btn btn-sm btn-warning" onclick="abrirPopup(event, 'reabrir')">{{ ic.svg('voltar', 13) }} Reabrir</button>
+  {% endif %}
+{% endif %}
+{% if pode('hardware_excluir') and o.ativo %}
+<form method="post" action="/admin/hardware/{{ o.id }}/arquivar" style="margin:0;"
+      onsubmit="return confirm('Arquivar esta ocorrência? Ela some das listas de trabalho, mas o histórico continua existindo — e dá pra reativar depois.');">
+  <button type="submit" class="btn btn-sm btn-secondary hw-btn-arquivo">{{ ic.svg('arquivo', 13) }} Arquivar</button>
+</form>
+{% endif %}
 {% endblock %}
 {% block content %}
 {% set ok_textos = {
   'criada': 'Ocorrência registrada.', 'editado': 'Dados atualizados.', 'status': 'Status alterado.',
-  'responsavel': 'Responsável atualizado.', 'proxima_acao': 'Próxima ação atualizada.',
-  'atualizacao': 'Atualização registrada.', 'acao': 'Ação registrada.', 'resolvida': 'Ocorrência resolvida.',
+  'responsavel': 'Responsável atualizado.',
+  'atualizacao': 'Anotação registrada.', 'acao': 'Ação registrada.', 'resolvida': 'Ocorrência resolvida.',
   'reaberta': 'Ocorrência reaberta.', 'anexo': 'Arquivo anexado.', 'arquivada': 'Ocorrência arquivada.',
   'reativada': 'Ocorrência reativada.',
 } %}
@@ -20,11 +39,10 @@
 {% endif %}
 
 {% set cor = cor_do_cliente(o.cliente) %}
-{% set aberta = o.status not in ('resolvido', 'encerrado', 'cancelado') %}
 
 {% if not o.ativo %}
 <div class="alert alert-danger" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-  <span>{{ ic.svg('excluir', 14) }} Esta ocorrência está <strong>arquivada</strong> — some das listas de trabalho, mas continua aqui com todo o histórico.</span>
+  <span>{{ ic.svg('arquivo', 14) }} Esta ocorrência está <strong>arquivada</strong> — some das listas de trabalho, mas continua aqui com todo o histórico.</span>
   {% if pode('hardware_excluir') %}
   <form method="post" action="/admin/hardware/{{ o.id }}/reativar">
     <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('reiniciar', 13) }} Reativar</button>
@@ -33,59 +51,30 @@
 </div>
 {% endif %}
 
-<!-- ── Cabeçalho ──────────────────────────────────────────────────────────── -->
-<div class="card" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
-  <div>
-    <h1 style="margin:0 0 4px;">{{ o.rotulo }} <span style="color:{{ cor }};">— {{ o.cliente }}</span></h1>
-    <p style="color:var(--text-muted);font-size:13px;margin:0;">
-      {{ o.produto_exibido or 'Produto não informado' }}
-      {% if o.serial_patrimonio %} · Serial/Patrimônio: <span style="font-family:monospace;">{{ o.serial_patrimonio }}</span>
+<!-- ── Identificação do caso: uma faixa compacta ──────────────────────────── -->
+<div class="card hw-meta">
+  <div class="hw-meta-linha">
+    <span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span>
+    <span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span>
+    <span class="hw-meta-produto">{{ o.produto_exibido or 'Produto não informado' }}</span>
+  </div>
+  <dl class="hw-meta-grade">
+    <div><dt>Dias em aberto</dt><dd>{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</dd></div>
+    <div><dt>Abertura</dt><dd>{{ data_abertura or '—' }}</dd></div>
+    <div><dt>Cliente</dt><dd style="color:{{ cor }};">{{ o.cliente }}</dd></div>
+    <div>
+      <dt>Série / Patrimônio</dt>
+      <dd class="mono">{{ o.serial_patrimonio or '—' }}
         {% if o.item_master_id %}<a href="#" onclick="abrirPainelPatrimonio('{{ o.serial_patrimonio }}');return false;" title="Ver histórico deste patrimônio">{{ ic.svg('historico', 12) }}</a>{% endif %}
-      {% endif %}
-    </p>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <span class="badge badge-cor" style="--cor:{{ o.status_cor }};font-size:13px;">{{ o.status_texto }}</span>
-    <span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};font-size:13px;">{{ o.prioridade_texto }}</span>
-  </div>
-</div>
-
-<!-- ── Números rápidos ────────────────────────────────────────────────────── -->
-<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px,1fr));gap:10px;margin-bottom:16px;">
-  <div class="card" style="padding:12px 16px;margin:0;"><p class="ds-kpi-label">Dias em aberto</p><p class="ds-kpi-value">{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</p></div>
-  <div class="card" style="padding:12px 16px;margin:0;"><p class="ds-kpi-label">Sem atualização há</p><p class="ds-kpi-value">{{ o.dias_sem_atualizacao if o.dias_sem_atualizacao is not none else '—' }}d</p></div>
-  <div class="card" style="padding:12px 16px;margin:0;">
-    <p class="ds-kpi-label">Responsável</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.responsavel_nome or '—' }}</p>
-  </div>
-  <div class="card" style="padding:12px 16px;margin:0;">
-    <p class="ds-kpi-label">Aguardando</p><p style="font-size:15px;font-weight:600;margin:0;">{{ o.aguardando_texto or '—' }}</p>
-  </div>
-</div>
-
-{% if o.proxima_acao %}
-<div class="ajuda-passo">
-  <strong>Próxima ação:</strong> {{ o.proxima_acao }}
-  {% if o.aguardando_texto %} — responsável: {{ o.aguardando_texto }}{% endif %}
-  {% if o.proxima_acao_data %} — previsão: {{ o.proxima_acao_data }}{% endif %}
-</div>
-{% endif %}
-
-<!-- ── Barra de ações — sempre visível, qualquer que seja a aba aberta ─────── -->
-<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-  <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 13) }} Editar</button>
-  <a href="/admin/hardware/{{ o.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary"
-     title="Gerar etiqueta com QR Code">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
-  {% if aberta %}
-  <button type="button" class="btn btn-sm btn-success" onclick="abrirPopup(event, 'resolver')">{{ ic.svg('check-circulo', 13) }} Resolver</button>
-  {% elif pode('hardware_encerrar_reabrir') %}
-  <button type="button" class="btn btn-sm btn-warning" onclick="abrirPopup(event, 'reabrir')">{{ ic.svg('voltar', 13) }} Reabrir</button>
-  {% endif %}
-  {% if pode('hardware_excluir') and o.ativo %}
-  <form method="post" action="/admin/hardware/{{ o.id }}/arquivar" style="margin-left:auto;"
-        onsubmit="return confirm('Arquivar esta ocorrência? Ela some das listas de trabalho, mas o histórico continua existindo — e dá pra reativar depois.');">
-    <button type="submit" class="btn btn-sm btn-danger">{{ ic.svg('excluir', 13) }} Arquivar</button>
-  </form>
-  {% endif %}
+      </dd>
+    </div>
+    <div><dt>Responsável</dt><dd>{{ o.responsavel_nome or '—' }}</dd></div>
+    <div><dt>Aguardando</dt><dd>{{ o.aguardando_texto or '—' }}</dd></div>
+    <div><dt>Quantidade</dt><dd>{{ o.quantidade }}</dd></div>
+    <div><dt>Localização</dt><dd>{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</dd></div>
+    <div><dt>Criado por</dt><dd>{{ o.criado_por_nome or '—' }}</dd></div>
+    <div><dt>Atualizado</dt><dd>{{ data_atualizacao or '—' }}</dd></div>
+  </dl>
 </div>
 
 {% if o.resultado_final %}
@@ -96,126 +85,43 @@
 </div>
 {% endif %}
 
-{# Página única, sem abas: Resumo, Ações e Arquivos ficam todos visíveis em
-   sequência, um embaixo do outro -- trocar de aba escondia o que já estava
-   aberto (ex: olhar o Histórico e registrar uma ação exigia ir e voltar). #}
-<div class="hw-secao-nav">
-  <a href="#hw-secao-resumo">Resumo</a>
-  <a href="#hw-secao-acoes">Ações <span class="cont" style="margin-left:4px;">{{ acoes_todas | length }}</span></a>
-  <a href="#hw-secao-arquivos">Arquivos <span class="cont" style="margin-left:4px;">{{ anexos | length }}</span></a>
+<!-- ── Detalhes do caso (diagnóstico) ─────────────────────────────────────── -->
+<div class="card" id="hw-secao-diagnostico">
+  <h2 class="hw-titulo-secao">{{ ic.svg('filtro', 15) }} Diagnóstico</h2>
+  <dl class="hw-diag">
+    <div><dt>Categoria</dt><dd>{{ o.categoria_defeito or '—' }}{% if o.subcategoria_defeito %} · {{ o.subcategoria_defeito }}{% endif %}</dd></div>
+    <div><dt>Descrição do defeito / sintomas</dt><dd class="pre">{{ o.descricao_defeito or '—' }}</dd></div>
+    <div><dt>Diagnóstico técnico / possível causa</dt><dd class="pre">{{ o.diagnostico_texto or '—' }}</dd></div>
+  </dl>
 </div>
 
-<!-- ── Resumo (identificação + diagnóstico + status + histórico) ──────────── -->
-<div id="hw-secao-resumo">
-  {# Faixa horizontal só com os campos de identificação -- status sai daqui
-     e vira o próprio card "Status atual" ao lado do Diagnóstico, pra não
-     repetir o badge duas vezes na mesma aba. #}
-  <div class="card hw-resumo-topo">
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('caixa', 15) }}</span>
-      <div><p class="ds-kpi-label">Produto</p><p style="margin:0;font-weight:600;">{{ o.produto_exibido or '—' }}</p></div>
+<!-- ── Anotações: registro rápido, sem tela extra ─────────────────────────── -->
+<div class="card" id="hw-secao-anotacoes">
+  <h2 class="hw-titulo-secao">{{ ic.svg('editar', 15) }} Anotações <span class="cont">{{ notas | length }}</span></h2>
+  {% if pode('hardware_gerenciar') %}
+  <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" class="hw-nota-form">
+    <textarea name="conteudo" rows="2" required maxlength="2000" placeholder="Escreva uma anotação sobre este caso..."
+              aria-label="Nova anotação"></textarea>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('mais', 14) }} Adicionar</button>
+  </form>
+  {% endif %}
+  <div class="hw-notas">
+    {% for n in notas %}
+    <div class="hw-nota">
+      <div class="hw-nota-cab"><strong>{{ n.data_br }}</strong> — {{ n.usuario_nome or '—' }}</div>
+      <div class="hw-nota-texto">{{ n.conteudo }}</div>
     </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('cliente', 15) }}</span>
-      <div><p class="ds-kpi-label">Cliente</p><p style="margin:0;font-weight:600;color:{{ cor }};">{{ o.cliente }}</p></div>
-    </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('historico', 15) }}</span>
-      <div>
-        <p class="ds-kpi-label">Serial / Patrimônio</p>
-        <p style="margin:0;font-family:monospace;font-weight:600;">
-          {{ o.serial_patrimonio or '—' }}
-          {% if o.item_master_id %}<a href="#" onclick="abrirPainelPatrimonio('{{ o.serial_patrimonio }}');return false;" title="Ver histórico deste patrimônio">{{ ic.svg('historico', 12) }}</a>{% endif %}
-        </p>
-      </div>
-    </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('itens', 15) }}</span>
-      <div><p class="ds-kpi-label">Quantidade</p><p style="margin:0;font-weight:600;">{{ o.quantidade }}</p></div>
-    </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('garagem', 15) }}</span>
-      <div><p class="ds-kpi-label">Localização</p><p style="margin:0;font-weight:600;">{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</p></div>
-    </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('calendario', 15) }}</span>
-      <div><p class="ds-kpi-label">Data de registro</p><p style="margin:0;font-weight:600;">{{ o.data_registro[:16] if o.data_registro else '—' }}</p></div>
-    </div>
-    <div class="hw-resumo-campo">
-      <span class="hw-resumo-icone">{{ ic.svg('usuario', 15) }}</span>
-      <div><p class="ds-kpi-label">Criado por</p><p style="margin:0;font-weight:600;">{{ o.criado_por_nome or '—' }}</p></div>
-    </div>
-  </div>
-
-  {# Diagnóstico à esquerda, status atual à direita -- lado a lado, os dois
-     mais curtos que o histórico (que vem embaixo, largura cheia). #}
-  <div class="hw-resumo-baixo">
-    <div class="card" style="margin:0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <h2 style="margin:0;">{{ ic.svg('filtro', 15) }} Diagnóstico</h2>
-        <button type="button" class="btn-link" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 12) }} Editar</button>
-      </div>
-      <div style="margin:14px 0;">
-        <p class="ds-kpi-label">Categoria do defeito</p>
-        <p style="margin:0;">{{ o.categoria_defeito or '—' }}</p>
-      </div>
-      <div style="margin-bottom:14px;">
-        <p class="ds-kpi-label">Subcategoria</p>
-        <p style="margin:0;">{{ o.subcategoria_defeito or '—' }}</p>
-      </div>
-      <div style="margin-bottom:14px;">
-        <p class="ds-kpi-label">Descrição do defeito / sintomas</p>
-        <p style="margin:0;white-space:pre-wrap;">{{ o.descricao_defeito or '—' }}</p>
-      </div>
-      <div>
-        <p class="ds-kpi-label">Diagnóstico técnico / possível causa</p>
-        <p style="margin:0;white-space:pre-wrap;">{{ o.diagnostico_texto or '—' }}</p>
-      </div>
-    </div>
-
-    <div class="card" style="margin:0;">
-      <h2 style="margin:0 0 14px;">{{ ic.svg('alerta', 15) }} Status atual</h2>
-      <div style="margin-bottom:14px;">
-        <span class="badge badge-cor" style="--cor:{{ o.status_cor }};font-size:13px;">{{ o.status_texto }}</span>
-      </div>
-      <div class="hw-status-linha"><span class="ds-kpi-label" style="margin:0;">Status</span><strong>{{ o.status_texto }}</strong></div>
-      <div class="hw-status-linha"><span class="ds-kpi-label" style="margin:0;">Responsável</span><strong>{{ o.responsavel_nome or '—' }}</strong></div>
-      <div class="hw-status-linha"><span class="ds-kpi-label" style="margin:0;">Última atualização</span><strong>{{ o.atualizado_em[:16] if o.atualizado_em else '—' }}</strong></div>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <h2 style="margin:0;">Histórico <span class="cont" style="margin-left:4px;">{{ eventos | length }}</span></h2>
-        <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'atualizacao')">{{ ic.svg('mais', 13) }} Nova atualização</button>
-      </div>
-      <div class="hw-timeline" style="max-height:460px;overflow-y:auto;">
-        {% for e in eventos %}
-        <div class="hw-timeline-item">
-          <div class="hw-timeline-cabecalho">
-            <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.criado_em[11:16] }}</span>
-            <span class="hw-timeline-titulo">{{ e.tipo_texto }}</span>
-            {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}
-          </div>
-          {% if e.conteudo %}<div class="hw-timeline-conteudo">{{ e.conteudo }}</div>{% endif %}
-          <div class="hw-timeline-autor">{{ e.usuario_nome or '—' }}</div>
-        </div>
-        {% else %}
-        <p style="color:var(--text-muted);text-align:center;padding:16px;">Nenhum evento ainda.</p>
-        {% endfor %}
-      </div>
-    </div>
+    {% else %}
+    <p class="hw-vazio-sec">Nenhuma anotação ainda.</p>
+    {% endfor %}
   </div>
 </div>
 
-{# ── Ações — unificada (Brasil/Suécia/Fabricante/Cliente) ────────────────────
-   Era 3 cards fixos, um botão "Registrar" por frente. Virou uma timeline só
-   com todo mundo junto (mesmo componente visual do Histórico acima) e o
-   formulário de registrar já vem ABERTO na própria página -- nada de popup
-   pra essa ação específica, já que a seção inteira agora está sempre
-   visível (sem aba pra abrir e fechar de novo a cada ação registrada). #}
-<div class="card" id="hw-secao-acoes" style="margin-top:16px;">
-  <h2 style="margin:0 0 14px;">Ações <span class="cont" style="margin-left:4px;">{{ acoes_todas | length }}</span></h2>
+{# ── Ações — unificada (Brasil/Suécia/Fabricante/Cliente): o formulário já vem
+   aberto na própria página e a timeline mostra todo mundo junto. #}
+<div class="card" id="hw-secao-acoes">
+  <h2 class="hw-titulo-secao">{{ ic.svg('historico', 15) }} Ações <span class="cont">{{ acoes_todas | length }}</span></h2>
+  {% if pode('hardware_gerenciar') %}
   <form method="post" action="/admin/hardware/{{ o.id }}/acao" class="hw-acao-form">
     <div class="cfg-linha-coluna">
       <span class="cfg-rotulo">Quem realizou</span>
@@ -235,12 +141,13 @@
     </div>
     <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
   </form>
+  {% endif %}
   <div class="hw-timeline" style="max-height:520px;overflow-y:auto;margin-top:18px;">
     {% for e in acoes_todas %}
     {% set area = e.tipo.replace('acao_', '') %}
     <div class="hw-timeline-item">
       <div class="hw-timeline-cabecalho">
-        <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.criado_em[11:16] }}</span>
+        <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.data_br }}</span>
         <span class="badge badge-cor" style="--cor:{{ area_cor[area] }};font-size:10px;">{{ area_texto[area] }}</span>
         {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}
       </div>
@@ -248,21 +155,44 @@
       <div class="hw-timeline-autor">{{ e.usuario_nome or '—' }}</div>
     </div>
     {% else %}
-    <p style="color:var(--text-muted);text-align:center;padding:16px;">Nenhuma ação registrada ainda.</p>
+    <p class="hw-vazio-sec">Nenhuma ação registrada ainda.</p>
     {% endfor %}
   </div>
 </div>
 
+<!-- ── Histórico completo (tudo que aconteceu no caso) ────────────────────── -->
+<details class="card hw-historico" id="hw-secao-historico">
+  <summary><h2 class="hw-titulo-secao" style="display:inline-flex;margin:0;">Histórico completo <span class="cont">{{ eventos | length }}</span></h2></summary>
+  <div class="hw-timeline" style="max-height:460px;overflow-y:auto;margin-top:14px;">
+    {% for e in eventos %}
+    <div class="hw-timeline-item">
+      <div class="hw-timeline-cabecalho">
+        <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.data_br }}</span>
+        <span class="hw-timeline-titulo">{{ e.tipo_texto }}</span>
+        {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}
+      </div>
+      {% if e.conteudo %}<div class="hw-timeline-conteudo">{{ e.conteudo }}</div>{% endif %}
+      <div class="hw-timeline-autor">{{ e.usuario_nome or '—' }}</div>
+    </div>
+    {% else %}
+    <p class="hw-vazio-sec">Nenhum evento ainda.</p>
+    {% endfor %}
+  </div>
+</details>
+
 <!-- ── Arquivos ─────────────────────────────────────────────────────────── -->
-<div class="card" id="hw-secao-arquivos" style="margin-top:16px;">
+<div class="card" id="hw-secao-arquivos">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <h2 style="margin:0;">Arquivos <span class="cont" style="margin-left:4px;">{{ anexos | length }}</span></h2>
-    <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'anexo')">{{ ic.svg('importar', 13) }} Anexar arquivo</button>
+    <h2 class="hw-titulo-secao" style="margin:0;">{{ ic.svg('importar', 15) }} Arquivos <span class="cont">{{ anexos | length }}</span></h2>
+    {% if pode('hardware_gerenciar') %}
+    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirPopup(event, 'anexo')">{{ ic.svg('importar', 13) }} Anexar arquivo</button>
+    {% endif %}
   </div>
   <p style="font-size:12px;color:var(--text-muted-2);margin:0 0 12px;">
     Imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB.
   </p>
   {% if anexos %}
+  <div class="table-scroll">
   <table>
     <thead><tr><th>Arquivo</th><th>Tamanho</th><th>Enviado por</th><th>Quando</th><th></th></tr></thead>
     <tbody>
@@ -277,8 +207,9 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
-  <p style="color:var(--text-muted);text-align:center;padding:16px;">Nenhum arquivo anexado ainda.</p>
+  <p class="hw-vazio-sec">Nenhum arquivo anexado ainda.</p>
   {% endif %}
 </div>
 
@@ -353,7 +284,7 @@
         </div>
       </section>
       <section class="cfg-secao" style="grid-column:1/-1;">
-        <h4><span style="color:var(--brand);">{{ ic.svg('relogio', 13) }}</span> Responsável, próxima ação e status</h4>
+        <h4><span style="color:var(--brand);">{{ ic.svg('relogio', 13) }}</span> Responsável e status</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
           <div class="cfg-linha-coluna">
             <span class="cfg-rotulo">Responsável</span>
@@ -363,19 +294,11 @@
             </select>
           </div>
           <div class="cfg-linha-coluna">
-            <span class="cfg-rotulo">Próxima ação</span>
-            <input type="text" name="proxima_acao" value="{{ o.proxima_acao }}">
-          </div>
-          <div class="cfg-linha-coluna">
             <span class="cfg-rotulo">Aguardando</span>
             <select name="aguardando_de">
               <option value="">— ninguém —</option>
               {% for chave, texto in aguardando_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.aguardando_de }}>{{ texto }}</option>{% endfor %}
             </select>
-          </div>
-          <div class="cfg-linha-coluna">
-            <span class="cfg-rotulo">Previsão</span>
-            <input type="date" name="proxima_acao_data" value="{{ o.proxima_acao_data or '' }}">
           </div>
           <div class="cfg-linha-coluna">
             <span class="cfg-rotulo">Novo status</span>
@@ -394,31 +317,6 @@
         <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar tudo</button>
       </div>
     </form>
-  </div>
-</div>
-
-<div id="popup-atualizacao" class="config-popup" role="dialog" aria-modal="true">
-  <div class="config-cabecalho">
-    <div><strong>Nova atualização</strong><span class="config-sub">{{ o.rotulo }}</span></div>
-    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
-  </div>
-  <div class="config-corpo">
-    <section class="cfg-secao" style="grid-column:1/-1;">
-      <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" enctype="multipart/form-data">
-        <div class="cfg-linha-coluna">
-          <span class="cfg-rotulo">Conteúdo</span>
-          <textarea name="conteudo" rows="3" required placeholder="O que aconteceu..."></textarea>
-        </div>
-        <div class="cfg-linha-coluna">
-          <span class="cfg-rotulo">Anexar arquivo <span class="cfg-ajuda">opcional</span></span>
-          <input type="file" name="arquivo">
-        </div>
-        <div class="cfg-acoes">
-          <button type="button" class="btn btn-secondary" onclick="fecharPopup()">Cancelar</button>
-          <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Adicionar</button>
-        </div>
-      </form>
-    </section>
   </div>
 </div>
 

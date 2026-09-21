@@ -604,3 +604,36 @@ def test_importar_sem_referencia_sempre_cria_nova(usuario_id):
     assert r1["inseridos"] == 1
     assert r2["inseridos"] == 1
     assert r1["itens"][0]["ocorrencia_id"] != r2["itens"][0]["ocorrencia_id"]
+
+
+def test_anotacao_registra_texto_usuario_e_data(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    hw.registrar_atualizacao(oid, "  Peça pedida ao fabricante.  ", usuario_id)
+    nota = [e for e in hw.listar_eventos(oid) if e["tipo"] == "atualizacao"][0]
+    assert nota["conteudo"] == "Peça pedida ao fabricante."
+    assert nota["usuario_nome"] == "Usuário Teste"
+    assert nota["tipo_texto"] == "Anotação"
+    dia, mes, ano = nota["data_br"][:10].split("/")
+    assert nota["criado_em"][:10] == f"{ano}-{mes}-{dia}"
+
+
+def test_anotacao_vazia_e_recusada(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    with pytest.raises(ValueError):
+        hw.registrar_atualizacao(oid, "   ", usuario_id)
+
+
+def test_data_br():
+    assert hw.data_br("2026-09-18 14:30:05") == "18/09/2026 14:30"
+    assert hw.data_br("2026-09-18 14:30:05", com_hora=False) == "18/09/2026"
+    assert hw.data_br(None) == ""
+
+
+def test_definir_aguardando_grava_so_quando_muda(usuario_id):
+    oid = _criar_ocorrencia(usuario_id)
+    hw.definir_aguardando(oid, "fabricante", usuario_id)
+    assert hw.buscar(oid)["aguardando_de"] == "fabricante"
+    with pytest.raises(ValueError):
+        hw.definir_aguardando(oid, "marte", usuario_id)
+    hw.definir_aguardando(oid, "", usuario_id)
+    assert not hw.buscar(oid)["aguardando_de"]

@@ -1434,3 +1434,98 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 .conf-seta   { color: var(--text-muted-2); margin: 0 2px; }
 .conf-depois { color: #8a6100; }
 .conf-erro-texto { color: #a02a1c; font-size: 12px; }
+
+/* ── RMA: filtros, barra de seleção e tabela ──────────────────────────────── */
+.hw-filtros { margin-bottom: 14px; }
+.hw-filtros-basico { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.hw-filtros-basico input[type="search"] { flex: 1; min-width: 220px; margin: 0; }
+.hw-avancados { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.hw-avancados[hidden] { display: none; }
+.hw-avancados-grade {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; align-items: end;
+}
+.hw-campo-filtro { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.hw-campo-filtro select, .hw-campo-filtro input { margin: 0; width: 100%; }
+.hw-avancados-rodape { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.hw-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.hw-check input { margin: 0; width: auto; }
+.hw-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.hw-chips-rotulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted-2); }
+.hw-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; text-decoration: none; color: var(--brand-ink);
+    background: var(--brand-soft); border: 1px solid var(--brand-border);
+}
+.hw-chip:hover { background: color-mix(in srgb, var(--brand) 18%, var(--surface)); }
+
+.hw-barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.hw-barra-sel { font-size: 12.5px; color: var(--text-muted); margin-right: 4px; }
+.hw-btn-arquivar:not(:disabled) { color: var(--brand); border-color: var(--brand-border); }
+
+/* Colunas de seleção e Ações grudadas na esquerda: continuam visíveis na
+   rolagem horizontal (tabela larga / tela pequena). */
+.hw-tabela th.hw-col-sel, .hw-tabela td.hw-col-sel {
+    position: sticky; left: 0; z-index: 2; width: 38px; min-width: 38px; text-align: center;
+    background: var(--surface);
+}
+.hw-tabela th.hw-col-acoes, .hw-tabela td.hw-col-acoes {
+    position: sticky; left: 38px; z-index: 2; width: 84px; min-width: 84px; white-space: nowrap;
+    background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle);
+}
+.hw-tabela td.hw-col-id, .hw-tabela th.hw-col-id { white-space: nowrap; min-width: 92px; }
+.hw-filtros-coluna th { padding-top: 0; font-weight: 400; }
+.hw-filtros-coluna select { width: 100%; min-width: 92px; margin: 0; padding: 4px 6px; font-size: 12px; }
+.hw-icone-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+    border: 1px solid transparent; border-radius: 7px; background: none; cursor: pointer;
+    color: var(--text-muted); text-decoration: none; padding: 0;
+}
+.hw-icone-btn:hover { background: var(--surface-alt); border-color: var(--border); color: var(--text); }
+.hw-icone-arquivar { color: var(--brand); }
+.hw-icone-arquivar:hover { background: var(--brand-soft); border-color: var(--brand-border); color: var(--brand); }
+.hw-vazio { text-align: center; padding: 28px 12px; color: var(--text-muted); }
+.hw-vazio p { margin: 0 0 12px; }
+
+/* ── RMA: tela de detalhe compacta ─────────────────────────────────────────
+   Faixa de identificação (rótulo/valor em grade densa), diagnóstico em
+   lista de definição, anotações com formulário de uma linha. */
+.hw-meta { padding: 14px 18px; }
+.hw-meta-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.hw-meta-produto { font-weight: 600; font-size: 15px; color: var(--text); margin-left: 4px; }
+.hw-meta-grade, .hw-diag { margin: 0; }
+.hw-meta-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 20px; }
+.hw-meta-grade > div, .hw-diag > div { min-width: 0; }
+.hw-meta-grade dt, .hw-diag dt {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--text-muted-2); margin: 0 0 2px;
+}
+.hw-meta-grade dd, .hw-diag dd { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.hw-meta-grade dd.mono { font-family: monospace; }
+.hw-diag { display: grid; gap: 12px; }
+.hw-diag dd { font-weight: 400; }
+.hw-diag dd.pre { white-space: pre-wrap; }
+.hw-titulo-secao { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; font-size: 15px; }
+.hw-titulo-secao .cont { margin-left: 2px; }
+.hw-vazio-sec { color: var(--text-muted-2); font-size: 13px; text-align: center; padding: 12px; margin: 0; }
+.hw-nota-form { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 14px; }
+.hw-nota-form textarea { flex: 1; min-height: 40px; resize: vertical; }
+.hw-notas { display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; }
+.hw-nota { padding: 10px 0; border-top: 1px solid var(--border-subtle); }
+.hw-nota:first-child { border-top: none; padding-top: 0; }
+.hw-nota-cab { font-size: 12px; color: var(--text-muted-2); }
+.hw-nota-cab strong { color: var(--text-muted); font-weight: 600; }
+.hw-nota-texto { font-size: 13.5px; color: var(--text); white-space: pre-wrap; margin-top: 2px; overflow-wrap: anywhere; }
+.hw-historico > summary { cursor: pointer; list-style: none; }
+.hw-historico > summary::-webkit-details-marker { display: none; }
+.hw-btn-arquivo { color: var(--brand); border-color: var(--brand-border); }
+.hw-btn-arquivo:hover { background: var(--brand-soft); color: var(--brand); }
+@media (max-width: 600px) {
+    .hw-nota-form { flex-direction: column; align-items: stretch; }
+    .hw-meta-grade { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* A tabela de RMAs é larga (muitas colunas): rola dentro do próprio invólucro em
+   qualquer largura — o .table-scroll global só vale em tela pequena, e sem isso
+   a página inteira ganhava barra horizontal. A barra de ações e a paginação
+   ficam fora, sempre visíveis; a coluna Ações fixa na borda do invólucro. */
+.hw-rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; }

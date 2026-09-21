@@ -1261,7 +1261,7 @@
     A tela abre num painel <strong>por cliente</strong>: um cartão por cliente com o total de
     equipamentos, quantos estão concluídos/em andamento/pendentes e um selo com o status mais
     comum entre os ainda abertos. Clicar em <strong>Ver detalhes</strong> abre a lista completa
-    só daquele cliente — id, status, prioridade, responsável, próxima ação — sem os cartões
+    só daquele cliente — id, status, prioridade, responsável — sem os cartões
     do topo, que já não fazem sentido depois de filtrado. Dentro da lista de um cliente, o
     ícone de lápis ao lado do nome <strong>renomeia o cliente</strong> sem sair da tela — vale
     pra veículos, kits e remessas já cadastrados também, não só pra RMA (é o mesmo cadastro de
@@ -1308,8 +1308,12 @@
       editável; não depende do tipo de defeito.</li>
     <li><span class="campo">Responsável</span> — nome livre, vindo do cadastro de
       Responsáveis (mesmo popup de catálogo das outras listas).</li>
-    <li><span class="campo">Próxima ação</span> + <span class="campo">Aguardando de</span> —
-      pra nunca depender de descobrir de cabeça o que falta fazer.</li>
+    <li><span class="campo">Aguardando de</span> — de quem é a bola da vez (Brasil, Suécia,
+      fabricante, cliente...). Não existe mais o campo "Próxima ação": o que precisa ser feito
+      fica registrado nas <strong>Anotações</strong> e nas <strong>Ações</strong>.</li>
+    <li><span class="campo">Anotações</span> — texto livre com usuário e data/hora, mais
+      recente primeiro (ex.: <em>18/09/2026 14:30 — Vitor</em>). O campo de adicionar já fica
+      aberto na tela de detalhe, sem popup.</li>
     <li><span class="campo">Ações</span> — uma timeline só (aba <strong>Ações</strong>), com
       todas as ações de todas as frentes juntas, mais recente primeiro, cada uma com uma
       etiqueta colorida dizendo quem fez (<strong>Brasil/Suécia/Fabricante/Cliente</strong>).
@@ -1323,24 +1327,46 @@
       (sem vídeo por enquanto). Baixados sempre como anexo, nunca abertos direto no navegador.</li>
   </ul>
 
+  <h3>Lista de ocorrências: filtros, seleção e arquivamento</h3>
+  <ul>
+    <li><span class="campo">Filtros</span> — busca no topo, <strong>Filtros avançados</strong>
+      (status, prioridade, aguardando, produto, categoria, responsável, período, sem atualização,
+      críticos, incluir arquivadas) e uma linha de filtros direto nas colunas. Tudo se combina, e
+      cada filtro ativo aparece como uma <strong>etiqueta removível</strong> abaixo da busca —
+      o <strong>×</strong> tira só aquele, <strong>Limpar filtros</strong> tira todos.</li>
+    <li><span class="campo">Estado preservado</span> — filtros, ordenação e cliente escolhido
+      ficam na URL: trocar de página, ordenar ou arquivar mantém tudo. Mudar um filtro volta pra
+      página 1 (o resultado mudou); trocar de página ou ordenar, não.</li>
+    <li><span class="campo">Seleção</span> — caixinha por linha e <em>selecionar todos os
+      visíveis</em> no cabeçalho. Com algo marcado aparece a barra <strong>Arquivar
+      selecionados</strong> (com confirmação) e o contador de marcados.</li>
+    <li><span class="campo">Arquivar</span> — o ícone azul de arquivo na linha arquiva só aquela
+      ocorrência; em massa vale o mesmo. É o arquivamento lógico de sempre: nada é apagado, o
+      histórico continua e dá pra reativar.</li>
+    <li><span class="campo">Coluna Ações</span> — fica à <strong>esquerda</strong> e fixa ao
+      rolar a tabela pro lado (junto com a caixinha de seleção), então nunca some em telas
+      estreitas; a barra de ações e a paginação ficam fora da rolagem. O ID (<em>RMA-0008</em>) nunca quebra de linha.</li>
+  </ul>
+
   <h3>Tela de detalhe</h3>
   <p>
-    Organizada em três abas — <strong>Resumo</strong>, <strong>Ações</strong> e
-    <strong>Arquivos</strong> — com uma barra de ações fixa em cima (<strong>Editar</strong>,
-    Resolver/Reabrir, Arquivar). A aba Resumo tem uma faixa com os dados de identificação
-    (produto, cliente, serial, quantidade, localização, registro, criado por) e, embaixo, três
-    blocos: <strong>Diagnóstico</strong> (com seu próprio atalho "Editar") e <strong>Status
-    atual</strong> lado a lado, e o <strong>Histórico</strong> completo (toda mudança, não só
-    ações) embaixo dos dois, em largura cheia.
+    As ações principais ficam <strong>no topo</strong>, no mesmo lugar de todas as telas do
+    sistema: <strong>Voltar</strong>, <strong>Editar</strong>, <strong>Gerar etiqueta</strong>,
+    Resolver/Reabrir e <strong>Arquivar</strong> (ícone azul). Embaixo, a ordem segue o
+    raciocínio de quem consulta: uma <strong>faixa compacta</strong> com status, prioridade,
+    produto, dias em aberto, data de abertura, cliente, série/patrimônio, responsável,
+    aguardando, quantidade, localização, criado por e última atualização; depois o
+    <strong>Diagnóstico</strong>, as <strong>Anotações</strong>, as <strong>Ações</strong> das
+    quatro frentes, o <strong>Histórico completo</strong> (recolhido; toda mudança, não só
+    ações) e os <strong>Arquivos</strong>.
   </p>
   <p>
     <strong>Editar</strong> é um botão só pra tudo: abre um único popup organizado em seções
-    (Resumo, Diagnóstico, Responsável/próxima ação/Status juntos numa seção só) e um
+    (Resumo, Diagnóstico, Responsável/Aguardando/Status) e um
     <strong>único "Salvar tudo"</strong> no rodapé aplica as mudanças de uma vez — só grava no
     histórico o que de fato mudou (mudar o responsável sem tocar no status não cria um evento de
-    status à toa). Registrar uma ação de uma das frentes, anexar um arquivo ou adicionar uma
-    atualização no histórico continuam com o popup próprio deles, já que são registros novos, não
-    edição do que já existe.
+    status à toa). Anotações e Ações têm formulário próprio, já aberto na página; anexar um arquivo
+    continua com popup, já que são registros novos, não edição do que já existe.
   </p>
   <h3>Etiqueta com QR Code</h3>
   <p>
@@ -1359,7 +1385,7 @@
     <li><span class="campo">Consulta pelo QR</span> — a página aberta pelo escaneamento é
       pública (não pede login) e mostra praticamente tudo: produto, serial/patrimônio, status
       em destaque, defeito e diagnóstico, cliente, prioridade, localização, responsável,
-      aguardando/próxima ação, data de registro e de solução, resultado final, as
+      aguardando, data de registro e de solução, resultado final, as
       <strong>quatro frentes de ação (Brasil/Suécia/Fabricante/Cliente)</strong> — última ação de
       cada uma com histórico completo pra abrir se precisar — e quantos arquivos estão anexados.
       Quem está logado e tem acesso a RMAs ainda vê um botão
