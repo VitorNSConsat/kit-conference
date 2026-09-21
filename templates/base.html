@@ -55,6 +55,11 @@
     <span class="ds-brand-sub">Conferência de Kits</span>
   </a>
   <nav class="ds-nav">
+    {# Portal de aplicações (porta 8001, HTTP): o host vem do endereço em que o
+       usuário já está, então funciona pelo IP e por um domínio futuro. #}
+    <a href="http://{{ request.url.hostname }}:8001/" class="ds-nav-item" style="margin-bottom:10px" title="Voltar ao portal de aplicações">
+      {{ ic.svg('portal') }}<span>Portal</span>
+    </a>
     {% for grupo_nome, chaves_grupo in GRUPOS_MENU %}
     {% set ns_grupo = namespace(tem_algo=false) %}
     {% for chave in chaves_grupo %}{% if pode(chave) %}{% set ns_grupo.tem_algo = true %}{% endif %}{% endfor %}
