@@ -87,7 +87,7 @@ AREA_COR = {"brasil": "#2668a8", "suecia": "#6b3fb5", "fabricante": "#b45309", "
 
 EVENTO_TEXTO = {
     "criacao":         "Ocorrência criada",
-    "atualizacao":     "Anotação",
+    "atualizacao":     "Observação",
     "acao_brasil":     "Ação — Brasil",
     "acao_suecia":     "Ação — Suécia",
     "acao_fabricante": "Ação — Fabricante",
@@ -805,11 +805,11 @@ def definir_aguardando(ocorrencia_id: int, aguardando_de: str, usuario_id: int) 
 
 
 def registrar_atualizacao(ocorrencia_id: int, conteudo: str, usuario_id: int) -> int:
-    """Anotação do caso (aparece como "Anotação" na tela; o tipo de evento
+    """Observação do caso (aparece como "Observação" na tela; o tipo de evento
     continua 'atualizacao' pra não separar as já registradas das novas)."""
     conteudo = (conteudo or "").strip()
     if not conteudo:
-        raise ValueError("Escreva o texto da anotação.")
+        raise ValueError("Escreva o texto da observação.")
     with db() as conn:
         return _evento(conn, ocorrencia_id, "atualizacao", conteudo, usuario_id=usuario_id)
 

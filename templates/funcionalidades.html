@@ -1310,10 +1310,11 @@
       Responsáveis (mesmo popup de catálogo das outras listas).</li>
     <li><span class="campo">Aguardando de</span> — de quem é a bola da vez (Brasil, Suécia,
       fabricante, cliente...). Não existe mais o campo "Próxima ação": o que precisa ser feito
-      fica registrado nas <strong>Anotações</strong> e nas <strong>Ações</strong>.</li>
-    <li><span class="campo">Anotações</span> — texto livre com usuário e data/hora, mais
-      recente primeiro (ex.: <em>18/09/2026 14:30 — Vitor</em>). O campo de adicionar já fica
-      aberto na tela de detalhe, sem popup.</li>
+      fica registrado nas <strong>Observações</strong> e nas <strong>Ações</strong>.</li>
+    <li><span class="campo">Observações</span> — texto livre com usuário e data/hora, que
+      aparece no <strong>Histórico</strong> como "Observação" (ex.: <em>21/09/2026 09:31</em>,
+      com o nome de quem registrou). Registra pelo painel lateral (<em>Registrar
+      observação</em>) ou pelo botão <strong>Nova atualização</strong> do Histórico.</li>
     <li><span class="campo">Ações</span> — uma timeline só (aba <strong>Ações</strong>), com
       todas as ações de todas as frentes juntas, mais recente primeiro, cada uma com uma
       etiqueta colorida dizendo quem fez (<strong>Brasil/Suécia/Fabricante/Cliente</strong>).
@@ -1352,21 +1353,25 @@
   <p>
     As ações principais ficam <strong>no topo</strong>, no mesmo lugar de todas as telas do
     sistema: <strong>Voltar</strong>, <strong>Editar</strong>, <strong>Gerar etiqueta</strong>,
-    Resolver/Reabrir e <strong>Arquivar</strong> (ícone azul). Embaixo, a ordem segue o
-    raciocínio de quem consulta: uma <strong>faixa compacta</strong> com status, prioridade,
-    produto, dias em aberto, data de abertura, cliente, série/patrimônio, responsável,
-    aguardando, quantidade, localização, criado por e última atualização; depois o
-    <strong>Diagnóstico</strong>, as <strong>Anotações</strong>, as <strong>Ações</strong> das
-    quatro frentes, o <strong>Histórico completo</strong> (recolhido; toda mudança, não só
-    ações) e os <strong>Arquivos</strong>.
+    Resolver/Reabrir e <strong>Arquivar</strong> (ícone azul). Abaixo, o cabeçalho do caso
+    (RMA, status, produto, cliente, serial/patrimônio, quantidade, localização, data de registro
+    e quem criou) e três abas: <strong>Visão geral</strong> (Diagnóstico e Status atual lado a
+    lado — com prioridade, responsável, aguardando e dias em aberto — e o Histórico completo),
+    <strong>Ações</strong> (as quatro frentes juntas) e <strong>Arquivos</strong>.
   </p>
   <p>
-    <strong>Editar</strong> é um botão só pra tudo: abre um único popup organizado em seções
-    (Resumo, Diagnóstico, Responsável/Aguardando/Status) e um
+    À direita fica o <strong>painel de ações</strong>: o formulário <em>Registrar ação</em>
+    (quem realizou — Brasil, Suécia, fabricante ou cliente —, o que foi feito e a situação) e as
+    <strong>Ações rápidas</strong>: adicionar arquivo, registrar observação, alterar status e
+    reatribuir responsável. O <strong>×</strong> recolhe o painel (a escolha fica lembrada no
+    navegador) e o botão <em>Painel de ações</em> volta com ele. Em telas estreitas ele desce para
+    baixo do conteúdo.
+  </p>
+  <p>
+    <strong>Editar</strong> abre um único popup organizado em seções e um
     <strong>único "Salvar tudo"</strong> no rodapé aplica as mudanças de uma vez — só grava no
-    histórico o que de fato mudou (mudar o responsável sem tocar no status não cria um evento de
-    status à toa). Anotações e Ações têm formulário próprio, já aberto na página; anexar um arquivo
-    continua com popup, já que são registros novos, não edição do que já existe.
+    histórico o que de fato mudou. Tudo que é registro novo (ação, observação, status,
+    responsável, arquivo) entra no histórico e nunca sobrescreve o que já existia.
   </p>
   <h3>Etiqueta com QR Code</h3>
   <p>

@@ -612,7 +612,7 @@ def test_anotacao_registra_texto_usuario_e_data(usuario_id):
     nota = [e for e in hw.listar_eventos(oid) if e["tipo"] == "atualizacao"][0]
     assert nota["conteudo"] == "Peça pedida ao fabricante."
     assert nota["usuario_nome"] == "Usuário Teste"
-    assert nota["tipo_texto"] == "Anotação"
+    assert nota["tipo_texto"] == "Observação"
     dia, mes, ano = nota["data_br"][:10].split("/")
     assert nota["criado_em"][:10] == f"{ano}-{mes}-{dia}"
 

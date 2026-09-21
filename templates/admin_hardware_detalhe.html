@@ -27,10 +27,11 @@
 {% set ok_textos = {
   'criada': 'Ocorrência registrada.', 'editado': 'Dados atualizados.', 'status': 'Status alterado.',
   'responsavel': 'Responsável atualizado.',
-  'atualizacao': 'Anotação registrada.', 'acao': 'Ação registrada.', 'resolvida': 'Ocorrência resolvida.',
+  'atualizacao': 'Observação registrada.', 'acao': 'Ação registrada.', 'resolvida': 'Ocorrência resolvida.',
   'reaberta': 'Ocorrência reaberta.', 'anexo': 'Arquivo anexado.', 'arquivada': 'Ocorrência arquivada.',
   'reativada': 'Ocorrência reativada.',
 } %}
+{% set pode_editar = pode('hardware_gerenciar') %}
 {% if ok and ok in ok_textos %}
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ ok_textos[ok] }}</div>
 {% endif %}
@@ -51,167 +52,322 @@
 </div>
 {% endif %}
 
-<!-- ── Identificação do caso: uma faixa compacta ──────────────────────────── -->
-<div class="card hw-meta">
-  <div class="hw-meta-linha">
-    <span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span>
-    <span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span>
-    <span class="hw-meta-produto">{{ o.produto_exibido or 'Produto não informado' }}</span>
-  </div>
-  <dl class="hw-meta-grade">
-    <div><dt>Dias em aberto</dt><dd>{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</dd></div>
-    <div><dt>Abertura</dt><dd>{{ data_abertura or '—' }}</dd></div>
-    <div><dt>Cliente</dt><dd style="color:{{ cor }};">{{ o.cliente }}</dd></div>
-    <div>
-      <dt>Série / Patrimônio</dt>
-      <dd class="mono">{{ o.serial_patrimonio or '—' }}
-        {% if o.item_master_id %}<a href="#" onclick="abrirPainelPatrimonio('{{ o.serial_patrimonio }}');return false;" title="Ver histórico deste patrimônio">{{ ic.svg('historico', 12) }}</a>{% endif %}
-      </dd>
-    </div>
-    <div><dt>Responsável</dt><dd>{{ o.responsavel_nome or '—' }}</dd></div>
-    <div><dt>Aguardando</dt><dd>{{ o.aguardando_texto or '—' }}</dd></div>
-    <div><dt>Quantidade</dt><dd>{{ o.quantidade }}</dd></div>
-    <div><dt>Localização</dt><dd>{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</dd></div>
-    <div><dt>Criado por</dt><dd>{{ o.criado_por_nome or '—' }}</dd></div>
-    <div><dt>Atualizado</dt><dd>{{ data_atualizacao or '—' }}</dd></div>
-  </dl>
-</div>
+<nav class="hw-migalhas" aria-label="Você está em">
+  <a href="{{ voltar_para }}">RMA</a><span>›</span><strong>Visualizar</strong>
+</nav>
 
-{% if o.resultado_final %}
-<div class="alert alert-success" style="margin-bottom:16px;">
-  <strong>Resultado:</strong> {{ o.resultado_final }}
-  {% if o.solucao_texto %} — {{ o.solucao_texto }}{% endif %}
-  {% if o.data_solucao %} <span style="opacity:.8;">({{ o.data_solucao[:10] }})</span>{% endif %}
-</div>
-{% endif %}
+<div class="hw-det {{ '' if pode_editar else 'hw-sem-painel' }}" id="hw-det">
+<div class="hw-det-main">
 
-<!-- ── Detalhes do caso (diagnóstico) ─────────────────────────────────────── -->
-<div class="card" id="hw-secao-diagnostico">
-  <h2 class="hw-titulo-secao">{{ ic.svg('filtro', 15) }} Diagnóstico</h2>
-  <dl class="hw-diag">
-    <div><dt>Categoria</dt><dd>{{ o.categoria_defeito or '—' }}{% if o.subcategoria_defeito %} · {{ o.subcategoria_defeito }}{% endif %}</dd></div>
-    <div><dt>Descrição do defeito / sintomas</dt><dd class="pre">{{ o.descricao_defeito or '—' }}</dd></div>
-    <div><dt>Diagnóstico técnico / possível causa</dt><dd class="pre">{{ o.diagnostico_texto or '—' }}</dd></div>
-  </dl>
-</div>
-
-<!-- ── Anotações: registro rápido, sem tela extra ─────────────────────────── -->
-<div class="card" id="hw-secao-anotacoes">
-  <h2 class="hw-titulo-secao">{{ ic.svg('editar', 15) }} Anotações <span class="cont">{{ notas | length }}</span></h2>
-  {% if pode('hardware_gerenciar') %}
-  <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" class="hw-nota-form">
-    <textarea name="conteudo" rows="2" required maxlength="2000" placeholder="Escreva uma anotação sobre este caso..."
-              aria-label="Nova anotação"></textarea>
-    <button type="submit" class="btn btn-primary">{{ ic.svg('mais', 14) }} Adicionar</button>
-  </form>
-  {% endif %}
-  <div class="hw-notas">
-    {% for n in notas %}
-    <div class="hw-nota">
-      <div class="hw-nota-cab"><strong>{{ n.data_br }}</strong> — {{ n.usuario_nome or '—' }}</div>
-      <div class="hw-nota-texto">{{ n.conteudo }}</div>
+  <!-- ── Cabeçalho do caso ────────────────────────────────────────────────── -->
+  <div class="card hw-cab">
+    <div class="hw-cab-titulo">
+      <h2>{{ o.rotulo }}</h2>
+      <span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span>
+      <span class="badge badge-cor" style="--cor:{{ o.prioridade_cor }};">{{ o.prioridade_texto }}</span>
     </div>
-    {% else %}
-    <p class="hw-vazio-sec">Nenhuma anotação ainda.</p>
-    {% endfor %}
-  </div>
-</div>
-
-{# ── Ações — unificada (Brasil/Suécia/Fabricante/Cliente): o formulário já vem
-   aberto na própria página e a timeline mostra todo mundo junto. #}
-<div class="card" id="hw-secao-acoes">
-  <h2 class="hw-titulo-secao">{{ ic.svg('historico', 15) }} Ações <span class="cont">{{ acoes_todas | length }}</span></h2>
-  {% if pode('hardware_gerenciar') %}
-  <form method="post" action="/admin/hardware/{{ o.id }}/acao" class="hw-acao-form">
-    <div class="cfg-linha-coluna">
-      <span class="cfg-rotulo">Quem realizou</span>
-      <select name="area" required>
-        {% for area in ['brasil', 'suecia', 'fabricante', 'cliente'] %}
-        <option value="{{ area }}">{{ area_texto[area] }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="cfg-linha-coluna" style="flex:1;">
-      <span class="cfg-rotulo">O que foi feito</span>
-      <textarea name="conteudo" rows="1" required placeholder="Descreva a ação realizada..."></textarea>
-    </div>
-    <div class="cfg-linha-coluna">
-      <span class="cfg-rotulo">Situação <span class="cfg-ajuda">opcional</span></span>
-      <input type="text" name="situacao" placeholder="ex: concluída">
-    </div>
-    <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
-  </form>
-  {% endif %}
-  <div class="hw-timeline" style="max-height:520px;overflow-y:auto;margin-top:18px;">
-    {% for e in acoes_todas %}
-    {% set area = e.tipo.replace('acao_', '') %}
-    <div class="hw-timeline-item">
-      <div class="hw-timeline-cabecalho">
-        <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.data_br }}</span>
-        <span class="badge badge-cor" style="--cor:{{ area_cor[area] }};font-size:10px;">{{ area_texto[area] }}</span>
-        {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}
+    <div class="hw-cab-campos">
+      <div class="hw-cab-grupo">
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('caixa', 15) }}</span>
+          <div><p class="ds-kpi-label">Produto</p><p class="hw-cab-valor">{{ o.produto_exibido or '—' }}</p></div></div>
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('cliente', 15) }}</span>
+          <div><p class="ds-kpi-label">Cliente</p><p class="hw-cab-valor" style="color:{{ cor }};">{{ o.cliente }}</p></div></div>
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('historico', 15) }}</span>
+          <div><p class="ds-kpi-label">Serial / Patrimônio</p>
+            <p class="hw-cab-valor mono">{{ o.serial_patrimonio or '—' }}
+              {% if o.item_master_id %}<a href="#" onclick="abrirPainelPatrimonio('{{ o.serial_patrimonio }}');return false;" title="Ver histórico deste patrimônio">{{ ic.svg('historico', 12) }}</a>{% endif %}</p></div></div>
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('itens', 15) }}</span>
+          <div><p class="ds-kpi-label">Quantidade</p><p class="hw-cab-valor">{{ o.quantidade }}</p></div></div>
       </div>
-      {% if e.conteudo %}<div class="hw-timeline-conteudo">{{ e.conteudo }}</div>{% endif %}
-      <div class="hw-timeline-autor">{{ e.usuario_nome or '—' }}</div>
-    </div>
-    {% else %}
-    <p class="hw-vazio-sec">Nenhuma ação registrada ainda.</p>
-    {% endfor %}
-  </div>
-</div>
-
-<!-- ── Histórico completo (tudo que aconteceu no caso) ────────────────────── -->
-<details class="card hw-historico" id="hw-secao-historico">
-  <summary><h2 class="hw-titulo-secao" style="display:inline-flex;margin:0;">Histórico completo <span class="cont">{{ eventos | length }}</span></h2></summary>
-  <div class="hw-timeline" style="max-height:460px;overflow-y:auto;margin-top:14px;">
-    {% for e in eventos %}
-    <div class="hw-timeline-item">
-      <div class="hw-timeline-cabecalho">
-        <span class="hw-timeline-hora" title="{{ e.criado_em[:16] }}">{{ e.data_br }}</span>
-        <span class="hw-timeline-titulo">{{ e.tipo_texto }}</span>
-        {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}
+      <div class="hw-cab-grupo">
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('garagem', 15) }}</span>
+          <div><p class="ds-kpi-label">Localização</p>
+            <p class="hw-cab-valor">{{ o.localizacao_texto or '—' }}{% if o.localizacao_detalhe %} — {{ o.localizacao_detalhe }}{% endif %}</p></div></div>
       </div>
-      {% if e.conteudo %}<div class="hw-timeline-conteudo">{{ e.conteudo }}</div>{% endif %}
-      <div class="hw-timeline-autor">{{ e.usuario_nome or '—' }}</div>
+      <div class="hw-cab-grupo hw-cab-grupo-col">
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('calendario', 15) }}</span>
+          <div><p class="ds-kpi-label">Data de registro</p><p class="hw-cab-valor">{{ data_registro_br }}</p></div></div>
+        <div class="hw-resumo-campo"><span class="hw-resumo-icone">{{ ic.svg('usuario', 15) }}</span>
+          <div><p class="ds-kpi-label">Criado por</p><p class="hw-cab-valor">{{ o.criado_por_nome or '—' }}</p></div></div>
+      </div>
     </div>
-    {% else %}
-    <p class="hw-vazio-sec">Nenhum evento ainda.</p>
-    {% endfor %}
   </div>
-</details>
 
-<!-- ── Arquivos ─────────────────────────────────────────────────────────── -->
-<div class="card" id="hw-secao-arquivos">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-    <h2 class="hw-titulo-secao" style="margin:0;">{{ ic.svg('importar', 15) }} Arquivos <span class="cont">{{ anexos | length }}</span></h2>
-    {% if pode('hardware_gerenciar') %}
-    <button type="button" class="btn btn-sm btn-secondary" onclick="abrirPopup(event, 'anexo')">{{ ic.svg('importar', 13) }} Anexar arquivo</button>
+  {% if o.resultado_final %}
+  <div class="alert alert-success" style="margin-bottom:16px;">
+    <strong>Resultado:</strong> {{ o.resultado_final }}
+    {% if o.solucao_texto %} — {{ o.solucao_texto }}{% endif %}
+    {% if o.data_solucao %} <span style="opacity:.8;">({{ o.data_solucao[:10] }})</span>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ── Abas ─────────────────────────────────────────────────────────────── -->
+  <div class="hw-abas" role="tablist">
+    <button type="button" class="hw-aba ativa" role="tab" data-aba="geral" onclick="abrirAbaHw('geral')">Visão geral</button>
+    <button type="button" class="hw-aba" role="tab" data-aba="acoes" onclick="abrirAbaHw('acoes')">Ações ({{ acoes_todas | length }})</button>
+    <button type="button" class="hw-aba" role="tab" data-aba="arquivos" onclick="abrirAbaHw('arquivos')">Arquivos ({{ anexos | length }})</button>
+    {% if pode_editar %}
+    <button type="button" class="btn btn-sm btn-secondary hw-reabrir-painel" id="hw-reabrir-painel" onclick="alternarPainelHw(true)" hidden>
+      {{ ic.svg('mais', 13) }} Painel de ações
+    </button>
     {% endif %}
   </div>
-  <p style="font-size:12px;color:var(--text-muted-2);margin:0 0 12px;">
-    Imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB.
-  </p>
-  {% if anexos %}
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>Arquivo</th><th>Tamanho</th><th>Enviado por</th><th>Quando</th><th></th></tr></thead>
-    <tbody>
-    {% for a in anexos %}
-    <tr>
-      <td>{{ a.nome_arquivo }}</td>
-      <td>{{ (a.tamanho / 1024) | round(1) }} KB</td>
-      <td>{{ a.enviado_por_nome or '—' }}</td>
-      <td style="font-size:12px;color:var(--text-muted);">{{ a.enviado_em[:16] }}</td>
-      <td><a href="/admin/hardware/anexo/{{ a.id }}" class="btn btn-sm btn-secondary">{{ ic.svg('baixar', 13) }} Baixar</a></td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+
+  <!-- ── Visão geral ──────────────────────────────────────────────────────── -->
+  <div class="hw-painel-aba" id="hw-aba-geral">
+    <div class="hw-geral-grade">
+      <div class="card hw-cartao">
+        <div class="hw-cartao-topo">
+          <h3>{{ ic.svg('filtro', 15) }} Diagnóstico</h3>
+          {% if pode_editar %}
+          <button type="button" class="btn btn-sm btn-secondary" onclick="abrirPopup(event, 'editar')">{{ ic.svg('editar', 12) }} Editar</button>
+          {% endif %}
+        </div>
+        <dl class="hw-diag">
+          <div><dt>Categoria do defeito</dt><dd>{{ o.categoria_defeito or '—' }}</dd></div>
+          <div><dt>Subcategoria</dt><dd>{{ o.subcategoria_defeito or '—' }}</dd></div>
+          <div><dt>Descrição do defeito / sintomas</dt><dd class="pre">{{ o.descricao_defeito or '—' }}</dd></div>
+          <div><dt>Diagnóstico técnico / possível causa</dt><dd class="pre">{{ o.diagnostico_texto or '—' }}</dd></div>
+        </dl>
+      </div>
+
+      <div class="card hw-cartao">
+        <div class="hw-cartao-topo"><h3>{{ ic.svg('relogio', 15) }} Status atual</h3></div>
+        <div style="margin-bottom:12px;">
+          <span class="badge badge-cor" style="--cor:{{ o.status_cor }};">{{ o.status_texto }}</span>
+        </div>
+        <div class="hw-status-linha"><span>Status</span><strong>{{ o.status_texto }}</strong></div>
+        <div class="hw-status-linha"><span>Prioridade</span><strong>{{ o.prioridade_texto }}</strong></div>
+        <div class="hw-status-linha"><span>Responsável</span><strong>{{ o.responsavel_nome or '—' }}</strong></div>
+        <div class="hw-status-linha"><span>Aguardando</span><strong>{{ o.aguardando_texto or '—' }}</strong></div>
+        <div class="hw-status-linha"><span>Dias em aberto</span><strong>{{ o.dias_em_aberto if o.dias_em_aberto is not none else '—' }}</strong></div>
+        <div class="hw-status-linha"><span>Última atualização</span><strong>{{ data_atualizacao or '—' }}</strong></div>
+      </div>
+    </div>
+
+    <div class="card hw-cartao" id="hw-secao-historico">
+      <div class="hw-cartao-topo">
+        <h3>{{ ic.svg('clipboard', 15) }} Histórico <span class="cont">{{ eventos | length }}</span></h3>
+        {% if pode_editar %}
+        <button type="button" class="btn btn-sm btn-secondary" onclick="abrirVistaHw('observacao')">{{ ic.svg('mais', 12) }} Nova atualização</button>
+        {% endif %}
+      </div>
+      <div class="hw-hist">
+        {% for e in eventos %}
+        <div class="hw-hist-linha">
+          <span class="hw-hist-marca"></span>
+          <span class="hw-hist-data">{{ e.data_br[:10] }}<br>{{ e.data_br[11:] }}</span>
+          <div class="hw-hist-corpo">
+            <strong>{{ e.tipo_texto }}{% if e.tipo.startswith('acao_') and e.situacao %} <span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}</strong>
+            {% if e.conteudo %}<span class="hw-hist-texto">{{ e.conteudo }}</span>{% endif %}
+          </div>
+          <span class="hw-hist-autor">{{ e.usuario_nome or '—' }}</span>
+        </div>
+        {% else %}
+        <p class="hw-vazio-sec">Nenhum evento ainda.</p>
+        {% endfor %}
+      </div>
+    </div>
   </div>
-  {% else %}
-  <p class="hw-vazio-sec">Nenhum arquivo anexado ainda.</p>
-  {% endif %}
+
+  <!-- ── Ações (as quatro frentes juntas) ─────────────────────────────────── -->
+  <div class="hw-painel-aba" id="hw-aba-acoes" hidden>
+    <div class="card hw-cartao">
+      <div class="hw-cartao-topo">
+        <h3>{{ ic.svg('historico', 15) }} Ações <span class="cont">{{ acoes_todas | length }}</span></h3>
+        {% if pode_editar %}
+        <button type="button" class="btn btn-sm btn-secondary" onclick="abrirVistaHw('acao')">{{ ic.svg('mais', 12) }} Registrar ação</button>
+        {% endif %}
+      </div>
+      <div class="hw-hist">
+        {% for e in acoes_todas %}
+        {% set area = e.tipo.replace('acao_', '') %}
+        <div class="hw-hist-linha">
+          <span class="hw-hist-marca"></span>
+          <span class="hw-hist-data">{{ e.data_br[:10] }}<br>{{ e.data_br[11:] }}</span>
+          <div class="hw-hist-corpo">
+            <strong><span class="badge badge-cor" style="--cor:{{ area_cor[area] }};font-size:10px;">{{ area_texto[area] }}</span>
+              {% if e.situacao %}<span class="badge" style="font-size:10px;">{{ e.situacao }}</span>{% endif %}</strong>
+            {% if e.conteudo %}<span class="hw-hist-texto">{{ e.conteudo }}</span>{% endif %}
+          </div>
+          <span class="hw-hist-autor">{{ e.usuario_nome or '—' }}</span>
+        </div>
+        {% else %}
+        <p class="hw-vazio-sec">Nenhuma ação registrada ainda.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Arquivos ─────────────────────────────────────────────────────────── -->
+  <div class="hw-painel-aba" id="hw-aba-arquivos" hidden>
+    <div class="card hw-cartao">
+      <div class="hw-cartao-topo">
+        <h3>{{ ic.svg('importar', 15) }} Arquivos <span class="cont">{{ anexos | length }}</span></h3>
+        {% if pode_editar %}
+        <button type="button" class="btn btn-sm btn-secondary" onclick="abrirPopup(event, 'anexo')">{{ ic.svg('importar', 12) }} Anexar arquivo</button>
+        {% endif %}
+      </div>
+      <p style="font-size:12px;color:var(--text-muted-2);margin:0 0 12px;">
+        Imagens, PDF, .txt, .csv, .xlsx ou .zip — até {{ max_anexo_mb }}MB.
+      </p>
+      {% if anexos %}
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Arquivo</th><th>Tamanho</th><th>Enviado por</th><th>Quando</th><th></th></tr></thead>
+        <tbody>
+        {% for a in anexos %}
+        <tr>
+          <td>{{ a.nome_arquivo }}</td>
+          <td>{{ (a.tamanho / 1024) | round(1) }} KB</td>
+          <td>{{ a.enviado_por_nome or '—' }}</td>
+          <td style="font-size:12px;color:var(--text-muted);">{{ a.enviado_em[:16] }}</td>
+          <td><a href="/admin/hardware/anexo/{{ a.id }}" class="btn btn-sm btn-secondary">{{ ic.svg('baixar', 13) }} Baixar</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <p class="hw-vazio-sec">Nenhum arquivo anexado ainda.</p>
+      {% endif %}
+    </div>
+  </div>
 </div>
+
+{% if pode_editar %}
+<!-- ── Painel lateral de ações ─────────────────────────────────────────────── -->
+<aside class="hw-painel" id="hw-painel" aria-label="Ações do RMA">
+  <div class="hw-painel-cab">
+    <div><h3>Ações</h3><p>Registrar novas ações</p></div>
+    <button type="button" class="hw-painel-fechar" onclick="alternarPainelHw(false)" title="Fechar painel">{{ ic.svg('fechar', 16) }}</button>
+  </div>
+
+  <div class="hw-painel-caixa">
+    <form method="post" action="/admin/hardware/{{ o.id }}/acao" class="hw-vista" data-vista="acao">
+      <h4>Registrar ação — {{ o.rotulo }}</h4>
+      <label>Quem realizou
+        <select name="area" required>
+          {% for area in ['brasil', 'suecia', 'fabricante', 'cliente'] %}<option value="{{ area }}">{{ area_texto[area] }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>O que foi feito
+        <textarea name="conteudo" rows="4" required maxlength="2000" placeholder="Descreva a ação realizada..."></textarea>
+      </label>
+      <label>Situação
+        <select name="situacao">
+          <option value="">Selecione a situação</option>
+          {% for s in ['Em andamento', 'Concluída', 'Pendente', 'Aguardando resposta', 'Cancelada'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="hw-vista-botoes">
+        <button type="button" class="btn btn-secondary" onclick="cancelarVistaHw()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
+      </div>
+    </form>
+
+    <form method="post" action="/admin/hardware/{{ o.id }}/atualizacao" class="hw-vista" data-vista="observacao" hidden>
+      <h4>Registrar observação — {{ o.rotulo }}</h4>
+      <label>Observação
+        <textarea name="conteudo" rows="4" required maxlength="2000" placeholder="Anotação interna sobre o RMA..."></textarea>
+      </label>
+      <div class="hw-vista-botoes">
+        <button type="button" class="btn btn-secondary" onclick="cancelarVistaHw()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Registrar</button>
+      </div>
+    </form>
+
+    <form method="post" action="/admin/hardware/{{ o.id }}/status" class="hw-vista" data-vista="status" hidden>
+      <h4>Alterar status — {{ o.rotulo }}</h4>
+      <label>Novo status
+        <select name="status">
+          {% for chave, texto in status_opcoes %}<option value="{{ chave }}" {{ 'selected' if chave == o.status }}>{{ texto }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Observação <span class="hw-opcional">opcional</span>
+        <input type="text" name="observacao" maxlength="300" placeholder="Motivo da mudança">
+      </label>
+      <div class="hw-vista-botoes">
+        <button type="button" class="btn btn-secondary" onclick="cancelarVistaHw()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Alterar</button>
+      </div>
+    </form>
+
+    <form method="post" action="/admin/hardware/{{ o.id }}/responsavel" class="hw-vista" data-vista="responsavel" hidden>
+      <h4>Reatribuir responsável — {{ o.rotulo }}</h4>
+      <label>Responsável
+        <select name="responsavel_nome">
+          <option value="">— sem responsável —</option>
+          {% for nome in responsavel_opcoes %}<option value="{{ nome }}" {{ 'selected' if nome == o.responsavel_nome }}>{{ nome }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="hw-vista-botoes">
+        <button type="button" class="btn btn-secondary" onclick="cancelarVistaHw()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Reatribuir</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="hw-rapidas">
+    <h4>Ações rápidas</h4>
+    <button type="button" class="hw-rapida" onclick="abrirPopup(event, 'anexo')">
+      <span class="hw-rapida-icone">{{ ic.svg('importar', 16) }}</span>
+      <span><strong>Adicionar arquivo</strong><small>Anexar documentos, fotos ou laudos</small></span>{{ ic.svg('seta-direita', 14) }}
+    </button>
+    <button type="button" class="hw-rapida" onclick="abrirVistaHw('observacao')">
+      <span class="hw-rapida-icone">{{ ic.svg('chat', 16) }}</span>
+      <span><strong>Registrar observação</strong><small>Anotação interna sobre o RMA</small></span>{{ ic.svg('seta-direita', 14) }}
+    </button>
+    <button type="button" class="hw-rapida" onclick="abrirVistaHw('status')">
+      <span class="hw-rapida-icone">{{ ic.svg('check-circulo', 16) }}</span>
+      <span><strong>Alterar status</strong><small>Atualizar situação do equipamento</small></span>{{ ic.svg('seta-direita', 14) }}
+    </button>
+    <button type="button" class="hw-rapida" onclick="abrirVistaHw('responsavel')">
+      <span class="hw-rapida-icone">{{ ic.svg('usuarios', 16) }}</span>
+      <span><strong>Reatribuir responsável</strong><small>Mudar o responsável pelo RMA</small></span>{{ ic.svg('seta-direita', 14) }}
+    </button>
+  </div>
+
+  <p class="hw-painel-nota">{{ ic.svg('info', 15) }}
+    <span>As ações registradas ficarão visíveis no histórico do RMA e poderão ser acompanhadas pela equipe.</span></p>
+</aside>
+{% endif %}
+</div>
+
+<script>
+// Abas da tela de detalhe: só mostra/esconde painéis (sem recarregar). Depois de
+// registrar algo, o redirect (?ok=...) reabre a aba onde o registro aparece.
+const HW_ABA_POR_OK = { acao: 'acoes', anexo: 'arquivos' };
+function abrirAbaHw(nome) {
+    document.querySelectorAll('.hw-painel-aba').forEach(p => { p.hidden = (p.id !== 'hw-aba-' + nome); });
+    document.querySelectorAll('.hw-aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === nome));
+}
+// Painel lateral: uma vista por vez (registrar ação é a padrão). Cancelar
+// limpa o formulário e volta pra ela.
+function abrirVistaHw(nome) {
+    alternarPainelHw(true);
+    document.querySelectorAll('.hw-vista').forEach(f => { f.hidden = (f.dataset.vista !== nome); });
+    const campo = document.querySelector('.hw-vista[data-vista="' + nome + '"] textarea, .hw-vista[data-vista="' + nome + '"] select');
+    if (campo) campo.focus();
+}
+function cancelarVistaHw() {
+    document.querySelectorAll('.hw-vista').forEach(f => f.reset());
+    abrirVistaHw('acao');
+}
+function alternarPainelHw(abrir) {
+    const grade = document.getElementById('hw-det');
+    if (!grade) return;
+    grade.classList.toggle('hw-painel-fechado', !abrir);
+    const btn = document.getElementById('hw-reabrir-painel');
+    if (btn) btn.hidden = abrir;
+    try { localStorage.setItem('hw_painel_aberto', abrir ? '1' : '0'); } catch (e) {}
+}
+(function () {
+    const ok = new URLSearchParams(location.search).get('ok');
+    if (HW_ABA_POR_OK[ok]) abrirAbaHw(HW_ABA_POR_OK[ok]);
+    try { if (localStorage.getItem('hw_painel_aberto') === '0') alternarPainelHw(false); } catch (e) {}
+})();
+</script>
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      Pop-ups — mesmo padrão de "clicar no lápis" já usado em Itens & Estoque

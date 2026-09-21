@@ -6915,9 +6915,7 @@ async def admin_hardware_detalhe(request: Request, ocorrencia_id: int):
         # filtrados aqui (mais simples que depender de um test do Jinja
         # existir em toda versão) e na mesma ordem (DESC) de listar_eventos().
         "acoes_todas": [e for e in eventos if e["tipo"].startswith("acao_")],
-        # Anotações do caso: eventos 'atualizacao', mais recente primeiro.
-        "notas": [e for e in eventos if e["tipo"] == "atualizacao"],
-        "data_abertura": hardware_mod.data_br(o.get("data_registro"), com_hora=False),
+        "data_registro_br": hardware_mod.data_br(o.get("data_registro")) or "—",
         "data_atualizacao": hardware_mod.data_br(o.get("atualizado_em")),
         "anexos": hardware_mod.listar_anexos(ocorrencia_id),
         "area_texto": hardware_mod.AREA_TEXTO,
@@ -7019,6 +7017,42 @@ async def admin_hardware_acao(request: Request, ocorrencia_id: int):
     except ValueError as e:
         return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
     return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=acao", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/status")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_status(request: Request, ocorrencia_id: int):
+    """Atalho do painel "Ações rápidas": só troca o status (a edição completa
+    continua no popup Editar)."""
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        o = hardware_mod.buscar(ocorrencia_id)
+        if not o:
+            raise ValueError("Ocorrência não encontrada.")
+        novo = str(form.get("status", ""))
+        if novo != o["status"]:
+            hardware_mod.mudar_status(ocorrencia_id, novo, str(form.get("observacao", "")), user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=status", status_code=302)
+
+
+@app.post("/admin/hardware/{ocorrencia_id:int}/responsavel")
+@require_permission("hardware_gerenciar")
+async def admin_hardware_responsavel(request: Request, ocorrencia_id: int):
+    user = get_current_user(request)
+    form = await request.form()
+    try:
+        o = hardware_mod.buscar(ocorrencia_id)
+        if not o:
+            raise ValueError("Ocorrência não encontrada.")
+        novo = str(form.get("responsavel_nome", "")).strip()
+        if novo != (o["responsavel_nome"] or ""):
+            hardware_mod.definir_responsavel(ocorrencia_id, novo, user["id"])
+    except ValueError as e:
+        return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?erro={quote(str(e))}", status_code=302)
+    return RedirectResponse(f"/admin/hardware/{ocorrencia_id}?ok=responsavel", status_code=302)
 
 
 @app.post("/admin/hardware/{ocorrencia_id:int}/resolver")
