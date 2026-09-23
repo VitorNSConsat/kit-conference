@@ -6,6 +6,8 @@ requisito: uma rota nova criada amanhã já nasce auditada, sem depender de
 alguém lembrar de instrumentar.
 """
 
+import json as _json
+
 from database import db, now_brt
 import app.datas as datas_mod
 import app.filtros as filtros_mod
@@ -29,6 +31,28 @@ def _resumir_form(form) -> str:
         nome_arquivo = getattr(valor, "filename", None)
         if nome_arquivo is not None:
             partes.append(f"{chave}=<arquivo:{nome_arquivo}>")
+            continue
+        texto = str(valor)
+        if len(texto) > 200:
+            texto = texto[:200] + "…"
+        partes.append(f"{chave}={texto}")
+    resumo = " | ".join(partes)
+    return resumo[:_LIMITE_DETALHE]
+
+
+def _resumir_json(corpo: bytes) -> str:
+    """Mesma ideia de _resumir_form, para rotas que recebem JSON (a API do
+    Portal, por exemplo) — mascara os mesmos campos sensíveis."""
+    try:
+        dados = _json.loads(corpo)
+    except Exception:
+        return ""
+    if not isinstance(dados, dict):
+        return ""
+    partes = []
+    for chave, valor in dados.items():
+        if chave.lower() in _CAMPOS_SENSIVEIS:
+            partes.append(f"{chave}=***")
             continue
         texto = str(valor)
         if len(texto) > 200:

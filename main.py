@@ -248,6 +248,8 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
             if corpo and ("form-urlencoded" in tipo or "multipart/form-data" in tipo):
                 detalhe = auditoria_mod._resumir_form(await request.form())
                 request._receive = _receive   # form() reconsome; restaura
+            elif corpo and "application/json" in tipo:
+                detalhe = auditoria_mod._resumir_json(corpo)
         except Exception:
             detalhe = "<corpo nao capturado>"
 
@@ -276,9 +278,10 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
             # continuam caindo no resumo do formulário, que ao menos cobre
             # tudo sem exigir que cada rota nova pense nisso.
             detalhe_final = getattr(request.state, "auditoria_detalhe", None) or detalhe
+            user_nome_final = getattr(request.state, "auditoria_user_nome", None) or (user["nome"] if user else None)
             auditoria_mod.registrar(
                 user_id=user["id"] if user else None,
-                user_nome=user["nome"] if user else None,
+                user_nome=user_nome_final,
                 acao=acao,
                 metodo=request.method,
                 caminho=caminho,
@@ -293,6 +296,9 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="Conferência de Kits")
+
+from app.api_portal import router as portal_router
+app.include_router(portal_router)
 
 # COOKIE_SECURE=1 marca o cookie de sessão como "só por HTTPS". Fica
 # desligado por padrão porque o acesso pela LAN é HTTP puro (porta 8080) —
