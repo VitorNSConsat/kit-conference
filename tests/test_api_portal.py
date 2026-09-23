@@ -20,6 +20,7 @@ def setup_function(_):
 
 def teardown_function(_):
     with db() as conn:
+        conn.execute("DELETE FROM user_permissoes_negadas")
         conn.execute("DELETE FROM users")
 
 
@@ -56,3 +57,31 @@ def test_chamada_com_chave_fica_na_auditoria_como_portal():
     # GET não é auditado por padrão (só POST/PUT/PATCH/DELETE e acesso negado) —
     # este teste é revisitado no Task 3, quando há uma rota de escrita pra conferir.
     assert row is None
+
+
+def test_catalogo_de_permissoes():
+    with TestClient(main.app) as c:
+        r = c.get("/api/portal/permissoes/catalogo", headers=HEADERS)
+        assert r.status_code == 200
+        grupos = dict(r.json()["grupos"])
+        assert "veiculos_excluir" in dict(grupos["Veículos"])
+
+
+def test_permissoes_de_um_usuario_novo_comecam_todas_permitidas():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Comum", "comum_teste", "Teste#Portal2026", False)
+        r = c.get(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS)
+        assert r.status_code == 200
+        assert "veiculos_excluir" in r.json()["permitidas"]
+
+
+def test_alterar_permissoes_de_um_usuario():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Comum2", "comum_teste2", "Teste#Portal2026", False)
+        from app import permissoes as permissoes_mod
+        todas_menos_uma = set(permissoes_mod.PERMISSOES) - {"veiculos_excluir"}
+        r = c.put(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS,
+                  json={"permitidas": list(todas_menos_uma)})
+        assert r.status_code == 200
+        r2 = c.get(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS)
+        assert "veiculos_excluir" not in r2.json()["permitidas"]

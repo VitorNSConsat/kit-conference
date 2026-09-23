@@ -12,8 +12,10 @@ import hmac
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 import app.usuarios as usuarios_mod
+import app.permissoes as permissoes_mod
 
 router = APIRouter(prefix="/api/portal", tags=["portal"])
 
@@ -34,3 +36,28 @@ def _usuario_out(u: dict) -> dict:
 @router.get("/usuarios", dependencies=[Depends(verificar_chave)])
 def listar_usuarios():
     return [_usuario_out(u) for u in usuarios_mod.listar()]
+
+
+class PermissoesIn(BaseModel):
+    permitidas: list[str]
+
+
+@router.get("/permissoes/catalogo", dependencies=[Depends(verificar_chave)])
+def catalogo_permissoes():
+    return {"grupos": [[titulo, list(chaves.items())] for titulo, chaves in permissoes_mod.GRUPOS]}
+
+
+@router.get("/usuarios/{uid}/permissoes", dependencies=[Depends(verificar_chave)])
+def permissoes_do_usuario(uid: int):
+    if not usuarios_mod.buscar(uid):
+        raise HTTPException(404, "Usuário não encontrado")
+    negadas = permissoes_mod.negadas_do_usuario(uid)
+    return {"permitidas": [c for c in permissoes_mod.PERMISSOES if c not in negadas]}
+
+
+@router.put("/usuarios/{uid}/permissoes", dependencies=[Depends(verificar_chave)])
+def definir_permissoes_do_usuario(uid: int, body: PermissoesIn):
+    if not usuarios_mod.buscar(uid):
+        raise HTTPException(404, "Usuário não encontrado")
+    permissoes_mod.definir_permissoes(uid, set(body.permitidas))
+    return {"ok": True}
