@@ -79,9 +79,9 @@
       {% endif %}
       {% endfor %}
       {% if grupo_nome == 'Gestão' and user.admin %}
-      <a href="/admin/usuarios" class="ds-nav-item {{ 'ativo' if (p.startswith('/admin/usuarios') or p.startswith('/admin/auditoria')) else '' }}">
-        {{ ic.svg('usuarios') }}<span>Usuários</span>
-      </a>
+      {# Usuários agora se gerencia pelo Portal (painel Pessoas); a rota
+         /admin/usuarios continua no ar (acesso direto por URL), só o link
+         de menu saiu daqui. #}
       <a href="/admin/padrao-visual" class="ds-nav-item {{ 'ativo' if p.startswith('/admin/padrao-visual') else '' }}">
         {{ ic.svg('paleta') }}<span>Padrão Visual</span>
       </a>
