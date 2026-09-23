@@ -85,6 +85,12 @@
       <a href="/admin/padrao-visual" class="ds-nav-item {{ 'ativo' if p.startswith('/admin/padrao-visual') else '' }}">
         {{ ic.svg('paleta') }}<span>Padrão Visual</span>
       </a>
+      {# Auditoria nunca deixou de ser pedida no menu — só perdeu o link
+         quando o de Usuários saiu daqui, porque os dois viviam no mesmo
+         item. Item próprio, pra não ficar só acessível por URL direta. #}
+      <a href="/admin/auditoria" class="ds-nav-item {{ 'ativo' if p.startswith('/admin/auditoria') else '' }}">
+        {{ ic.svg('historico') }}<span>Auditoria</span>
+      </a>
       {% endif %}
     </div>
     {% endif %}
