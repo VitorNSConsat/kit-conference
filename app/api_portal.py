@@ -42,6 +42,23 @@ class PermissoesIn(BaseModel):
     permitidas: list[str]
 
 
+class UsuarioIn(BaseModel):
+    nome: str
+    username: str
+    senha: str
+    admin: bool = False
+
+
+class UsuarioEdit(BaseModel):
+    nome: str
+    admin: bool
+    ativo: bool
+
+
+class SenhaIn(BaseModel):
+    senha: str
+
+
 @router.get("/permissoes/catalogo", dependencies=[Depends(verificar_chave)])
 def catalogo_permissoes():
     return {"grupos": [[titulo, list(chaves.items())] for titulo, chaves in permissoes_mod.GRUPOS]}
@@ -60,4 +77,37 @@ def definir_permissoes_do_usuario(uid: int, body: PermissoesIn):
     if not usuarios_mod.buscar(uid):
         raise HTTPException(404, "Usuário não encontrado")
     permissoes_mod.definir_permissoes(uid, set(body.permitidas))
+    return {"ok": True}
+
+
+@router.post("/usuarios", dependencies=[Depends(verificar_chave)])
+def criar_usuario(body: UsuarioIn):
+    try:
+        uid = usuarios_mod.criar(body.nome, body.username, body.senha, body.admin)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"id": uid}
+
+
+@router.put("/usuarios/{uid}", dependencies=[Depends(verificar_chave)])
+def editar_usuario(uid: int, body: UsuarioEdit):
+    if not usuarios_mod.buscar(uid):
+        raise HTTPException(404, "Usuário não encontrado")
+    try:
+        usuarios_mod.renomear(uid, body.nome)
+        usuarios_mod.definir_admin(uid, body.admin)
+        usuarios_mod.definir_ativo(uid, body.ativo)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+@router.post("/usuarios/{uid}/senha", dependencies=[Depends(verificar_chave)])
+def trocar_senha_usuario(uid: int, body: SenhaIn):
+    if not usuarios_mod.buscar(uid):
+        raise HTTPException(404, "Usuário não encontrado")
+    try:
+        usuarios_mod.trocar_senha(uid, body.senha)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return {"ok": True}

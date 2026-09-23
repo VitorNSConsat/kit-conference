@@ -85,3 +85,62 @@ def test_alterar_permissoes_de_um_usuario():
         assert r.status_code == 200
         r2 = c.get(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS)
         assert "veiculos_excluir" not in r2.json()["permitidas"]
+
+
+def test_criar_usuario():
+    with TestClient(main.app) as c:
+        r = c.post("/api/portal/usuarios", headers=HEADERS,
+                   json={"nome": "Novo", "username": "novo_teste", "senha": "Teste#Portal2026", "admin": False})
+        assert r.status_code == 200, r.text
+        uid = r.json()["id"]
+        u = next(x for x in usuarios.listar() if x["id"] == uid)
+        assert u["username"] == "novo_teste" and not u["admin"]
+
+
+def test_criar_usuario_com_login_repetido_e_400():
+    with TestClient(main.app) as c:
+        c.post("/api/portal/usuarios", headers=HEADERS,
+              json={"nome": "A", "username": "dup_teste", "senha": "Teste#Portal2026", "admin": False})
+        r = c.post("/api/portal/usuarios", headers=HEADERS,
+                   json={"nome": "B", "username": "dup_teste", "senha": "Teste#Portal2026", "admin": False})
+        assert r.status_code == 400
+
+
+def test_editar_usuario_nome_e_admin():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Editar", "editar_teste", "Teste#Portal2026", False)
+        r = c.put(f"/api/portal/usuarios/{uid}", headers=HEADERS,
+                  json={"nome": "Editado", "admin": True, "ativo": True})
+        assert r.status_code == 200, r.text
+        u = usuarios.buscar(uid)
+        assert u["nome"] == "Editado" and u["admin"]
+
+
+def test_nao_deixa_desativar_o_ultimo_admin():
+    with TestClient(main.app) as c:
+        with db() as conn:
+            conn.execute("DELETE FROM users WHERE username != 'admin_teste'")
+        uid = next(u["id"] for u in usuarios.listar() if u["username"] == "admin_teste")
+        r = c.put(f"/api/portal/usuarios/{uid}", headers=HEADERS,
+                  json={"nome": "Admin Teste", "admin": False, "ativo": True})
+        assert r.status_code == 400
+
+
+def test_trocar_senha():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Senha", "senha_teste", "Teste#Portal2026", False)
+        r = c.post(f"/api/portal/usuarios/{uid}/senha", headers=HEADERS, json={"senha": "OutraSenha#2026"})
+        assert r.status_code == 200, r.text
+
+
+def test_escrita_com_chave_fica_na_auditoria_como_portal():
+    with TestClient(main.app) as c:
+        c.post("/api/portal/usuarios", headers=HEADERS,
+              json={"nome": "Audit", "username": "audit_teste", "senha": "Teste#Portal2026", "admin": False})
+    with db() as conn:
+        row = conn.execute(
+            "SELECT user_nome, detalhe FROM auditoria WHERE caminho = '/api/portal/usuarios' "
+            "AND metodo = 'POST' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    assert row["user_nome"] == "Portal"
+    assert "senha" not in row["detalhe"] or "***" in row["detalhe"]
