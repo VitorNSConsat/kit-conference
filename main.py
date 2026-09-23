@@ -1,3 +1,4 @@
+import hmac
 import json
 import os
 import re
@@ -295,6 +296,33 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
         return resposta
 
 
+class _PortalChaveMiddleware(BaseHTTPMiddleware):
+    """Porteiro de entrada das rotas do Portal (/api/portal/...), ANTES do
+    roteamento do FastAPI.
+
+    A garantia do módulo é: chave errada ou ausente sempre devolve 404,
+    nunca 401/403, pra não dar pista de que a rota existe. Só checar a
+    chave via Depends() na rota não é suficiente pra isso: o roteamento do
+    FastAPI decide 405 (método sem rota) e o parsing do corpo (422, JSON
+    inválido) acontecem ANTES de qualquer dependência da rota resolver — um
+    prober sem chave nenhuma já aprende, pelo 405 ou pelo 422, que a rota
+    existe. Por isso a checagem mora aqui, num middleware que roda antes de
+    o pedido sequer chegar no roteador: nada de casar método nem ler corpo
+    acontece antes desta checagem.
+
+    verificar_chave() continua valendo nas rotas (Depends) como segunda
+    camada — redundante e inofensivo, não custa manter."""
+
+    async def dispatch(self, request: Request, call_next):
+        if not request.url.path.startswith("/api/portal/"):
+            return await call_next(request)
+        chave = os.getenv("PORTAL_SERVICE_KEY", "")
+        recebida = request.headers.get("X-Portal-Key", "")
+        if not chave or not hmac.compare_digest(recebida.encode("utf-8"), chave.encode("utf-8")):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return await call_next(request)
+
+
 app = FastAPI(title="Conferência de Kits")
 
 from app.api_portal import router as portal_router
@@ -429,6 +457,13 @@ app.add_middleware(
     max_age=12 * 60 * 60,   # 12h — uma jornada; antes eram 14 dias
 )
 app.add_middleware(_MobileGateMiddleware)
+# Por FORA da sessão/inatividade/auditoria/porteiro-de-tela e de TODO o
+# roteamento (fica entre o MobileGate e o Gzip): pra rota do Portal com
+# chave errada/ausente, nada disso — nem sessão, nem auditoria, nem casar
+# método, nem parsing de corpo — chega a rodar. Ainda por DENTRO do Gzip e
+# dos cabeçalhos de segurança, então o 404 sai comprimido e com os mesmos
+# cabeçalhos de qualquer outra resposta.
+app.add_middleware(_PortalChaveMiddleware)
 # Por FORA de todo o resto: comprime a resposta já pronta. As telas de lista
 # são HTML repetitivo (tabela com milhares de linhas), que encolhe ~10x — a
 # Produção sozinha saía com 2,4 MB por carregamento. Numa rede de galpão, com

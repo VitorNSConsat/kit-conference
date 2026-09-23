@@ -126,6 +126,53 @@ def test_nao_deixa_desativar_o_ultimo_admin():
         assert r.status_code == 400
 
 
+def test_editar_usuario_rejeitado_nao_deixa_o_nome_mudado():
+    # Reprodução do bug: demote do último admin ativo junto com uma troca de
+    # nome tinha que devolver 400 SEM deixar o nome mudado (renomear() era
+    # chamado primeiro, com commit próprio, antes de definir_admin() estourar).
+    with TestClient(main.app) as c:
+        with db() as conn:
+            conn.execute("DELETE FROM users WHERE username != 'admin_teste'")
+        uid = next(u["id"] for u in usuarios.listar() if u["username"] == "admin_teste")
+        r = c.put(f"/api/portal/usuarios/{uid}", headers=HEADERS,
+                  json={"nome": "Nome Novo", "admin": False, "ativo": True})
+        assert r.status_code == 400
+    u = usuarios.buscar(uid)
+    assert u["nome"] == "Admin Teste"
+
+
+def test_editar_usuario_detalhe_de_auditoria_mostra_o_que_mudou():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Antes", "detalhe_teste", "Teste#Portal2026", False)
+        r = c.put(f"/api/portal/usuarios/{uid}", headers=HEADERS,
+                  json={"nome": "Depois", "admin": True, "ativo": True})
+        assert r.status_code == 200, r.text
+    with db() as conn:
+        row = conn.execute(
+            "SELECT detalhe FROM auditoria WHERE caminho = ? AND metodo = 'PUT' "
+            "ORDER BY id DESC LIMIT 1", (f"/api/portal/usuarios/{uid}",)
+        ).fetchone()
+    assert "Antes" in row["detalhe"] and "Depois" in row["detalhe"]
+    assert "administrador" in row["detalhe"]
+
+
+def test_alterar_permissoes_detalhe_de_auditoria_mostra_o_diff():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Perm", "perm_detalhe_teste", "Teste#Portal2026", False)
+        from app import permissoes as permissoes_mod
+        todas_menos_uma = set(permissoes_mod.PERMISSOES) - {"veiculos_excluir"}
+        r = c.put(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS,
+                  json={"permitidas": list(todas_menos_uma)})
+        assert r.status_code == 200, r.text
+    with db() as conn:
+        row = conn.execute(
+            "SELECT detalhe FROM auditoria WHERE caminho = ? AND metodo = 'PUT' "
+            "ORDER BY id DESC LIMIT 1", (f"/api/portal/usuarios/{uid}/permissoes",)
+        ).fetchone()
+    assert "negou" in row["detalhe"]
+    assert "Excluir veículos" in row["detalhe"]
+
+
 def test_trocar_senha():
     with TestClient(main.app) as c:
         uid = usuarios.criar("Senha", "senha_teste", "Teste#Portal2026", False)
@@ -144,3 +191,68 @@ def test_escrita_com_chave_fica_na_auditoria_como_portal():
         ).fetchone()
     assert row["user_nome"] == "Portal"
     assert "senha" not in row["detalhe"] or "***" in row["detalhe"]
+
+
+# ── Fix 1: compare_digest não pode estourar 500 com valor fora do ASCII ───────
+
+def test_chave_configurada_com_acento_e_chave_errada_devolve_404(monkeypatch):
+    monkeypatch.setenv("PORTAL_SERVICE_KEY", "chave-ção")
+    with TestClient(main.app) as c:
+        r = c.get("/api/portal/usuarios", headers={"X-Portal-Key": "errada"})
+    assert r.status_code == 404
+
+
+def test_cabecalho_com_acento_e_chave_configurada_ascii_devolve_404():
+    # PORTAL_SERVICE_KEY continua "chave-de-teste" (ASCII); só o cabeçalho
+    # recebido tem acento. httpx recusa mandar valor de cabeçalho fora do
+    # ASCII como `str` (o próprio cliente barra antes de sair da máquina) —
+    # por bytes já latin-1, contorna essa checagem do cliente e chega no
+    # servidor do jeitinho que um pedido real de terceiro chegaria: Starlette
+    # decodifica cabeçalho como latin-1, então o "é" sobrevive.
+    with TestClient(main.app) as c:
+        r = c.get("/api/portal/usuarios",
+                  headers={"X-Portal-Key": "chave-é".encode("latin-1")})
+    assert r.status_code == 404
+
+
+# ── Fix 2: a garantia de 404 vale pra QUALQUER pedido malformado ──────────────
+
+def test_metodo_sem_rota_e_sem_chave_devolve_404_nao_405():
+    with TestClient(main.app) as c:
+        r = c.delete("/api/portal/usuarios")
+    assert r.status_code == 404
+
+
+def test_corpo_json_invalido_e_sem_chave_devolve_404_nao_422():
+    with TestClient(main.app) as c:
+        r = c.post("/api/portal/usuarios", content="{bad",
+                   headers={"Content-Type": "application/json"})
+    assert r.status_code == 404
+
+
+def test_metodo_sem_rota_mas_com_chave_certa_devolve_405():
+    # O middleware só barra quando a chave está errada/ausente — com a
+    # chave certa, o pedido segue pro roteamento normal do FastAPI, que aí
+    # sim responde 405 (rota existe, método não).
+    with TestClient(main.app) as c:
+        r = c.delete("/api/portal/usuarios", headers=HEADERS)
+    assert r.status_code == 405
+
+
+def test_chave_certa_continua_chegando_na_rota_atraves_do_middleware():
+    with TestClient(main.app) as c:
+        r = c.get("/api/portal/usuarios", headers=HEADERS)
+    assert r.status_code == 200
+
+
+# ── Fix 5: chave de permissão desconhecida não pode ser aceita em silêncio ────
+
+def test_permissao_desconhecida_devolve_400_e_nao_muda_nada():
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Permissao", "permissao_teste", "Teste#Portal2026", False)
+        antes = c.get(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS).json()["permitidas"]
+        r = c.put(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS,
+                  json={"permitidas": ["lixo_inexistente"]})
+        assert r.status_code == 400
+        depois = c.get(f"/api/portal/usuarios/{uid}/permissoes", headers=HEADERS).json()["permitidas"]
+        assert antes == depois
