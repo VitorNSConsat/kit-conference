@@ -141,6 +141,25 @@ def test_editar_usuario_rejeitado_nao_deixa_o_nome_mudado():
     assert u["nome"] == "Admin Teste"
 
 
+def test_editar_usuario_nome_vazio_rejeitado_nao_deixa_admin_ativo_mudado():
+    # Resíduo achado na revisão final: reordenar as três chamadas (admin/
+    # ativo antes, nome por último) fechou o repro original, mas só trocou
+    # QUAL campo ficava vulnerável — um nome inválido (vazio/> 80 chars)
+    # só era pego dentro de renomear(), então uma troca válida de
+    # admin/ativo já tinha commitado antes disso. Agora o Pydantic
+    # rejeita o nome inválido no corpo da requisição (422, antes de
+    # qualquer chamada a usuarios_mod), então nada é aplicado.
+    with TestClient(main.app) as c:
+        uid = usuarios.criar("Nome Original", "nome_vazio_teste", "Teste#Portal2026", False)
+        r = c.put(f"/api/portal/usuarios/{uid}", headers=HEADERS,
+                  json={"nome": "", "admin": True, "ativo": False})
+        assert r.status_code == 422, r.text
+    u = usuarios.buscar(uid)
+    assert u["nome"] == "Nome Original"
+    assert not u["admin"]
+    assert u["ativo"]
+
+
 def test_editar_usuario_detalhe_de_auditoria_mostra_o_que_mudou():
     with TestClient(main.app) as c:
         uid = usuarios.criar("Antes", "detalhe_teste", "Teste#Portal2026", False)

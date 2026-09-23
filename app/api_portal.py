@@ -12,7 +12,7 @@ import hmac
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 import app.usuarios as usuarios_mod
 import app.permissoes as permissoes_mod
@@ -57,6 +57,22 @@ class UsuarioEdit(BaseModel):
     nome: str
     admin: bool
     ativo: bool
+
+    @field_validator("nome")
+    @classmethod
+    def _nome_valido(cls, v: str) -> str:
+        # Mesmas regras de usuarios_mod.renomear(), verificadas aqui — antes
+        # de qualquer mutação — pra fechar o resíduo achado na revisão final:
+        # sem isso, um nome inválido só falhava dentro de renomear(), que já
+        # rodava por último (depois de admin/ativo já terem sido escritos),
+        # deixando essa mudança aplicada mesmo com a edição inteira devolvendo
+        # 400.
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("O nome não pode ficar vazio.")
+        if len(v) > 80:
+            raise ValueError("O nome ficou longo demais (máximo de 80 caracteres).")
+        return v
 
 
 class SenhaIn(BaseModel):
