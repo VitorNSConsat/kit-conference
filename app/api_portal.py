@@ -8,6 +8,7 @@ não uma pessoa logada no navegador.
 Chave errada ou ausente devolve 404, não 401/403 — não é pra dar pista de que
 a rota existe pra quem não tem a chave.
 """
+import hmac
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/portal", tags=["portal"])
 def verificar_chave(request: Request) -> None:
     chave = os.getenv("PORTAL_SERVICE_KEY", "")
     recebida = request.headers.get("X-Portal-Key", "")
-    if not chave or recebida != chave:
+    if not chave or not hmac.compare_digest(recebida, chave):
         raise HTTPException(404)
     request.state.auditoria_user_nome = "Portal"
 
