@@ -52,38 +52,6 @@ def test_generate_zpl_veiculo_garagem():
 # dado cru -- é o que permite o status mudar no banco sem reimprimir a
 # etiqueta (ver main.py:hardware_qr / requisito de segurança do pedido).
 
-def test_generate_hardware_html_label_contem_campos():
-    html = generate_hardware_html_label(
-        rotulo="RMA-0001", produto="CDT07", serial="TSCE91001019/000963",
-        status_texto="Feito", status_cor="#18804b",
-        url_qr="http://localhost:8011/hardware/1",
-    )
-    assert "RMA-0001" in html
-    assert "CDT07" in html
-    assert "TSCE91001019/000963" in html
-    assert "Feito" in html
-    assert "#18804b" in html
-    assert "@page" in html and "80mm 120mm" in html
-
-
-def test_generate_hardware_html_label_campos_extras_opcionais():
-    # cliente, defeito, quantidade e data de registro entram quando
-    # informados, sem quebrar quem não passa nenhum deles. Responsável
-    # NÃO vai pra etiqueta de propósito -- pode mudar sem reimpressão, e
-    # já aparece na consulta pelo QR (ver test_hardware_qr).
-    html = generate_hardware_html_label(
-        rotulo="RMA-0001", produto="CDT07", serial="TSCE91001019/000963",
-        status_texto="Feito", status_cor="#18804b",
-        url_qr="http://localhost:8011/hardware/1",
-        cliente="Galpão", categoria_defeito="GPS", quantidade=2,
-        data_registro="2026-01-26 10:00:00",
-    )
-    assert "Galpão" in html
-    assert "GPS" in html
-    assert ">2<" in html
-    assert "2026-01-26" in html
-
-
 def test_generate_hardware_html_label_nao_mostra_responsavel():
     html = generate_hardware_html_label(
         rotulo="RMA-0001", produto="CDT07", serial="S1",
@@ -125,25 +93,33 @@ def test_generate_hardware_html_label_escapa_html():
     assert "&lt;script&gt;" in html
 
 
-def test_generate_hardware_html_labels_lote_uma_por_pagina():
-    etiquetas = [
-        {"rotulo": "RMA-0001", "produto": "CDT07", "serial": "S1",
-         "status_texto": "Feito", "status_cor": "#18804b", "url_qr": "http://x/hardware/1"},
-        {"rotulo": "RMA-0002", "produto": "CDT08", "serial": "S2",
-         "status_texto": "Em análise", "status_cor": "#246b84", "url_qr": "http://x/hardware/2"},
-        {"rotulo": "RMA-0003", "produto": "CDT09", "serial": "S3",
-         "status_texto": "Aguardando peça", "status_cor": "#b45309", "url_qr": "http://x/hardware/3"},
-    ]
+def test_etiqueta_rma_usa_o_mesmo_qr_e_formato_da_etiqueta_de_kit():
+    import re
+    from app.zpl import generate_html_label
+    from datetime import datetime
+    url = "http://localhost:8011/hardware/34"
+    rma = generate_hardware_html_label(rotulo="RMA-0034", produto="CDD", url_qr=url)
+    kit = generate_html_label("11111111-2222-3333-4444-555555555555", "Kit", "Cli", "Op", datetime(2026, 1, 1), [])
+    assert "100mm 150mm" in rma and "100mm 150mm" in kit
+    # o QR sai da mesma função: PNG, 70mm fixos, pixelado, e o mesmo código de barras
+    for html in (rma, kit):
+        assert "width:70mm;height:70mm" in html and "image-rendering: pixelated" in html
+        assert 'class="barcode-img"' in html
+    png = lambda h: re.search(r'data:image/png;base64,([A-Za-z0-9+/=]+)', h).group(1)
+    import base64, io, segno
+    esperado = io.BytesIO(); segno.make(url, error="q").save(esperado, kind="png", scale=10, border=4)
+    assert base64.b64decode(png(rma)) == esperado.getvalue()
+    # só o RMA e o item na descrição
+    assert "RMA-0034 CDD" in rma and "Serial" not in rma and "Cliente" not in rma
+
+
+def test_etiqueta_rma_lote_uma_por_folha():
+    etiquetas = [{"rotulo": f"RMA-000{n}", "produto": f"P{n}", "url_qr": f"http://x/hardware/{n}"} for n in (1, 2, 3)]
     html = generate_hardware_html_labels_lote(etiquetas)
-    assert html.count('class="hw-pagina"') == 3
-    assert "page-break-after: always" in html
-    assert "80mm 120mm" in html
-    for e in etiquetas:
-        assert e["rotulo"] in html
-        assert e["produto"] in html
+    assert html.count('class="folha"') == 3 and "page-break-after: always" in html
+    assert all(e["rotulo"] in html for e in etiquetas)
 
 
-def test_generate_hardware_html_labels_lote_vazio_nao_quebra():
-    html = generate_hardware_html_labels_lote([])
-    assert html.count('class="hw-pagina"') == 0
-    assert "<html" in html
+def test_etiqueta_rma_lote_vazio_nao_quebra():
+    assert "<html" in generate_hardware_html_labels_lote([])
+

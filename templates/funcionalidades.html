@@ -680,9 +680,11 @@
       como o kit faz ao ser montado. Cada baixa fica no histórico do item com o rótulo do pacote
       (<em>SOB-0007</em>) e o cliente, e continua aparecendo em Relatórios → Sobressalentes.</li>
     <li><span class="campo">Etiqueta</span> — <strong>Gerar etiqueta</strong> (na mensagem logo após
-      criar, na lista de pacotes ou na página do pacote): 80×120 mm com <strong>só o QR e o
-      rótulo do pacote</strong> (<em>SOB-0007</em>). O conteúdo não vai impresso: quem escaneia vê
-      o que tem dentro, sempre atualizado.</li>
+      criar, na lista de pacotes ou na página do pacote): <strong>no formato da etiqueta de kit</strong>
+      (100×150 mm, com o <strong>mesmo QR</strong> — mesmas configurações e 70 mm) — <em>SOB-0007</em>
+      em cima e <strong>código de barras</strong> embaixo. O código de barras é o que o leitor do celular
+      (principalmente no iPhone) lê com mais confiança. O conteúdo não vai impresso: quem lê vê o que tem dentro,
+      sempre atualizado.</li>
     <li><span class="campo">Escanear</span> — o QR abre a página do pacote com <strong>o que tem
       dentro</strong> e o histórico. <strong>Exige login</strong>: sem entrar no sistema, não mostra
       nada. No celular, o atalho <strong>Ler Sobressalentes</strong> (tela inicial do <code>/mobile</code>,
@@ -1448,10 +1450,11 @@
       <strong>Ver detalhes completos</strong>, que leva pra tela de administração — só os
       arquivos em si (pra baixar) ficam de fora da consulta rápida, por segurança.</li>
     <li><span class="campo">Etiqueta física x consulta pelo QR</span> — a etiqueta impressa
-      mostra só produto, serial, cliente, defeito, quantidade e data de registro (além do QR e
-      do status). <strong>Responsável não entra na etiqueta</strong> de propósito — muda mais
-      rápido do que vale a pena reimprimir, e já aparece completo na consulta pelo QR, que
-      está sempre atualizada.</li>
+      está no <strong>formato da etiqueta de kit</strong> (100×150 mm, <strong>mesmo QR</strong> de
+      70 mm): só <em>RMA-0034 CDD</em> (qual RMA e qual item) em cima e o código de barras do rótulo
+      embaixo (o código de barras é o que o leitor do celular lê com mais confiança). Serial, status,
+      cliente, defeito e responsável <strong>não vão impressos</strong> — mudam, e aparecem completos na consulta pelo QR ou
+      pelo código, que está sempre atualizada.</li>
     <li><span class="campo">Atalho no celular</span> — na tela inicial do mobile (<code>/mobile</code>),
       quem tem acesso a RMAs vê dois atalhos: <strong>RMAs</strong> abre uma lista simplificada
       (buscar por RMA-000X, produto, serial ou cliente; toca numa linha e abre a mesma consulta

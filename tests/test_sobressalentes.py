@@ -79,10 +79,11 @@ def test_etiqueta_registra_evento_e_lista_resume(cenario):
     assert sob.listar("OutroCliente") == []
 
 
-def test_etiqueta_html_so_tem_qr_e_rotulo():
+def test_etiqueta_sobressalente_usa_o_qr_e_formato_do_kit():
     html = zpl.generate_sobressalente_html_label("SOB-0001", "http://x/sobressalente/1")
-    assert "SOB-0001" in html and ("<svg" in html or "<img" in html)
-    assert "SOBRESSALENTES" not in html and "sb-itens" not in html
+    assert "100mm 150mm" in html and "SOB-0001" in html
+    assert "width:70mm;height:70mm" in html and 'class="barcode-img"' in html
+    assert "SOBRESSALENTES" not in html
 
 
 def test_leitor_resolve_url_rotulo_e_numero(cenario):

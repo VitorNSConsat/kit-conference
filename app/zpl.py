@@ -614,205 +614,131 @@ def generate_html_label(kit_id: str, kit_nome: str, cliente: str,
 </html>"""
 
 
-def _hardware_label_bloco(rotulo: str, produto: str, serial: str,
-                          status_texto: str, status_cor: str, url_qr: str,
-                          cliente: str = "", categoria_defeito: str = "",
-                          quantidade=None, data_registro: str = "") -> str:
-    """Um cartão de etiqueta de hardware/RMA -- usado tanto sozinho
-    (generate_hardware_html_label) quanto repetido em lote
-    (generate_hardware_html_labels_lote), pra não duplicar o HTML do
-    cartão em dois lugares. QR sempre aponta pra URL pública de consulta
-    (/hardware/{id}), nunca pro dado cru -- status muda no banco sem
-    precisar reimprimir nada.
+# ── Etiquetas de RMA e de Sobressalentes ─────────────────────────────────────
+# QR IGUAL ao da etiqueta de kit (generate_html_label), que é o que lê bem: a mesma
+# função _qr_img() (correção "q", scale 10, borda 4), PNG com 70mm fixos e
+# image-rendering: pixelated, no mesmo formato de papel (100x150mm). Embaixo, o mesmo
+# código de barras Code128 da etiqueta de kit/itens (_barcode_img) — o que o leitor do
+# celular, principalmente no iPhone, lê com mais confiança. O texto do código de barras é
+# o rótulo (RMA-0001 / SOB-0001), que as buscas do /mobile já entendem.
 
-    Os campos extras (cliente, defeito, quantidade, registro) são
-    opcionais -- uma etiqueta antiga ou um chamador que só tenha o
-    essencial continua funcionando, só sai com menos linhas. Responsável
-    NÃO entra aqui de propósito -- pode mudar mais vezes que a etiqueta é
-    reimpressa e já aparece na consulta pelo QR, que sempre está atual."""
-    qr_html = _qr_img(url_qr, size_mm=30)
-    extras = ""
-    if cliente:
-        extras += f'<div class="hw-campo"><span>Cliente</span>{_esc(cliente)}</div>'
-    if categoria_defeito:
-        extras += f'<div class="hw-campo"><span>Defeito</span>{_esc(categoria_defeito)}</div>'
-    if quantidade is not None:
-        extras += f'<div class="hw-campo"><span>Qtd.</span>{_esc(quantidade)}</div>'
-    if data_registro:
-        extras += f'<div class="hw-campo"><span>Registro</span>{_esc(str(data_registro)[:10])}</div>'
-    return f"""<div class="hw-label">
-  <div class="hw-titulo">HARDWARE</div>
-  <div class="hw-produto">{_esc(produto or '—')}</div>
-  <div class="hw-campo"><span>Serial</span>{_esc(serial or '—')}</div>
-  {extras}
-  <div class="hw-qr-wrap">{qr_html}</div>
-  <div class="hw-status" style="background:{_esc(status_cor)};">{_esc(status_texto)}</div>
-  <div class="hw-rodape">{_esc(rotulo)}</div>
-</div>"""
-
-
-_HARDWARE_LABEL_CSS = """
+_ETIQUETA_QR_CSS = """
+  @page { size: 100mm 150mm; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; background: #e8e8e8; }
-  .hw-label {
-    background: #fff; width: 80mm; height: 120mm;
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #e8e8e8;
     display: flex; flex-direction: column; align-items: center;
-    padding: 4mm; gap: 1.3mm;
-    box-shadow: 0 4px 18px rgba(0,0,0,.2); border: 1px solid #ccc;
+    padding: 20px;
+  }
+  .label {
+    background: #fff;
+    width: 100mm; height: 150mm;
     overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5mm;
+    box-shadow: 0 4px 18px rgba(0,0,0,.2);
+    border: 1px solid #ccc;
   }
-  .hw-titulo {
-    font-size: 10px; font-weight: 900; letter-spacing: 1.5px; color: #666;
+  .descricao {
+    font-size: 24px; font-weight: 900; color: #000;
+    text-align: center; line-height: 1.2;
+    word-break: break-word; width: 92mm;
+    text-transform: uppercase; letter-spacing: .5px;
   }
-  .hw-produto {
-    font-size: 16px; font-weight: 900; color: #000; text-align: center;
-    text-transform: uppercase; line-height: 1.25; word-break: break-word;
-    width: 100%; margin-bottom: 1mm;
+  .qr-wrap {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
   }
-  .hw-campo {
-    font-size: 11px; color: #333; text-align: center; word-break: break-word; width: 100%;
+  .qr-wrap img {
+    display: block;
+    width: 70mm; height: 70mm;
+    image-rendering: pixelated;
   }
-  .hw-campo span { font-weight: 700; margin-right: 3px; color: #666; }
-  .hw-qr-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; margin: 1mm 0; }
-  .hw-status {
-    font-size: 12px; font-weight: 900; color: #fff; text-transform: uppercase;
-    padding: 3px 10px; border-radius: 20px; letter-spacing: .4px;
+  .barcode-img {
+    display: block;
+    max-width: 90mm;
+    max-height: 10mm;
+    width: auto; height: auto;
+    image-rendering: pixelated;
+    margin: 0 auto;
   }
-  .hw-rodape { font-size: 10px; color: #888; font-family: monospace; }
 """
 
 
-def generate_hardware_html_label(rotulo: str, produto: str, serial: str,
-                                 status_texto: str, status_cor: str, url_qr: str,
-                                 cliente: str = "", categoria_defeito: str = "",
-                                 quantidade=None, data_registro: str = "") -> str:
-    """Etiqueta HTML 80×120mm de uma ocorrência de hardware/RMA: produto,
-    serial, cliente, defeito, quantidade, registro, QR (aponta pra consulta
-    pública), status colorido e o rótulo RMA-000X. Mesma convenção visual de
-    generate_estoque_html_label (auto-print no load, cartão branco sobre
-    fundo cinza)."""
-    bloco = _hardware_label_bloco(rotulo, produto, serial, status_texto, status_cor, url_qr,
-                                  cliente, categoria_defeito, quantidade, data_registro)
+def _etiqueta_qr_bloco(descricao: str, url_qr: str, codigo: str) -> str:
+    """Um cartão 100x150mm: descrição, QR (mesmo do kit) e código de barras."""
+    return f"""<div class="label">
+  <div class="descricao">{_esc(descricao)}</div>
+  <div class="qr-wrap">{_qr_img(url_qr, size_mm=70)}</div>
+  {_barcode_img(codigo)}
+</div>"""
+
+
+def _etiqueta_qr_pagina(titulo: str, blocos: list[str]) -> str:
+    """Página de impressão: uma etiqueta por folha (auto-print no load)."""
+    corpo = ("".join(f'<div class="folha">{b}</div>' for b in blocos) if len(blocos) > 1
+             else (blocos[0] if blocos else ""))
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Etiqueta — {_esc(rotulo)}</title>
+<title>{_esc(titulo)}</title>
 <style>
-  @page {{ size: 80mm 120mm; margin: 0; }}
-  {_HARDWARE_LABEL_CSS}
-  body {{ display: flex; flex-direction: column; align-items: center; padding: 20px; }}
+{_ETIQUETA_QR_CSS}
+  .folha {{ width: 100mm; height: 150mm; page-break-after: always; }}
+  .actions {{ display: flex; gap: 10px; margin-top: 14px; width: 100mm; }}
+  .btn {{
+    flex: 1; padding: 9px; border: none; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: bold;
+  }}
+  .btn-print {{ background: #000; color: white; }}
+  .btn-close  {{ background: #888; color: white; }}
   @media print {{
     body {{ background: white; padding: 0; margin: 0; }}
-    .hw-label {{ box-shadow: none; border: none; }}
+    .label {{ box-shadow: none; border: none; }}
     .actions {{ display: none !important; }}
   }}
 </style>
 </head>
 <body>
-{bloco}
-<div class="actions" style="display:flex;margin-top:14px;width:80mm;">
-  <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
-                 border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
-          onclick="window.print();setTimeout(()=>window.close(),800);">
-    Imprimir e Fechar
-  </button>
+{corpo}
+<div class="actions">
+  <button class="btn btn-print" onclick="window.print()">Imprimir</button>
+  <button class="btn btn-close" onclick="window.close()">Fechar</button>
 </div>
 <script>window.onload = () => setTimeout(() => window.print(), 500);</script>
 </body>
 </html>"""
+
+
+def _hardware_descricao(rotulo: str, produto: str) -> str:
+    """"RMA-0034 CDD": qual RMA e qual item — e mais nada."""
+    return f"{rotulo} {produto}".strip() if produto else rotulo
+
+
+def generate_hardware_html_label(rotulo: str, produto: str, serial: str = "",
+                                 status_texto: str = "", status_cor: str = "", url_qr: str = "",
+                                 cliente: str = "", categoria_defeito: str = "",
+                                 quantidade=None, data_registro: str = "") -> str:
+    """Etiqueta do RMA: só "RMA-0034 CDD", o QR (aponta pra consulta /hardware/{id}) e o
+    código de barras do rótulo. Serial, status, cliente etc. NÃO vão impressos — aparecem
+    completos na consulta pelo QR/código. (Os demais parâmetros existem só pra manter a
+    assinatura antiga.)"""
+    bloco = _etiqueta_qr_bloco(_hardware_descricao(rotulo, produto), url_qr, rotulo)
+    return _etiqueta_qr_pagina(f"Etiqueta — {rotulo}", [bloco])
 
 
 def generate_hardware_html_labels_lote(etiquetas: list[dict]) -> str:
-    """A mesma etiqueta de generate_hardware_html_label repetida em lote --
-    uma por page-break, pra imprimir várias ocorrências de uma vez. Cada
-    item do `etiquetas` precisa das mesmas chaves usadas em
-    _hardware_label_bloco: rotulo, produto, serial, status_texto,
-    status_cor, url_qr, e opcionalmente cliente, categoria_defeito,
-    quantidade, data_registro."""
-    blocos = "".join(
-        f'<div class="hw-pagina">{_hardware_label_bloco(**e)}</div>'
-        for e in etiquetas
-    )
-    return f"""<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Etiquetas — {len(etiquetas)} ocorrência(s)</title>
-<style>
-  @page {{ size: 80mm 120mm; margin: 0; }}
-  {_HARDWARE_LABEL_CSS}
-  body {{ display: flex; flex-direction: column; align-items: center; }}
-  .hw-pagina {{
-    display: flex; align-items: center; justify-content: center;
-    width: 80mm; height: 120mm; page-break-after: always;
-  }}
-  @media print {{
-    body {{ background: white; }}
-    .hw-label {{ box-shadow: none; border: none; }}
-  }}
-</style>
-</head>
-<body>
-{blocos}
-<script>window.onload = () => setTimeout(() => window.print(), 500);</script>
-</body>
-</html>"""
-
-
-_SOBRESSALENTE_LABEL_CSS = """
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; background: #e8e8e8; }
-  .sb-label {
-    background: #fff; width: 80mm; height: 120mm;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 5mm; gap: 4mm;
-    box-shadow: 0 4px 18px rgba(0,0,0,.2); border: 1px solid #ccc; overflow: hidden;
-  }
-  .sb-qr-wrap { display: flex; align-items: center; justify-content: center; }
-  .sb-rodape { font-size: 26px; color: #000; font-family: monospace; font-weight: 900; letter-spacing: 1px; }
-"""
-
-
-def _sobressalente_label_bloco(rotulo: str, url_qr: str) -> str:
-    """Cartão da etiqueta de um pacote de sobressalentes: só o QR e o rótulo
-    SOB-000X. O conteúdo do pacote não vai impresso — quem escaneia (logado)
-    vê o que tem dentro, sempre atualizado."""
-    return f"""<div class="sb-label">
-  <div class="sb-qr-wrap">{_qr_img(url_qr, size_mm=62)}</div>
-  <div class="sb-rodape">{_esc(rotulo)}</div>
-</div>"""
+    """A mesma etiqueta repetida em lote (uma por folha). Cada item precisa de rotulo,
+    produto e url_qr; o resto é ignorado."""
+    blocos = [_etiqueta_qr_bloco(_hardware_descricao(e["rotulo"], e.get("produto") or ""),
+                                 e["url_qr"], e["rotulo"]) for e in etiquetas]
+    return _etiqueta_qr_pagina(f"Etiquetas — {len(etiquetas)} ocorrência(s)", blocos)
 
 
 def generate_sobressalente_html_label(rotulo: str, url_qr: str) -> str:
-    """Etiqueta HTML 80×120mm do pacote (auto-print no load, igual às de
-    estoque e hardware)."""
-    bloco = _sobressalente_label_bloco(rotulo, url_qr)
-    return f"""<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>Etiqueta — {_esc(rotulo)}</title>
-<style>
-  @page {{ size: 80mm 120mm; margin: 0; }}
-  {_SOBRESSALENTE_LABEL_CSS}
-  body {{ display: flex; flex-direction: column; align-items: center; padding: 20px; }}
-  @media print {{
-    body {{ background: white; padding: 0; margin: 0; }}
-    .sb-label {{ box-shadow: none; border: none; }}
-    .actions {{ display: none !important; }}
-  }}
-</style>
-</head>
-<body>
-{bloco}
-<div class="actions" style="display:flex;margin-top:14px;width:80mm;">
-  <button style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;
-                 border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;"
-          onclick="window.print();setTimeout(()=>window.close(),800);">
-    Imprimir e Fechar
-  </button>
-</div>
-<script>window.onload = () => setTimeout(() => window.print(), 500);</script>
-</body>
-</html>"""
+    """Etiqueta do pacote de sobressalentes: SOB-0001, o QR (aponta pra /sobressalente/{id})
+    e o código de barras do rótulo. O conteúdo não vai impresso."""
+    return _etiqueta_qr_pagina(f"Etiqueta — {rotulo}", [_etiqueta_qr_bloco(rotulo, url_qr, rotulo)])
