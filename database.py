@@ -995,6 +995,19 @@ def init_db():
             # apontaria pro template velho a cada versão. Pelo nome, o
             # vínculo sobrevive às versões.
             "ALTER TABLE veiculos ADD COLUMN modelo TEXT DEFAULT ''",
+            # Ficha técnica do veículo (vem da planilha de importação): número
+            # do chassi, PG (a configuração que a operação usa) e tipo
+            # (Elétrico ou Combustão). Só informação — nada depende deles.
+            "ALTER TABLE veiculos ADD COLUMN chassi TEXT DEFAULT ''",
+            "ALTER TABLE veiculos ADD COLUMN pg TEXT DEFAULT ''",
+            "ALTER TABLE veiculos ADD COLUMN tipo TEXT DEFAULT ''",
+            # O antes/depois da conferência da importação também cobre esses campos.
+            "ALTER TABLE importacao_item ADD COLUMN chassi_antes TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN chassi_depois TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN pg_antes TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN pg_depois TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN tipo_antes TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN tipo_depois TEXT",
             # Observação livre de uma correção feita no kit já finalizado
             # (troca de veículo, por exemplo). Aparece no relatório.
             "ALTER TABLE kit_record ADD COLUMN observacao TEXT",

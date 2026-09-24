@@ -5584,13 +5584,21 @@ async def admin_veiculos_post(request: Request):
     cliente = str(form.get("cliente", "")).strip()
     garagem = str(form.get("garagem", "")).strip()
     modelo = str(form.get("modelo", "")).strip()
+    chassi = str(form.get("chassi", "")).strip()
+    pg = str(form.get("pg", "")).strip()
+    tipo = str(form.get("tipo", "")).strip()
     if not numero or not cliente:
         return render(request, "admin_veiculos.html", {
             **_admin_veiculos_context(),
             "erro": "Número e cliente são obrigatórios.",
         })
+    if veiculos_mod.normalizar_tipo(tipo) is None:
+        return render(request, "admin_veiculos.html", {
+            **_admin_veiculos_context(),
+            "erro": "Tipo inválido — use Elétrico ou Combustão.",
+        })
     try:
-        veiculos_mod.criar(numero, cliente, garagem, modelo)
+        veiculos_mod.criar(numero, cliente, garagem, modelo, chassi, pg, tipo)
     except ValueError as e:
         # Número já em uso — o número do veículo é único no sistema inteiro.
         return render(request, "admin_veiculos.html", {
@@ -5627,7 +5635,8 @@ async def admin_veiculos_modelo(request: Request):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Veículos"
-    for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem", "Modelo (Kit)"], 1):
+    for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem", "Modelo (Kit)",
+                             "Chassi", "PG", "Tipo"], 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
         c.fill = PatternFill("solid", fgColor=azul)
@@ -5639,7 +5648,14 @@ async def admin_veiculos_modelo(request: Request):
     ex1 = modelos[0] if modelos else "Mercedes Euro 5 Diesel"
     ex2 = modelos[1] if len(modelos) > 1 else ex1
     ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente"); ws.cell(2, 3, "Base Norte"); ws.cell(2, 4, ex1)
+    ws.cell(2, 5, "9BM384078LB123456"); ws.cell(2, 6, "PG-01"); ws.cell(2, 7, "Combustão")
     ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente");  ws.cell(3, 3, "Base Sul");   ws.cell(3, 4, ex2)
+    ws.cell(3, 5, "LC0CE4CB5N0123456"); ws.cell(3, 6, "PG-02"); ws.cell(3, 7, "Elétrico")
+    # Chassi, PG e Tipo são opcionais; célula vazia preserva o cadastro.
+    from openpyxl.worksheet.datavalidation import DataValidation as _DV
+    dv_tipo = _DV(type="list", formula1='"Elétrico,Combustão"', allow_blank=True)
+    ws.add_data_validation(dv_tipo)
+    dv_tipo.add("G2:G500")
 
     # Aba de apoio: a lista exata dos modelos aceitos, pra copiar e colar.
     ws2 = wb.create_sheet("Modelos disponíveis")
@@ -5704,8 +5720,8 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
     ws = wb.active
     ws.title = "Veículos"
-    colunas = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Localização atual",
-               "Kits enviados", "Último envio", "Cadastrado em"]
+    colunas = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Chassi", "PG", "Tipo",
+               "Localização atual", "Kits enviados", "Último envio", "Cadastrado em"]
     for col, h in enumerate(colunas, 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
@@ -5717,14 +5733,17 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
         ws.cell(row, 2, v["cliente"])
         ws.cell(row, 3, v["garagem"] or "")
         ws.cell(row, 4, v["modelo"] or "")
-        ws.cell(row, 5, v.get("localizacao") or "")
-        ws.cell(row, 6, v["total_kits"])
-        ws.cell(row, 7, v.get("ultimo_kit_em") or "")
-        ws.cell(row, 8, v.get("criado_em") or "")
+        ws.cell(row, 5, v.get("chassi") or "")
+        ws.cell(row, 6, v.get("pg") or "")
+        ws.cell(row, 7, v.get("tipo") or "")
+        ws.cell(row, 8, v.get("localizacao") or "")
+        ws.cell(row, 9, v["total_kits"])
+        ws.cell(row, 10, v.get("ultimo_kit_em") or "")
+        ws.cell(row, 11, v.get("criado_em") or "")
         if i % 2 == 0:
             for col in range(1, len(colunas) + 1):
                 ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGH", (16, 26, 22, 26, 20, 14, 20, 20)):
+    for col, w in zip("ABCDEFGHIJK", (16, 26, 22, 26, 22, 14, 14, 20, 14, 20, 20)):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
 
@@ -5982,6 +6001,12 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
         })
     try:
         veiculos_mod.atualizar(veiculo_id, numero, cliente, garagem, modelo)
+        # Ficha técnica: só grava o que veio no formulário (campo ausente preserva).
+        veiculos_mod.atualizar_ficha(
+            veiculo_id,
+            chassi=str(form.get("chassi")) if form.get("chassi") is not None else None,
+            pg=str(form.get("pg")) if form.get("pg") is not None else None,
+            tipo=str(form.get("tipo")) if form.get("tipo") is not None else None)
     except ValueError as e:
         # Número já em uso por outro veículo — único no sistema inteiro.
         v = veiculos_mod.buscar(veiculo_id)

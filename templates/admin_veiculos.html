@@ -310,6 +310,22 @@
         {% endfor %}
       </select>
     </div>
+    <div class="form-group" style="margin:0;">
+      <label>Chassi</label>
+      <input type="text" name="chassi" maxlength="30" style="text-transform:uppercase;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>PG</label>
+      <input type="text" name="pg" maxlength="60">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Tipo</label>
+      <select name="tipo">
+        <option value="">— não informado —</option>
+        <option value="Elétrico">Elétrico</option>
+        <option value="Combustão">Combustão</option>
+      </select>
+    </div>
     <div>
       <button type="submit" class="btn btn-success">{{ ic.svg('mais', 15) }} Adicionar Veículo</button>
     </div>

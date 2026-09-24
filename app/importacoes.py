@@ -37,7 +37,8 @@ SINAL = {k: s for k, _, s in SITUACOES}
 
 # Os três campos que a planilha mexe. Ficam num só lugar para a tela, o
 # resumo e o diff nunca discordarem sobre o que é "campo alterado".
-CAMPOS = (("cliente", "Cliente"), ("garagem", "Garagem"), ("modelo", "Modelo"))
+CAMPOS = (("cliente", "Cliente"), ("garagem", "Garagem"), ("modelo", "Modelo"),
+          ("chassi", "Chassi"), ("pg", "PG"), ("tipo", "Tipo"))
 
 
 def registrar(resultado: dict, arquivo: str, user_id: int | None) -> int:
@@ -63,12 +64,16 @@ def registrar(resultado: dict, arquivo: str, user_id: int | None) -> int:
         conn.executemany(
             "INSERT INTO importacao_item (importacao_id, linha, numero, situacao, "
             "veiculo_id, cliente_antes, cliente_depois, garagem_antes, "
-            "garagem_depois, modelo_antes, modelo_depois, erro) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "garagem_depois, modelo_antes, modelo_depois, erro, "
+            "chassi_antes, chassi_depois, pg_antes, pg_depois, tipo_antes, tipo_depois) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [(imp_id, i["linha"], i["numero"], i["situacao"], i["veiculo_id"],
               i["cliente_antes"], i["cliente_depois"],
               i["garagem_antes"], i["garagem_depois"],
-              i["modelo_antes"], i["modelo_depois"], i.get("erro") or "")
+              i["modelo_antes"], i["modelo_depois"], i.get("erro") or "",
+              i.get("chassi_antes", ""), i.get("chassi_depois", ""),
+              i.get("pg_antes", ""), i.get("pg_depois", ""),
+              i.get("tipo_antes", ""), i.get("tipo_depois", ""))
              for i in itens]
         )
     return imp_id

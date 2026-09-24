@@ -145,6 +145,23 @@
 
   {# ── 2. Coluna da esquerda: o item em foco e o que fazer com ele ──────── #}
   <div class="pat-coluna">
+    {# Ficha técnica (vem da importação): chassi, PG e tipo. Fica na coluna da
+       esquerda, ao lado de "Itens deste kit". #}
+    {% if completo and v %}
+    <div class="pat-foco pat-ficha">
+      <div class="pat-rotulo">Ficha do veículo</div>
+      <div class="pat-ficha-campos">
+        <div class="pat-campo"><span>Chassi</span>
+          <strong style="font-family:monospace;">{% if v.chassi %}{{ v.chassi }}{% else %}<em class="pat-vazio-campo">não informado</em>{% endif %}</strong></div>
+        <div class="pat-campo"><span>PG</span>
+          <strong>{% if v.pg %}{{ v.pg }}{% else %}<em class="pat-vazio-campo">não informado</em>{% endif %}</strong></div>
+        <div class="pat-campo"><span>Tipo</span>
+          <strong>{% if v.tipo %}{{ v.tipo }}{% else %}<em class="pat-vazio-campo">não informado</em>{% endif %}</strong></div>
+        <div class="pat-campo"><span>Modelo</span>
+          <strong>{{ v.modelo or '—' }}</strong></div>
+      </div>
+    </div>
+    {% endif %}
     {% if item_sel %}
     <div class="pat-foco">
       <div class="pat-rotulo">Item em foco</div>
