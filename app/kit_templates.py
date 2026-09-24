@@ -128,6 +128,30 @@ def criar_template(nome: str, cliente: str, criado_por: int,
     return template_id
 
 
+def _lista_clientes(cliente) -> list[str]:
+    """Aceita um cliente (texto) ou vários (lista); devolve a lista limpa,
+    sem vazios nem repetidos, na ordem em que vieram."""
+    bruto = [cliente] if isinstance(cliente, str) else list(cliente or [])
+    vistos: list[str] = []
+    for c in bruto:
+        c = (c or "").strip()
+        if c and c not in vistos:
+            vistos.append(c)
+    return vistos
+
+
+def criar_templates(nome: str, clientes, criado_por: int, itens: list[dict],
+                    tipo: str = "kit") -> list[int]:
+    """Um template IGUAL por cliente marcado — cada um é independente do
+    outro depois de criado (o modelo é "um template, um cliente", que é o que
+    relatórios, produção e remessas já assumem). Devolve os ids na ordem dos
+    clientes."""
+    lista = _lista_clientes(clientes)
+    if not lista:
+        raise ValueError("Selecione ao menos um cliente.")
+    return [criar_template(nome, c, criado_por, itens, tipo=tipo) for c in lista]
+
+
 def nova_versao(template_id: int, criado_por: int) -> int:
     """Clona template com versao+1 e desativa o original."""
     template = buscar_template(template_id)
@@ -231,7 +255,7 @@ def toggle_concluido(template_id: int):
         )
 
 
-def criar_template_do_bom(nome: str, cliente: str, criado_por: int,
+def criar_template_do_bom(nome: str, cliente, criado_por: int,
                            conteudo: bytes, tipo: str = "kit") -> tuple[int, dict]:
     """Cria um kit_template a partir de um BOM Excel.
 
@@ -303,5 +327,8 @@ def criar_template_do_bom(nome: str, cliente: str, criado_por: int,
     if not itens:
         raise ValueError("Nenhum item válido encontrado na planilha.")
 
-    template_id = criar_template(nome, cliente, criado_por, itens, tipo=tipo)
-    return template_id, {"itens_adicionados": len(itens), "tipos_criados": tipos_criados}
+    # `cliente` pode ser um ou vários: a planilha é lida UMA vez e cada cliente
+    # ganha o seu template com os mesmos itens.
+    ids = criar_templates(nome, cliente, criado_por, itens, tipo=tipo)
+    return ids[0], {"itens_adicionados": len(itens), "tipos_criados": tipos_criados,
+                    "templates_criados": len(ids)}

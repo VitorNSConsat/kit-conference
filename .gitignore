@@ -21,3 +21,6 @@ certs/
 .claude/
 .superpowers/
 .pytest_cache/
+
+# Logs do servico Windows (deploy/instalar_servico.ps1)
+servico*.log

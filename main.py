@@ -1265,6 +1265,14 @@ async def home(request: Request):
     return render(request, "index.html", {
         "templates_kit": [t for t in templates_ativos if t.get("tipo", "kit") == "kit"],
         "templates_pedido": [t for t in templates_ativos if t.get("tipo") == "pedido"],
+        # Bipagem por cliente: a lista de clientes que têm ao menos um kit/pedido
+        # ativo e os templates (só o que a tela precisa) pro JS filtrar.
+        "clientes_bipagem": sorted({t["cliente"] for t in templates_ativos if t.get("cliente")},
+                                   key=lambda c: c.lower()),
+        "templates_bipagem": [
+            {"id": t["id"], "nome": t["nome"], "cliente": t["cliente"],
+             "versao": t["versao"], "tipo": t.get("tipo", "kit")}
+            for t in templates_ativos],
         "sessoes_em_andamento": sessoes_em_andamento,
         # A remessa lembrada da última escolha — o operador só troca quando
         # precisa; do contrário segue no mesmo lote kit após kit.
@@ -2040,16 +2048,17 @@ async def admin_conjunto_verifica(request: Request, template_id: int):
 @require_login
 async def admin_templates_import_bom(request: Request,
                                       nome: str = Form(""),
-                                      cliente: str = Form(""),
+                                      cliente: list[str] = Form([]),
                                       tipo: str = Form("kit"),
                                       arquivo: UploadFile = File(...)):
     user = get_current_user(request)
-    nome, cliente = nome.strip(), cliente.strip()
+    nome = nome.strip()
+    cliente = templates_mod._lista_clientes(cliente)
     tipo = tipo if tipo in ("kit", "pedido") else "kit"
     if not nome or not cliente:
         return render(request, "admin_templates.html", {
             **_admin_templates_context(),
-            "erro": "Preencha nome e cliente antes de importar o BOM.",
+            "erro": "Preencha o nome e marque ao menos um cliente antes de importar o BOM.",
             "tab_ativo": tipo,
         })
     try:
@@ -2057,6 +2066,10 @@ async def admin_templates_import_bom(request: Request,
         template_id, stats = templates_mod.criar_template_do_bom(
             nome, cliente, user["id"], conteudo, tipo=tipo
         )
+        if stats["templates_criados"] > 1:
+            # Vários clientes: não há "o" template pra editar, vai pra lista.
+            return RedirectResponse(
+                f"/admin/templates?ok=1&n={stats['templates_criados']}&tab={tipo}", status_code=302)
         q = f"ok=bom&itens={stats['itens_adicionados']}&tipos={stats['tipos_criados']}"
         return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
     except ValueError as e:
@@ -2160,7 +2173,7 @@ async def admin_templates_post(request: Request):
     user = get_current_user(request)
     form = await request.form()
     nome = form.get("nome", "").strip()
-    cliente = form.get("cliente", "").strip()
+    clientes_sel = templates_mod._lista_clientes(form.getlist("cliente"))
     tipo = form.get("tipo", "kit").strip()
     tipo = tipo if tipo in ("kit", "pedido") else "kit"
     if tipo == "pedido" and not permissoes_mod.tem_permissao(user, "pedidos_criar_editar"):
@@ -2170,14 +2183,15 @@ async def admin_templates_post(request: Request):
             "tab_ativo": tipo,
         })
     itens = _parse_itens_form(form)
-    if not nome or not cliente or not itens:
+    if not nome or not clientes_sel or not itens:
         return render(request, "admin_templates.html", {
             **_admin_templates_context(),
-            "erro": "Preencha nome, cliente e ao menos 1 item.",
+            "erro": "Preencha nome, ao menos 1 cliente e ao menos 1 item.",
             "tab_ativo": tipo,
         })
-    templates_mod.criar_template(nome, cliente, user["id"], itens, tipo=tipo)
-    return RedirectResponse(f"/admin/templates?ok=1&tab={tipo}", status_code=302)
+    templates_mod.criar_templates(nome, clientes_sel, user["id"], itens, tipo=tipo)
+    return RedirectResponse(
+        f"/admin/templates?ok=1&n={len(clientes_sel)}&tab={tipo}", status_code=302)
 
 
 @app.get("/admin/templates/{template_id}/painel", response_class=HTMLResponse)

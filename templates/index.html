@@ -69,29 +69,73 @@
 
 <div class="card" style="max-width: 500px;">
     {% if templates_kit or templates_pedido %}
-    <form method="post" action="/session/start">
+    {# Cliente primeiro, depois só os kits/pedidos DELE: quem monta pra um
+       cliente não precisa varrer a lista de todos. A lista abaixo é montada
+       em JS a partir dos mesmos dados do servidor. #}
+    <form method="post" action="/session/start" id="form-iniciar">
         <div class="form-group">
-            <label for="kit_template_id">Selecione o Kit ou Pedido</label>
-            <select name="kit_template_id" id="kit_template_id" required>
-                <option value="">— escolha —</option>
-                {% if templates_kit %}
-                <optgroup label="Kits">
-                    {% for t in templates_kit %}
-                    <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
-                    {% endfor %}
-                </optgroup>
-                {% endif %}
-                {% if templates_pedido %}
-                <optgroup label="Pedidos">
-                    {% for t in templates_pedido %}
-                    <option value="{{ t.id }}">{{ t.nome }} — {{ t.cliente }} (v{{ t.versao }})</option>
-                    {% endfor %}
-                </optgroup>
-                {% endif %}
+            <label for="cliente_sel">Cliente</label>
+            <select id="cliente_sel" required>
+                <option value="">— escolha o cliente —</option>
+                {% for c in clientes_bipagem %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="kit_template_id">Kit ou Pedido</label>
+            <select name="kit_template_id" id="kit_template_id" required disabled>
+                <option value="">— escolha o cliente primeiro —</option>
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Iniciar Sessão</button>
     </form>
+    <script>
+    (function () {
+        const TEMPLATES = {{ templates_bipagem | tojson }};
+        const selCliente = document.getElementById('cliente_sel');
+        const selTemplate = document.getElementById('kit_template_id');
+        const CHAVE = 'bipagem_ultimo_cliente';
+
+        function opcao(t) {
+            const o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = t.nome + ' (v' + t.versao + ')';
+            return o;
+        }
+        function montar() {
+            const cliente = selCliente.value;
+            selTemplate.innerHTML = '';
+            if (!cliente) {
+                selTemplate.disabled = true;
+                selTemplate.innerHTML = '<option value="">— escolha o cliente primeiro —</option>';
+                return;
+            }
+            const doCliente = TEMPLATES.filter(t => t.cliente === cliente);
+            selTemplate.disabled = false;
+            selTemplate.appendChild(new Option(doCliente.length ? '— escolha —' : 'Nenhum kit para este cliente', ''));
+            [['kit', 'Kits'], ['pedido', 'Pedidos']].forEach(([tipo, rotulo]) => {
+                const lista = doCliente.filter(t => t.tipo === tipo);
+                if (!lista.length) return;
+                const grupo = document.createElement('optgroup');
+                grupo.label = rotulo;
+                lista.forEach(t => grupo.appendChild(opcao(t)));
+                selTemplate.appendChild(grupo);
+            });
+            // Um só kit pro cliente: já deixa escolhido.
+            if (doCliente.length === 1) selTemplate.value = doCliente[0].id;
+        }
+        selCliente.addEventListener('change', function () {
+            try { localStorage.setItem(CHAVE, selCliente.value); } catch (e) {}
+            montar();
+        });
+        try {
+            const ultimo = localStorage.getItem(CHAVE);
+            if (ultimo && [...selCliente.options].some(o => o.value === ultimo)) selCliente.value = ultimo;
+        } catch (e) {}
+        montar();
+    })();
+    </script>
     {% else %}
     <div class="alert alert-danger">Nenhum template ativo. Cadastre um em <a href="/admin/templates">Criar Kit</a>.</div>
     {% endif %}

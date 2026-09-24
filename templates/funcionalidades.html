@@ -239,8 +239,10 @@
   <h3>Tela inicial</h3>
   <p>
     Mostra as <strong>sessões em andamento</strong> (pra retomar de onde parou) e a
-    abertura de uma <strong>nova sessão</strong>: escolhe-se o cliente e o kit. Só entra
-    kit ativo.
+    abertura de uma <strong>nova sessão</strong>: <strong>primeiro o cliente</strong> (só aparecem
+    clientes que têm kit ou pedido ativo) e <strong>depois a lista dos kits e pedidos daquele
+    cliente</strong> — se ele tiver um só, já vem escolhido. O último cliente usado fica lembrado
+    neste navegador. Só entra kit ativo.
   </p>
 
   <h3>Destino — “pra onde vai esse kit?”</h3>
@@ -699,6 +701,10 @@
   <h2>6. Criar Kit/Pedido</h2>
   <ul>
     <li><strong>Kit</strong> — a receita usada na bipagem. Nome do kit = modelo do veículo.</li>
+    <li><strong>Vários clientes de uma vez</strong> — ao criar um kit (manual ou por BOM), marque
+      <strong>um ou mais clientes</strong> (há “todos” e “nenhum”). O sistema cria <strong>um
+      template igual para cada cliente</strong>, com os mesmos itens. Depois de criados eles são
+      independentes: editar a receita de um não muda a dos outros. Sem cliente marcado, não cria.</li>
     <li><strong>Pedido</strong> — lista avulsa, sem média por kit. Tem a tabela
       <strong>Unidades do Pedido</strong> (ICCID, telefone, CDT, ID hardware), editável e com
       inclusão manual de linhas; valores repetidos são <strong>marcados</strong>, não bloqueados.</li>

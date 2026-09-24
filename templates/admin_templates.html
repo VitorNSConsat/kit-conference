@@ -3,6 +3,25 @@
 {% import "_icones.html" as ic %}
 {% block title %}Criar Kit/Pedido{% endblock %}
 
+{# Vários clientes de uma vez: cada cliente marcado ganha o seu template, igual
+   ao(s) outro(s). Depois de criados são independentes. #}
+{% macro seletor_clientes(clientes) %}
+<div class="sel-clientes" data-sel-clientes>
+    <div class="sel-clientes-topo">
+        <span>Marque um ou mais</span>
+        <button type="button" class="btn-link" onclick="marcarTodosClientes(this, true)">todos</button>
+        <button type="button" class="btn-link" onclick="marcarTodosClientes(this, false)">nenhum</button>
+    </div>
+    <div class="sel-clientes-lista">
+        {% for c in clientes %}
+        <label><input type="checkbox" name="cliente" value="{{ c.nome }}"> {{ c.nome }}</label>
+        {% else %}
+        <em style="color:var(--text-muted-2);font-size:12px;">Nenhum cliente cadastrado.</em>
+        {% endfor %}
+    </div>
+</div>
+{% endmacro %}
+
 {% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
 <!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
@@ -25,12 +44,7 @@
             </div>
             <div class="form-group" style="margin:0;">
                 <label>Cliente *</label>
-                <select name="cliente" required>
-                    <option value="">— selecione —</option>
-                    {% for c in clientes %}
-                    <option value="{{ c.nome }}">{{ c.nome }}</option>
-                    {% endfor %}
-                </select>
+                {{ seletor_clientes(clientes) }}
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -206,12 +220,7 @@
             </div>
             <div class="form-group">
                 <label>Cliente</label>
-                <select name="cliente" required>
-                    <option value="">— selecione —</option>
-                    {% for c in clientes %}
-                    <option value="{{ c.nome }}">{{ c.nome }}</option>
-                    {% endfor %}
-                </select>
+                {{ seletor_clientes(clientes) }}
             </div>
         </div>
 
@@ -270,7 +279,10 @@
 
 {% block content %}
 {% if request.query_params.get('ok') == '1' %}
-<div class="alert alert-success">Template criado com sucesso.</div>
+<div class="alert alert-success">
+    {% set n = request.query_params.get('n', '1') | int %}
+    {% if n > 1 %}{{ n }} templates criados — um para cada cliente selecionado.{% else %}Template criado com sucesso.{% endif %}
+</div>
 {% elif request.query_params.get('ok') == 'editado' %}
 <div class="alert alert-success">Template atualizado com sucesso.</div>
 {% elif request.query_params.get('ok') == 'versao' %}
@@ -472,6 +484,20 @@ function mudarTabTemplates(nome) {
     url.searchParams.set('tab', nome);
     window.history.replaceState({}, '', url);
 }
+
+// ── Seletor de clientes (um template por cliente marcado) ─────────────────
+function marcarTodosClientes(botao, marcar) {
+    botao.closest('[data-sel-clientes]').querySelectorAll('input[type=checkbox]')
+        .forEach(c => { c.checked = marcar; });
+}
+// Checkbox não tem "required" de grupo: sem isso, o formulário iria sem cliente.
+document.addEventListener('submit', function (e) {
+    const grupo = e.target.querySelector('[data-sel-clientes]');
+    if (grupo && !grupo.querySelector('input[type=checkbox]:checked')) {
+        e.preventDefault();
+        alert('Marque ao menos um cliente.');
+    }
+}, true);
 
 (function () {
     const params = new URLSearchParams(window.location.search);
