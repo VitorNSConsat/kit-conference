@@ -523,12 +523,15 @@ def startup():
 
     ip = _detectar_ip_lan()
     porta = int(os.getenv("PORTA", "8080") or 8080)
-    # Uma porta, HTTP. O HTTPS dos celulares vem do dominio publico (Cloudflare
-    # Tunnel, SERVIDOR_URL); a 8011 antiga so redireciona (ver run.py).
-    url_local = f"http://{ip}:{porta}"
-    app.state.url_http = url_local
-    app.state.url_https = None
-    app.state.tem_ssl = False
+    https_local = (os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
+                   and os.getenv("HTTPS_LOCAL", "1").strip().lower() not in ("0", "false", "nao", "não")
+                   and porta != 8011)
+    app.state.url_http = f"http://{ip}:{porta}"
+    app.state.url_https = f"https://{ip}:8011" if https_local else None
+    app.state.tem_ssl = https_local
+    # A camera dos leitores so funciona em HTTPS: com certificado, o endereco
+    # (e o QR das etiquetas) e o HTTPS; SERVIDOR_URL (dominio publico) manda.
+    url_local = app.state.url_https or app.state.url_http
 
     # SERVIDOR_URL do .env manda: é o endereço que vai no QR da etiqueta.
     # Sem ele, cai no IP da LAN (funciona só dentro do galpão). Com um
@@ -544,7 +547,7 @@ def startup():
         print(f"[KIT] Endereco publico (QR das etiquetas): {url_publica}")
         print(f"[KIT] Acesso local: {url_local}")
     else:
-        print(f"[KIT] HTTP: {url_local}")
+        print(f"[KIT] Endereco: {url_local}  (HTTP: {app.state.url_http})")
 
 
 # ── Backup automático ────────────────────────────────────────────────────
@@ -1208,12 +1211,16 @@ async def rede(request: Request):
         except Exception:
             return ""
 
-    servidor_url = getattr(app.state, "servidor_url", url_http)
+    url_https = getattr(app.state, "url_https", None)
+    servidor_url = getattr(app.state, "servidor_url", url_https or url_http)
     return render(request, "rede.html", {
         "url_http":     url_http,
+        "url_https":    url_https,
         "servidor_url": servidor_url,
-        "publico":      servidor_url != url_http,
+        "publico":      servidor_url not in (url_http, url_https),
         "qr":           _make_qr_svg(servidor_url),
+        "qr_http":      _make_qr_svg(url_http),
+        "tem_ssl":      bool(url_https),
     })
 
 

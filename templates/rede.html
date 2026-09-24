@@ -21,10 +21,20 @@
       </div>
       {% endif %}
 
+      {% if tem_ssl %}
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--brand-soft);border-radius:8px;">
+        <span style="color:var(--brand);">{{ ic.svg('cadeado', 22) }}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:10px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Celulares na rede interna (HTTPS · câmera)</div>
+          <div style="font-size:15px;font-weight:900;color:var(--brand-ink);font-family:monospace;word-break:break-all;">{{ url_https }}</div>
+        </div>
+      </div>
+      {% endif %}
+
       <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--surface-alt);border-radius:8px;">
         <span style="color:var(--text-muted);">{{ ic.svg('rede', 22) }}</span>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:10px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Rede interna (Wi-Fi da empresa · HTTP)</div>
+          <div style="font-size:10px;color:var(--text-muted-2);text-transform:uppercase;letter-spacing:1px;">Notebooks na rede interna (HTTP)</div>
           <div style="font-size:15px;font-weight:700;color:var(--text);font-family:monospace;word-break:break-all;">{{ url_http }}</div>
         </div>
       </div>
@@ -38,8 +48,30 @@
     <div style="max-width:220px;margin:0 auto;">{{ qr | safe }}</div>
     <div style="font-size:12px;color:var(--text-muted);margin-top:10px;font-family:monospace;word-break:break-all;">{{ servidor_url }}</div>
     <div style="font-size:12px;color:var(--text-muted-2);margin-top:6px;">
-      Mesmo endereço para todos os aparelhos — sem certificado para instalar.
+      {% if publico %}Endereço público: HTTPS de verdade, a câmera funciona em qualquer aparelho, sem instalar nada.
+      {% elif tem_ssl %}HTTPS da rede interna: instale o certificado uma vez no aparelho (abaixo).
+      {% else %}Sem HTTPS local: a câmera dos leitores não funciona por este endereço.{% endif %}
     </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;border:1.5px solid var(--brand);">
+    <h3 style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+      <span style="color:var(--brand);">{{ ic.svg('camera', 18) }}</span> A câmera exige HTTPS
+    </h3>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">
+      Consultar Kit/Item, Ler RMA, Ler Sobressalentes e a bipagem por câmera <strong>só abrem a câmera em HTTPS</strong>.
+      Por <code>http://</code> o navegador bloqueia (aparece o pedido de foto, ou nada).
+    </p>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-muted);display:flex;flex-direction:column;gap:5px;">
+      {% if publico %}<li><strong>Melhor opção:</strong> o endereço público acima (Cloudflare) — HTTPS válido, nada a instalar.</li>{% endif %}
+      {% if tem_ssl %}
+      <li><strong>Na rede interna:</strong> use <code>{{ url_https }}</code>. Na primeira vez, baixe e instale o certificado no aparelho:
+        <a href="{{ url_http }}/cert">{{ url_http }}/cert</a>
+        <span style="color:var(--text-muted-2);">(iPhone: Ajustes → Perfil Baixado → Instalar; depois Geral → Sobre → Confiança de Certificado → ativar “KitConference”. Android: abra o arquivo baixado e instale como certificado CA.)</span></li>
+      {% else %}
+      <li>Sem <code>certs/cert.pem</code> não há HTTPS local. Gere com <code>python gerar_cert.py</code> no servidor e reinicie o serviço, ou use o endereço público.</li>
+      {% endif %}
+    </ul>
   </div>
 
   <!-- Ajuda -->
@@ -50,8 +82,7 @@
     <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;">
       <li>Confira que ele está no <strong>Wi-Fi da empresa</strong> (ou use o endereço público, de qualquer rede).</li>
       <li>Digite o endereço <strong>com <code>http://</code></strong> na rede interna. Com <code>https://</code> na porta {{ url_http.rsplit(':', 1)[-1] }} o navegador mostra erro de conexão segura.</li>
-      <li><strong>iPhone com atalho antigo</strong> (porta 8011, tela branca): apague o atalho da tela de início e abra o endereço acima de novo; adicione à tela de início outra vez.</li>
-      <li>A porta 8011 antiga só redireciona para o endereço atual, enquanto os atalhos são trocados.</li>
+      <li><strong>Tela branca no iPhone em <code>https://…:8011</code>:</strong> o serviço precisa estar com o <code>run.py</code> atual e o certificado instalado no aparelho; se o atalho da tela de início ficou preso, apague-o e adicione de novo.</li>
     </ul>
   </div>
 

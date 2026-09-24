@@ -337,24 +337,16 @@ Usuários não são excluídos, apenas desativados — o histórico de kits e
 movimentações aponta para eles. Desativar corta o acesso na hora, sem
 esperar o cookie expirar.
 
-## Portas: uma só (8080)
+## Portas: 8080 (HTTP) e 8011 (HTTPS)
 
-O app usa **uma porta só, 8080 (HTTP)**, para os notebooks da rede interna
-e para o túnel da Cloudflare (que entrega o HTTPS aos celulares e a quem
-está fora). Não há mais certificado para instalar em iPhone.
+O app usa **8080 (HTTP)** para notebooks e para o túnel da Cloudflare, que entrega
+o HTTPS a quem está fora. A **câmera dos leitores no celular exige HTTPS**: por isso,
+existindo `certs/cert.pem`, a **8011** serve o mesmo app em HTTPS para os celulares da
+rede interna (com o certificado instalado no aparelho). Pelo domínio da Cloudflare a
+câmera funciona sem instalar nada.
 
-A **8011 (HTTPS)** antiga só **redireciona** para a 8080 enquanto existir
-`certs/cert.pem` — serve para atalhos salvos e etiquetas impressas antigas
-(o QR apontava para `https://IP:8011`). Para desligar o redirecionamento
-quando ninguém mais usar:
-
-```
-REDIRECIONAR_8011=0
-```
-
-Para mudar a porta principal: `PORTA=8080` no `.env`. Reinicie o serviço
-depois (`deploy\atualizar_servico.ps1` ou `nssm restart KitConference`).
-`SOMENTE_HTTPS` não existe mais.
+Para desligar a 8011: `HTTPS_LOCAL=0`. Para mudar a porta HTTP: `PORTA=8080`.
+Reinicie o serviço depois (`deploy\atualizar_servico.ps1`). `SOMENTE_HTTPS` não existe mais.
 
 ## Checklist antes de liberar o acesso
 

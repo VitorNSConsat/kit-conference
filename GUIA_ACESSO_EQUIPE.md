@@ -119,13 +119,14 @@ Para quem for dar suporte à equipe ou mexer nessa configuração depois:
 
 | Porta | Protocolo | Uso |
 |---|---|---|
-| **8080** | HTTP | **A única porta de uso.** Notebooks e celulares na rede interna (`http://IP:8080`) e o túnel da Cloudflare (que dá o HTTPS de fora) |
-| **8011** | HTTPS (legado) | Só redireciona para a 8080, para atalhos e etiquetas antigas. Desligue com `REDIRECIONAR_8011=0` no `.env` |
+| **8080** | HTTP | Notebooks na rede interna (`http://IP:8080`) e o túnel da Cloudflare |
+| **8011** | HTTPS (certificado próprio) | **Celulares na rede interna** — a câmera dos leitores só abre em HTTPS |
 
-- Na rede interna digite o endereço **com `http://`**. Com `https://` na 8080
-  o navegador mostra erro de conexão segura.
-- **iPhone com atalho antigo (tela branca):** apague o atalho da tela de início,
-  abra o endereço novo no Safari e adicione à tela de início de novo.
-- Não é mais necessário instalar certificado no iPhone/Android.
-- Operação do servidor (instalar, atualizar, remover o serviço): pasta `deploy/`
-  (`deploy/README.md`).
+- **Câmera:** Consultar Kit/Item, Ler RMA, Ler Sobressalentes e a bipagem por câmera exigem
+  HTTPS. Em `http://` o navegador bloqueia a câmera.
+- **Sem instalar nada:** use o endereço público (Cloudflare) — é HTTPS válido.
+- **Rede interna:** instale o certificado uma vez no aparelho (`http://IP:8080/cert`) e use
+  `https://IP:8011`. Passo a passo na tela **Rede** do sistema.
+- O certificado é gerado por `python gerar_cert.py` **no servidor** (grava o IP dele); se o IP
+  mudar, gere de novo.
+- Operação do servidor (instalar, atualizar, remover o serviço): `deploy/README.md`.

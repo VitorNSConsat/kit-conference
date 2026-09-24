@@ -45,15 +45,21 @@ Portas em uso: `Get-NetTCPConnection -State Listen | Where LocalPort -in 8080,80
 |---|---|
 | `SERVIDOR_URL` | Endereço que vai no QR das etiquetas (o domínio público, se houver) |
 | `PORTA` | Porta HTTP do app (padrão 8080) |
-| `REDIRECIONAR_8011` | `0` desliga o redirecionamento da 8011 antiga |
+| `HTTPS_LOCAL` | `0` desliga a porta 8011 (HTTPS local, com `certs/cert.pem`) |
 
-## A porta 8011 (legado)
+## HTTPS e a câmera dos leitores
 
-Aparelhos que ainda abrem `https://IP:8011` (atalho salvo, etiqueta antiga) caem
-num redirecionamento para o endereço atual, enquanto existir `certs/cert.pem`.
-Quando ninguém mais usar, ponha `REDIRECIONAR_8011=0` e reinicie.
-iPhone com atalho antigo em tela branca: apagar o atalho e adicionar de novo pelo
-endereço novo.
+A câmera (Consultar Kit/Item, Ler RMA, Ler Sobressalentes, bipagem) **só funciona em
+HTTPS** (ou localhost). Por isso são duas portas com o mesmo app:
+
+- **8080 (HTTP):** notebooks da rede interna e o túnel da Cloudflare.
+- **8011 (HTTPS):** celulares na rede interna, quando existe `certs/cert.pem` (gerado com
+  `python gerar_cert.py` no servidor). O aparelho precisa instalar o certificado uma vez
+  (`http://IP:8080/cert`; passo a passo na tela **Rede**).
+- **Fora da rede / sem instalar nada:** o endereço público do Cloudflare (`SERVIDOR_URL`)
+  já é HTTPS válido e a câmera funciona em qualquer aparelho — é a opção mais simples.
+
+Sem `certs/`, só a 8080 sobe e a câmera não abre por ela.
 
 ## Backup
 
