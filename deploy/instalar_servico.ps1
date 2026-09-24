@@ -3,7 +3,10 @@
   Instala a Conferencia de Kits como servico do Windows (sobe com a maquina).
 
 .DESCRIPTION
-  Usa o NSSM para rodar "python run.py" (HTTP na porta 8080) como servico.
+  Usa o NSSM para rodar "python run.py" como servico: UMA porta, 8080 (HTTP),
+  para notebooks e celulares (o HTTPS da nuvem vem do Cloudflare Tunnel). Se
+  existir certs\cert.pem, a 8011 antiga so REDIRECIONA para a 8080 (atalhos e
+  etiquetas antigas de iPhone). Mude a porta com PORTA=... no .env.
   Rode num PowerShell COMO ADMINISTRADOR, de qualquer pasta:
 
       powershell -ExecutionPolicy Bypass -File .\deploy\instalar_servico.ps1
@@ -102,7 +105,7 @@ $log = Join-Path $app "servico.log"
 & $nssm install $Nome $Python "run.py" | Out-Null
 & $nssm set $Nome AppDirectory $app | Out-Null
 & $nssm set $Nome DisplayName "Conferencia de Kits" | Out-Null
-& $nssm set $Nome Description "Conferencia de Kits (FastAPI) - HTTP na porta 8080" | Out-Null
+& $nssm set $Nome Description "Conferencia de Kits (FastAPI) - HTTP 8080" | Out-Null
 & $nssm set $Nome Start SERVICE_AUTO_START | Out-Null
 & $nssm set $Nome AppStdout $log | Out-Null
 & $nssm set $Nome AppStderr $log | Out-Null
@@ -115,11 +118,14 @@ $log = Join-Path $app "servico.log"
 $chave = [Environment]::GetEnvironmentVariable("PORTAL_SERVICE_KEY", "Machine")
 if ($chave) { & $nssm set $Nome AppEnvironmentExtra "PORTAL_SERVICE_KEY=$chave" | Out-Null }
 
-# --- firewall (porta 8080) -------------------------------------------------
-if (-not (Get-NetFirewallRule -DisplayName "Kit Conference 8080" -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName "Kit Conference 8080" -Direction Inbound -Action Allow `
-        -Protocol TCP -LocalPort 8080 | Out-Null
-    Write-Host "Regra de firewall criada para a porta 8080."
+# --- firewall (8080 HTTP e 8011 HTTPS) --------------------------------------
+if (-not (Get-NetFirewallRule -DisplayName "Kit Conference 8080-8011" -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName "Kit Conference 8080-8011" -Direction Inbound -Action Allow `
+        -Protocol TCP -LocalPort 8080,8011 | Out-Null
+    Write-Host "Regra de firewall criada para as portas 8080 e 8011."
+}
+if (-not (Test-Path (Join-Path $app "certs\cert.pem"))) {
+    Write-Host "Info: sem certs\cert.pem, a porta 8011 antiga nao redireciona (so a 8080 sobe). Normal se ninguem mais usa a 8011." -ForegroundColor Yellow
 }
 
 & $nssm start $Nome | Out-Null

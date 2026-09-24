@@ -119,16 +119,13 @@ Para quem for dar suporte à equipe ou mexer nessa configuração depois:
 
 | Porta | Protocolo | Uso |
 |---|---|---|
-| **8011** | HTTPS (certificado autoassinado) | Porta recomendada para acesso externo — funciona em qualquer navegador, com o aviso de certificado descrito acima |
-| **8080** | HTTP puro | Só funciona se o navegador não tiver "HTTPS-Only" ativado. No Safari do iOS isso trava com "a navegação falhou" |
+| **8080** | HTTP | **A única porta de uso.** Notebooks e celulares na rede interna (`http://IP:8080`) e o túnel da Cloudflare (que dá o HTTPS de fora) |
+| **8011** | HTTPS (legado) | Só redireciona para a 8080, para atalhos e etiquetas antigas. Desligue com `REDIRECIONAR_8011=0` no `.env` |
 
-- O certificado de 8011 é gerado por `python gerar_cert.py`, **direto na
-  máquina servidor** (o script grava o IP atual dela dentro do
-  certificado — rodar em outra máquina gera certificado para o IP errado).
-- A rota `/cert` (`https://192.168.1.232:8011/cert`) serve esse mesmo
-  certificado para download e instalação manual em iOS/Android.
-- Se o IP fixo da máquina mudar, o certificado antigo passa a apontar para
-  um IP que não existe mais e precisa ser gerado de novo.
-- A variável `SOMENTE_HTTPS=1` no `.env` do servidor desliga a porta 8080
-  de vez, deixando só a 8011 — só ative depois de confirmar que ninguém
-  mais depende do acesso por HTTP puro (veja `DEPLOY_CLOUDFLARE.md`).
+- Na rede interna digite o endereço **com `http://`**. Com `https://` na 8080
+  o navegador mostra erro de conexão segura.
+- **iPhone com atalho antigo (tela branca):** apague o atalho da tela de início,
+  abra o endereço novo no Safari e adicione à tela de início de novo.
+- Não é mais necessário instalar certificado no iPhone/Android.
+- Operação do servidor (instalar, atualizar, remover o serviço): pasta `deploy/`
+  (`deploy/README.md`).

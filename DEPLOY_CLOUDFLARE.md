@@ -337,21 +337,24 @@ Usuários não são excluídos, apenas desativados — o histórico de kits e
 movimentações aponta para eles. Desativar corta o acesso na hora, sem
 esperar o cookie expirar.
 
-## Deixar só a porta HTTPS (8011) no ar
+## Portas: uma só (8080)
 
-Por padrão, quando existe certificado (`certs/cert.pem`/`certs/key.pem`),
-o app sobe **as duas portas** — 8011 (HTTPS) e 8080 (HTTP) — porque tem
-gente que só consegue acessar por HTTP (aparelho sem o certificado
-confiável instalado). Se todo mundo que acessa já confia no certificado,
-dá pra desligar a 8080 de vez:
+O app usa **uma porta só, 8080 (HTTP)**, para os notebooks da rede interna
+e para o túnel da Cloudflare (que entrega o HTTPS aos celulares e a quem
+está fora). Não há mais certificado para instalar em iPhone.
+
+A **8011 (HTTPS)** antiga só **redireciona** para a 8080 enquanto existir
+`certs/cert.pem` — serve para atalhos salvos e etiquetas impressas antigas
+(o QR apontava para `https://IP:8011`). Para desligar o redirecionamento
+quando ninguém mais usar:
 
 ```
-SOMENTE_HTTPS=1
+REDIRECIONAR_8011=0
 ```
 
-Com isso, só a 8011 fica escutando. Reinicie o app depois de definir.
-⚠️ Antes de ligar, confirme que ninguém depende de HTTP puro — inclusive
-o próprio acesso pela LAN local, se for o caso.
+Para mudar a porta principal: `PORTA=8080` no `.env`. Reinicie o serviço
+depois (`deploy\atualizar_servico.ps1` ou `nssm restart KitConference`).
+`SOMENTE_HTTPS` não existe mais.
 
 ## Checklist antes de liberar o acesso
 

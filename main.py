@@ -522,16 +522,13 @@ def startup():
     _zpl.EMPRESA_NOME = os.getenv("EMPRESA_NOME", "Sua Empresa")
 
     ip = _detectar_ip_lan()
-    _tem_ssl = os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
-
-    app.state.url_http  = f"http://{ip}:8080"
-    app.state.url_https = f"https://{ip}:8011" if _tem_ssl else None
-    app.state.tem_ssl = _tem_ssl
-
-    if _tem_ssl:
-        url_local = f"https://{ip}:8011"
-    else:
-        url_local = f"http://{ip}:8080"
+    porta = int(os.getenv("PORTA", "8080") or 8080)
+    # Uma porta, HTTP. O HTTPS dos celulares vem do dominio publico (Cloudflare
+    # Tunnel, SERVIDOR_URL); a 8011 antiga so redireciona (ver run.py).
+    url_local = f"http://{ip}:{porta}"
+    app.state.url_http = url_local
+    app.state.url_https = None
+    app.state.tem_ssl = False
 
     # SERVIDOR_URL do .env manda: é o endereço que vai no QR da etiqueta.
     # Sem ele, cai no IP da LAN (funciona só dentro do galpão). Com um
@@ -546,9 +543,6 @@ def startup():
     if url_publica:
         print(f"[KIT] Endereco publico (QR das etiquetas): {url_publica}")
         print(f"[KIT] Acesso local: {url_local}")
-    elif _tem_ssl:
-        print(f"[KIT] HTTPS (QR + Admin): {url_local}")
-        print(f"[KIT] HTTP  (alternativo): {app.state.url_http}")
     else:
         print(f"[KIT] HTTP: {url_local}")
 
@@ -1200,8 +1194,6 @@ async def funcionalidades(request: Request):
 async def rede(request: Request):
     import app.zpl as _zpl
     url_http  = getattr(app.state, "url_http",  _zpl.SERVIDOR_URL)
-    url_https = getattr(app.state, "url_https", None)
-    tem_ssl   = getattr(app.state, "tem_ssl",   False)
 
     def _make_qr_svg(url: str) -> str:
         try:
@@ -1216,16 +1208,12 @@ async def rede(request: Request):
         except Exception:
             return ""
 
-    qr_ios     = _make_qr_svg(url_https) if url_https else _make_qr_svg(url_http)
-    qr_android = _make_qr_svg(url_http)
-
+    servidor_url = getattr(app.state, "servidor_url", url_http)
     return render(request, "rede.html", {
-        "url_http":    url_http,
-        "url_https":   url_https,
-        "servidor_url": url_https or url_http,
-        "qr_ios":      qr_ios,
-        "qr_android":  qr_android,
-        "tem_ssl":     tem_ssl,
+        "url_http":     url_http,
+        "servidor_url": servidor_url,
+        "publico":      servidor_url != url_http,
+        "qr":           _make_qr_svg(servidor_url),
     })
 
 
@@ -7238,36 +7226,6 @@ async def admin_hardware_anexo_enviar(request: Request, ocorrencia_id: int, arqu
 
 
 if __name__ == "__main__":
-    import asyncio
-    import uvicorn
-
-    _tem_ssl = os.path.exists("certs/cert.pem") and os.path.exists("certs/key.pem")
-
-    # SOMENTE_HTTPS=1 desliga a porta 8080 (HTTP puro) quando o certificado
-    # existe, deixando só a 8011 (HTTPS) no ar. Fica atrás de uma flag —
-    # desligado por padrão — porque sem 8080 quem ainda depende de HTTP na
-    # LAN (ou não tem o certificado instalado/confiável no aparelho) perde
-    # acesso.
-    _somente_https = os.getenv("SOMENTE_HTTPS", "").strip() in ("1", "true", "True")
-
-    if _tem_ssl and _somente_https:
-        uvicorn.run(
-            "main:app", host="0.0.0.0", port=8011, reload=False,
-            ssl_certfile="certs/cert.pem", ssl_keyfile="certs/key.pem",
-        )
-    elif _tem_ssl:
-        async def _serve_dual():
-            cfg_https = uvicorn.Config(
-                "main:app", host="0.0.0.0", port=8011, reload=False,
-                ssl_certfile="certs/cert.pem", ssl_keyfile="certs/key.pem",
-            )
-            cfg_http = uvicorn.Config(
-                "main:app", host="0.0.0.0", port=8080, reload=False,
-            )
-            await asyncio.gather(
-                uvicorn.Server(cfg_https).serve(),
-                uvicorn.Server(cfg_http).serve(),
-            )
-        asyncio.run(_serve_dual())
-    else:
-        uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=False)
+    # Um entrypoint só (porta, redirecionador da 8011 legada): ver run.py.
+    from run import main as _servir_app
+    _servir_app()
