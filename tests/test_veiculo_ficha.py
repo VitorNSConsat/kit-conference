@@ -92,3 +92,19 @@ def test_atualizar_ficha_mantem_none_e_recusa_tipo_invalido(numero):
     assert veic.buscar(vid)["chassi"] == "ABC123" and veic.buscar(vid)["pg"] == "PG-10"
     with pytest.raises(ValueError):
         veic.atualizar_ficha(vid, tipo="xyz")
+
+
+def test_planilha_exportada_volta_como_importacao(numero):
+    """A planilha de Veículos e Clientes (com as colunas extras dela) serve de
+    entrada: reimportar sem mexer não altera nada; preencher o chassi atualiza."""
+    veic.criar(numero, "CliFicha", "G1", "")
+    cab = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Chassi", "PG", "Tipo",
+           "Localização atual", "Kits enviados", "Último envio", "Cadastrado em"]
+    linha = [numero, "CliFicha", "G1", None, None, None, None, "", 0, None, "2026-01-01 10:00:00"]
+    r = veic.importar_excel(_xlsx(cab, [linha]))
+    assert r["itens"][0]["situacao"] == "igual" and not r["erros"]
+    linha[4], linha[5], linha[6] = "XYZ987", "PG-3", "Combustão"
+    r = veic.importar_excel(_xlsx(cab, [linha]))
+    assert r["itens"][0]["situacao"] == "alterado"
+    v = _v(numero)
+    assert (v["chassi"], v["pg"], v["tipo"]) == ("XYZ987", "PG-3", "Combustão")
