@@ -103,26 +103,45 @@ def buscar(pacote_id: int) -> dict | None:
     return d
 
 
-def listar(cliente: str = "", data_ini: str = "", data_fim: str = "") -> list[dict]:
-    """Pacotes de um cliente (mais recente primeiro), cada um já com o resumo
-    dos itens — é a lista da aba Sobressalentes."""
+def listar(cliente="", data_ini: str = "", data_fim: str = "") -> list[dict]:
+    """Pacotes (mais recente primeiro) já com o resumo dos itens — é a lista da aba
+    Sobressalentes. `cliente` aceita um nome ou uma lista (filtro de múltipla escolha);
+    vazio = todos. Cada pacote traz `itens_texto` ("Fuse 5A ×2, Conector ×1"), usado na
+    busca e na coluna Itens."""
     import app.datas as datas_mod
-    sql = ("SELECT p.id, p.cliente, p.nome, p.criado_em, u.nome AS criado_por_nome, "
+    import app.filtros as filtros_mod
+    sql = ("SELECT p.id, p.cliente, p.nome, p.observacao, p.criado_em, u.nome AS criado_por_nome, "
            "       COALESCE(SUM(i.quantidade), 0) AS total_unidades, COUNT(i.id) AS total_itens "
            "FROM sobressalente_pacote p "
            "LEFT JOIN users u ON u.id = p.criado_por "
            "LEFT JOIN sobressalente_pacote_item i ON i.pacote_id = p.id "
            "WHERE 1 = 1")
     params: list = []
-    if cliente:
-        sql += " AND p.cliente = ?"
-        params.append(cliente)
+    clientes = filtros_mod.lista(cliente if isinstance(cliente, (list, tuple)) else [cliente])
+    sql_c, p_c = filtros_mod.em("p.cliente", clientes)
+    sql += sql_c
+    params += p_c
     sql_data, p_data = datas_mod.clausula("p.criado_em", data_ini, data_fim)
     sql += sql_data
     params += p_data
     sql += " GROUP BY p.id ORDER BY p.criado_em DESC, p.id DESC"
     with db() as conn:
         pacotes = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        nomes: dict[int, list[str]] = {}
+        if pacotes:
+            for r in conn.execute(
+                    "SELECT i.pacote_id, it.nome AS tipo_nome, i.quantidade "
+                    "FROM sobressalente_pacote_item i JOIN estoque e ON e.id = i.estoque_id "
+                    "JOIN item_tipo it ON it.id = e.item_tipo_id ORDER BY it.nome").fetchall():
+                nomes.setdefault(r["pacote_id"], []).append(f"{r['tipo_nome']} ×{r['quantidade']}")
     for p in pacotes:
         p["rotulo"] = rotulo(p["id"])
+        p["itens_texto"] = ", ".join(nomes.get(p["id"], []))
     return pacotes
+
+
+def clientes_com_pacote() -> list[str]:
+    """Clientes que já têm pacote — as opções do filtro."""
+    with db() as conn:
+        return [r[0] for r in conn.execute(
+            "SELECT DISTINCT cliente FROM sobressalente_pacote ORDER BY cliente").fetchall()]

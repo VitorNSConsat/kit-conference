@@ -1,0 +1,63 @@
+{# Painel do pacote de sobressalentes: mesmo mecanismo do painel do veículo/pedido
+   (janela injetada por fetch em #janela-painel), aberto pelo rótulo na lista da aba
+   Sobressalentes. Mostra o que tem dentro, o histórico e a etiqueta.
+
+   Fragmento: não estende base.html. #}
+{% import "_icones.html" as ic %}
+{% set cor = cor_do_cliente(pacote.cliente) %}
+<div class="pat-painel pat-largo">
+
+  <div class="pat-onde pat-full">
+    <div class="pat-rotulo">Pacote de sobressalentes</div>
+    <div class="pat-veic" style="color:{{ cor }};">{{ ic.svg('caixa', 17) }} {{ pacote.rotulo }}{% if pacote.nome %} — {{ pacote.nome }}{% endif %}</div>
+    <div class="pat-campos">
+      <div class="pat-campo"><span>Cliente</span><strong class="pat-marca" style="color:{{ cor }};">{{ pacote.cliente }}</strong></div>
+      <div class="pat-campo"><span>Criado em</span><strong>{{ pacote.criado_em[8:10] }}/{{ pacote.criado_em[5:7] }}/{{ pacote.criado_em[:4] }} {{ pacote.criado_em[11:16] }}</strong></div>
+      <div class="pat-campo"><span>Criado por</span><strong>{{ pacote.criado_por_nome or '—' }}</strong></div>
+      <div class="pat-campo"><span>Total</span><strong>{{ pacote.total_unidades }} un · {{ pacote.itens | length }} item(ns)</strong></div>
+    </div>
+    {% if pacote.observacao %}<p class="pat-ajuda" style="white-space:pre-wrap;">{{ pacote.observacao }}</p>{% endif %}
+    <div class="pat-atalhos">
+      <a href="/admin/sobressalente/{{ pacote.id }}/etiqueta" target="_blank" class="btn btn-sm btn-primary">{{ ic.svg('impressao', 13) }} Gerar etiqueta</a>
+      <a href="/sobressalente/{{ pacote.id }}" class="btn btn-sm btn-secondary">Abrir página do pacote →</a>
+    </div>
+  </div>
+
+  <div class="pat-coluna">
+    <details class="pat-acao" open>
+      <summary>O que tem dentro ({{ pacote.itens | length }})</summary>
+      {% if pacote.itens %}
+      <div class="vp-itens">
+        {% for i in pacote.itens %}
+        <div class="vp-item">
+          <div>
+            <div class="vp-tipo">{{ i.tipo_nome }} <span class="vp-qtd">{{ i.quantidade }} un</span></div>
+            <div class="vp-codigo">{{ i.codigo_barra }}{% if i.observacao %} · {{ i.observacao }}{% endif %}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="pat-ajuda">Pacote sem itens.</p>
+      {% endif %}
+    </details>
+    <p class="pat-ajuda">O estoque destes itens já foi descontado na criação do pacote.</p>
+  </div>
+
+  <div class="pat-coluna">
+    <details class="pat-acao" open>
+      <summary>Histórico ({{ pacote.eventos | length }})</summary>
+      <div class="vp-itens">
+        {% for e in pacote.eventos %}
+        <div class="vp-item">
+          <div>
+            <div class="vp-tipo">{{ e.tipo_texto }}</div>
+            <div class="vp-codigo">{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }} {{ e.criado_em[11:16] }} · {{ e.usuario_nome or '—' }}{% if e.conteudo %} · {{ e.conteudo }}{% endif %}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+
+</div>

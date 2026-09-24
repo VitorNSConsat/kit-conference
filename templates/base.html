@@ -291,6 +291,9 @@ function abrirPainelVeiculo(id, numero, item) {
                       + (item ? '&item=' + encodeURIComponent(item) : ''),
                       'Veículo', numero || '', true);
 }
+function abrirPainelSobressalente(id, rotulo) {
+    abrirJanelaPainel('/admin/sobressalente/' + id + '/painel', 'Sobressalentes', rotulo || '', true);
+}
 function abrirPainelPedido(id, nome) {
     abrirJanelaPainel('/admin/templates/' + id + '/painel', 'Pedido', nome || '', true);
 }

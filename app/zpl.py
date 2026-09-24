@@ -738,6 +738,12 @@ def generate_hardware_html_labels_lote(etiquetas: list[dict]) -> str:
     return _etiqueta_qr_pagina(f"Etiquetas — {len(etiquetas)} ocorrência(s)", blocos)
 
 
+def generate_sobressalente_html_labels_lote(pacotes: list[dict]) -> str:
+    """As etiquetas de vários pacotes, uma por folha. Cada item: rotulo e url_qr."""
+    blocos = [_etiqueta_qr_bloco(p["rotulo"], p["url_qr"], p["rotulo"]) for p in pacotes]
+    return _etiqueta_qr_pagina(f"Etiquetas — {len(pacotes)} pacote(s)", blocos)
+
+
 def generate_sobressalente_html_label(rotulo: str, url_qr: str) -> str:
     """Etiqueta do pacote de sobressalentes: SOB-0001, o QR (aponta pra /sobressalente/{id})
     e o código de barras do rótulo. O conteúdo não vai impresso."""

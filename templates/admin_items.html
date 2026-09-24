@@ -949,61 +949,46 @@
 
 <!-- ── Aba: Sobressalentes ──────────────────────────────────────────────── -->
 <div id="tab-sobressalentes" class="tab-panel" style="display:{{ 'block' if aba == 'sobressalentes' else 'none' }};">
+    {# Organizada como Veículos e Clientes: a lista de pacotes é a tela — busca ao
+       vivo, filtro de cliente e período, seleção múltipla pra imprimir etiquetas,
+       paginação; clicar no pacote abre a janela com o conteúdo. #}
     <div class="card">
-        <h2 style="margin-bottom:4px;">Peças Sobressalentes</h2>
-        <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
-            Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza.
-            Escolha o cliente pra ver o que já foi enviado e registrar um novo envio.
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <h2 style="margin:0;display:flex;align-items:center;gap:8px;">{{ ic.svg('caixa', 17) }} Pacotes de sobressalentes</h2>
+            <span class="badge" style="font-size:13px;">{{ sob_total }} cadastrados</span>
+            <span class="badge badge-info" id="badge-exibindo-sob"
+                  style="font-size:13px;{{ '' if sob_tem_filtro else 'display:none;' }}">exibindo {{ pag_sobressalentes.total }}</span>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px;">
+            “Kit coringa”: itens e quantidades à escolha, sem veículo, para um cliente. Ao criar, o estoque é
+            descontado e o pacote ganha uma etiqueta com QR. Clique no pacote para ver o que tem dentro.
         </p>
-        <form method="get" action="/admin/items" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">
-            <input type="hidden" name="tab" value="sobressalentes">
-            <div class="form-group" style="margin:0;min-width:220px;">
-                <label>Cliente</label>
-                <select name="cliente" onchange="this.form.submit()" required>
-                    <option value="">— selecione —</option>
-                    {% for c in clientes %}
-                    <option value="{{ c.nome }}" {{ 'selected' if sobressalente_cliente == c.nome }}>{{ c.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% if sobressalente_cliente %}
-            <div class="form-group" style="margin:0;">
-                <label>De</label>
-                <input type="date" name="data_ini" value="{{ sobressalente_data_ini }}">
-            </div>
-            <div class="form-group" style="margin:0;">
-                <label>Até</label>
-                <input type="date" name="data_fim" value="{{ sobressalente_data_fim }}">
-            </div>
-            <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
-            {% endif %}
-        </form>
 
-        {% if sobressalente_cliente %}
-        <div style="background:var(--surface-alt);border-radius:8px;padding:14px;margin-bottom:20px;">
-            <h3 style="margin:0 0 4px;font-size:14px;">Montar pacote de sobressalentes pra {{ sobressalente_cliente }}</h3>
-            <p style="margin:0 0 10px;font-size:12.5px;color:var(--text-muted);">
-                Um “kit coringa”: escolha os itens e as quantidades, sem veículo. Ao criar, o estoque é
-                descontado e o pacote ganha uma etiqueta com QR — quem escaneia (logado) vê o que tem dentro.
-            </p>
-            {# Várias peças num envio só: antes era um item por vez, e mandar
-               cinco peças pro mesmo cliente exigia repetir o formulário
-               cinco vezes, recarregando a página a cada uma. #}
-            <form method="post" action="/admin/sobressalente" id="form-sobressalente">
-                <input type="hidden" name="cliente" value="{{ sobressalente_cliente }}">
-                <div class="form-group" style="margin:0 0 10px;max-width:420px;">
-                    <label>Nome do pacote (opcional)</label>
-                    <input type="text" name="nome" maxlength="80" placeholder="ex: Reposição instalação Sul" style="margin:0;">
+        {% if pode('estoque_editar') %}
+        <details class="sob-novo" {{ 'open' if request.query_params.get('erro') }}
+                 style="background:var(--surface-alt);border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+            <summary style="cursor:pointer;font-weight:700;font-size:14px;">{{ ic.svg('mais', 14) }} Montar novo pacote</summary>
+            <form method="post" action="/admin/sobressalente" id="form-sobressalente" style="margin-top:12px;">
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+                    <div class="form-group" style="margin:0;min-width:220px;">
+                        <label>Cliente *</label>
+                        <select name="cliente" required style="margin:0;">
+                            <option value="">— selecione —</option>
+                            {% for c in clientes %}
+                            <option value="{{ c.nome }}" {{ 'selected' if sob_clientes | length == 1 and sob_clientes[0] == c.nome }}>{{ c.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;min-width:240px;flex:1;max-width:420px;">
+                        <label>Nome do pacote (opcional)</label>
+                        <input type="text" name="nome" maxlength="80" placeholder="ex: Reposição instalação Sul" style="margin:0;">
+                    </div>
                 </div>
                 <div id="linhas-sobressalente"></div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">
-                        ＋ Adicionar outro item
-                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">＋ Adicionar outro item</button>
                     <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Criar pacote (<span id="qtd-linhas-sobr">1</span> item)</button>
-                    <span style="font-size:12px;color:var(--text-muted-2);">
-                        Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.
-                    </span>
+                    <span style="font-size:12px;color:var(--text-muted-2);">Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.</span>
                 </div>
             </form>
 
@@ -1030,63 +1015,139 @@
                             onclick="removerLinhaSobressalente(this)" title="Remover esta linha">{{ ic.svg('fechar', 13) }}</button>
                 </div>
             </template>
-        </div>
+        </details>
+        {% endif %}
 
-        <h3 style="font-size:14px;margin-bottom:8px;">Pacotes de {{ sobressalente_cliente }} ({{ sobressalente_pacotes | length }})</h3>
-        {% if sobressalente_pacotes %}
-        <div style="overflow-x:auto;margin-bottom:22px;">
-        <table>
-            <thead><tr><th>Pacote</th><th>Data</th><th>Nome</th><th>Itens</th><th>Unidades</th><th>Criado por</th><th></th></tr></thead>
+        <form method="get" action="/admin/items" id="form-filtros-sob"
+              data-busca-viva="#bloco-sobressalentes,#badge-exibindo-sob,#btn-limpar-sob">
+            <input type="hidden" name="tab" value="sobressalentes">
+            <div class="filtros-linha">
+                <span class="filtros-rotulo">{{ ic.svg('busca', 13) }} Busca</span>
+                <input type="text" name="busca" value="{{ busca if aba == 'sobressalentes' else '' }}" autocomplete="off"
+                       style="flex:1;min-width:220px;margin:0;"
+                       placeholder="Pacote (SOB-0007), cliente, nome, item ou quem criou...">
+            </div>
+            <div class="filtros-linha">
+                <span class="filtros-rotulo">{{ ic.svg('filtro', 13) }} Filtros</span>
+                {{ f.multi('cliente', 'Cliente', sob_clientes_opcoes, sob_clientes, 'todos') }}
+                <label style="font-size:12px;color:var(--text-muted-2);">de</label>
+                <input type="date" name="data_ini" value="{{ sobressalente_data_ini }}" style="width:160px;margin:0;">
+                <label style="font-size:12px;color:var(--text-muted-2);">até</label>
+                <input type="date" name="data_fim" value="{{ sobressalente_data_fim }}" style="width:160px;margin:0;">
+                <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
+                <a href="/admin/items?tab=sobressalentes" class="btn btn-sm btn-ghost" id="btn-limpar-sob"
+                   style="{{ '' if sob_tem_filtro else 'display:none;' }}">{{ ic.svg('fechar', 13) }} Limpar</a>
+            </div>
+        </form>
+
+        {%- set qs_sob -%}
+            {%- for c in sob_clientes %}cliente={{ c | urlencode }}&{% endfor -%}
+            {%- if aba == 'sobressalentes' and busca %}busca={{ busca | urlencode }}&{% endif -%}
+            {%- if sobressalente_data_ini %}data_ini={{ sobressalente_data_ini }}&{% endif -%}
+            {%- if sobressalente_data_fim %}data_fim={{ sobressalente_data_fim }}&{% endif -%}
+        {%- endset %}
+
+        <div id="bloco-sobressalentes">
+        {% if aba == 'sobressalentes' and busca %}
+        <p class="busca-resultado">Busca em todas as páginas por <strong>{{ busca }}</strong></p>
+        {% endif %}
+        {{ pg.contagem(pag_sobressalentes, "pacotes", sob_total) }}
+        {% if pag_sobressalentes.itens %}
+        <div class="sob-barra" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 10px;">
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-etiquetas-sob" disabled
+                    onclick="imprimirEtiquetasSob()">{{ ic.svg('impressao', 14) }} Imprimir etiquetas selecionadas (<span id="qtd-sel-sob">0</span>)</button>
+            <span style="font-size:12px;color:var(--text-muted-2);">Marque um ou mais pacotes. A etiqueta gerada fica no histórico de cada um.</span>
+        </div>
+        <div style="overflow-x:auto;">
+        <table id="tabela-sobressalentes">
+            <thead>
+                <tr>
+                    <th style="width:30px;text-align:center;">
+                        <input type="checkbox" id="marcar-todos-sob" onchange="marcarTodosSob(this)"
+                               title="Marcar todos os pacotes desta página">
+                    </th>
+                    <th>Pacote</th>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Nome</th>
+                    <th>Itens</th>
+                    <th style="text-align:right;">Unidades</th>
+                    <th>Criado por</th>
+                    <th></th>
+                </tr>
+            </thead>
             <tbody>
-            {% for pk in sobressalente_pacotes %}
+            {% for pk in pag_sobressalentes.itens %}
             <tr>
-                <td style="white-space:nowrap;"><a href="/sobressalente/{{ pk.id }}"><strong>{{ pk.rotulo }}</strong></a></td>
-                <td style="white-space:nowrap;font-size:12px;">{{ pk.criado_em[:16] }}</td>
-                <td>{{ pk.nome or '—' }}</td>
-                <td>{{ pk.total_itens }}</td>
-                <td>{{ pk.total_unidades }}</td>
-                <td>{{ pk.criado_por_nome or '—' }}</td>
+                <td style="text-align:center;"><input type="checkbox" class="chk-sob" value="{{ pk.id }}" onchange="atualizarSelSob()"></td>
                 <td style="white-space:nowrap;">
-                    <a href="/sobressalente/{{ pk.id }}" class="btn btn-sm btn-secondary">Ver conteúdo</a>
-                    <a href="/admin/sobressalente/{{ pk.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary">{{ ic.svg('impressao', 13) }} Etiqueta</a>
+                    <a href="#" onclick="abrirPainelSobressalente({{ pk.id }}, '{{ pk.rotulo }}');return false;"
+                       title="Ver o que tem dentro"><strong>{{ pk.rotulo }}</strong></a>
+                </td>
+                <td style="white-space:nowrap;font-size:12px;">{{ pk.criado_em[:16] }}</td>
+                <td><span style="color:{{ cor_do_cliente(pk.cliente) }};font-weight:700;">{{ pk.cliente }}</span></td>
+                <td>{{ pk.nome or '—' }}</td>
+                <td style="font-size:12.5px;color:var(--text-muted);max-width:340px;">
+                    {{ pk.itens_texto if pk.itens_texto | length <= 70 else pk.itens_texto[:70] ~ '…' }}
+                </td>
+                <td style="text-align:right;">{{ pk.total_unidades }}</td>
+                <td style="font-size:12px;">{{ pk.criado_por_nome or '—' }}</td>
+                <td style="white-space:nowrap;">
+                    <a href="/admin/sobressalente/{{ pk.id }}/etiqueta" target="_blank" class="btn btn-sm btn-secondary"
+                       title="Gerar a etiqueta deste pacote">{{ ic.svg('impressao', 13) }}</a>
                 </td>
             </tr>
             {% endfor %}
             </tbody>
         </table>
         </div>
-        {% else %}
-        <p style="color:var(--text-muted-2);padding:8px 0 18px;">Nenhum pacote montado pra {{ sobressalente_cliente }} nesse período.</p>
-        {% endif %}
-
-        <h3 style="font-size:14px;margin-bottom:8px;">Itens Enviados pra {{ sobressalente_cliente }} ({{ sobressalente_itens_enviados | length }})</h3>
-        {% if sobressalente_itens_enviados %}
-        <div style="overflow-x:auto;">
-        <table>
-            <thead>
-                <tr><th>Data</th><th>Pacote</th><th>Código</th><th>Nome</th><th>Quantidade</th><th>Enviado Por</th><th>Observação</th></tr>
-            </thead>
-            <tbody>
-            {% for r in sobressalente_itens_enviados %}
-            <tr>
-                <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
-                <td style="white-space:nowrap;font-size:12px;">{% if r.pacote_id %}<a href="/sobressalente/{{ r.pacote_id }}">{{ r.pacote_rotulo }}</a>{% else %}—{% endif %}</td>
-                <td style="font-family:monospace;font-size:12px;">{{ r.codigo_barra }}</td>
-                <td><strong>{{ r.tipo_nome }}</strong></td>
-                <td>{{ r.quantidade }}</td>
-                <td>{{ r.operador_nome or '—' }}</td>
-                <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
-            </tr>
+        {% if pag_sobressalentes.total_paginas > 1 %}
+        <div class="paginacao">
+            <span class="paginacao-info">página {{ pag_sobressalentes.pagina }} de {{ pag_sobressalentes.total_paginas }}</span>
+            {% for p in pag_sobressalentes.paginas_visiveis %}
+                {% if p is none %}<span class="paginacao-ellipsis">…</span>
+                {% else %}
+                <a href="/admin/items?tab=sobressalentes&{{ qs_sob }}sob_pagina={{ p }}"
+                   class="btn btn-sm {{ 'btn-primary' if p == pag_sobressalentes.pagina else 'btn-secondary' }}">{{ p }}</a>
+                {% endif %}
             {% endfor %}
-            </tbody>
-        </table>
         </div>
-        {% else %}
-        <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhum sobressalente enviado pra {{ sobressalente_cliente }} nesse período.</p>
         {% endif %}
         {% else %}
-        <p style="color:var(--text-muted-2);text-align:center;padding:24px;">Selecione um cliente acima pra ver e registrar envios.</p>
+        <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
+            {{ 'Nenhum pacote encontrado com esses filtros.' if sob_tem_filtro else 'Nenhum pacote montado ainda. Use “Montar novo pacote” acima.' }}
+        </p>
         {% endif %}
+        </div>{# /bloco-sobressalentes #}
+
+        <details style="margin-top:20px;">
+            <summary style="cursor:pointer;font-weight:700;font-size:14px;">
+                Baixas de estoque por item ({{ sobressalente_itens_enviados | length }}) — inclui envios anteriores aos pacotes
+            </summary>
+            {% if sobressalente_itens_enviados %}
+            <div style="overflow-x:auto;margin-top:10px;">
+            <table>
+                <thead><tr><th>Data</th><th>Pacote</th><th>Cliente</th><th>Código</th><th>Nome</th><th>Quantidade</th><th>Enviado Por</th><th>Observação</th></tr></thead>
+                <tbody>
+                {% for r in sobressalente_itens_enviados %}
+                <tr>
+                    <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
+                    <td style="white-space:nowrap;font-size:12px;">{% if r.pacote_id %}<a href="#" onclick="abrirPainelSobressalente({{ r.pacote_id }}, '{{ r.pacote_rotulo }}');return false;">{{ r.pacote_rotulo }}</a>{% else %}—{% endif %}</td>
+                    <td>{{ r.cliente or '—' }}</td>
+                    <td style="font-family:monospace;font-size:12px;">{{ r.codigo_barra }}</td>
+                    <td><strong>{{ r.tipo_nome }}</strong></td>
+                    <td>{{ r.quantidade }}</td>
+                    <td>{{ r.operador_nome or '—' }}</td>
+                    <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted-2);text-align:center;padding:16px;">Nenhuma baixa no período.</p>
+            {% endif %}
+        </details>
     </div>
 </div>
 
@@ -1210,6 +1271,30 @@ function atualizarLinhasSobressalente() {
 }
 
 if (document.getElementById('linhas-sobressalente')) addLinhaSobressalente();
+
+// ── Sobressalentes: seleção de pacotes pra imprimir etiquetas ─────────────
+function marcarTodosSob(chefe) {
+    document.querySelectorAll('.chk-sob').forEach(c => { c.checked = chefe.checked; });
+    atualizarSelSob();
+}
+function atualizarSelSob() {
+    const marcados = document.querySelectorAll('.chk-sob:checked').length;
+    const btn = document.getElementById('btn-etiquetas-sob');
+    if (btn) btn.disabled = marcados === 0;
+    const n = document.getElementById('qtd-sel-sob');
+    if (n) n.textContent = marcados;
+    const chefe = document.getElementById('marcar-todos-sob');
+    if (chefe) {
+        const total = document.querySelectorAll('.chk-sob').length;
+        chefe.checked = total > 0 && marcados === total;
+        chefe.indeterminate = marcados > 0 && marcados < total;
+    }
+}
+function imprimirEtiquetasSob() {
+    const ids = [...document.querySelectorAll('.chk-sob:checked')].map(c => c.value);
+    if (!ids.length) return;
+    window.open('/admin/sobressalente/etiquetas?ids=' + ids.join(','), '_blank');
+}
 
 function abrirImportarAjuste() {
     const b = document.getElementById('bloco-importar-ajuste');

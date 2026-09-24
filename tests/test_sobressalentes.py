@@ -96,3 +96,25 @@ def test_leitor_resolve_url_rotulo_e_numero(cenario):
     assert main._resolver_sobressalente_id("SOB-9999") is None
     assert main._resolver_sobressalente_id("banana") is None
     assert main._resolver_sobressalente_id("") is None
+
+
+def test_lista_filtra_por_varios_clientes_e_traz_resumo_dos_itens(cenario):
+    a = sob.criar([{"estoque_id": 1, "quantidade": 2}, {"estoque_id": 2, "quantidade": 1}], "CliA", cenario, nome="Sul")
+    b = sob.criar([{"estoque_id": 1, "quantidade": 1}], "CliB", cenario)
+    c = sob.criar([{"estoque_id": 1, "quantidade": 1}], "CliC", cenario)
+    todos = sob.listar()
+    assert [p["id"] for p in todos] == [c, b, a]              # mais recente primeiro
+    dois = sob.listar(["CliA", "CliB"])
+    assert {p["id"] for p in dois} == {a, b}
+    assert sob.listar("CliC")[0]["id"] == c                   # texto solto continua valendo
+    pa = [p for p in todos if p["id"] == a][0]
+    assert pa["total_unidades"] == 3 and pa["total_itens"] == 2
+    assert "Antena ×2" in pa["itens_texto"] and "Cabo ×1" in pa["itens_texto"]
+    assert set(sob.clientes_com_pacote()) == {"CliA", "CliB", "CliC"}
+
+
+def test_etiquetas_em_lote_uma_por_folha():
+    html = zpl.generate_sobressalente_html_labels_lote(
+        [{"rotulo": f"SOB-000{n}", "url_qr": f"http://x/sobressalente/{n}"} for n in (1, 2, 3)])
+    assert html.count('class="folha"') == 3 and "page-break-after: always" in html
+    assert all(f"SOB-000{n}" in html for n in (1, 2, 3))

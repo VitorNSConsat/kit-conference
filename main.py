@@ -1460,12 +1460,13 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 ABAS_ITENS = ("catalogo", "novo", "patrimonios", "codigos", "sobressalentes")
 
 
-def _admin_items_context(sobressalente_cliente: str = "",
+def _admin_items_context(sobressalente_cliente="",
                          sobressalente_data_ini: str = "",
                          sobressalente_data_fim: str = "",
                          patrimonio_veiculo_id: int | None = None,
                          patrimonio_pagina: int = 1,
                          codigos_pagina: int = 1,
+                         sobressalente_pagina: int = 1,
                          tab: str = "",
                          patrimonio_situacao: str = "",
                          busca: str = "",
@@ -1511,6 +1512,8 @@ def _admin_items_context(sobressalente_cliente: str = "",
         "clientes": [],
         "status_compra_opcoes": estoque_mod.STATUS_COMPRA,
         "sobressalente_cliente": sobressalente_cliente,
+        "sob_clientes": filtros_mod.lista(
+            sobressalente_cliente if isinstance(sobressalente_cliente, (list, tuple)) else [sobressalente_cliente]),
         "sobressalente_data_ini": sobressalente_data_ini,
         "sobressalente_data_fim": sobressalente_data_fim,
         "sobressalente_itens_enviados": [],
@@ -1608,22 +1611,31 @@ def _admin_items_context(sobressalente_cliente: str = "",
 
     elif aba == "sobressalentes":
         ctx["clientes"] = clientes_mod.listar()
-        # A lista de itens e os envios só aparecem depois de escolher o
-        # cliente — antes disso não há o que consultar.
-        if sobressalente_cliente:
-            ctx["estoque_itens"] = estoque_mod.listar_estoque()
-            ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
-                sobressalente_data_ini, sobressalente_data_fim, sobressalente_cliente
-            )
-            ctx["sobressalente_pacotes"] = sobressalentes_mod.listar(
-                sobressalente_cliente, sobressalente_data_ini, sobressalente_data_fim)
+        # Igual a Veículos e Clientes: a lista de pacotes aparece sempre (todos os
+        # clientes), com busca ao vivo, filtro de cliente e período, seleção
+        # múltipla pra imprimir etiquetas e paginação. O formulário de novo pacote
+        # escolhe o cliente na hora.
+        ctx["estoque_itens"] = estoque_mod.listar_estoque()
+        pacotes = sobressalentes_mod.listar(
+            ctx["sob_clientes"], sobressalente_data_ini, sobressalente_data_fim)
+        ctx["sob_total"] = len(pacotes)
+        pacotes = paginacao_mod.filtrar(
+            pacotes, busca, ("rotulo", "nome", "cliente", "criado_por_nome", "itens_texto"))
+        ctx["pag_sobressalentes"] = paginacao_mod.paginar(pacotes, sobressalente_pagina)
+        ctx["sob_clientes_opcoes"] = sobressalentes_mod.clientes_com_pacote()
+        ctx["sob_tem_filtro"] = bool(busca or ctx["sob_clientes"] or sobressalente_data_ini
+                                     or sobressalente_data_fim)
+        ctx["sobressalente_itens_enviados"] = estoque_mod.listar_sobressalentes(
+            sobressalente_data_ini, sobressalente_data_fim, ctx["sob_clientes"])
     return ctx
 
 
 @app.get("/admin/items", response_class=HTMLResponse)
 @require_login
-async def admin_items(request: Request, cliente: str = "", data_ini: str = "", data_fim: str = "",
+async def admin_items(request: Request, cliente: list[str] = Query(default=[]),
+                      data_ini: str = "", data_fim: str = "",
                       veiculo_id: str = "", pagina: int = 1, codigos_pagina: int = 1,
+                      sob_pagina: int = 1,
                       tab: str = "", busca: str = "",
                       q_min: str = "", q_max: str = "",
                       situacao: list[str] = Query(default=[]),
@@ -1633,6 +1645,7 @@ async def admin_items(request: Request, cliente: str = "", data_ini: str = "", d
         patrimonio_veiculo_id=int(veiculo_id) if veiculo_id.isdigit() else None,
         patrimonio_pagina=pagina,
         codigos_pagina=codigos_pagina,
+        sobressalente_pagina=sob_pagina,
         tab=tab,
         patrimonio_situacao=situacao,
         busca=busca,
@@ -5198,7 +5211,7 @@ async def admin_sobressalente_enviar(request: Request):
     user = get_current_user(request)
     form = await request.form()
     cliente = str(form.get("cliente", "")).strip()
-    destino = f"/admin/items?tab=sobressalentes&cliente={quote(cliente)}"
+    destino = "/admin/items?tab=sobressalentes"
 
     ids = form.getlist("estoque_id")
     qtds = form.getlist("quantidade")
@@ -5268,9 +5281,42 @@ async def sobressalente_pacote(request: Request, pacote_id: int):
     return render(request, "sobressalente_pacote.html", {
         "pacote": pacote,
         "voltar_para": _voltar_para(
-            request, f"/admin/items?tab=sobressalentes&cliente={quote(pacote['cliente'])}"),
+            request, "/admin/items?tab=sobressalentes"),
         "ok": request.query_params.get("ok", ""),
     })
+
+
+@app.get("/admin/sobressalente/{pacote_id:int}/painel", response_class=HTMLResponse)
+@require_login
+async def admin_sobressalente_painel(request: Request, pacote_id: int):
+    """Resumo do pacote na janela (mesmo mecanismo do painel do veículo/pedido): o que tem
+    dentro, o histórico e a etiqueta. Aberto pelo rótulo na lista da aba Sobressalentes."""
+    pacote = sobressalentes_mod.buscar(pacote_id)
+    if not pacote:
+        return HTMLResponse("<p class='pat-ajuda'>Pacote não encontrado.</p>", status_code=404)
+    return render(request, "_painel_sobressalente.html", {"pacote": pacote})
+
+
+@app.get("/admin/sobressalente/etiquetas", response_class=HTMLResponse)
+@require_login
+async def admin_sobressalente_etiquetas_lote(request: Request, ids: str = ""):
+    """Etiquetas de vários pacotes de uma vez (uma por folha) — as marcadas na lista.
+    Cada geração fica no histórico do pacote."""
+    user = get_current_user(request)
+    pacotes = []
+    for x in ids.split(","):
+        if x.strip().isdigit():
+            p = sobressalentes_mod.buscar(int(x))
+            if p:
+                pacotes.append(p)
+    if not pacotes:
+        raise HTTPException(status_code=404)
+    base = getattr(app.state, "servidor_url", zpl_mod.SERVIDOR_URL)
+    html = zpl_mod.generate_sobressalente_html_labels_lote(
+        [{"rotulo": p["rotulo"], "url_qr": f"{base}/sobressalente/{p['id']}"} for p in pacotes])
+    for p in pacotes:
+        sobressalentes_mod.registrar_etiqueta(p["id"], user["id"])
+    return HTMLResponse(content=html)
 
 
 @app.get("/admin/sobressalente/{pacote_id:int}/etiqueta", response_class=HTMLResponse)
