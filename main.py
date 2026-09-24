@@ -1518,6 +1518,13 @@ def _admin_items_context(sobressalente_cliente="",
         "sobressalente_data_fim": sobressalente_data_fim,
         "sobressalente_itens_enviados": [],
         "sobressalente_pacotes": [],
+        # A aba Sobressalentes é renderizada (escondida) em TODAS as abas de Itens &
+        # Estoque; sem estes padrões a página inteira dava erro fora dela.
+        "pag_sobressalentes": paginacao_mod.paginar([], 1),
+        "sob_total": 0,
+        "sob_clientes_opcoes": [],
+        "sob_tem_filtro": False,
+        "estoque_itens": [],
     }
 
     if aba == "patrimonios":
