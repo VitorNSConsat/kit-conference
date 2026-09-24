@@ -7,14 +7,27 @@ celulares e acesso externo usam o endereço público do Cloudflare Tunnel
 
 ## Scripts (PowerShell como Administrador)
 
+A aplicação roda **somente como Serviço do Windows** (`KitConference`, via NSSM),
+sem Tarefa Agendada e sem depender de login, terminal, `.bat` ou Python manual:
+
+    Windows → Serviço KitConference → python.exe run.py → aplicação
+
 | O que fazer | Comando |
 |---|---|
 | Instalar / reinstalar o serviço | `powershell -ExecutionPolicy Bypass -File .\deploy\instalar_servico.ps1` |
-| Atualizar (git pull + dependências + reinício + teste) | `powershell -ExecutionPolicy Bypass -File .\deploy\atualizar_servico.ps1` |
-| Remover o serviço (não apaga banco/arquivos) | `powershell -ExecutionPolicy Bypass -File .\deploy\remover_servico.ps1` |
+| Conferir (`-Ciclo` também para/inicia/reinicia) | `powershell -ExecutionPolicy Bypass -File .\deployalidar_servico.ps1 -Ciclo` |
+| Atualizar (git pull + dependências + reinício + teste) | `powershell -ExecutionPolicy Bypass -File .\deploytualizar_servico.ps1` |
+| Remover o serviço (não apaga banco/arquivos) | `powershell -ExecutionPolicy Bypass -File .\deploy\desinstalar_servico.ps1` |
 
-Rotina de atualização: o `atualizar_servico.ps1` faz o `git pull`, instala as
-dependências, reinicia e confere `http://localhost:8080/ping`.
+O instalador acha o Python (usa `.venv` se existir), instala o NSSM se preciso (em
+`C:\Program Files
+ssm`), remove a Tarefa Agendada antiga do app (se houver), **desativa**
+sem apagar qualquer outra tarefa que aponte para esta pasta e mantém a
+`PORTAL_SERVICE_KEY` que o serviço já tinha.
+
+Teste do boot (manual, uma vez): reinicie o Windows **sem fazer login** e, de outro
+computador, abra `http://IP-DO-SERVIDOR:8080`. O `start.bat` fica só para rodar
+manualmente em desenvolvimento.
 
 ## Operação do dia a dia
 

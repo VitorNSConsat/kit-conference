@@ -83,3 +83,15 @@ def test_etiqueta_html_so_tem_qr_e_rotulo():
     html = zpl.generate_sobressalente_html_label("SOB-0001", "http://x/sobressalente/1")
     assert "SOB-0001" in html and ("<svg" in html or "<img" in html)
     assert "SOBRESSALENTES" not in html and "sb-itens" not in html
+
+
+def test_leitor_resolve_url_rotulo_e_numero(cenario):
+    import main
+    pid = sob.criar([{"estoque_id": 1, "quantidade": 1}], "REDEMOB", cenario)
+    assert main._resolver_sobressalente_id(f"http://x/sobressalente/{pid}") == pid
+    assert main._resolver_sobressalente_id(f"SOB-{pid:04d}") == pid
+    assert main._resolver_sobressalente_id(f" sob-{pid} ") == pid
+    assert main._resolver_sobressalente_id(str(pid)) == pid
+    assert main._resolver_sobressalente_id("SOB-9999") is None
+    assert main._resolver_sobressalente_id("banana") is None
+    assert main._resolver_sobressalente_id("") is None

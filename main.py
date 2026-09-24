@@ -5221,6 +5221,37 @@ async def admin_sobressalente_enviar(request: Request):
 # pacote é informação interna). Fica liberada no portão de mobile
 # (_MOBILE_OK_PREFIX) pra a leitura pelo celular abrir direto aqui.
 
+_RE_SOBRESSALENTE_ID = re.compile(r'/sobressalente/(\d+)')
+
+
+def _resolver_sobressalente_id(texto: str) -> int | None:
+    """Resolve o texto lido (URL do QR da etiqueta, o rótulo SOB-0007 ou só o
+    número) pro id do pacote, ou None se não achar — mesmo papel de
+    _resolver_hardware_id()/_resolver_kit_id() pro leitor do /mobile."""
+    texto = (texto or "").strip()
+    if not texto:
+        return None
+    m = _RE_SOBRESSALENTE_ID.search(texto) or re.fullmatch(r'(?i)\s*(?:sob-)?0*(\d+)\s*', texto)
+    if not m:
+        return None
+    try:
+        pacote_id = int(m.group(1))
+    except ValueError:
+        return None
+    return pacote_id if sobressalentes_mod.buscar(pacote_id) else None
+
+
+@app.get("/sobressalente/buscar")
+@require_login
+async def sobressalente_buscar(request: Request, codigo: str = ""):
+    """Usado pelo leitor "Ler Sobressalentes" do /mobile. Exige login como a
+    própria consulta do pacote (o conteúdo é interno)."""
+    pacote_id = _resolver_sobressalente_id(codigo)
+    if not pacote_id:
+        return RedirectResponse("/mobile?erro=sobressalente_nao_encontrado", status_code=302)
+    return RedirectResponse(f"/sobressalente/{pacote_id}", status_code=302)
+
+
 @app.get("/sobressalente/{pacote_id:int}", response_class=HTMLResponse)
 @require_login
 async def sobressalente_pacote(request: Request, pacote_id: int):
@@ -5229,7 +5260,8 @@ async def sobressalente_pacote(request: Request, pacote_id: int):
         raise HTTPException(status_code=404)
     return render(request, "sobressalente_pacote.html", {
         "pacote": pacote,
-        "voltar_para": (f"/admin/items?tab=sobressalentes&cliente={quote(pacote['cliente'])}"),
+        "voltar_para": _voltar_para(
+            request, f"/admin/items?tab=sobressalentes&cliente={quote(pacote['cliente'])}"),
         "ok": request.query_params.get("ok", ""),
     })
 
@@ -6535,6 +6567,9 @@ async def hardware_qr(request: Request, ocorrencia_id: int):
         raise HTTPException(status_code=404)
     return render(request, "hardware_qr.html", {
         "o": o,
+        # Mesmo "← Voltar" das páginas de kit e de estoque: depois de ler o QR
+        # no celular, a pessoa precisa conseguir voltar pro leitor.
+        "voltar_para": _voltar_para(request, "/mobile"),
         "anexos_total": len(hardware_mod.listar_anexos(ocorrencia_id)),
         "area_texto": hardware_mod.AREA_TEXTO,
         "eventos_area": {area: hardware_mod.listar_eventos_area(ocorrencia_id, area)

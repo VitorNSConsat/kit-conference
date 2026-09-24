@@ -249,6 +249,8 @@
   <div class="alert-danger">Kit não encontrado.</div>
   {% elif request.query_params.get('erro') == 'hardware_nao_encontrado' %}
   <div class="alert-danger">RMA não encontrado.</div>
+  {% elif request.query_params.get('erro') == 'sobressalente_nao_encontrado' %}
+  <div class="alert-danger">Pacote de sobressalentes não encontrado.</div>
   {% endif %}
 
   {% if user %}
@@ -339,6 +341,14 @@
       <div class="qb-icon">{{ ic.svg('kits', 24) }}</div>
       <div class="qb-label">Consultar Kit</div>
     </button>
+    {% if pode('ver_itens') %}
+    {# Lê a etiqueta do pacote de sobressalentes (SOB-000X) com a mesma câmera
+       dos outros leitores e abre o que tem dentro. #}
+    <button type="button" class="quick-btn" onclick="abrirConsultaSobressalente()">
+      <div class="qb-icon">{{ ic.svg('camera', 24) }}</div>
+      <div class="qb-label">Ler Sobressalentes</div>
+    </button>
+    {% endif %}
     {% if pode('ver_hardware') %}
     {# Lista simplificada de RMAs (a de computador é pesada demais pro
        celular) -- cada linha já abre a mesma consulta que o QR da
@@ -407,17 +417,19 @@
     ];
 
     let _stream = null, _zxingTimer = null, _loop = null, _detector = null, _token = 0;
-    let _destino = 'estoque'; // 'estoque' | 'kit' | 'hardware' — para onde o código lido deve navegar
+    let _destino = 'estoque'; // 'estoque' | 'kit' | 'hardware' | 'sobressalente' — para onde o código lido deve navegar
 
     function _urlBusca(codigo) {
         const base = _destino === 'kit' ? '/kit/buscar'
                     : _destino === 'hardware' ? '/hardware/buscar'
+                    : _destino === 'sobressalente' ? '/sobressalente/buscar'
                     : '/estoque/buscar';
         return base + '?codigo=' + encodeURIComponent(codigo);
     }
 
     function _textoAlvo() {
-        return _destino === 'kit' ? 'do kit' : _destino === 'hardware' ? 'do RMA' : 'do item';
+        return _destino === 'kit' ? 'do kit' : _destino === 'hardware' ? 'do RMA'
+             : _destino === 'sobressalente' ? 'do pacote' : 'do item';
     }
 
     // Inicializa BarcodeDetector nativo (Android Chrome) — quando disponível,
@@ -457,6 +469,7 @@
     window.abrirConsultaEstoque = function () { _abrirScanner('estoque'); };
     window.abrirConsultaKit     = function () { _abrirScanner('kit'); };
     window.abrirConsultaRMA     = function () { _abrirScanner('hardware'); };
+    window.abrirConsultaSobressalente = function () { _abrirScanner('sobressalente'); };
 
     async function _abrirScanner(destino) {
         _destino = destino;

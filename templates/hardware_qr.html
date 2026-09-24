@@ -27,6 +27,18 @@
     z-index: 10;
     box-shadow: 0 2px 8px rgba(0,0,0,.25);
   }
+  .btn-voltar-topo {
+    display: inline-block;
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .btn-voltar-topo:active { background: rgba(255,255,255,.3); }
   .header .rotulo-sub {
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     letter-spacing: 1.5px; opacity: .7;
@@ -152,6 +164,7 @@
 <body>
 
 <div class="header">
+  <a href="{{ voltar_para }}" class="btn-voltar-topo">{{ ic.svg('voltar', 13) }} Voltar</a>
   <div class="rotulo-sub">Hardware / RMA</div>
   <h1>{{ o.produto_exibido or '—' }}</h1>
   <div class="subtitulo">{{ o.rotulo }}{% if o.cliente %} &nbsp;·&nbsp; {{ o.cliente }}{% endif %}</div>
