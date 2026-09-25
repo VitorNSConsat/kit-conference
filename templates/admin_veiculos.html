@@ -2,6 +2,48 @@
 {% import "_paginacao.html" as pg %}
 {% import "_filtros.html" as f %}
 {% import "_icones.html" as ic %}
+
+{# Filtro por coluna: clicar no NOME da coluna abre um painel pequeno com as opções
+   daquela coluna. Os campos pertencem ao formulário da busca (atributo form=), então
+   busca, filtros, ordenação e paginação andam sempre juntos. Coluna filtrada fica
+   marcada no cabeçalho. #}
+{% macro th_filtro(chave, rotulo, estilo='') %}
+<th class="th-filtro-cel" style="{{ estilo }}">
+  <details class="th-filtro {{ 'ativo' if col_ativa[chave] }}" data-thf>
+    <summary title="Filtrar por {{ rotulo }}">{{ rotulo }}<span class="th-filtro-ic">{{ ic.svg('filtro', 11) }}</span></summary>
+    <div class="th-filtro-painel">
+      {{ caller() }}
+      <div class="th-filtro-acoes">
+        <button type="submit" form="form-filtros-veiculos" class="btn btn-sm btn-primary">{{ ic.svg('check', 12) }} Aplicar</button>
+        {% if col_ativa[chave] %}<a href="{{ limpar_col[chave] }}" class="btn btn-sm btn-ghost">Limpar</a>{% endif %}
+      </div>
+    </div>
+  </details>
+</th>
+{% endmacro %}
+
+{% macro thf_opcoes(nome, pares, marcados, com_busca=true) %}
+{% if com_busca and pares | length > 8 %}
+<input type="text" class="thf-busca" placeholder="Procurar..." autocomplete="off"
+       oninput="filtrarLista(this)" data-filtro-alvo="#thf-{{ nome }} label">
+{% endif %}
+<div class="thf-lista" id="thf-{{ nome }}">
+  {% for o in pares %}
+  {% set valor = o if o is string else o[0] %}{% set texto = o if o is string else o[1] %}
+  <label><input type="checkbox" name="{{ nome }}" value="{{ valor }}" form="form-filtros-veiculos"
+                {{ 'checked' if valor in marcados }}> {{ texto }}</label>
+  {% else %}
+  <p class="thf-vazio">Nada pra escolher.</p>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro thf_periodo(ini_nome, ini, fim_nome, fim) %}
+<div class="thf-periodo">
+  <label>de <input type="date" name="{{ ini_nome }}" value="{{ ini }}" form="form-filtros-veiculos"></label>
+  <label>até <input type="date" name="{{ fim_nome }}" value="{{ fim }}" form="form-filtros-veiculos"></label>
+</div>
+{% endmacro %}
 {% block title %}Veículos e Clientes{% endblock %}
 {% block acoes_topo %}
 <button type="button" class="btn btn-primary btn-sm" onclick="abrirListaCadastro('veiculo')">
@@ -370,78 +412,38 @@
     {% endif %}
   </div>
 
-  <!-- Busca e filtros separados: a busca é um campo só (e ao vivo — filtra
-       enquanto digita, em todas as páginas); os filtros são os selects. -->
+  <!-- Busca ao vivo (varre todas as páginas). Os filtros ficam nas colunas:
+       clique no nome de uma coluna pra filtrar por ela. -->
   <form method="get" action="/admin/veiculos" id="form-filtros-veiculos"
-        data-busca-viva="#bloco-veiculos,#badge-exibindo,#btn-limpar-filtros">
+        data-busca-viva="#bloco-veiculos,#badge-exibindo,#btn-limpar-filtros" data-limpa-vazios>
     <div class="filtros-linha">
       <span class="filtros-rotulo">{{ ic.svg('busca', 13) }} Busca</span>
       <input type="text" name="busca" id="busca-veiculos" value="{{ busca }}"
              autocomplete="off" style="flex:1;min-width:220px;margin:0;"
              placeholder="Número, cliente, garagem, kit, localização ou patrimônio bipado...">
-    </div>
-    <div class="filtros-linha">
-      <span class="filtros-rotulo">{{ ic.svg('filtro', 13) }} Filtros</span>
-      {# Filtros de múltipla escolha: duas garagens, três situações — as
-         opções do MESMO filtro somam, e filtros diferentes se cruzam. #}
-      {{ f.multi('cliente', 'Cliente', clientes, filtro_cliente, 'todos') }}
-      {# Garagem como filtro próprio: pela busca livre "GARAGEM 1" trazia
-         junto a "GARAGEM 10"; aqui a comparação é pelo nome inteiro. #}
-      {{ f.multi('garagem', 'Garagem',
-                 (garagens_cadastradas | map(attribute='nome') | list) + [('__sem__', '— sem garagem —')],
-                 filtro_garagem, 'todas') }}
-      {{ f.multi('modelo', 'Modelo (kit)', modelos, filtro_modelo, 'todos') }}
-      {{ f.multi('situacao', 'Situação', [
-           ('a_produzir', 'Galpão — A produzir'),
-           ('em_producao', 'Galpão — Em produção'),
-           ('produzido', 'Galpão — Produzido'),
-           ('transito', 'Em trânsito'),
-           ('cliente', 'Cliente'),
-           ('sem_localizacao', '— não configurado'),
-           ('sem_modelo', 'Sem modelo'),
-           ('sem_garagem', 'Sem garagem'),
-           ('sem_kits', 'Nunca recebeu kit'),
-           ('com_kits', 'Já recebeu kit'),
-           ('falta_item', 'Kit faltando item'),
-         ], filtro_situacao, 'todas') }}
-      <noscript><button type="submit" class="btn btn-sm btn-primary">Aplicar</button></noscript>
-      <a href="/admin/veiculos" class="btn btn-sm btn-ghost" id="btn-limpar-filtros"
-         style="{{ '' if tem_filtro else 'display:none;' }}">{{ ic.svg('fechar', 13) }} Limpar</a>
-    </div>
-    {# Período de IMPORTAÇÃO: "quem entrou no sistema entre tal e tal dia".
-       Um dia só = as duas datas iguais. É o filtro que transforma uma
-       importação inteira num lote de trabalho. #}
-    <div class="filtros-linha">
-      <span class="filtros-rotulo">{{ ic.svg('calendario', 13) }} Importado</span>
-      <label style="font-size:12px;color:var(--text-muted-2);">de</label>
-      <input type="date" name="imp_ini" value="{{ imp_ini }}" style="width:160px;margin:0;"
-             onchange="this.form.submit()">
-      <label style="font-size:12px;color:var(--text-muted-2);">até</label>
-      <input type="date" name="imp_fim" value="{{ imp_fim }}" style="width:160px;margin:0;"
-             onchange="this.form.submit()">
       <input type="hidden" name="ordem" value="{{ ordem }}">
-      {% if imp_ini or imp_fim %}
-      <span style="font-size:12px;color:var(--text-muted-2);">
-        {{ pag_veiculos.total }} veículo(s) neste período —
-        dá pra levar todos pra uma remessa em
-        <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">Remessas</a>.
-      </span>
-      {% endif %}
+      <a href="/admin/veiculos" class="btn btn-sm btn-ghost" id="btn-limpar-filtros"
+         style="{{ '' if tem_filtro else 'display:none;' }}">{{ ic.svg('fechar', 13) }} Limpar tudo</a>
     </div>
+    <p class="thf-dica">{{ ic.svg('filtro', 12) }} Para filtrar, clique no <strong>nome da coluna</strong> na tabela.</p>
   </form>
 
-  {# Base pra o link de ordenar não perder os filtros ativos. #}
-  {%- set qs_base -%}
-    {% if busca %}busca={{ busca | urlencode }}&{% endif %}
-    {%- for c in filtro_cliente %}cliente={{ c | urlencode }}&{% endfor -%}
-    {%- for g in filtro_garagem %}garagem={{ g | urlencode }}&{% endfor -%}
-    {%- for m in filtro_modelo %}modelo={{ m | urlencode }}&{% endfor -%}
-    {%- for s in filtro_situacao %}situacao={{ s | urlencode }}&{% endfor -%}
-    {%- if imp_ini %}imp_ini={{ imp_ini }}&{% endif -%}
-    {%- if imp_fim %}imp_fim={{ imp_fim }}&{% endif -%}
-  {%- endset %}
-
   <div id="bloco-veiculos">
+  {% if chips_veiculos %}
+  <div class="thf-chips">
+    <span class="thf-chips-rotulo">Filtros ativos:</span>
+    {% for c in chips_veiculos %}
+    <a href="{{ c.url }}" class="thf-chip" title="Tirar este filtro">{{ c.rotulo }} <span aria-hidden="true">×</span></a>
+    {% endfor %}
+    <a href="/admin/veiculos" class="thf-chip-limpar">Limpar tudo</a>
+  </div>
+  {% endif %}
+  {% if imp_ini or imp_fim %}
+  <p style="font-size:12px;color:var(--text-muted-2);margin:0 0 8px;">
+    {{ pag_veiculos.total }} veículo(s) importado(s) neste período — dá pra levar todos pra uma remessa em
+    <a href="/admin/producao/remessas?imp_ini={{ imp_ini }}&imp_fim={{ imp_fim }}">Remessas</a>.
+  </p>
+  {% endif %}
   {% if busca %}
   <p class="busca-resultado">
     Busca em todas as páginas por <strong>{{ busca }}</strong>, incluindo patrimônios bipados
@@ -464,23 +466,45 @@
                  title="Marcar todos os veículos desta página">
         </th>
         {% endif %}
-        <th>Número</th>
-        <th>Cliente</th>
-        <th>Garagem</th>
-        <th>Modelo (kit)</th>
-        <th>Localização atual</th>
-        {# Data de IMPORTAÇÃO — quando o veículo entrou no sistema. Clicar no
-           título ordena; é o gesto que o operador já espera de uma coluna de
-           data, e evita mais um controle na barra de filtros. #}
-        <th style="white-space:nowrap;">
-          <a href="?{{ qs_base }}ordem={{ 'importado_asc' if ordem == 'importado_desc' else 'importado_desc' }}"
-             style="color:inherit;text-decoration:none;" title="Ordenar pela data de importação">
-            Importado em
-            {%- if ordem == 'importado_desc' %} ▼{% elif ordem == 'importado_asc' %} ▲{% endif %}
-          </a>
-        </th>
-        <th>Kits enviados</th>
-        <th>Último envio</th>
+        {% call th_filtro('numero', 'Número') %}
+          <input type="text" name="numero" value="{{ filtro_numero }}" form="form-filtros-veiculos"
+                 placeholder="contém..." autocomplete="off" class="thf-texto">
+        {% endcall %}
+        {% call th_filtro('cliente', 'Cliente') %}
+          {{ thf_opcoes('cliente', clientes, filtro_cliente) }}
+        {% endcall %}
+        {% call th_filtro('garagem', 'Garagem') %}
+          {{ thf_opcoes('garagem', [('__sem__', '— sem garagem —')] + (garagens_cadastradas | map(attribute='nome') | list), filtro_garagem) }}
+        {% endcall %}
+        {% call th_filtro('modelo', 'Modelo (kit)') %}
+          {{ thf_opcoes('modelo', [('__sem__', '— sem modelo —')] + (modelos | list), filtro_modelo) }}
+        {% endcall %}
+        {% call th_filtro('localizacao', 'Localização atual') %}
+          {{ thf_opcoes('situacao', [
+               ('a_produzir', 'Galpão — A produzir'), ('em_producao', 'Galpão — Em produção'),
+               ('produzido', 'Galpão — Produzido'), ('transito', 'Em trânsito'), ('cliente', 'Cliente'),
+               ('sem_localizacao', '— não configurado'), ('falta_item', 'Kit faltando item')],
+             filtro_situacao, false) }}
+        {% endcall %}
+        {% call th_filtro('importado', 'Importado em', 'white-space:nowrap;') %}
+          {{ thf_periodo('imp_ini', imp_ini, 'imp_fim', imp_fim) }}
+          <div class="thf-ordem">
+            Ordenar:
+            <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=importado_desc" class="{{ 'on' if ordem == 'importado_desc' }}">mais recentes</a>
+            <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=importado_asc" class="{{ 'on' if ordem == 'importado_asc' }}">mais antigos</a>
+          </div>
+        {% endcall %}
+        {% call th_filtro('kits', 'Kits enviados') %}
+          {{ thf_opcoes('kits', [('com', 'Já recebeu kit'), ('sem', 'Nunca recebeu kit')], filtro_kits, false) }}
+        {% endcall %}
+        {% call th_filtro('ultimo', 'Último envio', 'white-space:nowrap;') %}
+          {{ thf_periodo('ult_ini', ult_ini, 'ult_fim', ult_fim) }}
+          <div class="thf-ordem">
+            Ordenar:
+            <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=ultimo_desc" class="{{ 'on' if ordem == 'ultimo_desc' }}">mais recentes</a>
+            <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=ultimo_asc" class="{{ 'on' if ordem == 'ultimo_asc' }}">mais antigos</a>
+          </div>
+        {% endcall %}
         <th></th>
       </tr>
     </thead>
@@ -590,21 +614,13 @@
   </form>
 
   {% if pag_veiculos.total_paginas > 1 %}
-  {# Cada filtro pode ter vários valores: a paginação repete o parâmetro,
-     igual o formulário faz. #}
-  {% set ns_qs = namespace(v='busca=' + (busca|urlencode)) %}
-  {% for nome, valores in [('cliente', filtro_cliente), ('garagem', filtro_garagem),
-                           ('modelo', filtro_modelo), ('situacao', filtro_situacao)] %}
-    {% for valor in valores %}{% set ns_qs.v = ns_qs.v + '&' + nome + '=' + (valor|urlencode) %}{% endfor %}
-  {% endfor %}
-  {% set qs = ns_qs.v %}
   <div class="paginacao">
     <span class="paginacao-info">página {{ pag_veiculos.pagina }} de {{ pag_veiculos.total_paginas }}</span>
     {% for p in pag_veiculos.paginas_visiveis %}
       {% if p is none %}
       <span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="/admin/veiculos?{{ qs }}&pagina={{ p }}"
+      <a href="/admin/veiculos?{{ qs_veiculos }}{{ '&' if qs_veiculos }}pagina={{ p }}"
          class="btn btn-sm {{ 'btn-primary' if p == pag_veiculos.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
@@ -689,6 +705,32 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharListaC
 // Seleção em massa: o quadradinho do topo marca/desmarca a página inteira,
 // e o botão de excluir só habilita com algo marcado — mostra a contagem
 // pra pessoa conferir antes do confirm().
+// Filtro por coluna: abre um por vez, em posição fixa (a tabela fica dentro de
+// uma área com rolagem horizontal, que cortaria o painel). Fecha com clique fora,
+// Esc ou rolagem da página.
+document.addEventListener('toggle', function (e) {
+    const d = e.target;
+    if (!d.matches || !d.matches('details[data-thf]') || !d.open) return;
+    document.querySelectorAll('details[data-thf][open]').forEach(o => { if (o !== d) o.open = false; });
+    const painel = d.querySelector('.th-filtro-painel');
+    const r = d.querySelector('summary').getBoundingClientRect();
+    painel.style.top = (r.bottom + 4) + 'px';
+    const largura = painel.offsetWidth || 260;
+    painel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - largura - 8)) + 'px';
+    const campo = painel.querySelector('input[type=text], input[type=date]');
+    if (campo) campo.focus();
+}, true);
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('details[data-thf]'))
+        document.querySelectorAll('details[data-thf][open]').forEach(d => { d.open = false; });
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('details[data-thf][open]').forEach(d => { d.open = false; });
+});
+window.addEventListener('scroll', function () {
+    document.querySelectorAll('details[data-thf][open]').forEach(d => { d.open = false; });
+}, {passive: true});
+
 function marcarTodosVeiculos(chefe) {
     document.querySelectorAll('.chk-veiculo').forEach(c => { c.checked = chefe.checked; });
     atualizarBotaoExcluir();

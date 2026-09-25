@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=58">
+    <link rel="stylesheet" href="/static/style.css?v=59">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -394,6 +394,9 @@ function ativarBuscaViva(form) {
 
     function buscar() {
         const params = new URLSearchParams(new FormData(form));
+        // data-limpa-vazios: campo vazio não vai pra URL (busca=&numero=&...).
+        if (form.hasAttribute('data-limpa-vazios'))
+            [...params.keys()].forEach(k => { if (!params.getAll(k).some(v => v !== '')) params.delete(k); });
         const base = form.getAttribute('action') || window.location.pathname;
         const url = base + (params.toString() ? '?' + params.toString() : '');
         const versao = (_versoesBusca.get(form) || 0) + 1;

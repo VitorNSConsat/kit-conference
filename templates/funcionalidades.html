@@ -767,12 +767,26 @@
     <li><span class="campo">Importado em</span> — data e hora em que o veículo
       <strong>entrou no sistema</strong>. É a data de cadastro/importação, não de produção
       nem de envio, e <strong>não muda</strong> quando alguém edita o veículo depois.
-      Clicando no título da coluna, a lista ordena por ela (mais recentes primeiro, e o
-      contrário no segundo clique).</li>
+      Ordena pelo filtro da coluna (mais recentes ou mais antigos).</li>
   </ul>
+  <h3>Filtrar pelas colunas</h3>
+  <p>
+    A <strong>busca</strong> continua no topo, ao vivo. Os filtros ficam <strong>na própria
+    tabela</strong>: clique no <strong>nome de qualquer coluna</strong> — Número, Cliente,
+    Garagem, Modelo (kit), Localização atual, Importado em, Kits enviados, Último envio — e
+    marque o que quer ver (ou digite, no caso do número; datas de/até nas colunas de data, que
+    também ordenam). Clique em <strong>Aplicar</strong>. Dá pra combinar várias colunas e a
+    busca; dentro da mesma coluna as opções somam (dois clientes = os dois).
+  </p>
+  <p>
+    Coluna filtrada fica <strong>destacada</strong> no cabeçalho, e acima da tabela aparecem
+    os <strong>filtros ativos</strong>: o <strong>×</strong> tira só aquele, e
+    <strong>Limpar tudo</strong> tira todos. Trocar de página, ordenar e exportar para Excel
+    mantêm os filtros.
+  </p>
   <h3>Filtrar por data de importação</h3>
   <p>
-    Na barra de filtros, <span class="campo">Importado de / até</span> mostra os
+    No filtro da coluna <span class="campo">Importado em</span>, <em>de / até</em> mostra os
     veículos que entraram no sistema naquele intervalo. <strong>Um dia só</strong> é pôr a
     mesma data nos dois campos; deixar só o “de” mostra tudo daquela data em diante.
   </p>
@@ -1248,7 +1262,9 @@
     <li><strong>Em Produção</strong> — bipagem em andamento.</li>
     <li><strong>Produzido</strong> — kit finalizado, ainda na Consat.</li>
     <li><strong>Em Trânsito</strong> — despachado, com nota fiscal.</li>
-    <li><strong>Cliente</strong> — instalando e concluído.</li>
+    <li><strong>Cliente</strong> — instalando e concluído. Mostra <strong>todos</strong> os kits que
+      já estão no cliente (não só os últimos), com paginação própria como as outras etapas e uma
+      busca que varre todas as páginas (veículo, garagem, cliente, modelo ou nota fiscal).</li>
   </ul>
   <p>Colunas úteis: <span class="campo">Modelo</span>, <span class="campo">Kits possíveis</span>
     (quantos kits o estoque ainda aguenta, com o item que é o gargalo) e

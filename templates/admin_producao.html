@@ -624,7 +624,7 @@
 <details class="card etapa" data-etapa="cliente" id="etapa-cliente">
   <summary>
     <h2>Cliente
-      <span class="etapa-sub">(no cliente — últimos 30)</span>
+      <span class="etapa-sub">(no cliente)</span>
       <span class="badge">{{ resumo.cliente }} kit{{ 's' if resumo.cliente != 1 }} no total</span>
     </h2>
   </summary>
@@ -635,9 +635,16 @@
   {# Planilha de acompanhamento desta etapa, igual às demais. #}
   <a href="/admin/producao/excel?etapa=cliente" class="btn btn-sm btn-success"
      style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
-  {% if no_cliente %}
-  <input type="text" class="busca-box" placeholder="Buscar por veículo, garagem ou cliente..."
-         oninput="filtrarLista(this)" data-filtro-alvo="#tabela-cliente tr.filtro-item">
+  {# Busca no servidor: varre TODAS as páginas, não só a aberta. #}
+  <form method="get" action="/admin/producao#etapa-cliente" class="busca-form" style="margin-bottom:10px;">
+    {% if ord_cli %}<input type="hidden" name="ord_cli" value="{{ ord_cli }}"><input type="hidden" name="dir_cli" value="{{ dir_cli }}">{% endif %}
+    <input type="text" name="busca_cli" value="{{ busca_cli }}" class="busca-box" style="margin:0;flex:1;"
+           placeholder="Buscar por veículo, garagem, cliente, modelo ou nota fiscal...">
+    <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('busca', 13) }} Buscar</button>
+    {% if busca_cli %}<a href="/admin/producao#etapa-cliente" class="btn btn-sm btn-ghost">{{ ic.svg('fechar', 13) }} Limpar</a>{% endif %}
+  </form>
+  {% if no_cliente.itens %}
+  {{ pg.contagem(no_cliente, "kits") }}
   <form id="form-cliente-concluido" method="post" action="/admin/producao/cliente-concluido-lote"></form>
   <div style="overflow-x:auto;">
   <table id="tabela-cliente">
@@ -646,14 +653,14 @@
       <th style="width:32px;"><input type="checkbox" id="chk-todos-cliente"
             onchange="marcarTodos(this, 'cliente')" title="Marcar todos os que ainda podem ser concluídos"></th>
       {% endif %}
-      {{ th_ord('Veículo', 'veiculo', 'cli', ord_cli, dir_cli, 'cliente') }}
-      {{ th_ord('Garagem', 'garagem', 'cli', ord_cli, dir_cli, 'cliente') }}
-      {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente') }}
-      {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente') }}
-      {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente') }}
+      {{ th_ord('Veículo', 'veiculo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
+      {{ th_ord('Garagem', 'garagem', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
+      {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
+      {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
+      {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
       <th>Nota Fiscal</th><th>Situação</th><th>Remessa</th><th></th></tr></thead>
     <tbody>
-    {% for k in no_cliente %}
+    {% for k in no_cliente.itens %}
     {% set cor = cor_do_cliente(k.cliente) %}
     <tr class="filtro-item">
       {% if pode('producao_mover_estagio') %}
@@ -705,6 +712,22 @@
     </tbody>
   </table>
   </div>
+
+  {# Paginação própria, como as outras etapas: não mexe nas demais e volta pra cá. #}
+  {% if no_cliente.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ no_cliente.pagina }} de {{ no_cliente.total_paginas }}
+      · {{ no_cliente.total }} no total</span>
+    {% for p in no_cliente.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}
+      <a href="?pag_cli={{ p }}{% if busca_cli %}&busca_cli={{ busca_cli | urlencode }}{% endif %}{% if ord_cli %}&ord_cli={{ ord_cli }}&dir_cli={{ dir_cli }}{% endif %}#etapa-cliente"
+         class="btn btn-sm {{ 'btn-primary' if p == no_cliente.pagina else 'btn-secondary' }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if pode('producao_mover_estagio') %}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
     <button type="submit" form="form-cliente-concluido" class="btn btn-primary" id="btn-cliente-concluido-lote"
@@ -715,7 +738,7 @@
   </div>
   {% endif %}
   {% else %}
-  <p style="color:#888;text-align:center;padding:16px;">Nenhum kit no cliente ainda.</p>
+  <p style="color:#888;text-align:center;padding:16px;">{{ 'Nenhum kit encontrado com essa busca.' if busca_cli else 'Nenhum kit no cliente ainda.' }}</p>
   {% endif %}
 </details>
 

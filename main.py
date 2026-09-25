@@ -4275,6 +4275,10 @@ async def admin_producao(request: Request):
     pag_ap = max(1, int(request.query_params.get("pag_ap", 1) or 1))
     pag_pr = max(1, int(request.query_params.get("pag_pr", 1) or 1))
     pag_tr = max(1, int(request.query_params.get("pag_tr", 1) or 1))
+    pag_cli = max(1, int(request.query_params.get("pag_cli", 1) or 1))
+    # Cliente: TODOS os kits no cliente (não só os últimos 30), paginados como as
+    # outras etapas; a busca é no servidor pra varrer todas as páginas.
+    busca_cli = (request.query_params.get("busca_cli") or "").strip()
 
     # Clicar no cabeçalho da coluna só reordena a lista antes de paginar —
     # é apoio de busca visual, não filtro: nada some, só muda a ordem.
@@ -4291,7 +4295,9 @@ async def admin_producao(request: Request):
     lista_tr = paginacao_mod.ordenar(
         _com_remessa(producao_mod.listar_transito()), _ORDENS_PRODUCAO["tr"].get(ord_tr), dir_tr)
     lista_cli = paginacao_mod.ordenar(
-        _com_remessa(producao_mod.listar_no_cliente(limite=30)),
+        _com_remessa(paginacao_mod.filtrar(
+            producao_mod.listar_no_cliente(),
+            busca_cli, ("veiculo", "kit_nome", "garagem", "cliente", "modelo", "nota_fiscal"))),
         _ORDENS_PRODUCAO["cli"].get(ord_cli), dir_cli)
 
     return render(request, "admin_producao.html", {
@@ -4302,7 +4308,8 @@ async def admin_producao(request: Request):
         # Card único de Cliente: instalando + concluído na mesma lista. As
         # duas funções antigas seguem existindo (o Painel da TV usa cada
         # coluna separada), então nada foi perdido.
-        "no_cliente": lista_cli,
+        "no_cliente": paginacao_mod.paginar(lista_cli, pag_cli),
+        "busca_cli": busca_cli,
         "resumo": producao_mod.resumo(),
         # Kits devendo item (patrimônio movido pra outro veículo ou retirado):
         # a esteira é onde o kit espera, então é aqui que a pendência precisa
@@ -5453,14 +5460,106 @@ async def admin_estoque_qrcode(request: Request, estoque_id: int):
 
 # ── Veículos ──────────────────────────────────────────────────────────────────
 
+_VEIC_SITUACAO_TEXTO = {
+    "a_produzir": "Galpão — A produzir", "em_producao": "Galpão — Em produção",
+    "produzido": "Galpão — Produzido", "transito": "Em trânsito", "cliente": "Cliente",
+    "sem_localizacao": "Não configurado", "falta_item": "Kit faltando item",
+    "sem_modelo": "Sem modelo", "sem_garagem": "Sem garagem",
+    "sem_kits": "Nunca recebeu kit", "com_kits": "Já recebeu kit",
+}
+
+
+def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
+                         imp_ini, imp_fim, ult_ini, ult_fim, ordem) -> dict:
+    """O que a tela precisa pra manter os filtros por coluna: a querystring atual
+    (paginação e ordenação não perdem filtro), os filtros ativos de cada coluna
+    (o cabeçalho fica marcado) e os chips com o link que tira SÓ aquele filtro."""
+    from urllib.parse import urlencode
+    pares = []
+    if busca:
+        pares.append(("busca", busca))
+    if numero:
+        pares.append(("numero", numero))
+    for nome, valores in (("cliente", cliente), ("garagem", garagem), ("modelo", modelo),
+                          ("situacao", situacao), ("kits", kits)):
+        pares += [(nome, v) for v in valores]
+    for nome, valor in (("imp_ini", imp_ini), ("imp_fim", imp_fim),
+                        ("ult_ini", ult_ini), ("ult_fim", ult_fim)):
+        if valor:
+            pares.append((nome, valor))
+
+    def url(sem=None, ordem_nova=None):
+        itens = [p for p in pares if p != sem and not (sem and sem[1] is None and p[0] == sem[0])]
+        o = ordem if ordem_nova is None else ordem_nova
+        if o:
+            itens.append(("ordem", o))
+        return "/admin/veiculos" + ("?" + urlencode(itens) if itens else "")
+
+    def br(d):
+        return f"{d[8:10]}/{d[5:7]}/{d[:4]}" if len(d) >= 10 else d
+
+    chips = []
+    if busca:
+        chips.append({"rotulo": f"Busca: {busca}", "url": url(("busca", busca))})
+    if numero:
+        chips.append({"rotulo": f"Número contém: {numero}", "url": url(("numero", numero))})
+    for nome, rotulo, valores, texto in (
+            ("cliente", "Cliente", cliente, {}),
+            ("garagem", "Garagem", garagem, {"__sem__": "sem garagem"}),
+            ("modelo", "Modelo", modelo, {"__sem__": "sem modelo"}),
+            ("situacao", "Localização", situacao, _VEIC_SITUACAO_TEXTO),
+            ("kits", "Kits enviados", kits, {"com": "já recebeu", "sem": "nunca recebeu"})):
+        for v in valores:
+            chips.append({"rotulo": f"{rotulo}: {texto.get(v, v)}", "url": url((nome, v))})
+    for ini, fim, rotulo in ((imp_ini, imp_fim, "Importado"), (ult_ini, ult_fim, "Último envio")):
+        chave = "imp" if rotulo == "Importado" else "ult"
+        if ini or fim:
+            txt = (f"{br(ini)} a {br(fim)}" if ini and fim else
+                   f"a partir de {br(ini)}" if ini else f"até {br(fim)}")
+            u = url((f"{chave}_ini", None))
+            # tira as duas pontas do período de uma vez
+            from urllib.parse import urlsplit, parse_qsl
+            q = [p for p in parse_qsl(urlsplit(u).query) if p[0] != f"{chave}_fim"]
+            chips.append({"rotulo": f"{rotulo}: {txt}",
+                          "url": "/admin/veiculos" + ("?" + urlencode(q) if q else "")})
+    qs = urlencode(pares + ([("ordem", ordem)] if ordem else []))
+
+    def sem_nomes(*nomes):
+        itens = [p for p in pares if p[0] not in nomes] + ([("ordem", ordem)] if ordem else [])
+        return "/admin/veiculos" + ("?" + urlencode(itens) if itens else "")
+
+    return {
+        "limpar_col": {
+            "numero": sem_nomes("numero"), "cliente": sem_nomes("cliente"),
+            "garagem": sem_nomes("garagem"), "modelo": sem_nomes("modelo"),
+            "localizacao": sem_nomes("situacao"), "kits": sem_nomes("kits"),
+            "importado": sem_nomes("imp_ini", "imp_fim"), "ultimo": sem_nomes("ult_ini", "ult_fim"),
+        },
+        "qs_veiculos": qs,                               # sem página — a paginação acrescenta
+        "qs_sem_ordem": urlencode(pares),
+        "chips_veiculos": chips,
+        "col_ativa": {
+            "numero": bool(numero), "cliente": bool(cliente), "garagem": bool(garagem),
+            "modelo": bool(modelo), "localizacao": bool(situacao), "kits": bool(kits),
+            "importado": bool(imp_ini or imp_fim), "ultimo": bool(ult_ini or ult_fim),
+        },
+    }
+
+
 def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                             busca: str = "", modelo: list[str] | None = None,
                             situacao: list[str] | None = None,
                             garagem: list[str] | None = None,
                             imp_ini: str = "", imp_fim: str = "",
-                            ordem: str = "") -> dict:
+                            ordem: str = "", numero: str = "",
+                            kits: list[str] | None = None,
+                            ult_ini: str = "", ult_fim: str = "") -> dict:
     # Os filtros são LISTAS: dá pra ver duas garagens (ou três situações) ao
-    # mesmo tempo. Vazio = sem filtro, como antes.
+    # mesmo tempo. Vazio = sem filtro, como antes. Cada coluna da tabela tem o
+    # seu (clicando no nome dela): Número, Cliente, Garagem, Modelo,
+    # Localização, Importado em, Kits enviados e Último envio.
+    numero = (numero or "").strip()
+    kits = [k for k in (kits or []) if k in ("com", "sem")]
     cliente = [c for c in (cliente or []) if c]
     modelo = [m for m in (modelo or []) if m]
     situacao = [s for s in (situacao or []) if s]
@@ -5504,8 +5603,17 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                     or (v["garagem"] or "").strip().upper() in alvo_gar]
     if modelo:
         alvo_mod = {m.strip().lower() for m in modelo}
+        sem_modelo = "__sem__" in alvo_mod
         veiculos = [v for v in veiculos
-                    if (v["modelo"] or "").strip().lower() in alvo_mod]
+                    if (sem_modelo and not (v["modelo"] or "").strip())
+                    or (v["modelo"] or "").strip().lower() in alvo_mod]
+    # Número: contém (sem caixa) — diferente da busca livre, olha SÓ o número.
+    if numero:
+        alvo_num = numero.lower()
+        veiculos = [v for v in veiculos if alvo_num in (v["numero"] or "").lower()]
+    # Kits enviados: já recebeu / nunca recebeu (cruza com os outros filtros).
+    if kits and len(kits) == 1:
+        veiculos = [v for v in veiculos if bool(v["total_kits"]) == (kits[0] == "com")]
     # Situação cobre tanto a etapa do fluxo (localização) quanto os furos de
     # cadastro — as duas coisas que fazem o operador filtrar essa lista.
     if situacao:
@@ -5564,6 +5672,12 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] >= imp_ini]
     if imp_fim:
         veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] <= imp_fim]
+    # Último envio (último kit do veículo): mesma regra de data da importação.
+    if ult_ini:
+        veiculos = [v for v in veiculos if (v.get("ultimo_kit_em") or "")[:10] >= ult_ini]
+    if ult_fim:
+        veiculos = [v for v in veiculos
+                    if v.get("ultimo_kit_em") and v["ultimo_kit_em"][:10] <= ult_fim]
 
     # Ordenação: o padrão continua cliente+número (é como o operador procura).
     # "importado_desc" responde "o que entrou por último?", que é a pergunta
@@ -5572,6 +5686,10 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         veiculos = sorted(veiculos, key=lambda v: (v.get("criado_em") or ""), reverse=True)
     elif ordem == "importado_asc":
         veiculos = sorted(veiculos, key=lambda v: (v.get("criado_em") or ""))
+    elif ordem == "ultimo_desc":
+        veiculos = sorted(veiculos, key=lambda v: (v.get("ultimo_kit_em") or ""), reverse=True)
+    elif ordem == "ultimo_asc":
+        veiculos = sorted(veiculos, key=lambda v: (v.get("ultimo_kit_em") or "9999"))
 
     # A lista de inativos segue um cliente só (é uma lista de apoio); com
     # vários filtrados, mostra todos e deixa o filtro pra lista principal.
@@ -5613,8 +5731,15 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         "imp_ini": imp_ini,
         "imp_fim": imp_fim,
         "ordem": ordem,
+        "filtro_numero": numero,
+        "filtro_kits": kits,
+        "ult_ini": ult_ini,
+        "ult_fim": ult_fim,
+        **_veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
+                               imp_ini, imp_fim, ult_ini, ult_fim, ordem),
         "total_geral": total_geral,
         "tem_filtro": bool(cliente or garagem or modelo or situacao or busca
+                           or numero or kits or ult_ini or ult_fim
                               or imp_ini or imp_fim or ordem),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(
@@ -5650,10 +5775,13 @@ async def admin_veiculos(request: Request, pagina: int = 1, busca: str = "",
                          modelo: list[str] = Query(default=[]),
                          situacao: list[str] = Query(default=[]),
                          garagem: list[str] = Query(default=[]),
-                         imp_ini: str = "", imp_fim: str = "", ordem: str = ""):
+                         imp_ini: str = "", imp_fim: str = "", ordem: str = "",
+                         numero: str = "", kits: list[str] = Query(default=[]),
+                         ult_ini: str = "", ult_fim: str = ""):
     return render(request, "admin_veiculos.html",
                   _admin_veiculos_context(cliente, pagina, busca, modelo, situacao,
-                                          garagem, imp_ini, imp_fim, ordem))
+                                          garagem, imp_ini, imp_fim, ordem,
+                                          numero, kits, ult_ini, ult_fim))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)
@@ -5783,7 +5911,9 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
                                    modelo: list[str] = Query(default=[]),
                                    situacao: list[str] = Query(default=[]),
                                    garagem: list[str] = Query(default=[]),
-                                   imp_ini: str = "", imp_fim: str = "", ordem: str = ""):
+                                   imp_ini: str = "", imp_fim: str = "", ordem: str = "",
+                                   numero: str = "", kits: list[str] = Query(default=[]),
+                                   ult_ini: str = "", ult_fim: str = ""):
     """Exporta os veículos filtrados -- os MESMOS filtros da tela (cliente,
     garagem, modelo, situação, busca, datas), reaproveitando
     _admin_veiculos_context() pra planilha nunca discordar do que a lista
@@ -5793,7 +5923,8 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     from io import BytesIO
     from fastapi.responses import Response as _Resp
 
-    ctx = _admin_veiculos_context(cliente, 1, busca, modelo, situacao, garagem, imp_ini, imp_fim, ordem)
+    ctx = _admin_veiculos_context(cliente, 1, busca, modelo, situacao, garagem, imp_ini, imp_fim, ordem,
+                                  numero, kits, ult_ini, ult_fim)
     veiculos = ctx["veiculos_export"]
 
     wb = openpyxl.Workbook()

@@ -1624,3 +1624,49 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 
 /* Ficha do veículo (chassi, PG, tipo, modelo) na janela do veículo. */
 .pat-ficha-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 16px; margin-top: 8px; }
+
+/* ── Filtro por coluna (Veículos e Clientes): clicar no nome da coluna ────── */
+.th-filtro { display: inline-block; }
+.th-filtro > summary {
+    list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 6px; padding: 2px 4px; margin: -2px -4px; white-space: nowrap;
+}
+.th-filtro > summary::-webkit-details-marker { display: none; }
+.th-filtro > summary:hover { background: var(--surface-alt); }
+.th-filtro-ic { display: inline-flex; color: var(--text-muted-2); opacity: .55; }
+.th-filtro > summary:hover .th-filtro-ic { opacity: 1; }
+.th-filtro.ativo > summary { color: var(--brand); }
+.th-filtro.ativo .th-filtro-ic { color: var(--brand); opacity: 1; }
+.th-filtro-painel {
+    position: fixed; z-index: 400; min-width: 240px; max-width: 320px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.16); padding: 10px;
+    font-size: 13px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text);
+    display: flex; flex-direction: column; gap: 8px; white-space: normal; text-align: left;
+}
+.thf-lista { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.thf-lista label { display: flex; align-items: center; gap: 7px; padding: 4px 4px; border-radius: 5px;
+    cursor: pointer; font-weight: 500; margin: 0; }
+.thf-lista label:hover { background: var(--surface-alt); }
+.thf-lista input { width: auto; margin: 0; }
+.thf-busca, .thf-texto { width: 100%; margin: 0; padding: 6px 8px; font-size: 13px; }
+.thf-vazio { color: var(--text-muted-2); margin: 0; font-size: 12px; }
+.thf-periodo { display: flex; flex-direction: column; gap: 6px; }
+.thf-periodo label { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: 12px; color: var(--text-muted); margin: 0; }
+.thf-periodo input { width: 160px; margin: 0; }
+.thf-ordem { font-size: 12px; color: var(--text-muted-2); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.thf-ordem a { color: var(--brand); text-decoration: none; }
+.thf-ordem a.on { font-weight: 700; text-decoration: underline; }
+.th-filtro-acoes { display: flex; gap: 6px; justify-content: flex-end; border-top: 1px solid var(--border-subtle); padding-top: 8px; }
+.thf-dica { margin: 6px 0 0; font-size: 12px; color: var(--text-muted-2); display: flex; align-items: center; gap: 5px; }
+.thf-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.thf-chips-rotulo { font-size: 12px; color: var(--text-muted-2); }
+.thf-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-ink);
+    border: 1px solid var(--brand-border); text-decoration: none;
+}
+.thf-chip:hover { background: var(--surface); }
+.thf-chip span { font-size: 14px; line-height: 1; }
+.thf-chip-limpar { font-size: 12px; color: var(--text-muted); }
