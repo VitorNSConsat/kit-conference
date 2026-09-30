@@ -2056,6 +2056,10 @@ async def admin_conjunto_verifica(request: Request, template_id: int):
     verifica = form.get("verifica") == "1"
     if componente_codigo:
         templates_mod.definir_verifica_em_conjunto(template_id, componente_codigo, verifica)
+    # Da edição do kit, volta pra ela (e pro bloco de conjuntos); da aba Conjuntos, pra aba.
+    if form.get("voltar") == "edit":
+        return RedirectResponse(f"/admin/templates/{template_id}/edit?ok=conjunto#conjuntos-kit",
+                                status_code=302)
     return RedirectResponse("/admin/templates?tab=conjuntos", status_code=302)
 
 
@@ -2227,6 +2231,20 @@ async def admin_template_painel(request: Request, template_id: int):
     })
 
 
+def _template_edit_extras(template_id: int, itens: list, tipos: list) -> dict:
+    """O que a edição do kit precisa além do básico: o CÓDIGO DA ETIQUETA de cada
+    tipo (o código de barras do item no estoque — o mesmo que se usa como código
+    do conjunto) e os conjuntos já salvos deste kit, com a regra de conferência."""
+    codigos = {e["item_tipo_id"]: e["codigo_barra"] for e in estoque_mod.listar_estoque()}
+    for t in tipos:
+        t["codigo_etiqueta"] = codigos.get(t["id"], "") or ""
+    for i in itens:
+        i["codigo_etiqueta"] = codigos.get(i["item_tipo_id"], "") or ""
+    conjuntos = next((t["conjuntos"] for t in templates_mod.listar_todos_conjuntos()
+                      if t["kit_template_id"] == template_id), [])
+    return {"conjuntos_kit": conjuntos}
+
+
 @app.get("/admin/templates/{template_id}/edit", response_class=HTMLResponse)
 @require_login
 async def admin_template_edit_page(request: Request, template_id: int):
@@ -2260,6 +2278,7 @@ async def admin_template_edit_page(request: Request, template_id: int):
         "itens": itens,
         "consumo": consumo,
         "tipos_catalogo": tipos_ativos,
+        **_template_edit_extras(template_id, itens, tipos_ativos),
         "clientes": clientes,
         "sessoes_em_andamento": sessoes_em_andamento,
         "unidades": unidades,
@@ -2288,6 +2307,8 @@ async def admin_template_edit_post(request: Request, template_id: int):
         return render(request, "admin_template_edit.html", {
             "template": template, "itens": itens_atuais,
             "tipos_catalogo": tipos_ativos,
+            **_template_edit_extras(template_id, itens_atuais, tipos_ativos),
+            "voltar_para": "/admin/templates?tab=" + (template.get("tipo") or "kit"),
             "clientes": clientes,
             "erro": "Preencha nome, cliente e ao menos 1 item.",
         })

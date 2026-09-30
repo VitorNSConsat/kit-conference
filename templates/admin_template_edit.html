@@ -49,7 +49,7 @@
     <strong>{{ request.query_params.get('unidades') }} unidade(s)</strong> importada(s) — adicione os
     itens (tipos/quantidades) abaixo.
 </div>
-{% elif request.query_params.get('ok') %}
+{% elif request.query_params.get('ok') and request.query_params.get('ok') != 'conjunto' %}
 <div class="alert alert-success">Template atualizado com sucesso.</div>
 {% endif %}
 {% if erro %}
@@ -305,6 +305,9 @@
 </div>
 {% endif %}
 
+{% set DICA_CONJUNTO = "Conjunto = itens que vêm juntos numa embalagem só (ex.: chicote com conector, presilha e parafusos). Coloque o MESMO código em todos eles — normalmente o código da etiqueta do conjunto. Na bipagem, bipar esse código lança todos os itens de uma vez, já na quantidade do kit. Na verificação, conferir um confere todos (dá pra mudar em Conjuntos). Deixe vazio se o item é bipado sozinho." %}
+{% set DICA_OBRIGATORIO = "Obrigatório: o kit só pode ser finalizado com este item completo. Desmarcado, o operador pode finalizar sem ele." %}
+{% set DICA_CODIGO = "Código da etiqueta: o código de barras do item no estoque (o mesmo da etiqueta impressa). É o que se usa para bipar o item e, quando o item faz parte de um conjunto, como código do conjunto." %}
 <div class="card">
     <form method="post" action="/admin/templates/{{ template.id }}/edit" id="form-edit">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
@@ -338,82 +341,173 @@
             </div>
         </div>
 
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-            <h2 style="margin:0;">Adicionar tipos</h2>
-        </div>
-        <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:10px;">
-            Clique para adicionar um tipo ao kit. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
-        </p>
-
-        {% if tipos_catalogo %}
-        <div class="tipos-grid-admin" id="tipos-grid">
-            {% for tipo in tipos_catalogo %}
-            <button type="button" class="tipo-card-admin"
-                    data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
-                    data-unidade="{{ tipo.unidade | default('un') }}"
-                    data-serial="{{ '1' if tipo.requer_serial else '0' }}"
-                    onclick="adicionarTipoFromCard(this)">
-                {{ tipo.nome }}
-                {% if tipo.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">m</span>{% endif %}
-                {% if tipo.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">reutilizável</span>{% endif %}
-                {% if tipo.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">serial</span>{% endif %}
-            </button>
-            {% endfor %}
-        </div>
-        {% else %}
-        <p style="color:var(--text-muted-2);font-size:13px;background:var(--surface-alt);padding:12px;border-radius:8px;margin-bottom:12px;">
-            Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Admin → Itens</a> primeiro.
-        </p>
-        {% endif %}
-
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-            <strong>Itens do kit</strong>
-            <span id="contagem-sel" style="font-size:13px;color:var(--text-muted-2);">
-                ({{ itens | length }} {{ 'item' if itens | length == 1 else 'itens' }})
-            </span>
-        </div>
-        <div id="msg-vazio" style="color:var(--text-muted-2);font-size:13px;text-align:center;padding:16px;background:var(--surface-alt);border-radius:8px;margin-bottom:12px;{{ '' if not itens else 'display:none;' }}">
-            Nenhum item no kit. Clique em um tipo acima para adicionar.
-        </div>
-        <div id="itens-container" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
-            {% for item in itens %}
-            <div class="item-sel">
-                <div class="item-sel-nome">
-                    {{ item.descricao }}
-                    {% if item.unidade == 'm' %}<span style="font-size:11px;color:#0984e3;font-weight:400;">m</span>{% endif %}
-                    {% if item.requer_serial %}<span style="font-size:11px;color:#6c5ce7;font-weight:400;">serial</span>{% endif %}
+        {# Duas colunas: à esquerda o catálogo (com busca), à direita o que já está
+           no kit. Adicionar é um clique; a linha nova aparece na hora do lado. #}
+        <div class="kit-ed">
+            <section class="kit-ed-painel kit-ed-cat">
+                <div class="kit-ed-cab">
+                    <h3>{{ ic.svg('itens', 15) }} Catálogo de itens</h3>
+                    <span class="kit-ed-cont" id="cat-contagem">{{ tipos_catalogo | length }} itens</span>
                 </div>
-                <input type="hidden" name="item_tipo_id_{{ loop.index0 }}" value="{{ item.item_tipo_id }}">
-                {% if item.requer_serial %}
-                <input type="hidden" name="requer_serial_{{ loop.index0 }}" value="1">
+                <div class="kit-ed-busca">
+                    {{ ic.svg('busca', 14) }}
+                    <input type="text" id="busca-catalogo" autocomplete="off"
+                           placeholder="Buscar por nome ou código da etiqueta..."
+                           oninput="filtrarCatalogo()" onkeydown="enterCatalogo(event)">
+                </div>
+                <label class="kit-ed-opcao">
+                    <input type="checkbox" id="ocultar-no-kit" onchange="filtrarCatalogo()"> Ocultar os que já estão no kit
+                </label>
+                {% if tipos_catalogo %}
+                <div class="kit-cat-lista" id="catalogo-lista">
+                    {% for tipo in tipos_catalogo %}
+                    <button type="button" class="kit-cat-item"
+                            data-id="{{ tipo.id }}" data-nome="{{ tipo.nome | e }}"
+                            data-unidade="{{ tipo.unidade | default('un') }}"
+                            data-serial="{{ '1' if tipo.requer_serial else '0' }}"
+                            data-codigo="{{ tipo.codigo_etiqueta | e }}"
+                            onclick="adicionarTipoFromCard(this)" title="Adicionar ao kit">
+                        <span class="kit-cat-texto">
+                            <span class="kit-cat-nome">{{ tipo.nome }}</span>
+                            <span class="kit-cat-meta">
+                                {% if tipo.codigo_etiqueta %}<code class="kit-cod">{{ tipo.codigo_etiqueta }}</code>
+                                {% else %}<span class="kit-cod kit-cod-vazio">sem etiqueta</span>{% endif %}
+                                {% if tipo.unidade == 'm' %}<span class="kit-tag">metros</span>{% endif %}
+                                {% if tipo.requer_serial %}<span class="kit-tag">serial</span>{% endif %}
+                                {% if tipo.reutilizavel %}<span class="kit-tag">reutilizável</span>{% endif %}
+                            </span>
+                        </span>
+                        <span class="kit-cat-acao">
+                            <span class="kit-cat-no-kit">{{ ic.svg('check', 12) }} no kit</span>
+                            <span class="kit-cat-add">{{ ic.svg('mais', 13) }} Adicionar</span>
+                        </span>
+                    </button>
+                    {% endfor %}
+                </div>
+                <p class="kit-ed-vazio" id="catalogo-vazio" hidden>Nenhum item encontrado com essa busca.</p>
+                {% else %}
+                <p class="kit-ed-vazio">Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens &amp; Estoque</a> primeiro.</p>
                 {% endif %}
-                <div class="item-sel-campos">
-                    <label style="font-size:12px;color:var(--text-muted);">{{ 'Qtd (m)' if item.unidade == 'm' else 'Qtd' }}</label>
-                    <input type="number" name="qtd_{{ loop.index0 }}"
-                           value="{{ item.quantidade_exigida }}"
-                           min="{{ '0.01' if item.unidade == 'm' else '1' }}"
-                           step="{{ '0.01' if item.unidade == 'm' else '1' }}"
-                           style="width:65px;text-align:center;">
-                    <label style="font-size:12px;color:var(--text-muted);">Conjunto</label>
-                    <input type="text" name="componente_codigo_{{ loop.index0 }}"
-                           value="{{ item.componente_codigo or '' }}"
-                           placeholder="opcional" style="width:120px;font-size:12px;">
-                    <label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">
-                        <input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
-                               {{ 'checked' if item.obrigatorio else '' }}> Obrigatório
-                    </label>
-                    <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">&times;</button>
+            </section>
+
+            <section class="kit-ed-painel kit-ed-itens">
+                <div class="kit-ed-cab">
+                    <h3>{{ ic.svg('kits', 15) }} Itens do kit</h3>
+                    <span class="kit-ed-cont" id="contagem-sel">{{ itens | length }} {{ 'item' if itens | length == 1 else 'itens' }}</span>
                 </div>
-            </div>
-            {% endfor %}
+                <div class="kit-linha kit-linha-cab">
+                    <span>Item · código da etiqueta <span class="dica-i" tabindex="0" data-dica="{{ DICA_CODIGO }}" aria-label="{{ DICA_CODIGO }}">i</span></span>
+                    <span>Qtd</span>
+                    <span>Conjunto <span class="dica-i" tabindex="0" data-dica="{{ DICA_CONJUNTO }}" aria-label="{{ DICA_CONJUNTO }}">i</span></span>
+                    <span>Obrig. <span class="dica-i dica-dir" tabindex="0" data-dica="{{ DICA_OBRIGATORIO }}" aria-label="{{ DICA_OBRIGATORIO }}">i</span></span>
+                    <span></span>
+                </div>
+                <div id="msg-vazio" class="kit-ed-vazio" {{ 'hidden' if itens }}>
+                    Nenhum item no kit. Busque no catálogo ao lado e clique para adicionar.
+                </div>
+                <div id="itens-container" class="kit-itens">
+                    {% for item in itens %}
+                    <div class="kit-linha item-sel" data-tipo="{{ item.item_tipo_id }}">
+                        <div class="kit-linha-item">
+                            <span class="kit-cat-nome">{{ item.descricao }}</span>
+                            <span class="kit-cat-meta">
+                                {% if item.codigo_etiqueta %}<code class="kit-cod">{{ item.codigo_etiqueta }}</code>
+                                {% else %}<span class="kit-cod kit-cod-vazio">sem etiqueta</span>{% endif %}
+                                {% if item.unidade == 'm' %}<span class="kit-tag">metros</span>{% endif %}
+                                {% if item.requer_serial %}<span class="kit-tag">serial</span>{% endif %}
+                            </span>
+                        </div>
+                        <input type="hidden" name="item_tipo_id_{{ loop.index0 }}" value="{{ item.item_tipo_id }}">
+                        {% if item.requer_serial %}<input type="hidden" name="requer_serial_{{ loop.index0 }}" value="1">{% endif %}
+                        <input type="number" name="qtd_{{ loop.index0 }}" class="kit-qtd" aria-label="Quantidade"
+                               value="{{ item.quantidade_exigida }}"
+                               min="{{ '0.01' if item.unidade == 'm' else '1' }}"
+                               step="{{ '0.01' if item.unidade == 'm' else '1' }}">
+                        <div class="kit-conj">
+                            <input type="text" name="componente_codigo_{{ loop.index0 }}" class="kit-conj-input"
+                                   value="{{ item.componente_codigo or '' }}" placeholder="—" list="lista-conjuntos"
+                                   aria-label="Código do conjunto" oninput="atualizarConjuntos()">
+                            {% if item.codigo_etiqueta %}
+                            <button type="button" class="kit-conj-usar" onclick="usarCodigo(this, '{{ item.codigo_etiqueta | e }}')"
+                                    title="Usar o código da etiqueta deste item ({{ item.codigo_etiqueta }}) como conjunto">usar {{ item.codigo_etiqueta }}</button>
+                            {% endif %}
+                        </div>
+                        <label class="kit-obrig"><input type="checkbox" name="obrigatorio_{{ loop.index0 }}" value="1"
+                               {{ 'checked' if item.obrigatorio else '' }} aria-label="Obrigatório"></label>
+                        <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger icon" title="Tirar do kit">{{ ic.svg('fechar', 13) }}</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {# Resumo ao vivo: quais conjuntos o kit tem e quais itens entram em cada um. #}
+                <div class="kit-conj-resumo" id="conj-resumo" hidden></div>
+                <datalist id="lista-conjuntos"></datalist>
+            </section>
         </div>
 
-        <div style="display:flex; gap:10px; margin-top:8px;">
-            <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar Alterações</button>
-            <a href="/admin/templates" class="btn btn-danger">Cancelar</a>
+        <div class="kit-ed-rodape">
+            <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar alterações</button>
+            <a href="/admin/templates" class="btn btn-secondary">Cancelar</a>
+            <span class="kit-ed-dica">Nada é gravado até clicar em Salvar.</span>
         </div>
     </form>
+
+    <template id="modelo-linha-kit">
+        <div class="kit-linha item-sel" data-tipo="">
+            <div class="kit-linha-item">
+                <span class="kit-cat-nome"></span>
+                <span class="kit-cat-meta"></span>
+            </div>
+            <input type="hidden" data-campo="item_tipo_id">
+            <input type="number" data-campo="qtd" class="kit-qtd" value="1" aria-label="Quantidade">
+            <div class="kit-conj">
+                <input type="text" data-campo="componente_codigo" class="kit-conj-input" placeholder="—"
+                       list="lista-conjuntos" aria-label="Código do conjunto" oninput="atualizarConjuntos()">
+            </div>
+            <label class="kit-obrig"><input type="checkbox" data-campo="obrigatorio" value="1" checked aria-label="Obrigatório"></label>
+            <button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger icon" title="Tirar do kit">{{ ic.svg('fechar', 13) }}</button>
+        </div>
+    </template>
 </div>
+
+{% if conjuntos_kit %}
+{# Conjuntos JÁ SALVOS deste kit: a regra de conferência mora aqui também, sem
+   precisar ir na aba Conjuntos. Formulários fora do form de edição (não aninham). #}
+<div class="card" id="conjuntos-kit">
+    <h2 style="display:flex;align-items:center;gap:8px;">{{ ic.svg('caixa', 16) }} Conjuntos deste kit
+        <span class="dica-i" tabindex="0" data-dica="{{ DICA_CONJUNTO }}" aria-label="{{ DICA_CONJUNTO }}">i</span></h2>
+    {% if request.query_params.get('ok') == 'conjunto' %}
+    <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Regra de conferência do conjunto atualizada.</div>
+    {% endif %}
+    <div style="overflow-x:auto;">
+    <table>
+        <thead><tr><th>Código</th><th>Itens do conjunto</th><th>Na verificação</th></tr></thead>
+        <tbody>
+        {% for c in conjuntos_kit %}
+        <tr>
+            <td><code class="kit-cod">{{ c.componente_codigo }}</code></td>
+            <td style="font-size:13px;color:var(--text-muted);">{{ c.itens }}</td>
+            <td>
+                <form method="post" action="/admin/templates/{{ template.id }}/conjunto/verificar-em-conjunto" style="margin:0;">
+                    <input type="hidden" name="componente_codigo" value="{{ c.componente_codigo }}">
+                    <input type="hidden" name="verifica" value="{{ '0' if c.verifica_em_conjunto else '1' }}">
+                    <input type="hidden" name="voltar" value="edit">
+                    <button type="submit" class="btn btn-sm {{ 'btn-success' if c.verifica_em_conjunto else 'btn-warning' }}"
+                            title="Clique para trocar">
+                        {{ 'Confere em conjunto' if c.verifica_em_conjunto else 'Confere item a item' }}
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <p class="kit-ed-dica" style="margin-top:8px;">
+        <strong>Em conjunto</strong>: conferir um item do conjunto confere todos.
+        <strong>Item a item</strong>: cada item precisa ser conferido. Os conjuntos vêm do que está salvo no kit.
+    </p>
+</div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script>
@@ -489,61 +583,151 @@ function avisarRenomear() {
    static/style.css — usados aqui e em admin_templates.html. */
 </style>
 <script>
-let idx = {{ itens | length }};
-const catalogo = {{ tipos_catalogo | tojson }};
+// ── Edição dos itens do kit ─────────────────────────────────────────────────
+// Catálogo (com busca) à esquerda, itens do kit à direita. Os campos seguem os
+// nomes que o servidor já lê (item_tipo_id_N, qtd_N, componente_codigo_N,
+// obrigatorio_N, requer_serial_N) — reindexados a cada inclusão/remoção.
+function _norm(t) {
+    return (t || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+function _tag(txt) { const s = document.createElement('span'); s.className = 'kit-tag'; s.textContent = txt; return s; }
 
 function adicionarTipoFromCard(btn) {
-    adicionarTipo(parseInt(btn.dataset.id), btn.dataset.nome, btn.dataset.unidade || 'un', btn.dataset.serial === '1');
-}
-
-function adicionarTipo(tipoId, tipoNome, tipoUnidade, requerSerial) {
-    const isMeter = (tipoUnidade === 'm');
-    const container = document.getElementById('itens-container');
-    const div = document.createElement('div');
-    div.className = 'item-sel';
-    div.innerHTML =
-        `<div class="item-sel-nome">${tipoNome}` +
-            (isMeter ? ` <span style="font-size:11px;color:#0984e3;font-weight:400;">m</span>` : '') +
-            (requerSerial ? ` <span style="font-size:11px;color:#6c5ce7;font-weight:400;">serial</span>` : '') +
-        `</div>` +
-        `<input type="hidden" name="item_tipo_id_${idx}" value="${tipoId}">` +
-        (requerSerial ? `<input type="hidden" name="requer_serial_${idx}" value="1">` : '') +
-        `<div class="item-sel-campos">` +
-          `<label style="font-size:12px;color:var(--text-muted);">` + (isMeter ? 'Qtd (m)' : 'Qtd') + `</label>` +
-          `<input type="number" name="qtd_${idx}" value="1" min="${isMeter ? '0.01' : '1'}" ` +
-               `step="${isMeter ? '0.01' : '1'}" style="width:65px;text-align:center;">` +
-          `<label style="font-size:12px;color:var(--text-muted);">Conjunto</label>` +
-          `<input type="text" name="componente_codigo_${idx}" placeholder="opcional" style="width:120px;font-size:12px;">` +
-          `<label style="display:flex;align-items:center;gap:5px;font-size:13px;white-space:nowrap;">` +
-            `<input type="checkbox" name="obrigatorio_${idx}" value="1" checked> Obrigatório` +
-          `</label>` +
-          `<button type="button" onclick="removerItem(this)" class="btn btn-sm btn-danger">&times;</button>` +
-        `</div>`;
-    container.appendChild(div);
-    idx++;
-    atualizarVazio();
+    const d = btn.dataset;
+    const modelo = document.getElementById('modelo-linha-kit');
+    const linha = modelo.content.firstElementChild.cloneNode(true);
+    const metro = d.unidade === 'm';
+    linha.dataset.tipo = d.id;
+    linha.querySelector('.kit-cat-nome').textContent = d.nome;
+    const meta = linha.querySelector('.kit-cat-meta');
+    if (d.codigo) { const c = document.createElement('code'); c.className = 'kit-cod'; c.textContent = d.codigo; meta.appendChild(c); }
+    else { const c = document.createElement('span'); c.className = 'kit-cod kit-cod-vazio'; c.textContent = 'sem etiqueta'; meta.appendChild(c); }
+    if (metro) meta.appendChild(_tag('metros'));
+    if (d.serial === '1') meta.appendChild(_tag('serial'));
+    linha.querySelector('[data-campo=item_tipo_id]').value = d.id;
+    const qtd = linha.querySelector('[data-campo=qtd]');
+    qtd.min = metro ? '0.01' : '1'; qtd.step = metro ? '0.01' : '1';
+    if (d.serial === '1') {
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.dataset.campo = 'requer_serial'; h.value = '1';
+        linha.appendChild(h);
+    }
+    if (d.codigo) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'kit-conj-usar';
+        b.textContent = 'usar ' + d.codigo;
+        b.title = 'Usar o código da etiqueta deste item (' + d.codigo + ') como conjunto';
+        b.onclick = function () { usarCodigo(b, d.codigo); };
+        linha.querySelector('.kit-conj').appendChild(b);
+    }
+    // data-campo -> name com o índice certo (reindexar() dá o número).
+    linha.querySelectorAll('[data-campo]').forEach(el => { el.name = el.dataset.campo + '_0'; });
+    document.getElementById('itens-container').appendChild(linha);
+    reindexar();
+    atualizarTudo();
+    linha.classList.add('kit-linha-nova');
+    linha.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    setTimeout(() => linha.classList.remove('kit-linha-nova'), 1400);
 }
 
 function removerItem(btn) {
-    btn.closest('.item-sel').remove();
+    btn.closest('.kit-linha').remove();
     reindexar();
-    atualizarVazio();
+    atualizarTudo();
 }
 
 function reindexar() {
-    const container = document.getElementById('itens-container');
-    Array.from(container.children).forEach((div, i) => {
-        div.querySelectorAll('[name]').forEach(el => {
-            el.name = el.name.replace(/_\d+$/, '_' + i);
-        });
+    document.querySelectorAll('#itens-container > .kit-linha').forEach((linha, i) => {
+        linha.querySelectorAll('[name]').forEach(el => { el.name = el.name.replace(/_\d+$/, '_' + i); });
     });
-    idx = container.children.length;
 }
 
-function atualizarVazio() {
-    const n = document.getElementById('itens-container').children.length;
-    document.getElementById('msg-vazio').style.display = n > 0 ? 'none' : '';
-    document.getElementById('contagem-sel').textContent = `(${n} ${n === 1 ? 'item' : 'itens'})`;
+function usarCodigo(btn, codigo) {
+    const campo = btn.closest('.kit-conj').querySelector('.kit-conj-input');
+    campo.value = campo.value === codigo ? '' : codigo;
+    atualizarConjuntos();
 }
+
+function atualizarTudo() {
+    const n = document.querySelectorAll('#itens-container > .kit-linha').length;
+    document.getElementById('msg-vazio').hidden = n > 0;
+    document.getElementById('contagem-sel').textContent = n + (n === 1 ? ' item' : ' itens');
+    const noKit = new Set([...document.querySelectorAll('#itens-container > .kit-linha')].map(l => l.dataset.tipo));
+    document.querySelectorAll('.kit-cat-item').forEach(b => b.classList.toggle('no-kit', noKit.has(b.dataset.id)));
+    filtrarCatalogo();
+    atualizarConjuntos();
+}
+
+function filtrarCatalogo() {
+    const campo = document.getElementById('busca-catalogo');
+    if (!campo) return;
+    const termos = _norm(campo.value).split(/\s+/).filter(Boolean);
+    const ocultar = document.getElementById('ocultar-no-kit').checked;
+    let visiveis = 0;
+    document.querySelectorAll('.kit-cat-item').forEach(b => {
+        const alvo = _norm(b.dataset.nome + ' ' + b.dataset.codigo);
+        const ok = termos.every(t => alvo.includes(t)) && !(ocultar && b.classList.contains('no-kit'));
+        b.hidden = !ok;
+        if (ok) visiveis++;
+    });
+    const total = document.querySelectorAll('.kit-cat-item').length;
+    document.getElementById('cat-contagem').textContent =
+        (visiveis === total ? total : visiveis + ' de ' + total) + ' itens';
+    const vazio = document.getElementById('catalogo-vazio');
+    if (vazio) vazio.hidden = visiveis > 0;
+}
+
+// Enter na busca NÃO envia o formulário: adiciona o item se só sobrou um.
+function enterCatalogo(e) {
+    if (e.key === 'Escape') { e.target.value = ''; filtrarCatalogo(); return; }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const vis = [...document.querySelectorAll('.kit-cat-item')].filter(b => !b.hidden);
+    if (vis.length === 1) { adicionarTipoFromCard(vis[0]); e.target.select(); }
+}
+
+// Resumo dos conjuntos (ao vivo) + sugestões de código no campo Conjunto.
+function atualizarConjuntos() {
+    const grupos = new Map();
+    document.querySelectorAll('#itens-container > .kit-linha').forEach(l => {
+        const campo = l.querySelector('.kit-conj-input');
+        const cod = (campo.value || '').trim();
+        campo.classList.toggle('preenchido', !!cod);
+        if (!cod) return;
+        if (!grupos.has(cod)) grupos.set(cod, []);
+        grupos.get(cod).push(l.querySelector('.kit-cat-nome').textContent);
+    });
+    const caixa = document.getElementById('conj-resumo');
+    caixa.hidden = grupos.size === 0;
+    caixa.innerHTML = '';
+    if (grupos.size) {
+        const t = document.createElement('div');
+        t.className = 'kit-conj-resumo-titulo';
+        t.textContent = 'Conjuntos neste kit (' + grupos.size + ')';
+        caixa.appendChild(t);
+    }
+    grupos.forEach((nomes, cod) => {
+        const linha = document.createElement('div');
+        linha.className = 'kit-conj-resumo-linha' + (nomes.length === 1 ? ' aviso' : '');
+        const c = document.createElement('code'); c.className = 'kit-cod'; c.textContent = cod;
+        const s = document.createElement('span');
+        s.textContent = nomes.length + (nomes.length === 1 ? ' item: ' : ' itens: ') + nomes.join(', ')
+            + (nomes.length === 1 ? ' — conjunto com um item só; confira se o código está igual nos outros.' : '');
+        linha.append(c, s);
+        caixa.appendChild(linha);
+    });
+    // Sugestões: primeiro os conjuntos já usados no kit, depois os códigos de etiqueta.
+    const dl = document.getElementById('lista-conjuntos');
+    const vistos = new Set();
+    dl.innerHTML = '';
+    [...grupos.keys(), ...[...document.querySelectorAll('.kit-cat-item')].map(b => b.dataset.codigo)]
+        .forEach(cod => {
+            if (!cod || vistos.has(cod)) return;
+            vistos.add(cod);
+            const o = document.createElement('option'); o.value = cod; dl.appendChild(o);
+        });
+}
+
+document.addEventListener('DOMContentLoaded', atualizarTudo);
 </script>
 {% endblock %}

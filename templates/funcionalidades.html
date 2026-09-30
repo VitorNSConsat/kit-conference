@@ -732,7 +732,25 @@
   <ul>
     <li><span class="campo">Quantidade exigida</span> — quantos entram no kit.</li>
     <li><span class="campo">Obrigatório</span> — se pode ou não faltar na finalização.</li>
-    <li><span class="campo">Código de componente</span> — preenchido quando o item faz parte de um conjunto.</li>
+    <li><span class="campo">Conjunto</span> (código de componente) — preenchido quando o item faz parte de um conjunto.</li>
+  </ul>
+  <h3>Tela de edição do kit</h3>
+  <ul>
+    <li><strong>Catálogo à esquerda, itens do kit à direita.</strong> O catálogo tem uma
+      <strong>busca</strong> por nome ou pelo <strong>código da etiqueta</strong> (o código de barras
+      do item no estoque). Clicar no item adiciona ao kit; com a busca deixando um item só,
+      <strong>Enter</strong> adiciona. Itens que já estão no kit aparecem como “no kit” e podem ser
+      escondidos com “Ocultar os que já estão no kit”.</li>
+    <li>Todo item mostra o seu <strong>código da etiqueta</strong> — no catálogo e na lista do kit.
+      Itens sem estoque cadastrado aparecem como “sem etiqueta”.</li>
+    <li>Na coluna <strong>Conjunto</strong>, o atalho “usar CÓDIGO” preenche com o código da etiqueta do
+      próprio item, e o campo sugere os códigos já usados. Abaixo aparece o <strong>resumo dos conjuntos</strong>
+      (quais itens entram em cada código) e um aviso quando um conjunto ficou com um item só.</li>
+    <li>O <strong>“i”</strong> ao lado de Conjunto, Obrigatório e Código explica o campo ao passar o mouse
+      (ou ao tocar/focar).</li>
+    <li>O quadro <strong>Conjuntos deste kit</strong> mostra os conjuntos salvos e troca, ali mesmo, se a
+      verificação confere <em>em conjunto</em> ou <em>item a item</em> — o mesmo da aba Conjuntos.</li>
+    <li>Nada é gravado até clicar em <strong>Salvar alterações</strong>.</li>
   </ul>
   <div class="cuidado">
     <strong>Renomear um kit é sério:</strong> o vínculo com o veículo é pelo
