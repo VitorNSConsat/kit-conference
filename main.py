@@ -4475,16 +4475,18 @@ async def admin_remessas(request: Request, busca: str = "", remessa_id: int = 0,
     """`remessa_id` diz qual remessa esta sendo montada a mao — sem ele, com
     varias abertas, nao da pra saber pra qual a lista de candidatos aponta."""
     abertas = remessas_mod.listar_abertas()
-    alvo = remessas_mod.listar_uma(remessa_id) if remessa_id else (abertas[0] if abertas else None)
-    alvo = alvo if (alvo and alvo["status"] == "aberta") else None
+    escolhida = remessas_mod.listar_uma(remessa_id) if remessa_id else None
+    alvo = escolhida if (escolhida and escolhida["status"] == "aberta") else (
+        None if remessa_id else (abertas[0] if abertas else None))
+    # Remessa fechada/arquivada clicada no histórico: abre só pra consulta,
+    # com os veículos que fizeram parte dela.
+    consulta = escolhida if (escolhida and escolhida["status"] != "aberta") else None
     return render(request, "admin_remessas.html", {
+        "consulta": consulta,
+        "kits_da_consulta": remessas_mod.kits_da_remessa(consulta["id"]) if consulta else [],
         "remessas": remessas_mod.listar(incluir_arquivadas=bool(arquivadas)),
         "abertas": abertas,
         "alvo": alvo,
-        # Candidatos de TODAS as etapas — o lote pode ser montado antes de o
-        # galpao comecar a bipar.
-        "candidatos": (remessas_mod.candidatos(busca, list(etapa), imp_ini, imp_fim)
-                       if abertas else []),
         "kits_do_alvo": remessas_mod.kits_da_remessa(alvo["id"]) if alvo else [],
         "etapas": remessas_mod.ETAPAS,
         "filtro_etapa": list(etapa),
@@ -4591,10 +4593,23 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
     filtros = "&".join(
         f"{c}={quote(str(form.get(c, '')))}" for c in ("busca", "imp_ini", "imp_fim")
         if str(form.get(c, "")).strip())
+    # O jeito da tela: o operador DIGITA o(s) número(s) do veículo. O que não
+    # pôde entrar volta separado por motivo, número a número.
+    recusados = []
+    numeros = str(form.get("numeros", "")).strip()
+    if numeros:
+        achados = remessas_mod.refs_por_numeros(numeros)
+        refs += achados["refs"]
+        for chave, rotulo in (("nao_cadastrado", "nao_cad"), ("ja_em_remessa", "ja_num"),
+                              ("sem_etapa", "sem_etapa")):
+            if achados[chave]:
+                recusados.append(f"{rotulo}=" + quote(", ".join(achados[chave])))
     if not refs:
+        if recusados:
+            return RedirectResponse(_volta_remessa(remessa_id, "&".join(recusados)), status_code=302)
         return RedirectResponse(
             _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(
-                "Selecione ao menos um veiculo para acrescentar.")), status_code=302)
+                "Digite o número de ao menos um veículo para acrescentar.")), status_code=302)
     try:
         r = remessas_mod.adicionar_itens(remessa_id, refs,
                                          (get_current_user(request) or {}).get("id"))
@@ -4602,7 +4617,7 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
         return RedirectResponse(
             _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(str(e))),
             status_code=302)
-    partes = [f"ok=add&n={r['entraram']}"]
+    partes = [f"ok=add&n={r['entraram']}"] + recusados
     if r["ja_em_outra"]:
         partes.append(f"ja={r['ja_em_outra']}")
     if r["cliente_errado"]:

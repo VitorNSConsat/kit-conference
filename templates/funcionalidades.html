@@ -1077,95 +1077,57 @@
     envio</em>. Ver o contador e baixar a planilha não exige — acompanhar não é mexer.
   </div>
 
-  <h4>Uma remessa por vez na tela</h4>
+  <h4>A tela de Remessas</h4>
+  <ul>
+    <li><strong>Abrir remessa</strong> fica no topo, ao lado de <em>Voltar</em>: abre a mesma
+      janela da Produção (nome, quantidade e cliente).</li>
+    <li>Cada remessa aberta é uma <strong>lista que abre</strong>: fechada, mostra nome,
+      cliente, o contador e a barra. Clicando, ela abre (e as outras fecham) e mostra
+      <strong>os veículos que já fazem parte dela</strong> — veículo, cliente, kit, etapa,
+      nota fiscal e quando entrou.</li>
+    <li>Dentro da remessa aberta: <span class="campo">Excel</span>,
+      <span class="campo">Editar</span> (nome, quantidade e cliente, numa janela) e
+      <span class="campo">Fechar remessa</span>.</li>
+    <li><span class="campo">Acrescentar veículo</span> é <strong>só um campo</strong>: digite o
+      número do veículo e clique em Acrescentar. Dá pra colocar vários de uma vez, separados
+      por vírgula, espaço ou um por linha (colar uma coluna do Excel funciona). Entra veículo
+      de <strong>qualquer etapa</strong> — a produzir, em produção, produzido, em trânsito ou no
+      cliente — desde que não esteja em outra remessa. O que não entrar aparece <strong>pelo
+      número</strong>, com o motivo: não cadastrado, já está em outra remessa, ou cadastro
+      incompleto (sem cliente, garagem ou modelo).</li>
+    <li>O <span class="campo">Histórico</span> fica <strong>recolhido</strong> no fim da página e
+      abre ao clicar. Clicando no nome de uma remessa do histórico, ela abre <strong>pra
+      consulta</strong> com os veículos que fizeram parte dela (e o atalho pra reabrir).</li>
+  </ul>
   <p>
-    Em <strong>Remessas</strong>, cada remessa aberta é uma <strong>lista que abre</strong>:
-    fechada, mostra só o essencial — nome, cliente, o contador e a barra. Clicando nela, ela
-    abre e <strong>as outras fecham</strong>. Com quatro ou cinco em andamento, a página
-    virava um rolo e o operador perdia de vista qual estava montando.
-  </p>
-  <p>
-    Tudo o que se faz com aquela remessa fica <strong>dentro dela</strong>: editar nome,
-    quantidade e cliente, fechar, baixar a planilha, acrescentar veículos e mexer nos que já
-    estão lá. Não há dúvida sobre em qual remessa o botão vai agir.
+    O veículo que entra antes de ser bipado entra <strong>pelo número</strong>, e quando a
+    bipagem termina <strong>a mesma linha ganha o kit</strong> — não nasce outra, e o contador
+    não conta o mesmo veículo duas vezes. É o que permite fechar o lote com o cliente antes de
+    o galpão começar a montar.
   </p>
 
   <h4>Mexer em vários veículos de uma vez</h4>
   <p>
-    Na lista <span class="campo">Nesta remessa</span>, cada linha tem uma caixinha — e o
-    cabeçalho marca todas. Com algo marcado, aparece a barra de ações:
+    Na lista de veículos da remessa, cada linha tem uma caixinha — e o cabeçalho marca todas.
+    Com algo marcado, aparece a barra de ações:
   </p>
   <ul>
     <li><span class="campo">Transferir</span> — escolhe a remessa de destino e move
       <strong>todos os marcados de uma vez</strong>, numa operação só.</li>
-    <li><span class="campo">Tirar da remessa</span> — tira os marcados; eles voltam pra
-      lista de disponíveis e podem ser acrescentados de novo.</li>
+    <li><span class="campo">Tirar da remessa</span> — tira os marcados; eles ficam livres e
+      podem ser acrescentados de novo.</li>
   </ul>
-  <div class="nota">
-    <strong>Um veículo recusado não derruba os outros.</strong> Cada um é tentado por conta
-    própria: os que puderam ir, vão; os que não puderam aparecem <strong>pelo número do
-    veículo</strong>, com o motivo (“4000: Só REDEMOB é uma remessa de REDEMOB, e este
-    veículo é de VIACAO SUL”). “3 falharam” não ajudaria ninguém a consertar.
-  </div>
-
-  <h4>Acrescentar à mão os veículos que já se passaram</h4>
-  <p>
-    Em <strong>Remessas</strong>, escolhendo uma remessa aberta, aparece
-    <span class="campo">Acrescentar veículos</span>: a lista dos kits que
-    <strong>não estão em remessa nenhuma</strong>, com busca por veículo, cliente ou kit.
-    Marque e acrescente — inclusive vários de uma vez.
-  </p>
   <ul>
-    <li>É pros kits <strong>montados antes de a remessa existir</strong>, ou enquanto
-      nenhuma estava aberta. Sem isso, o único jeito de acertar o lote seria refazer a
-      bipagem.</li>
-    <li>Desfazer é pela seleção: marque os que entraram errado em
-      <span class="campo">Nesta remessa</span> e use <span class="campo">Tirar da
-      remessa</span>. Eles voltam pra lista de disponíveis.</li>
-    <li><strong>Kit que já está em outra remessa é ignorado</strong>, e a tela diz quantos
-      foram — cada kit entra em um lote só.</li>
-    <li>Numa remessa <strong>de um cliente</strong>, veículo de outro cliente é recusado, do
-      mesmo jeito que na contagem automática, e a tela diz quantos e de quem é a remessa.</li>
-    <li>Se o acréscimo <strong>bater o alvo</strong>, a remessa fecha — a próxima é aberta
-      por quem despacha, a mesma regra de sempre.</li>
+    <li>Numa remessa <strong>de um cliente</strong>, veículo de outro cliente é recusado, e a
+      tela diz quantos e de quem é a remessa.</li>
+    <li>Se o acréscimo <strong>bater a quantidade</strong>, a remessa fecha — a próxima é
+      aberta por quem despacha.</li>
   </ul>
   <div class="cuidado">
     <strong>Só em remessa aberta.</strong> Remessa fechada é histórico: mudar a conta de um
     lote já encerrado faria o número que foi passado pro cliente deixar de bater com o
-    registro — e com a planilha que já foi enviada.
+    registro — e com a planilha que já foi enviada. Reabra antes, se precisar.
   </div>
-
-  <h4>Montar a remessa antes de bipar</h4>
-  <p>
-    A remessa não depende de o kit existir. Em <strong>Remessas</strong>, a lista de
-    candidatos traz veículo de <strong>qualquer etapa</strong>:
-  </p>
-  <ul>
-    <li><span class="campo">A produzir</span> — ainda nem foi bipado;</li>
-    <li><span class="campo">Em produção</span> — bipagem em andamento;</li>
-    <li><span class="campo">Produzido</span>, <span class="campo">Em trânsito</span> e
-      <span class="campo">No cliente</span> — kit já montado.</li>
-  </ul>
-  <p>
-    O veículo entra no lote <strong>pelo número dele</strong>, e quando a bipagem termina
-    <strong>a mesma linha ganha o kit</strong> — não nasce outra, e o contador não conta o
-    mesmo veículo duas vezes. É o que permite fechar o lote com o cliente antes de o galpão
-    começar a montar.
-  </p>
-  <div class="nota">
-    <strong>Um veículo entra em uma remessa só.</strong> Vale pelos dois lados: pelo kit e
-    pelo veículo. Marcar um que já está em outro lote não duplica — ele é ignorado e a tela
-    diz quantos foram. Pra mudar de lote, use <strong>Transferir</strong>.
-  </div>
-
-  <h4>Usar a data de importação pra montar o lote</h4>
-  <p>
-    Quando uma importação inteira é um lote operacional (“os 37 que entraram no dia 25”),
-    filtre por <span class="campo">Importado de / até</span>, marque o cabeçalho pra
-    <strong>selecionar todos os visíveis</strong> e acrescente de uma vez. O
-    “marcar todos” marca <strong>só o que está na lista filtrada</strong> — nunca o que
-    ficou de fora do filtro.
-  </p>
 
   <h4>Corrigir depois: editar, transferir, reabrir</h4>
   <ul>
@@ -1203,40 +1165,6 @@
   <div class="nota">
     Arquivada não conta como aberta: não aparece na escolha da bipagem e não recebe kit.
     Pra ver as arquivadas no histórico, use <span class="campo">Mostrar arquivadas</span>.
-  </div>
-
-  <h4>Acrescentar veículos que já se passaram</h4>
-  <p>
-    Kit montado <strong>antes de a remessa existir</strong>, ou finalizado enquanto nenhuma
-    estava aberta, fica sem lote. Em <strong>Remessas</strong>, o bloco
-    <span class="campo">Acrescentar veículos</span> resolve isso sem refazer bipagem
-    nenhuma.
-  </p>
-  <ul>
-    <li>A lista traz <strong>só quem não está em remessa nenhuma</strong> — cada kit entra
-      em um lote só, e um kit já contado em outra remessa é ignorado (a tela diz quantos
-      foram).</li>
-    <li>Tem <strong>busca</strong> por veículo, cliente ou kit, e o “marcar todos” marca
-      <strong>só o que está visível</strong> — com a busca ativa, marcar tudo incluiria
-      linhas que você não está vendo.</li>
-    <li>Se a remessa é <strong>de um cliente</strong>, veículo de outro cliente não entra —
-      a tela avisa quantos foram recusados e de quem é a remessa.</li>
-    <li>Acrescentar pode <strong>fechar a remessa</strong>: se a seleção bater o alvo, ela
-      encerra (a próxima é aberta à mão), igual a quando o alvo é batido montando.</li>
-    <li><span class="campo">Nesta remessa</span> lista o que já está no lote, com
-      <strong>Tirar</strong> ao lado de cada um — o desfazer de quem acrescentou o
-      veículo errado.</li>
-  </ul>
-  <div class="cuidado">
-    <strong>Só em remessa aberta.</strong> Acrescentar ou tirar kit de uma remessa
-    <em>fechada</em> é recusado: ela é histórico, e mudar a conta de um lote já encerrado
-    faria o número passado ao cliente deixar de bater com o registro. Se precisar mesmo,
-    abra uma remessa nova.
-  </div>
-  <div class="nota">
-    Com várias remessas abertas, o botão <span class="campo">Acrescentar veículos</span>
-    de cada uma diz <strong>para qual</strong> a lista está apontando — sem isso não daria
-    pra saber em que lote os veículos marcados iriam cair.
   </div>
 
   <h3>Nota fiscal em lote</h3>

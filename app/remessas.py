@@ -474,6 +474,49 @@ def candidatos(busca: str = "", etapas: list = None,
     return itens[:limite]
 
 
+def refs_por_numeros(texto: str) -> dict:
+    """Números de veículo digitados → as referências que adicionar_itens() usa.
+
+    É o "digite o número" da tela de Remessas, no lugar da lista enorme de
+    candidatos. Usa a MESMA regra da lista (candidatos()): só entra veículo
+    livre, numa etapa que pode ir pra remessa. O que não entra volta separado
+    por motivo, pra tela dizer exatamente o que aconteceu com cada número.
+
+    Aceita vários de uma vez, separados por vírgula, ponto e vírgula, espaço ou
+    quebra de linha (colar uma coluna do Excel funciona)."""
+    import re as _re
+    numeros, vistos = [], set()
+    for n in _re.split(r"[\s,;]+", texto or ""):
+        n = n.strip()
+        if n and n.upper() not in vistos:
+            vistos.add(n.upper())
+            numeros.append(n)
+    livres = {}
+    for d in candidatos(limite=1_000_000):
+        livres.setdefault((d.get("veiculo") or "").strip().upper(), d["ref"])
+    refs, ja_em_remessa, nao_cadastrado, sem_etapa = [], [], [], []
+    with db() as conn:
+        for n in numeros:
+            ref = livres.get(n.upper())
+            if ref:
+                refs.append(ref)
+                continue
+            v = conn.execute("SELECT id FROM veiculos WHERE UPPER(TRIM(numero)) = ? AND ativo = 1",
+                             (n.upper(),)).fetchone()
+            if not v:
+                nao_cadastrado.append(n)
+            elif conn.execute(
+                    "SELECT 1 FROM remessa_kit rk LEFT JOIN kit_record kr ON kr.kit_id = rk.kit_id "
+                    "WHERE rk.veiculo_id = ? OR kr.veiculo_id = ?", (v["id"], v["id"])).fetchone():
+                ja_em_remessa.append(n)
+            else:
+                # Cadastrado e livre, mas sem cliente/garagem/modelo — não está
+                # em etapa nenhuma da esteira ainda.
+                sem_etapa.append(n)
+    return {"refs": refs, "ja_em_remessa": ja_em_remessa,
+            "nao_cadastrado": nao_cadastrado, "sem_etapa": sem_etapa}
+
+
 def _dono_do_item(conn, kit_id, veiculo_id):
     """De que CLIENTE e este item — pra remessa de cliente unico recusar os
     outros. Kit sabe pelo template; veiculo, pelo cadastro."""
