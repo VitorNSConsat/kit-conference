@@ -125,36 +125,9 @@ def _fechar_e_seguir(r: dict, motivo: str) -> None:
     Todas as formas de bater o alvo passam por aqui (o kit que chega, a meta
     reduzida, o acréscimo à mão). A próxima remessa NÃO abre sozinha: abrir
     um lote novo é decisão de quem despacha (quantidade, cliente, nome), e a
-    abertura automática criava remessas que ninguém pediu. A Produção mostra a
-    remessa que acabou de fechar com o atalho "Abrir a próxima", já preenchido
-    com a mesma quantidade e o mesmo cliente."""
+    abertura automática criava remessas que ninguém pediu. Quem abre a próxima
+    é o operador, pelo "Nova remessa" da Produção ou no começo da bipagem."""
     fechar(r["id"], motivo=motivo)
-
-
-def aguardando_proxima(limite: int = 5) -> list[dict]:
-    """Remessas que fecharam por bater o alvo e ainda não têm sucessora aberta
-    pro mesmo cliente — o aviso "abra a próxima" da Produção. Some sozinho
-    assim que alguém abre uma remessa pra aquele cliente (ou geral, quando a
-    fechada era geral)."""
-    with db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM remessa WHERE status = 'fechada' "
-            "AND COALESCE(observacao, '') LIKE 'alvo alcan%' "
-            "ORDER BY fechada_em DESC, id DESC LIMIT 30").fetchall()
-        abertas = {(r["cliente"] or "") for r in conn.execute(
-            "SELECT cliente FROM remessa WHERE status = 'aberta'").fetchall()}
-    saida, vistos = [], set()
-    for r in rows:
-        cli = r["cliente"] or ""
-        # Só a mais recente de cada cliente: a de antes já teve a sua sucessora.
-        if cli in vistos or cli in abertas:
-            vistos.add(cli)
-            continue
-        vistos.add(cli)
-        d = _com_contagem(dict(r))
-        d["proximo_nome"] = _proximo_nome()
-        saida.append(d)
-    return saida[:limite]
 
 
 def fechar(remessa_id: int, motivo: str = "") -> None:

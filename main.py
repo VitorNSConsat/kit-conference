@@ -4441,9 +4441,6 @@ async def admin_producao(request: Request):
         "qs_cli": qs_cli,
         "resumo_cli": resumo_cli,
         "total_cli": len(todos_cli),
-        # Remessas que bateram o alvo e ainda não têm a próxima aberta: abrir
-        # a seguinte é decisão do operador, não automática.
-        "remessas_aguardando": remessas_mod.aguardando_proxima(),
         "resumo": producao_mod.resumo(),
         # Kits devendo item (patrimônio movido pra outro veículo ou retirado):
         # a esteira é onde o kit espera, então é aqui que a pendência precisa

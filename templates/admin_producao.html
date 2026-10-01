@@ -128,20 +128,11 @@
 {% endif %}
 
 <!-- ── Remessas em andamento ───────────────────────────────────────────── -->
-{# Os lotes combinados com o cliente ("mandar 90"). Ficam no topo da esteira
-   porque é a pergunta do dia de quem despacha: quanto já entrou e quanto
-   falta. Pode haver mais de um aberto — duas frentes de trabalho. Ao bater a
-   quantidade a remessa FECHA e a próxima NÃO abre sozinha: quem despacha abre
-   a seguinte (o atalho já vem preenchido com a mesma quantidade e cliente). #}
+{# Só as remessas abertas e a quantidade de cada uma. Ao bater a quantidade a
+   remessa FECHA e sai daqui; a próxima é aberta pelo operador (Nova remessa). #}
 <div class="card rem-card">
   <div class="rem-cab">
-    <div>
-      <h2 style="margin:0 0 2px;display:flex;align-items:center;gap:7px;">{{ ic.svg('caixa', 16) }} Remessas</h2>
-      <p style="color:var(--text-muted);font-size:13px;margin:0;">
-        O operador escolhe a remessa no começo da bipagem, e o kit entra nela ao ser finalizado.
-        Ao completar a quantidade, a remessa fecha — a próxima é aberta por quem despacha.
-      </p>
-    </div>
+    <h2 style="margin:0;display:flex;align-items:center;gap:7px;">{{ ic.svg('caixa', 16) }} Remessas</h2>
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       {% if pode('remessas_gerenciar') %}
       <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'nova-remessa')">{{ ic.svg('mais', 13) }} Nova remessa</button>
@@ -149,31 +140,6 @@
       <a href="/admin/producao/remessas" class="btn btn-ghost btn-sm">Ver todas</a>
     </div>
   </div>
-
-  {# Fechou por bater a quantidade e ainda não tem sucessora: o aviso fica até
-     alguém abrir a próxima pra aquele cliente. #}
-  {% for r in remessas_aguardando %}
-  <div class="rem-aguardando">
-    <div class="rem-aguardando-texto">
-      {{ ic.svg('check-circulo', 16) }}
-      <div>
-        <strong>{{ r.nome }}</strong> completou <strong>{{ r.rotulo }}</strong>
-        {%- if r.cliente %} ({{ r.cliente }}){% endif %} e foi fechada
-        {%- if r.fechada_em %} em {{ r.fechada_em[8:10] }}/{{ r.fechada_em[5:7] }} às {{ r.fechada_em[11:16] }}{% endif %}.
-        <span class="rem-aguardando-sub">A próxima remessa não abre sozinha{{ ' — abra quando for começar o próximo lote.' if pode('remessas_gerenciar') else ' — peça a quem gerencia remessas para abrir.' }}</span>
-      </div>
-    </div>
-    {% if pode('remessas_gerenciar') %}
-    <form method="post" action="/admin/producao/remessas/abrir" class="rem-aguardando-form">
-      <input type="hidden" name="voltar" value="/admin/producao">
-      <input type="hidden" name="cliente" value="{{ r.cliente or '' }}">
-      <input type="text" name="nome" value="{{ r.proximo_nome }}" title="Nome da próxima remessa" style="width:150px;margin:0;">
-      <input type="number" name="alvo" min="1" value="{{ r.alvo }}" title="Quantidade da próxima remessa" style="width:90px;margin:0;">
-      <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('mais', 13) }} Abrir a próxima</button>
-    </form>
-    {% endif %}
-  </div>
-  {% endfor %}
 
   {% if remessas_abertas %}
   <div class="rem-lista">
@@ -208,11 +174,8 @@
   </div>
   {% endfor %}
   </div>
-  {% elif not remessas_aguardando %}
-  <p style="color:var(--warn-text);font-size:13px;margin:12px 0 0;">
-    {{ ic.svg('alerta', 13) }} Nenhuma remessa aberta — os kits montados agora não entram em contagem nenhuma.
-    {% if pode('remessas_gerenciar') %}Use <strong>Nova remessa</strong> acima.{% else %}Peça a quem gerencia remessas para abrir uma.{% endif %}
-  </p>
+  {% else %}
+  <p style="color:var(--text-muted-2);font-size:13px;margin:10px 0 0;">Nenhuma remessa aberta.</p>
   {% endif %}
 </div>
 
@@ -252,12 +215,6 @@
 
 <style>
 .rem-cab { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
-.rem-aguardando { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-    margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); border: 1px solid var(--ok-border); }
-.rem-aguardando-texto { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text); }
-.rem-aguardando-texto > svg { color: var(--ok-text); flex-shrink: 0; margin-top: 1px; }
-.rem-aguardando-sub { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-.rem-aguardando-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .rem-lista { display: flex; flex-direction: column; margin-top: 6px; }
 .rem-linha { display: grid; grid-template-columns: minmax(150px, 200px) auto minmax(200px, 1fr) auto; gap: 16px;
     align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle); }

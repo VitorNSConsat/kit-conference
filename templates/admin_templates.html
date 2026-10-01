@@ -76,14 +76,9 @@
    embaixo). Agora o operador segue um caminho: nome e clientes, depois escolhe
    COMO montar — e só o que vale pra essa escolha aparece. #}
 <div class="card ck" id="criar-kit">
-    <h2 style="margin:0 0 4px;">{{ ic.svg('kits', 17) }} Novo Kit</h2>
-    <p style="margin:0 0 16px;font-size:13px;color:var(--text-muted);">
-        Dê um nome, marque os clientes e escolha como montar a lista de itens.
-        Depois de criado, o kit pode ser editado livremente.
-    </p>
+    <h2 style="margin:0 0 14px;">{{ ic.svg('kits', 17) }} Novo Kit</h2>
     <form method="post" action="/admin/templates" enctype="multipart/form-data" id="form-template-kit">
         <input type="hidden" name="tipo" value="kit">
-        <div class="ck-passo"><span class="ck-num">1</span><strong>Nome e clientes</strong></div>
         <div class="ck-grade">
             <div class="form-group" style="margin:0;">
                 <label>Nome do Kit *</label>
@@ -95,8 +90,7 @@
             </div>
         </div>
 
-        <div class="ck-passo"><span class="ck-num">2</span><strong>Como montar os itens?</strong></div>
-        <div class="ck-modos">
+        <div class="ck-modos" style="margin-top:14px;">
             <label class="ck-modo">
                 <input type="radio" name="_modo" value="manual" onchange="escolherModoKit('manual')">
                 <span class="ck-modo-ic">{{ ic.svg('clipboard', 22) }}</span>
@@ -111,8 +105,7 @@
             </label>
         </div>
 
-        <div id="ck-bom" class="ck-etapa" hidden>
-            <div class="ck-passo"><span class="ck-num">3</span><strong>Planilha do BOM</strong></div>
+        <div id="ck-bom" class="ck-etapa" hidden style="margin-top:14px;">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <input type="file" name="arquivo" accept=".xlsx" id="ck-arquivo" disabled style="flex:1;min-width:220px;margin-bottom:0;">
                 <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar e criar kit</button>
@@ -120,7 +113,6 @@
         </div>
 
         <div id="ck-manual" class="ck-etapa" hidden>
-            <div class="ck-passo"><span class="ck-num">3</span><strong>Itens do kit</strong></div>
 {{ secao_itens('kit', 'Kit', tipos_catalogo) }}
             <button type="submit" class="btn btn-primary">{{ ic.svg('check', 15) }} Criar Kit</button>
         </div>
@@ -404,11 +396,7 @@
 {% endblock %}
 {% block scripts %}
 <style>
-/* Novo Kit: passos numerados e a escolha do caminho em dois cartões. */
-.ck-passo { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: 14px; }
-.ck-passo:first-of-type { margin-top: 4px; }
-.ck-num { width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff;
-    display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+/* Novo Kit: nome, clientes e a escolha do caminho em dois cartões. */
 .ck-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 760px) { .ck-grade { grid-template-columns: 1fr; } }
 .ck-modos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
