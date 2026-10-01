@@ -240,6 +240,13 @@
     </div>
     {% endif %}
 
+    {# A lista por item fica recolhida: os 4 cards acima já dão o resumo; o detalhe abre ao clicar. #}
+    <details class="consumo-lista">
+    <summary>
+        {{ ic.svg('seta-direita', 14) }}
+        <span>Ver itens do kit ({{ consumo.itens | length }})</span>
+        <small>quantidade planejada, gasto real, estoque e autonomia de cada item</small>
+    </summary>
     <div style="overflow-x:auto;">
     <table class="tabela-consumo">
         <thead>
@@ -302,6 +309,7 @@
         pode passar do planejado quando há substituição de equipamento com defeito no meio
         da bipagem. Itens sem estoque vinculado usam o planejado, que para eles é exato.
     </p>
+    </details>
 </div>
 {% endif %}
 
@@ -567,6 +575,19 @@ function avisarRenomear() {
 }
 .consumo-aviso.alerta { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
 
+.consumo-lista { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.consumo-lista > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
+    padding: 11px 14px; font-weight: 700; font-size: 13.5px; color: var(--brand-ink); user-select: none;
+}
+.consumo-lista > summary::-webkit-details-marker { display: none; }
+.consumo-lista > summary:hover { background: var(--brand-soft); border-radius: 10px; }
+.consumo-lista > summary svg { transition: transform .15s; flex-shrink: 0; }
+.consumo-lista[open] > summary svg { transform: rotate(90deg); }
+.consumo-lista[open] > summary { border-bottom: 1px solid var(--border-subtle); border-radius: 10px 10px 0 0; }
+.consumo-lista > summary small { font-weight: 400; font-size: 12px; color: var(--text-muted-2); }
+.consumo-lista > div, .consumo-lista > p { padding: 0 14px; }
+.consumo-lista > p { padding-bottom: 12px; }
 .tabela-consumo { width: 100%; }
 .tabela-consumo th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
 .tabela-consumo td { font-size: 13px; }
