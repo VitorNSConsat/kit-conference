@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% import "_filtros.html" as f %}
+{% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
+{% block title %}Mudanças de Patrimônio{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
+{% block content %}
+{% set cor_tipo = {'movido': 'badge-info', 'retirado': 'badge-danger', 'reposicao': 'badge-success', 'correcao': 'badge-warning'} %}
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">
+  Tudo que aconteceu com um patrimônio <strong>depois da montagem do kit</strong>: de qual veículo
+  saiu, em qual entrou, onde está agora, quando, por quê e quem fez. Inclui as mudanças antigas —
+  o relatório é montado a partir do histórico que cada item já guarda.
+</p>
+
+<div class="card">
+  <h2>Filtros</h2>
+  <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="form-group" style="margin:0;">
+      <label>Data inicial</label>
+      <input type="date" name="data_ini" value="{{ data_ini }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Data final</label>
+      <input type="date" name="data_fim" value="{{ data_fim }}">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Mudança</label>
+      {{ f.multi('tipo', 'Mudança', tipos_opcoes, tipo, 'todas') }}
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Cliente</label>
+      {{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+      <label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" placeholder="Patrimônio, item, veículo, motivo, pessoa...">
+    </div>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
+    <a href="/reports/patrimonio/export?{{ qs }}" class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+  </form>
+</div>
+
+<div class="pat-resumo">
+  {% for chave, rotulo in tipos_opcoes %}
+  <a href="/reports/patrimonio?data_ini={{ data_ini }}&data_fim={{ data_fim }}&tipo={{ chave }}"
+     class="pat-resumo-card {{ 'ativo' if tipo == [chave] }}">
+    <span class="badge {{ cor_tipo[chave] }}">{{ rotulo }}</span>
+    <strong>{{ contagem[chave] }}</strong>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Mudanças</h2>
+  {{ pg.contagem(pag, "mudanças", singular="mudança") }}
+  {% if eventos %}
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Mudança</th>
+        <th>Patrimônio</th>
+        <th>Saiu de → Entrou em</th>
+        <th>Onde está agora</th>
+        <th>Motivo</th>
+        <th>Feito por</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in eventos %}
+    <tr>
+      <td style="white-space:nowrap;font-size:12.5px;">
+        {% if e.data %}{{ e.data[8:10] }}/{{ e.data[5:7] }}/{{ e.data[:4] }}
+        <span style="color:var(--text-muted-2);">{{ e.data[11:16] }}</span>{% else %}—{% endif %}
+      </td>
+      <td><span class="badge {{ cor_tipo[e.tipo] }}" style="white-space:nowrap;">{{ e.tipo_texto }}</span></td>
+      <td>
+        <a href="/admin/items/patrimonio/{{ e.patrimonio | urlencode }}" class="pat-codigo" title="Histórico completo deste patrimônio">{{ e.patrimonio }}</a>
+        <div style="font-size:12px;color:var(--text-muted);">{{ e.item }}</div>
+        {% if e.serial %}<div style="font-size:11px;color:var(--text-muted-2);font-family:monospace;">S/N {{ e.serial }}</div>{% endif %}
+      </td>
+      <td style="white-space:nowrap;">
+        {% if e.tipo == 'correcao' %}
+          <div style="font-size:12.5px;">no veículo <strong>{{ e.veiculo }}</strong></div>
+          <div style="font-size:11.5px;color:var(--text-muted);white-space:normal;max-width:260px;">{{ e.detalhe }}</div>
+        {% else %}
+          <span class="pat-veic {{ 'vazio' if not e.saiu_de }}">{{ e.saiu_de or '—' }}</span>
+          <span style="color:var(--text-muted-2);">{{ ic.svg('seta-direita', 13) }}</span>
+          <span class="pat-veic {{ 'vazio' if not e.entrou_em }} {{ 'entrou' if e.entrou_em }}">{{ e.entrou_em or ('fora de kit' if e.tipo == 'retirado' else '—') }}</span>
+        {% endif %}
+      </td>
+      <td style="font-size:12.5px;">
+        {% if e.agora_veiculo %}<strong>{{ e.agora_veiculo }}</strong>
+        <div style="font-size:11.5px;color:var(--text-muted);">{{ e.agora_etapa }}</div>
+        {% else %}<span style="color:var(--text-muted-2);">Fora de kit</span>{% endif %}
+      </td>
+      <td style="font-size:12.5px;color:var(--text-muted);max-width:320px;">{{ e.motivo or '—' }}</td>
+      <td style="font-size:12.5px;white-space:nowrap;">{{ e.por or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}<a href="/reports/patrimonio?{{ qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
+    Nenhuma mudança de patrimônio para esses filtros.
+  </p>
+  {% endif %}
+</div>
+
+<style>
+.pat-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.pat-resumo-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-decoration: none; color: var(--text); }
+.pat-resumo-card:hover { border-color: var(--brand-border); background: var(--brand-soft); }
+.pat-resumo-card.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.pat-resumo-card strong { font-size: 20px; color: var(--brand-ink); }
+.pat-codigo { font-family: monospace; font-weight: 700; color: var(--brand-ink); text-decoration: none; }
+.pat-codigo:hover { text-decoration: underline; }
+.pat-veic { font-weight: 700; font-size: 13px; }
+.pat-veic.vazio { font-weight: 400; color: var(--text-muted-2); }
+.pat-veic.entrou { color: var(--ok-text); }
+</style>
+{% endblock %}

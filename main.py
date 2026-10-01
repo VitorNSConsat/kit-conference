@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 # Brasília Time (UTC-3) — garante horário correto independente do fuso do servidor
 BRT = timezone(timedelta(hours=-3))
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from fastapi import (FastAPI, Request, Form, Query, WebSocket, WebSocketDisconnect,
                      UploadFile, File, HTTPException)
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, JSONResponse
@@ -47,6 +47,7 @@ import app.backup as backup_mod
 import app.inatividade as inatividade_mod
 import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
+import app.relatorio_patrimonio as relatorio_patrimonio_mod
 import app.hardware as hardware_mod
 import app.hardware_importacoes as hardware_importacoes_mod
 import app.sobressalentes as sobressalentes_mod
@@ -3982,20 +3983,60 @@ async def reports_validacoes_export(request: Request,
     )
 
 
+def _xlsx_planilha(wb, titulo: str, headers: list, widths: list, linhas: list, primeira=False):
+    """Uma aba no padrão dos relatórios: cabeçalho azul, zebra e topo congelado."""
+    from openpyxl.styles import Font, PatternFill, Alignment
+    ws = wb.active if primeira else wb.create_sheet()
+    ws.title = titulo
+    for col, (h, w) in enumerate(zip(headers, widths), 1):
+        c = ws.cell(row=1, column=col, value=h)
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="1A3A5C")
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.column_dimensions[c.column_letter].width = w
+    for i, linha in enumerate(linhas, 2):
+        for col, valor in enumerate(linha, 1):
+            c = ws.cell(i, col, valor)
+            c.alignment = Alignment(vertical="top", wrap_text=isinstance(valor, str) and len(valor) > 40)
+            if i % 2 == 0:
+                c.fill = PatternFill("solid", fgColor="F4F7FB")
+    ws.freeze_panes = "A2"
+    return ws
+
+
+def _xlsx_resposta(wb, nome: str):
+    from fastapi.responses import Response as _Resp
+    from io import BytesIO
+    buf = BytesIO()
+    wb.save(buf)
+    return _Resp(content=buf.getvalue(),
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+
+
 @app.get("/reports/sobressalentes", response_class=HTMLResponse)
 @require_permission("ver_relatorios")
 async def reports_sobressalentes(request: Request,
                                  data_ini: str = "",
                                  data_fim: str = "",
+                                 busca: str = "",
+                                 pagina: int = 1,
                                  cliente: list[str] = Query(default=[])):
-    rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
+    """Um envio por linha (SOB-0001, ...), com os itens que ele levou ao abrir."""
+    envios = sobressalentes_mod.envios_relatorio(data_ini, data_fim, cliente, busca)
+    pag = paginacao_mod.paginar(envios, pagina)
     return render(request, "reports_sobressalentes.html", {
         "voltar_para": _voltar_para(request, "/reports"),
-        "rows": rows,
+        "envios": pag["itens"],
+        "pag": pag,
+        "total_unidades": sum(e["total_unidades"] for e in envios),
         "clientes": clientes_mod.listar(),
         "data_ini": data_ini,
         "data_fim": data_fim,
+        "busca": busca,
         "cliente": cliente,
+        "qs": urlencode([("data_ini", data_ini), ("data_fim", data_fim), ("busca", busca)]
+                        + [("cliente", c) for c in cliente]),
     })
 
 
@@ -4004,46 +4045,83 @@ async def reports_sobressalentes(request: Request,
 async def reports_sobressalentes_export(request: Request,
                                         data_ini: str = "",
                                         data_fim: str = "",
+                                        busca: str = "",
                                         cliente: list[str] = Query(default=[])):
-    from fastapi.responses import Response as _Resp
+    """Duas abas: Envios (um por linha, com o resumo dos itens) e Itens (um item
+    por linha, com o SOB de cada um) — a segunda é a que se filtra no Excel."""
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from io import BytesIO
-
-    rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente)
-
-    azul, branco = "1A3A5C", "FFFFFF"
+    envios = sobressalentes_mod.envios_relatorio(data_ini, data_fim, cliente, busca)
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Sobressalentes"
+    _xlsx_planilha(wb, "Envios",
+                   ["Envio", "Data", "Cliente", "Nome do pacote", "Enviado por", "Itens", "Unidades",
+                    "Conteúdo", "Observação"],
+                   [12, 17, 22, 24, 22, 8, 10, 60, 36],
+                   [[e["rotulo"], e["criado_em"][:16], e["cliente"], e["nome"], e["operador_nome"],
+                     len(e["itens"]), e["total_unidades"], e["itens_texto"], e["observacao"]]
+                    for e in envios], primeira=True)
+    _xlsx_planilha(wb, "Itens",
+                   ["Envio", "Data", "Cliente", "Item", "Código", "Quantidade", "Enviado por"],
+                   [12, 17, 22, 32, 18, 12, 22],
+                   [[e["rotulo"], e["criado_em"][:16], e["cliente"], i["tipo_nome"], i["codigo_barra"],
+                     i["quantidade"], e["operador_nome"]]
+                    for e in envios for i in e["itens"]])
+    return _xlsx_resposta(wb, "sobressalentes.xlsx")
 
-    headers = ["Data", "Item", "Código", "Quantidade", "Cliente", "Enviado Por", "Observação"]
-    widths = [17, 28, 18, 12, 22, 22, 40]
-    for col, (h, w) in enumerate(zip(headers, widths), 1):
-        c = ws.cell(row=1, column=col, value=h)
-        c.font = Font(bold=True, color=branco)
-        c.fill = PatternFill("solid", fgColor=azul)
-        c.alignment = Alignment(horizontal="center", vertical="center")
-        ws.column_dimensions[ws.cell(1, col).column_letter].width = w
 
-    for i, r in enumerate(rows, 2):
-        ws.cell(i, 1, (r["criado_em"] or "")[:16])
-        ws.cell(i, 2, r["tipo_nome"])
-        ws.cell(i, 3, r["codigo_barra"])
-        ws.cell(i, 4, r["quantidade"])
-        ws.cell(i, 5, r["cliente"])
-        ws.cell(i, 6, r["operador_nome"] or "")
-        ws.cell(i, 7, r["observacao"] or "")
+@app.get("/reports/patrimonio", response_class=HTMLResponse)
+@require_permission("ver_relatorios")
+async def reports_patrimonio(request: Request,
+                             data_ini: str = "",
+                             data_fim: str = "",
+                             busca: str = "",
+                             pagina: int = 1,
+                             tipo: list[str] = Query(default=[]),
+                             cliente: list[str] = Query(default=[])):
+    """Mudanças de patrimônio depois da montagem: o que saiu de qual veículo,
+    pra onde foi, onde está agora, quando, por quê e quem fez."""
+    eventos = relatorio_patrimonio_mod.listar_mudancas(data_ini, data_fim, tipo, busca, cliente)
+    pag = paginacao_mod.paginar(eventos, pagina)
+    contagem = {t: 0 for t in relatorio_patrimonio_mod.TIPOS}
+    for e in eventos:
+        contagem[e["tipo"]] += 1
+    return render(request, "reports_patrimonio.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
+        "eventos": pag["itens"],
+        "pag": pag,
+        "contagem": contagem,
+        "tipos_opcoes": list(relatorio_patrimonio_mod.TIPOS.items()),
+        "clientes": clientes_mod.listar(),
+        "data_ini": data_ini,
+        "data_fim": data_fim,
+        "busca": busca,
+        "tipo": tipo,
+        "cliente": cliente,
+        "qs": urlencode([("data_ini", data_ini), ("data_fim", data_fim), ("busca", busca)]
+                        + [("tipo", t) for t in tipo] + [("cliente", c) for c in cliente]),
+    })
 
-    ws.freeze_panes = "A2"
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return _Resp(
-        content=buf.read(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=sobressalentes.xlsx"},
-    )
+
+@app.get("/reports/patrimonio/export")
+@require_permission("ver_relatorios")
+async def reports_patrimonio_export(request: Request,
+                                    data_ini: str = "",
+                                    data_fim: str = "",
+                                    busca: str = "",
+                                    tipo: list[str] = Query(default=[]),
+                                    cliente: list[str] = Query(default=[])):
+    import openpyxl
+    eventos = relatorio_patrimonio_mod.listar_mudancas(data_ini, data_fim, tipo, busca, cliente)
+    wb = openpyxl.Workbook()
+    _xlsx_planilha(wb, "Mudanças de patrimônio",
+                   ["Data", "Mudança", "Patrimônio", "Item", "Nº de série", "Saiu do veículo",
+                    "Entrou no veículo", "Veículo (correção)", "Correção", "Onde está agora",
+                    "Etapa atual", "Cliente", "Motivo", "Feito por"],
+                   [17, 24, 18, 26, 20, 16, 16, 16, 36, 16, 22, 20, 44, 20],
+                   [[(e["data"] or "")[:16], e["tipo_texto"], e["patrimonio"], e["item"], e["serial"],
+                     e["saiu_de"], e["entrou_em"], e["veiculo"], e["detalhe"],
+                     e["agora_veiculo"] or "Fora de kit", e["agora_etapa"], e["cliente"],
+                     e["motivo"], e["por"]] for e in eventos], primeira=True)
+    return _xlsx_resposta(wb, f"mudancas_patrimonio_{now_brt()[:10]}.xlsx")
 
 
 # ── Prateleira ────────────────────────────────────────────────────────────────

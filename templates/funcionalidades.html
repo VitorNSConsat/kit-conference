@@ -1637,7 +1637,19 @@
       exportação em Excel (a exportação leva exatamente o mesmo filtro da tela).</li>
     <li><strong>Operadores</strong> — produção por pessoa.</li>
     <li><strong>Validações</strong> — as conferências, agrupadas por kit (1ª, 2ª, 3ª na ordem).</li>
-    <li><strong>Sobressalentes</strong> — o que foi enviado fora do kit, por cliente e período.</li>
+    <li><strong>Sobressalentes</strong> — organizado <strong>por envio</strong>: cada pacote
+      (SOB-0001, SOB-0002...) numa linha, com cliente, data, quem enviou e o resumo; clicando, abre
+      a lista de itens e quantidades daquele envio, com atalho pro pacote e a etiqueta. Envios de
+      antes dos pacotes aparecem como <em>Avulso</em>. Busca por SOB, item, código ou cliente. O Excel
+      sai com duas abas: <em>Envios</em> (um por linha) e <em>Itens</em> (cada item com o seu SOB).</li>
+    <li><strong>Mudanças de Patrimônio</strong> — tudo que aconteceu com uma peça depois da
+      montagem do kit: <em>movida entre veículos</em> (de qual saiu → em qual entrou),
+      <em>retirada do kit</em>, <em>reposição</em> (peça que entrou num kit já fechado) e
+      <em>correção de código/serial</em>. Cada linha mostra a data, o motivo, quem fez e
+      <strong>onde a peça está agora</strong> (veículo e etapa). Inclui as mudanças antigas — é
+      montado do histórico que cada item já guarda. Filtros por período, tipo de mudança,
+      cliente e busca; os cartões de cima contam cada tipo e filtram com um clique; exporta
+      Excel com os mesmos filtros.</li>
   </ul>
   <div class="nota">
     Os filtros de data são sempre <strong>do primeiro dia às 00:00 até o fim do último dia

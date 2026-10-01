@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_filtros.html" as f %}
+{% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
 {% block title %}Sobressalentes Enviados{% endblock %}
 {% block acoes_topo %}
@@ -7,9 +8,10 @@
 {% endblock %}
 
 {% block content %}
-<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
-  Peças extras enviadas numa instalação, fora do que o kit bipado já contabiliza —
-  cada envio desconta do estoque na hora e fica registrado aqui.
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">
+  Cada <strong>envio</strong> numa linha — o pacote (SOB-0001, SOB-0002...) com o cliente, a data e
+  quem enviou. Clique no envio para ver os itens que ele levou. Envios feitos antes dos pacotes
+  aparecem como <strong>Avulso</strong>. O estoque já foi descontado em cada um.
 </p>
 
 <div class="card">
@@ -27,47 +29,108 @@
       <label>Cliente</label>
       {{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}
     </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+      <label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" placeholder="SOB-0001, item, código, cliente...">
+    </div>
     <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
-    <a href="/reports/sobressalentes/export?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for c in cliente %}&cliente={{ c|urlencode }}{% endfor %}"
-       class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+    <a href="/reports/sobressalentes/export?{{ qs }}" class="btn btn-success"
+       title="Duas abas: Envios (um por linha) e Itens (cada item com o seu SOB)">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
   </form>
 </div>
 
 <div class="card">
-  <h2>Envios ({{ rows | length }})</h2>
-  {% if rows %}
-  <div style="overflow-x:auto;">
-  <table>
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Item</th>
-        <th>Quantidade</th>
-        <th>Cliente</th>
-        <th>Enviado Por</th>
-        <th>Observação</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in rows %}
-    <tr>
-      <td style="white-space:nowrap;">{{ r.criado_em[:16] }}</td>
-      <td><strong>{{ r.tipo_nome }}</strong><br>
-          <span style="font-size:11px;color:var(--text-muted-2);font-family:monospace;">{{ r.codigo_barra }}</span>
-      </td>
-      <td>{{ r.quantidade }}</td>
-      <td>{{ r.cliente }}</td>
-      <td>{{ r.operador_nome or '—' }}</td>
-      <td style="font-size:13px;color:var(--text-muted);">{{ r.observacao or '—' }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+    <h2 style="margin:0;">Envios</h2>
+    {% if pag.total %}<span style="font-size:12.5px;color:var(--text-muted);">{{ total_unidades }} unidade{{ 's' if total_unidades != 1 }} no total</span>{% endif %}
   </div>
+  {{ pg.contagem(pag, "envios") }}
+  {% if envios %}
+  <div class="sob-lista">
+    {% for e in envios %}
+    <details class="sob-envio">
+      <summary>
+        <span class="sob-seta">{{ ic.svg('seta-direita', 14) }}</span>
+        <span class="sob-rotulo {{ 'avulso' if not e.pacote_id }}">{{ e.rotulo }}</span>
+        <span class="sob-info">
+          <span class="sob-linha1">
+            <strong style="color:{{ cor_do_cliente(e.cliente) }};">{{ e.cliente or '—' }}</strong>
+            {% if e.nome %}<span class="sob-nome">· {{ e.nome }}</span>{% endif %}
+          </span>
+          <span class="sob-resumo">{{ e.itens_texto }}</span>
+        </span>
+        <span class="sob-meta">
+          <span>{{ e.itens | length }} ite{{ 'm' if e.itens | length == 1 else 'ns' }} · {{ e.total_unidades }} un</span>
+          <span>{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }} {{ e.criado_em[11:16] }}</span>
+          <span>{{ e.operador_nome or '—' }}</span>
+        </span>
+      </summary>
+      <div class="sob-corpo">
+        <table>
+          <thead><tr><th>Item</th><th>Código</th><th style="text-align:right;">Quantidade</th></tr></thead>
+          <tbody>
+          {% for i in e.itens %}
+          <tr>
+            <td><strong>{{ i.tipo_nome }}</strong></td>
+            <td style="font-family:monospace;font-size:12.5px;">{{ i.codigo_barra or '—' }}</td>
+            <td style="text-align:right;font-weight:700;">{{ i.quantidade }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% if e.observacao %}<p class="sob-obs">{{ ic.svg('info', 13) }} {{ e.observacao }}</p>{% endif %}
+        {% if e.pacote_id %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <a href="/sobressalente/{{ e.pacote_id }}" class="btn btn-sm btn-secondary">Ver pacote e histórico</a>
+          <a href="/admin/sobressalente/{{ e.pacote_id }}/etiqueta" target="_blank" class="btn btn-sm btn-ghost">{{ ic.svg('impressao', 13) }} Etiqueta</a>
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}<a href="/reports/sobressalentes?{{ qs }}&pagina={{ p }}"
+         class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
   {% else %}
   <p style="color:var(--text-muted-2);text-align:center;padding:24px;">
     Nenhum sobressalente enviado ainda pra esses filtros.
   </p>
   {% endif %}
 </div>
+
+<style>
+.sob-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sob-envio { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.sob-envio[open] { border-color: var(--brand-border); }
+.sob-envio > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.sob-envio > summary::-webkit-details-marker { display: none; }
+.sob-envio > summary:hover { background: var(--brand-soft); border-radius: 10px; }
+.sob-seta { color: var(--text-muted-2); display: inline-flex; transition: transform .15s; }
+.sob-envio[open] .sob-seta { transform: rotate(90deg); }
+.sob-rotulo { font: 800 14px/1 monospace; color: var(--brand-ink); background: var(--brand-soft);
+    border: 1px solid var(--brand-border); border-radius: 6px; padding: 5px 8px; white-space: nowrap; }
+.sob-rotulo.avulso { font-family: inherit; color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+.sob-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sob-linha1 { font-size: 13.5px; }
+.sob-nome { color: var(--text-muted); }
+.sob-resumo { font-size: 12px; color: var(--text-muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sob-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.sob-meta span:first-child { font-weight: 700; color: var(--text); }
+.sob-corpo { padding: 4px 14px 14px 52px; border-top: 1px solid var(--border-subtle); }
+.sob-obs { font-size: 12.5px; color: var(--text-muted); margin: 8px 0 0; display: flex; gap: 6px; align-items: flex-start; }
+@media (max-width: 640px) {
+    .sob-envio > summary { flex-wrap: wrap; }
+    .sob-meta { flex-direction: row; gap: 10px; align-items: center; width: 100%; padding-left: 26px; }
+    .sob-corpo { padding-left: 14px; }
+}
+</style>
 {% endblock %}

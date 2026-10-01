@@ -118,3 +118,21 @@ def test_etiquetas_em_lote_uma_por_folha():
         [{"rotulo": f"SOB-000{n}", "url_qr": f"http://x/sobressalente/{n}"} for n in (1, 2, 3)])
     assert html.count('class="folha"') == 3 and "page-break-after: always" in html
     assert all(f"SOB-000{n}" in html for n in (1, 2, 3))
+
+
+def test_relatorio_agrupa_por_envio_com_os_itens(cenario):
+    """Relatórios > Sobressalentes: um envio por pacote (SOB-xxxx) com os itens
+    dentro; a baixa avulsa (sem pacote) vira um envio 'Avulso'."""
+    p1 = sob.criar([{"estoque_id": 1, "quantidade": 2}, {"estoque_id": 2, "quantidade": 1}],
+                   "REDEMOB", cenario, nome="Garagem Sul")
+    estoque_mod.registrar_sobressalentes_em_lote([{"estoque_id": 1, "quantidade": 1}], "OUTRO", cenario)
+    envios = sob.envios_relatorio()
+    por_rotulo = {e["rotulo"]: e for e in envios}
+    e = por_rotulo[f"SOB-{p1:04d}"]
+    assert e["cliente"] == "REDEMOB" and e["nome"] == "Garagem Sul" and e["total_unidades"] == 3
+    assert [(i["tipo_nome"], i["quantidade"]) for i in e["itens"]] == [("Antena", 2), ("Cabo", 1)]
+    assert e["itens_texto"] == "Antena ×2, Cabo ×1"
+    assert por_rotulo["Avulso"]["cliente"] == "OUTRO" and por_rotulo["Avulso"]["total_unidades"] == 1
+    # Busca pelo SOB e filtro por cliente
+    assert [x["rotulo"] for x in sob.envios_relatorio(busca=f"sob-{p1:04d}")] == [f"SOB-{p1:04d}"]
+    assert [x["rotulo"] for x in sob.envios_relatorio(cliente=["OUTRO"])] == ["Avulso"]

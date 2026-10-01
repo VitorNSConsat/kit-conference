@@ -145,3 +145,54 @@ def clientes_com_pacote() -> list[str]:
     with db() as conn:
         return [r[0] for r in conn.execute(
             "SELECT DISTINCT cliente FROM sobressalente_pacote ORDER BY cliente").fetchall()]
+
+
+def envios_relatorio(data_ini: str = "", data_fim: str = "", cliente=None,
+                     busca: str = "") -> list[dict]:
+    """Relatório de Sobressalentes organizado POR ENVIO: cada pacote (SOB-0001)
+    com os itens que ele levou, do mais recente pro mais antigo.
+
+    Vem das baixas de estoque tipo 'sobressalente' — a mesma fonte do relatório
+    de sempre, então nada some. A baixa que não tem pacote (envio avulso, de
+    antes dos pacotes) vira um envio "Avulso", juntando as baixas do mesmo
+    minuto, cliente e pessoa — foi um envio só, feito de uma vez."""
+    rows = estoque_mod.listar_sobressalentes(data_ini, data_fim, cliente or [])
+    pacotes: dict = {}
+    with db() as conn:
+        ids = {r["pacote_id"] for r in rows if r.get("pacote_id")}
+        if ids:
+            marcas = ",".join("?" * len(ids))
+            for p in conn.execute(
+                    f"SELECT id, nome, observacao FROM sobressalente_pacote WHERE id IN ({marcas})",
+                    sorted(ids)).fetchall():
+                pacotes[p["id"]] = dict(p)
+    envios: dict = {}
+    for r in rows:
+        pid = r.get("pacote_id")
+        chave = ("p", pid) if pid else ("a", (r["criado_em"] or "")[:16], r["cliente"], r["criado_por"])
+        e = envios.get(chave)
+        if e is None:
+            info = pacotes.get(pid) or {}
+            e = envios[chave] = {
+                "pacote_id": pid,
+                "rotulo": rotulo(pid) if pid else "Avulso",
+                "nome": info.get("nome") or "",
+                "observacao": info.get("observacao") or ("" if pid else (r["observacao"] or "")),
+                "cliente": r["cliente"] or "",
+                "criado_em": r["criado_em"] or "",
+                "operador_nome": r["operador_nome"] or "",
+                "itens": [], "total_unidades": 0,
+            }
+        e["itens"].append({"tipo_nome": r["tipo_nome"], "codigo_barra": r["codigo_barra"],
+                           "quantidade": r["quantidade"], "observacao": r["observacao"] or ""})
+        e["total_unidades"] += r["quantidade"] or 0
+    lista = sorted(envios.values(), key=lambda e: (e["criado_em"], e["pacote_id"] or 0), reverse=True)
+    for e in lista:
+        e["itens"].sort(key=lambda i: i["tipo_nome"] or "")
+        e["itens_texto"] = ", ".join(f"{i['tipo_nome']} ×{i['quantidade']}" for i in e["itens"])
+    termo = (busca or "").strip().lower()
+    if termo:
+        lista = [e for e in lista if termo in " ".join(
+            [e["rotulo"], e["nome"], e["cliente"], e["operador_nome"], e["observacao"],
+             e["itens_texto"]] + [i["codigo_barra"] or "" for i in e["itens"]]).lower()]
+    return lista
