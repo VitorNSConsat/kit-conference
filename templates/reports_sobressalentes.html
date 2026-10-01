@@ -16,20 +16,20 @@
 
 <div class="card">
   <h2>Filtros</h2>
-  <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-    <div class="form-group" style="margin:0;">
+  <form method="get" class="rel-filtros">
+    <div class="form-group">
       <label>Data inicial</label>
       <input type="date" name="data_ini" value="{{ data_ini }}">
     </div>
-    <div class="form-group" style="margin:0;">
+    <div class="form-group">
       <label>Data final</label>
       <input type="date" name="data_fim" value="{{ data_fim }}">
     </div>
-    <div class="form-group" style="margin:0;">
+    <div class="form-group">
       <label>Cliente</label>
       {{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}
     </div>
-    <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+    <div class="form-group rel-busca">
       <label>Buscar</label>
       <input type="text" name="busca" value="{{ busca }}" placeholder="SOB-0001, item, código, cliente...">
     </div>

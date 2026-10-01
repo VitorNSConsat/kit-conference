@@ -679,6 +679,8 @@
     <li><span class="campo">Estoque</span> — descontado <strong>na criação</strong>, item a item,
       como o kit faz ao ser montado. Cada baixa fica no histórico do item com o rótulo do pacote
       (<em>SOB-0007</em>) e o cliente, e continua aparecendo em Relatórios → Sobressalentes.</li>
+    <li>Na lista, o código do pacote (<em>SOB-0007</em>) aparece <strong>na cor do cliente</strong>,
+      como nas outras listas; clicar nele abre a janela com o que tem dentro.</li>
     <li><span class="campo">Etiqueta</span> — <strong>Gerar etiqueta</strong> (na mensagem logo após
       criar, na lista de pacotes ou na página do pacote): <strong>no formato da etiqueta de kit</strong>
       (100×150 mm, com o <strong>mesmo QR</strong> — mesmas configurações e 70 mm) — <em>SOB-0007</em>
@@ -734,6 +736,14 @@
     <li><span class="campo">Obrigatório</span> — se pode ou não faltar na finalização.</li>
     <li><span class="campo">Conjunto</span> (código de componente) — preenchido quando o item faz parte de um conjunto.</li>
   </ul>
+  <h3>Criar um kit novo</h3>
+  <p>
+    Na aba <strong>Kit</strong>, o card <strong>Novo Kit</strong> fica no topo e segue um caminho
+    só: <strong>1.</strong> nome e cliente(s); <strong>2.</strong> como montar os itens —
+    <em>Montar manualmente</em> (escolhe no catálogo, com quantidade e conjunto) ou
+    <em>Importar planilha (BOM)</em> (.xlsx com Description e Quantity); <strong>3.</strong> os
+    itens ou o arquivo, conforme a escolha. A lista de kits cadastrados vem logo abaixo.
+  </p>
   <h3>Tela de edição do kit</h3>
   <ul>
     <li><strong>Catálogo à esquerda, itens do kit à direita.</strong> O catálogo tem uma
@@ -1047,10 +1057,13 @@
     <li><strong>A quantidade muda a qualquer momento.</strong> Mudar não mexe no que já foi
       contado: os kits continuam onde estão, só a meta muda. Se a nova quantidade já tiver
       sido alcançada, a remessa fecha na hora.</li>
-    <li><strong>Ao bater a quantidade, a remessa fecha e a próxima abre sozinha</strong>, do
-      zero e com a mesma meta — a operação não para esperando alguém criar. A fechada vai
-      pro histórico com a planilha dela, e é isso que permite comparar uma remessa com a
-      outra depois.</li>
+    <li><strong>Ao bater a quantidade, a remessa fecha — e a próxima NÃO abre sozinha.</strong>
+      Abrir o lote seguinte é decisão de quem despacha: no topo da Produção aparece o aviso
+      “<em>Remessa X completou 90/90 e foi fechada</em>” com o atalho <strong>Abrir a
+      próxima</strong>, já preenchido com a mesma quantidade e o mesmo cliente (dá pra mudar
+      antes de abrir). O aviso some quando a próxima é aberta. Também dá pra abrir uma remessa
+      a qualquer momento pelo botão <strong>Nova remessa</strong> do card. A fechada vai pro
+      histórico com a planilha dela.</li>
     <li><strong>Remessa de um cliente só:</strong> ao abrir, dá pra escolher o cliente. Aí
       só kit daquele cliente conta — é o que permite ter “REDEMOB 45/90” sem que o kit de
       outro cliente empurre o número.</li>
@@ -1116,8 +1129,8 @@
       foram — cada kit entra em um lote só.</li>
     <li>Numa remessa <strong>de um cliente</strong>, veículo de outro cliente é recusado, do
       mesmo jeito que na contagem automática, e a tela diz quantos e de quem é a remessa.</li>
-    <li>Se o acréscimo <strong>bater o alvo</strong>, a remessa fecha e a próxima abre — a
-      mesma regra de sempre.</li>
+    <li>Se o acréscimo <strong>bater o alvo</strong>, a remessa fecha — a próxima é aberta
+      por quem despacha, a mesma regra de sempre.</li>
   </ul>
   <div class="cuidado">
     <strong>Só em remessa aberta.</strong> Remessa fechada é histórico: mudar a conta de um
@@ -1212,7 +1225,7 @@
     <li>Se a remessa é <strong>de um cliente</strong>, veículo de outro cliente não entra —
       a tela avisa quantos foram recusados e de quem é a remessa.</li>
     <li>Acrescentar pode <strong>fechar a remessa</strong>: se a seleção bater o alvo, ela
-      encerra e a próxima abre sozinha, igual a quando o alvo é batido montando.</li>
+      encerra (a próxima é aberta à mão), igual a quando o alvo é batido montando.</li>
     <li><span class="campo">Nesta remessa</span> lista o que já está no lote, com
       <strong>Tirar</strong> ao lado de cada um — o desfazer de quem acrescentou o
       veículo errado.</li>
@@ -1316,6 +1329,10 @@
       lote</strong> usam exatamente as mesmas regras da ação individual — a mesma seleção por
       checkbox serve pra mais de uma ação ao mesmo tempo (ex.: marcar nota E mover pro cliente
       com os mesmos veículos selecionados).</li>
+    <li>Na etapa <strong>Cliente</strong>, um cartão por cliente mostra quantos kits cada um
+      tem (instalando e concluídos). Clicar no cartão filtra a lista por aquele cliente (clicar
+      de novo tira); dá pra filtrar também pela situação e buscar. O Excel da etapa sai com os
+      mesmos filtros.</li>
     <li><strong>Zerar sequência</strong> (botão vermelho na barra de cima) reinicia o número SEQ
       das etiquetas de acompanhamento — use ao começar uma produção nova, por exemplo pra outro
       cliente, pra numeração não continuar no 540 da anterior. A janela mostra o número da última

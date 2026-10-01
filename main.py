@@ -4378,6 +4378,11 @@ async def admin_producao(request: Request):
     # Cliente: TODOS os kits no cliente (não só os últimos 30), paginados como as
     # outras etapas; a busca é no servidor pra varrer todas as páginas.
     busca_cli = (request.query_params.get("busca_cli") or "").strip()
+    # Filtros da etapa Cliente: por cliente (vários) e por situação.
+    cli_cliente = [c for c in request.query_params.getlist("cli_cliente") if c]
+    cli_sit = (request.query_params.get("cli_sit") or "").strip()
+    if cli_sit not in ("instalando", "concluido"):
+        cli_sit = ""
 
     # Clicar no cabeçalho da coluna só reordena a lista antes de paginar —
     # é apoio de busca visual, não filtro: nada some, só muda a ordem.
@@ -4393,11 +4398,33 @@ async def admin_producao(request: Request):
         _com_remessa(producao_mod.listar_produzido()), _ORDENS_PRODUCAO["pr"].get(ord_pr), dir_pr)
     lista_tr = paginacao_mod.ordenar(
         _com_remessa(producao_mod.listar_transito()), _ORDENS_PRODUCAO["tr"].get(ord_tr), dir_tr)
+    todos_cli = producao_mod.listar_no_cliente()
+    # Resumo por cliente ANTES dos filtros: os cartões do topo da etapa dizem
+    # quanto cada cliente tem no total, e clicar num deles filtra a lista.
+    por_cliente: dict = {}
+    for k in todos_cli:
+        c = por_cliente.setdefault(k.get("cliente") or "—",
+                                   {"cliente": k.get("cliente") or "—", "total": 0,
+                                    "instalando": 0, "concluido": 0})
+        c["total"] += 1
+        c["concluido" if k.get("status_producao") == "cliente_concluido" else "instalando"] += 1
+    resumo_cli = sorted(por_cliente.values(), key=lambda c: (-c["total"], c["cliente"]))
+    filtrados_cli = todos_cli
+    if cli_cliente:
+        filtrados_cli = [k for k in filtrados_cli if (k.get("cliente") or "—") in cli_cliente]
+    if cli_sit:
+        filtrados_cli = [k for k in filtrados_cli
+                         if (k.get("status_producao") == "cliente_concluido") == (cli_sit == "concluido")]
     lista_cli = paginacao_mod.ordenar(
         _com_remessa(paginacao_mod.filtrar(
-            producao_mod.listar_no_cliente(),
+            filtrados_cli,
             busca_cli, ("veiculo", "kit_nome", "garagem", "cliente", "modelo", "nota_fiscal"))),
         _ORDENS_PRODUCAO["cli"].get(ord_cli), dir_cli)
+    # Filtros da etapa Cliente numa querystring só: paginação, ordenação e o
+    # Excel levam os mesmos filtros.
+    qs_cli = urlencode([("busca_cli", busca_cli)] * bool(busca_cli)
+                       + [("cli_cliente", c) for c in cli_cliente]
+                       + [("cli_sit", cli_sit)] * bool(cli_sit))
 
     return render(request, "admin_producao.html", {
         "a_produzir": paginacao_mod.paginar(lista_ap, pag_ap),
@@ -4409,6 +4436,14 @@ async def admin_producao(request: Request):
         # coluna separada), então nada foi perdido.
         "no_cliente": paginacao_mod.paginar(lista_cli, pag_cli),
         "busca_cli": busca_cli,
+        "cli_cliente": cli_cliente,
+        "cli_sit": cli_sit,
+        "qs_cli": qs_cli,
+        "resumo_cli": resumo_cli,
+        "total_cli": len(todos_cli),
+        # Remessas que bateram o alvo e ainda não têm a próxima aberta: abrir
+        # a seguinte é decisão do operador, não automática.
+        "remessas_aguardando": remessas_mod.aguardando_proxima(),
         "resumo": producao_mod.resumo(),
         # Kits devendo item (patrimônio movido pra outro veículo ou retirado):
         # a esteira é onde o kit espera, então é aqui que a pendência precisa
@@ -4648,14 +4683,20 @@ async def admin_remessa_abrir(request: Request):
     form = await request.form()
     user = get_current_user(request)
     cliente = str(form.get("cliente", ""))
+    # Aberta pela Produção (atalho "Abrir a próxima" / "Nova remessa"), volta pra lá.
+    na_producao = str(form.get("voltar", "")) == "/admin/producao"
     try:
         r = remessas_mod.abrir(str(form.get("nome", "")), form.get("alvo", ""),
                                cliente, user["id"] if user else None)
     except ValueError as e:
+        if na_producao:
+            return RedirectResponse("/admin/producao?erro_remessa=" + quote(str(e)), status_code=302)
         return RedirectResponse("/admin/producao/remessas?erro=" + quote(str(e)), status_code=302)
     request.state.auditoria_detalhe = (
         f"Remessa \"{r['nome']}\" aberta (alvo {r['alvo']}"
         + (f", cliente {cliente}" if cliente else "") + ")")
+    if na_producao:
+        return RedirectResponse("/admin/producao?ok=aberta", status_code=302)
     return RedirectResponse("/admin/producao/remessas?ok=aberta", status_code=302)
 
 
@@ -4740,7 +4781,8 @@ _COLS_FILA = [
 
 @app.get("/admin/producao/excel")
 @require_login
-async def admin_producao_excel(request: Request, etapa: str = "transito"):
+async def admin_producao_excel(request: Request, etapa: str = "transito",
+                               cli_cliente: list[str] = Query(default=[]), cli_sit: str = ""):
     """Acompanhamento de uma etapa da esteira em Excel — é o que se manda
     pro cliente ou pro time de campo sem dar acesso ao sistema."""
     from fastapi.responses import Response as _Resp
@@ -4759,6 +4801,14 @@ async def admin_producao_excel(request: Request, etapa: str = "transito"):
     }
     rotulo, fonte, colunas = etapas.get(etapa, etapas["transito"])
     linhas = fonte()
+    # Etapa Cliente: os mesmos filtros da tela (cliente e situação).
+    if etapa == "cliente":
+        alvo_cli = [c for c in cli_cliente if c]
+        if alvo_cli:
+            linhas = [k for k in linhas if (k.get("cliente") or "—") in alvo_cli]
+        if cli_sit in ("instalando", "concluido"):
+            linhas = [k for k in linhas
+                      if (k.get("status_producao") == "cliente_concluido") == (cli_sit == "concluido")]
     corpo = _planilha_kits(rotulo, f"{len(linhas)} kit(s) nesta etapa", linhas, colunas)
     nome = f"producao-{etapa}-{now_brt()[:10]}.xlsx"
     return _Resp(content=corpo,

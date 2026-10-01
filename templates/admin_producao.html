@@ -101,6 +101,10 @@
 <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Nota fiscal salva.</div>
 {% elif request.query_params.get('ok') == 'sequencia_zerada' %}
 <div class="alert alert-success">Contador de sequência zerado. O próximo kit começa do 0001.</div>
+{% elif request.query_params.get('ok') == 'aberta' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa aberta — já aparece pra escolher no começo da bipagem.</div>
+{% elif request.query_params.get('erro_remessa') %}
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro_remessa') }}</div>
 {% elif request.query_params.get('ok') == 'tv_config' %}
 <div class="alert alert-success">Configuração de exibição do Painel da TV salva.</div>
 {% elif request.query_params.get('ok') == 'nota_lote' %}
@@ -117,7 +121,7 @@
 <div class="alert alert-success">
   {{ ic.svg('check-circulo', 14) }} Quantidade da remessa atualizada.
   {% if request.query_params.get('fechada') %}Como o alvo já estava alcançado, ela foi
-  <strong>fechada</strong> e a próxima começa do zero.{% endif %}
+  <strong>fechada</strong> — abra a próxima quando for começar o novo lote.{% endif %}
 </div>
 {% elif request.query_params.get('erro') == 'nf_motivo' %}
 <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} Esse kit já tinha nota fiscal salva — informe o motivo da alteração pra poder salvar.</div>
@@ -126,61 +130,142 @@
 <!-- ── Remessas em andamento ───────────────────────────────────────────── -->
 {# Os lotes combinados com o cliente ("mandar 90"). Ficam no topo da esteira
    porque é a pergunta do dia de quem despacha: quanto já entrou e quanto
-   falta. Pode haver mais de um aberto — duas frentes de trabalho. #}
-<div class="card" style="border-left:4px solid var(--brand);">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+   falta. Pode haver mais de um aberto — duas frentes de trabalho. Ao bater a
+   quantidade a remessa FECHA e a próxima NÃO abre sozinha: quem despacha abre
+   a seguinte (o atalho já vem preenchido com a mesma quantidade e cliente). #}
+<div class="card rem-card">
+  <div class="rem-cab">
     <div>
-      <h2 style="margin:0 0 2px;display:flex;align-items:center;gap:7px;">{{ ic.svg('caixa', 16) }} Remessas em andamento</h2>
+      <h2 style="margin:0 0 2px;display:flex;align-items:center;gap:7px;">{{ ic.svg('caixa', 16) }} Remessas</h2>
       <p style="color:var(--text-muted);font-size:13px;margin:0;">
-        O operador escolhe a remessa no começo da bipagem, e o kit entra nela ao ser
-        finalizado.
+        O operador escolhe a remessa no começo da bipagem, e o kit entra nela ao ser finalizado.
+        Ao completar a quantidade, a remessa fecha — a próxima é aberta por quem despacha.
       </p>
     </div>
-    <a href="/admin/producao/remessas" class="btn btn-ghost btn-sm">Ver todas</a>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      {% if pode('remessas_gerenciar') %}
+      <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'nova-remessa')">{{ ic.svg('mais', 13) }} Nova remessa</button>
+      {% endif %}
+      <a href="/admin/producao/remessas" class="btn btn-ghost btn-sm">Ver todas</a>
+    </div>
   </div>
 
-  {% if remessas_abertas %}
-  {% for r in remessas_abertas %}
-  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;
-              padding-top:{{ '14px' if not loop.first else '0' }};
-              border-top:{{ '1px solid var(--border)' if not loop.first else 'none' }};">
-    <div style="min-width:150px;">
-      <div style="font-size:14px;font-weight:800;color:var(--brand);">{{ r.nome }}</div>
-      <div style="font-size:12px;color:#7a8794;">
-        {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
-        {%- else %}todos os clientes{% endif %}
+  {# Fechou por bater a quantidade e ainda não tem sucessora: o aviso fica até
+     alguém abrir a próxima pra aquele cliente. #}
+  {% for r in remessas_aguardando %}
+  <div class="rem-aguardando">
+    <div class="rem-aguardando-texto">
+      {{ ic.svg('check-circulo', 16) }}
+      <div>
+        <strong>{{ r.nome }}</strong> completou <strong>{{ r.rotulo }}</strong>
+        {%- if r.cliente %} ({{ r.cliente }}){% endif %} e foi fechada
+        {%- if r.fechada_em %} em {{ r.fechada_em[8:10] }}/{{ r.fechada_em[5:7] }} às {{ r.fechada_em[11:16] }}{% endif %}.
+        <span class="rem-aguardando-sub">A próxima remessa não abre sozinha{{ ' — abra quando for começar o próximo lote.' if pode('remessas_gerenciar') else ' — peça a quem gerencia remessas para abrir.' }}</span>
       </div>
     </div>
-    <div style="font-size:26px;font-weight:800;color:var(--brand);line-height:1;">{{ r.rotulo }}</div>
-    <div style="flex:1;min-width:200px;">
-      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
-        {% if r.completa %}{{ ic.svg('check-circulo', 12) }} Alvo alcançado — fecha e a próxima abre sozinha.
-        {% else %}Faltam <strong>{{ r.faltam }}</strong> kit(s).{% endif %}
-      </div>
-    </div>
-    <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success">{{ ic.svg('baixar', 13) }} Excel</a>
     {% if pode('remessas_gerenciar') %}
-    <form method="post" action="/admin/producao/remessas/{{ r.id }}/alvo"
-          style="display:flex;gap:6px;align-items:flex-end;">
+    <form method="post" action="/admin/producao/remessas/abrir" class="rem-aguardando-form">
       <input type="hidden" name="voltar" value="/admin/producao">
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:11px;">Quantidade</label>
-        <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:100px;margin:0;">
-      </div>
-      <button type="submit" class="btn btn-sm btn-success"
-              title="Vale a partir de agora; o que já entrou continua contado">{{ ic.svg('check', 13) }}</button>
+      <input type="hidden" name="cliente" value="{{ r.cliente or '' }}">
+      <input type="text" name="nome" value="{{ r.proximo_nome }}" title="Nome da próxima remessa" style="width:150px;margin:0;">
+      <input type="number" name="alvo" min="1" value="{{ r.alvo }}" title="Quantidade da próxima remessa" style="width:90px;margin:0;">
+      <button type="submit" class="btn btn-sm btn-success">{{ ic.svg('mais', 13) }} Abrir a próxima</button>
     </form>
     {% endif %}
   </div>
   {% endfor %}
-  {% else %}
+
+  {% if remessas_abertas %}
+  <div class="rem-lista">
+  {% for r in remessas_abertas %}
+  <div class="rem-linha">
+    <div class="rem-nome">
+      <div style="font-size:14px;font-weight:800;color:var(--brand);">{{ r.nome }}</div>
+      <div style="font-size:12px;color:var(--text-muted-2);">
+        {% if r.cliente %}<span style="color:{{ cor_do_cliente(r.cliente) }};font-weight:700;">{{ r.cliente }}</span>
+        {%- else %}todos os clientes{% endif %}
+      </div>
+    </div>
+    <div class="rem-num">{{ r.rotulo }}</div>
+    <div class="rem-barra-bloco">
+      <div class="remessa-trilho"><div class="remessa-barra" style="width:{{ r.percentual }}%;"></div></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+        {% if r.completa %}{{ ic.svg('check-circulo', 12) }} Quantidade alcançada — fecha no próximo kit.
+        {% else %}Faltam <strong>{{ r.faltam }}</strong> kit(s).{% endif %}
+      </div>
+    </div>
+    <div class="rem-acoes">
+      <a href="/admin/producao/remessas/{{ r.id }}/excel" class="btn btn-sm btn-success" title="Planilha desta remessa">{{ ic.svg('baixar', 13) }} Excel</a>
+      {% if pode('remessas_gerenciar') %}
+      <form method="post" action="/admin/producao/remessas/{{ r.id }}/alvo" style="display:flex;gap:6px;align-items:center;">
+        <input type="hidden" name="voltar" value="/admin/producao">
+        <input type="number" name="alvo" min="1" value="{{ r.alvo }}" style="width:90px;margin:0;" title="Quantidade da remessa">
+        <button type="submit" class="btn btn-sm btn-secondary"
+                title="Muda a quantidade a partir de agora; o que já entrou continua contado">{{ ic.svg('check', 13) }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+  {% elif not remessas_aguardando %}
   <p style="color:var(--warn-text);font-size:13px;margin:12px 0 0;">
     {{ ic.svg('alerta', 13) }} Nenhuma remessa aberta — os kits montados agora não entram em contagem nenhuma.
-    Abra uma em <strong>Ver todas</strong> ou no começo da bipagem.
+    {% if pode('remessas_gerenciar') %}Use <strong>Nova remessa</strong> acima.{% else %}Peça a quem gerencia remessas para abrir uma.{% endif %}
   </p>
   {% endif %}
 </div>
+
+{% if pode('remessas_gerenciar') %}
+<!-- ── Pop-up: Nova remessa ─────────────────────────────────────────────── -->
+<div id="popup-nova-remessa" class="config-popup" role="dialog" aria-modal="true" style="width:min(520px, calc(100vw - 32px));">
+  <div class="config-cabecalho">
+    <div><strong>Nova remessa</strong><span class="config-sub">Um lote combinado com o cliente — ex.: “mandar 90”</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo" style="display:block;">
+    <form method="post" action="/admin/producao/remessas/abrir" style="display:flex;flex-direction:column;gap:10px;">
+      <input type="hidden" name="voltar" value="/admin/producao">
+      <div class="form-group" style="margin:0;">
+        <label>Nome <span style="font-weight:400;color:var(--text-muted-2);">(vazio = numera sozinho)</span></label>
+        <input type="text" name="nome" placeholder="Remessa {{ (remessas_abertas | length) + 1 }}..." style="margin:0;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Quantidade de kits</label>
+        <input type="number" name="alvo" min="1" required style="margin:0;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Cliente <span style="font-weight:400;color:var(--text-muted-2);">(vazio = qualquer cliente)</span></label>
+        <select name="cliente" style="margin:0;">
+          <option value="">Todos os clientes</option>
+          {% for c in clientes_cadastrados %}<option value="{{ c.nome }}">{{ c.nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-ghost" onclick="fecharPopup()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Abrir remessa</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.rem-cab { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.rem-aguardando { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); border: 1px solid var(--ok-border); }
+.rem-aguardando-texto { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text); }
+.rem-aguardando-texto > svg { color: var(--ok-text); flex-shrink: 0; margin-top: 1px; }
+.rem-aguardando-sub { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.rem-aguardando-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rem-lista { display: flex; flex-direction: column; margin-top: 6px; }
+.rem-linha { display: grid; grid-template-columns: minmax(150px, 200px) auto minmax(200px, 1fr) auto; gap: 16px;
+    align-items: center; padding: 12px 0; border-top: 1px solid var(--border-subtle); }
+.rem-linha:first-child { border-top: 0; }
+.rem-num { font-size: 26px; font-weight: 800; color: var(--brand); line-height: 1; }
+.rem-acoes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 860px) { .rem-linha { grid-template-columns: 1fr auto; } .rem-barra-bloco, .rem-acoes { grid-column: 1 / -1; justify-content: flex-start; } }
+</style>
 
 <p style="color:#666;font-size:13px;margin-bottom:16px;">
   Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
@@ -673,17 +758,54 @@
     Tudo que já foi entregue, instalando ou concluído. A situação de cada um fica na
     coluna Situação.
   </p>
-  {# Planilha de acompanhamento desta etapa, igual às demais. #}
-  <a href="/admin/producao/excel?etapa=cliente" class="btn btn-sm btn-success"
-     style="margin-bottom:10px;">{{ ic.svg('baixar', 14) }} Baixar Excel desta etapa</a>
+  {# Quanto cada cliente tem: um cartão por cliente (total, instalando e
+     concluído). Clicar filtra a lista; clicar de novo tira o filtro. #}
+  {% if resumo_cli | length > 1 or cli_cliente %}
+  <div class="cli-resumo">
+    <a href="/admin/producao?{{ 'busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli }}{{ 'cli_sit=' ~ cli_sit if cli_sit }}#etapa-cliente"
+       class="cli-card {{ 'ativo' if not cli_cliente }}">
+      <span class="cli-nome">Todos</span>
+      <strong>{{ total_cli }}</strong>
+    </a>
+    {% for c in resumo_cli %}
+    {% set marcado = c.cliente in cli_cliente %}
+    <a href="/admin/producao?{{ 'busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli }}{{ 'cli_sit=' ~ cli_sit ~ '&' if cli_sit }}{% if not marcado %}cli_cliente={{ c.cliente | urlencode }}{% endif %}#etapa-cliente"
+       class="cli-card {{ 'ativo' if marcado }}" style="--cor-cli:{{ cor_do_cliente(c.cliente) }};"
+       title="{{ 'Tirar o filtro' if marcado else 'Mostrar só ' ~ c.cliente }}">
+      <span class="cli-nome">{{ c.cliente }}</span>
+      <strong>{{ c.total }}</strong>
+      <span class="cli-det">{{ c.instalando }} instalando · {{ c.concluido }} concluído{{ 's' if c.concluido != 1 }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
   {# Busca no servidor: varre TODAS as páginas, não só a aberta. #}
-  <form method="get" action="/admin/producao#etapa-cliente" class="busca-form" style="margin-bottom:10px;">
+  <form method="get" action="/admin/producao#etapa-cliente" class="busca-form cli-filtros" style="margin-bottom:10px;">
     {% if ord_cli %}<input type="hidden" name="ord_cli" value="{{ ord_cli }}"><input type="hidden" name="dir_cli" value="{{ dir_cli }}">{% endif %}
-    <input type="text" name="busca_cli" value="{{ busca_cli }}" class="busca-box" style="margin:0;flex:1;"
+    {% for c in cli_cliente %}<input type="hidden" name="cli_cliente" value="{{ c }}">{% endfor %}
+    <input type="text" name="busca_cli" value="{{ busca_cli }}" class="busca-box" style="margin:0;flex:1;min-width:220px;"
            placeholder="Buscar por veículo, garagem, cliente, modelo ou nota fiscal...">
+    <select name="cli_sit" style="margin:0;width:auto;" onchange="this.form.submit()" title="Situação no cliente">
+      <option value="">Todas as situações</option>
+      <option value="instalando" {{ 'selected' if cli_sit == 'instalando' }}>Instalando</option>
+      <option value="concluido" {{ 'selected' if cli_sit == 'concluido' }}>Concluído</option>
+    </select>
     <button type="submit" class="btn btn-sm btn-primary">{{ ic.svg('busca', 13) }} Buscar</button>
-    {% if busca_cli %}<a href="/admin/producao#etapa-cliente" class="btn btn-sm btn-ghost">{{ ic.svg('fechar', 13) }} Limpar</a>{% endif %}
+    {% if qs_cli %}<a href="/admin/producao#etapa-cliente" class="btn btn-sm btn-ghost">{{ ic.svg('fechar', 13) }} Limpar filtros</a>{% endif %}
+    {# Planilha de acompanhamento desta etapa, com os mesmos filtros. #}
+    <a href="/admin/producao/excel?etapa=cliente{{ '&' ~ qs_cli if qs_cli }}" class="btn btn-sm btn-success">{{ ic.svg('baixar', 14) }} Excel</a>
   </form>
+  <style>
+  .cli-resumo { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .cli-card { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border-radius: 10px; text-decoration: none;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .cli-card:hover { border-color: var(--brand-border); background: var(--brand-soft); }
+  .cli-card.ativo { border-color: var(--cor-cli, var(--brand)); box-shadow: 0 0 0 2px var(--brand-soft); }
+  .cli-nome { font-size: 12px; font-weight: 700; color: var(--cor-cli, var(--text-muted)); text-transform: uppercase; letter-spacing: .4px; }
+  .cli-card strong { font-size: 22px; line-height: 1.1; color: var(--brand-ink); }
+  .cli-det { font-size: 11.5px; color: var(--text-muted-2); }
+  .cli-filtros { flex-wrap: wrap; }
+  </style>
   {% if no_cliente.itens %}
   {{ pg.contagem(no_cliente, "kits") }}
   <form id="form-cliente-concluido" method="post" action="/admin/producao/cliente-concluido-lote"></form>
@@ -694,11 +816,11 @@
       <th style="width:32px;"><input type="checkbox" id="chk-todos-cliente"
             onchange="marcarTodos(this, 'cliente')" title="Marcar todos os que ainda podem ser concluídos"></th>
       {% endif %}
-      {{ th_ord('Veículo', 'veiculo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
-      {{ th_ord('Garagem', 'garagem', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
-      {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
-      {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
-      {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ ('busca_cli=' ~ (busca_cli | urlencode) ~ '&' if busca_cli else '')) }}
+      {{ th_ord('Veículo', 'veiculo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ (qs_cli ~ '&' if qs_cli else '')) }}
+      {{ th_ord('Garagem', 'garagem', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ (qs_cli ~ '&' if qs_cli else '')) }}
+      {{ th_ord('Cliente', 'cliente', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ (qs_cli ~ '&' if qs_cli else '')) }}
+      {{ th_ord('Modelo (kit)', 'modelo', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ (qs_cli ~ '&' if qs_cli else '')) }}
+      {{ th_ord('No cliente desde', 'quando', 'cli', ord_cli, dir_cli, 'cliente', 'pag_cli=1&' ~ (qs_cli ~ '&' if qs_cli else '')) }}
       <th>Nota Fiscal</th><th>Situação</th><th>Remessa</th><th></th></tr></thead>
     <tbody>
     {% for k in no_cliente.itens %}
@@ -762,7 +884,7 @@
     {% for p in no_cliente.paginas_visiveis %}
       {% if p is none %}<span class="paginacao-ellipsis">…</span>
       {% else %}
-      <a href="?pag_cli={{ p }}{% if busca_cli %}&busca_cli={{ busca_cli | urlencode }}{% endif %}{% if ord_cli %}&ord_cli={{ ord_cli }}&dir_cli={{ dir_cli }}{% endif %}#etapa-cliente"
+      <a href="?pag_cli={{ p }}{% if qs_cli %}&{{ qs_cli }}{% endif %}{% if ord_cli %}&ord_cli={{ ord_cli }}&dir_cli={{ dir_cli }}{% endif %}#etapa-cliente"
          class="btn btn-sm {{ 'btn-primary' if p == no_cliente.pagina else 'btn-secondary' }}">{{ p }}</a>
       {% endif %}
     {% endfor %}
@@ -779,7 +901,7 @@
   </div>
   {% endif %}
   {% else %}
-  <p style="color:#888;text-align:center;padding:16px;">{{ 'Nenhum kit encontrado com essa busca.' if busca_cli else 'Nenhum kit no cliente ainda.' }}</p>
+  <p style="color:#888;text-align:center;padding:16px;">{{ 'Nenhum kit encontrado com esses filtros.' if qs_cli else 'Nenhum kit no cliente ainda.' }}</p>
   {% endif %}
 </details>
 

@@ -22,34 +22,107 @@
 </div>
 {% endmacro %}
 
+{# Catálogo de tipos + itens escolhidos — a montagem manual, igual pro Kit e
+   pro Pedido. Os campos seguem os nomes que o servidor lê (item_tipo_id_N...). #}
+{% macro secao_itens(tipo, label, tipos_catalogo) %}
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; margin-top:16px;">
+                <h2 style="margin:0;">Tipos disponíveis</h2>
+                <button type="button" onclick="adicionarTodos('{{ tipo }}')" class="btn btn-warning">
+                    {{ ic.svg('mais', 15) }} Inserir todos os itens
+                </button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:10px;">
+                Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
+            </p>
+
+            {% if tipos_catalogo %}
+            <input type="text" class="busca-box" placeholder="Buscar tipo..."
+                   oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid-{{ tipo }} .filtro-item">
+            <div class="tipos-grid-admin" id="tipos-grid-{{ tipo }}">
+                {% for tp in tipos_catalogo %}
+                <button type="button" class="tipo-card-admin filtro-item"
+                        data-id="{{ tp.id }}" data-nome="{{ tp.nome | e }}"
+                        data-unidade="{{ tp.unidade | default('un') }}"
+                        data-serial="{{ '1' if tp.requer_serial else '0' }}"
+                        onclick="adicionarTipoFromCard(this, '{{ tipo }}')">
+                    {{ tp.nome }}
+                    {% if tp.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">m</span>{% endif %}
+                    {% if tp.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">reutilizável</span>{% endif %}
+                    {% if tp.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">serial</span>{% endif %}
+                </button>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted-2);font-size:13px;background:var(--surface-alt);padding:12px;border-radius:8px;margin-bottom:12px;">
+                Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
+            </p>
+            {% endif %}
+
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <strong>Itens selecionados</strong>
+                <span id="contagem-sel-{{ tipo }}" style="font-size:13px;color:var(--text-muted-2);"></span>
+            </div>
+            <div id="msg-vazio-{{ tipo }}" style="color:var(--text-muted-2);font-size:13px;text-align:center;padding:16px;background:var(--surface-alt);border-radius:8px;margin-bottom:12px;">
+                Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
+            </div>
+            <div id="itens-container-{{ tipo }}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+
+{% endmacro %}
+
 {% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
-<!-- ── Criar Kit a partir do BOM ─────────────────────────────────────────── -->
-<div class="card" style="border:1px solid var(--brand-border);">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-        <div>
-            <h2 style="margin:0;">Criar Kit a partir do BOM</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">
-                Importa Description e Quantity da planilha e cria o template já com todos os itens.
-                Após a criação você pode editar livremente.
-            </p>
-        </div>
-    </div>
-    <form method="post" action="/admin/templates/import-bom" enctype="multipart/form-data">
+<!-- ── Novo Kit: um caminho só, manual ou pela planilha ─────────────────── -->
+{# Antes eram dois cards em pontas opostas da tela (BOM em cima, manual lá
+   embaixo). Agora o operador segue um caminho: nome e clientes, depois escolhe
+   COMO montar — e só o que vale pra essa escolha aparece. #}
+<div class="card ck" id="criar-kit">
+    <h2 style="margin:0 0 4px;">{{ ic.svg('kits', 17) }} Novo Kit</h2>
+    <p style="margin:0 0 16px;font-size:13px;color:var(--text-muted);">
+        Dê um nome, marque os clientes e escolha como montar a lista de itens.
+        Depois de criado, o kit pode ser editado livremente.
+    </p>
+    <form method="post" action="/admin/templates" enctype="multipart/form-data" id="form-template-kit">
         <input type="hidden" name="tipo" value="kit">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div class="ck-passo"><span class="ck-num">1</span><strong>Nome e clientes</strong></div>
+        <div class="ck-grade">
             <div class="form-group" style="margin:0;">
                 <label>Nome do Kit *</label>
                 <input type="text" name="nome" required placeholder="ex: Kit VW 2025">
             </div>
             <div class="form-group" style="margin:0;">
-                <label>Cliente *</label>
+                <label>Cliente(s) *</label>
                 {{ seletor_clientes(clientes) }}
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar e Criar Kit</button>
+
+        <div class="ck-passo"><span class="ck-num">2</span><strong>Como montar os itens?</strong></div>
+        <div class="ck-modos">
+            <label class="ck-modo">
+                <input type="radio" name="_modo" value="manual" onchange="escolherModoKit('manual')">
+                <span class="ck-modo-ic">{{ ic.svg('clipboard', 22) }}</span>
+                <span><strong>Montar manualmente</strong>
+                    <small>Escolho os itens no catálogo, com quantidade e conjunto.</small></span>
+            </label>
+            <label class="ck-modo">
+                <input type="radio" name="_modo" value="bom" onchange="escolherModoKit('bom')">
+                <span class="ck-modo-ic">{{ ic.svg('importar', 22) }}</span>
+                <span><strong>Importar planilha (BOM)</strong>
+                    <small>Envio o .xlsx com Description e Quantity e o kit nasce com todos os itens.</small></span>
+            </label>
+        </div>
+
+        <div id="ck-bom" class="ck-etapa" hidden>
+            <div class="ck-passo"><span class="ck-num">3</span><strong>Planilha do BOM</strong></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <input type="file" name="arquivo" accept=".xlsx" id="ck-arquivo" disabled style="flex:1;min-width:220px;margin-bottom:0;">
+                <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar e criar kit</button>
+            </div>
+        </div>
+
+        <div id="ck-manual" class="ck-etapa" hidden>
+            <div class="ck-passo"><span class="ck-num">3</span><strong>Itens do kit</strong></div>
+{{ secao_itens('kit', 'Kit', tipos_catalogo) }}
+            <button type="submit" class="btn btn-primary">{{ ic.svg('check', 15) }} Criar Kit</button>
         </div>
     </form>
 </div>
@@ -209,6 +282,7 @@
     </div>
 </div>
 
+{% if tipo != 'kit' %}
 <div class="card">
     <h2>Novo {{ label }}</h2>
     <form method="post" action="/admin/templates" id="form-template-{{ tipo }}">
@@ -229,52 +303,12 @@
         </button>
 
         <div id="secao-itens-{{ tipo }}" style="display:none;">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; margin-top:16px;">
-                <h2 style="margin:0;">Tipos disponíveis</h2>
-                <button type="button" onclick="adicionarTodos('{{ tipo }}')" class="btn btn-warning">
-                    {{ ic.svg('mais', 15) }} Inserir todos os itens
-                </button>
-            </div>
-            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:10px;">
-                Clique nos cards para adicionar ao {{ label|lower }}. Itens com o mesmo <strong>Código do Conjunto</strong> são bipados juntos (ex: parafusos).
-            </p>
-
-            {% if tipos_catalogo %}
-            <input type="text" class="busca-box" placeholder="Buscar tipo..."
-                   oninput="filtrarLista(this)" data-filtro-alvo="#tipos-grid-{{ tipo }} .filtro-item">
-            <div class="tipos-grid-admin" id="tipos-grid-{{ tipo }}">
-                {% for tp in tipos_catalogo %}
-                <button type="button" class="tipo-card-admin filtro-item"
-                        data-id="{{ tp.id }}" data-nome="{{ tp.nome | e }}"
-                        data-unidade="{{ tp.unidade | default('un') }}"
-                        data-serial="{{ '1' if tp.requer_serial else '0' }}"
-                        onclick="adicionarTipoFromCard(this, '{{ tipo }}')">
-                    {{ tp.nome }}
-                    {% if tp.unidade == 'm' %}<span style="font-size:10px;display:block;color:#0984e3;">m</span>{% endif %}
-                    {% if tp.reutilizavel %}<span style="font-size:10px;display:block;color:#6c5ce7;">reutilizável</span>{% endif %}
-                    {% if tp.requer_serial %}<span style="font-size:10px;display:block;color:#6c5ce7;">serial</span>{% endif %}
-                </button>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p style="color:var(--text-muted-2);font-size:13px;background:var(--surface-alt);padding:12px;border-radius:8px;margin-bottom:12px;">
-                Nenhum tipo cadastrado. Crie tipos em <a href="/admin/items">Itens</a> primeiro.
-            </p>
-            {% endif %}
-
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-                <strong>Itens selecionados</strong>
-                <span id="contagem-sel-{{ tipo }}" style="font-size:13px;color:var(--text-muted-2);"></span>
-            </div>
-            <div id="msg-vazio-{{ tipo }}" style="color:var(--text-muted-2);font-size:13px;text-align:center;padding:16px;background:var(--surface-alt);border-radius:8px;margin-bottom:12px;">
-                Nenhum item adicionado ainda. Clique em um tipo acima ou use "Inserir todos os itens".
-            </div>
-            <div id="itens-container-{{ tipo }}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
-
+{{ secao_itens(tipo, label, tipos_catalogo) }}
             <button type="submit" class="btn btn-primary">Criar {{ label }}</button>
         </div>
     </form>
 </div>
+{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -370,6 +404,24 @@
 {% endblock %}
 {% block scripts %}
 <style>
+/* Novo Kit: passos numerados e a escolha do caminho em dois cartões. */
+.ck-passo { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: 14px; }
+.ck-passo:first-of-type { margin-top: 4px; }
+.ck-num { width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+.ck-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 760px) { .ck-grade { grid-template-columns: 1fr; } }
+.ck-modos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.ck-modo { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border);
+    border-radius: 12px; cursor: pointer; background: var(--surface); margin: 0; }
+.ck-modo:hover { border-color: var(--brand-border); background: var(--brand-soft); }
+.ck-modo.ativo { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 2px var(--brand-soft); }
+.ck-modo input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-modo-ic { color: var(--brand); flex-shrink: 0; margin-top: 2px; }
+.ck-modo strong { display: block; font-size: 14px; color: var(--text); }
+.ck-modo small { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+.ck-etapa[hidden] { display: none; }
+
 .conjunto-template-details {
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -409,6 +461,20 @@
 <script>
 let idx = { kit: 0, pedido: 0 };
 const catalogo = {{ tipos_catalogo | tojson }};
+
+// Novo Kit: a escolha do caminho troca pra onde o formulário vai e mostra só
+// a parte que vale (catálogo OU arquivo). O arquivo fica desligado no modo
+// manual pra não ser exigido nem enviado.
+function escolherModoKit(modo) {
+    const form = document.getElementById('form-template-kit');
+    const bom = modo === 'bom';
+    form.action = bom ? '/admin/templates/import-bom' : '/admin/templates';
+    document.getElementById('ck-bom').hidden = !bom;
+    document.getElementById('ck-manual').hidden = bom;
+    const arq = document.getElementById('ck-arquivo');
+    arq.disabled = !bom; arq.required = bom;
+    form.querySelectorAll('.ck-modo').forEach(l => l.classList.toggle('ativo', l.querySelector('input').checked));
+}
 
 function comecarNovoTemplate(tipo) {
     document.getElementById('btn-comecar-' + tipo).style.display = 'none';

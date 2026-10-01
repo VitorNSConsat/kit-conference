@@ -1758,3 +1758,11 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 }
 .dica-i.dica-dir::after { left: auto; right: -8px; transform: none; }
 .dica-i:hover::after, .dica-i:focus::after { opacity: 1; visibility: visible; }
+
+/* Linha de filtros dos relatórios: campos, seletores de múltipla escolha e
+   botões alinhados pela base. Sem zerar a margem, input/data ficavam 12px
+   acima do seletor e dos botões (o card parecia torto). */
+.rel-filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.rel-filtros .form-group { margin: 0; }
+.rel-filtros input, .rel-filtros select { margin: 0; }
+.rel-filtros .rel-busca { flex: 1; min-width: 220px; }
