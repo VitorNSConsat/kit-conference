@@ -750,6 +750,28 @@ def mapa_por_referencia() -> dict:
     return mapa
 
 
+def remessa_dos_veiculos() -> dict:
+    """{veiculo_id: {remessa_id, nome, status}} — em que remessa cada veículo
+    está, pra coluna Remessa de Veículos e Clientes (uma consulta pra todos).
+
+    O veículo entra pela linha dele (veiculo_id, quando foi posto como "a
+    produzir") ou pelo kit dele (kit_record.veiculo_id). Com mais de um kit em
+    remessas diferentes, vale a MAIS RECENTE — é onde o veículo está agora.
+    Remessa fechada/arquivada continua valendo, igual à Produção."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT COALESCE(rk.veiculo_id, kr.veiculo_id) AS vid, rk.id AS rk_id, "
+            "r.id AS remessa_id, r.nome, r.status "
+            "FROM remessa_kit rk JOIN remessa r ON r.id = rk.remessa_id "
+            "LEFT JOIN kit_record kr ON kr.kit_id = rk.kit_id "
+            "WHERE COALESCE(rk.veiculo_id, kr.veiculo_id) IS NOT NULL "
+            "ORDER BY rk.id"
+        ).fetchall()
+    # Em ordem crescente: a última linha de cada veículo sobrescreve as antigas.
+    return {row["vid"]: {"remessa_id": row["remessa_id"], "nome": row["nome"],
+                         "status": row["status"]} for row in rows}
+
+
 def kits_da_remessa(remessa_id: int) -> list:
     """Os itens daquela remessa — kits prontos E veiculos ainda sem kit.
 

@@ -790,12 +790,22 @@
       <strong>entrou no sistema</strong>. É a data de cadastro/importação, não de produção
       nem de envio, e <strong>não muda</strong> quando alguém edita o veículo depois.
       Ordena pelo filtro da coluna (mais recentes ou mais antigos).</li>
+    <li><span class="campo">Kits montados</span> — quantos kits já foram
+      <strong>finalizados na bipagem</strong> para o veículo. Conta o kit montado, esteja ele
+      ainda no galpão, em trânsito ou no cliente — não é a contagem de envios (antes a coluna
+      se chamava “Kits enviados”). <span class="campo">Última montagem</span> é a data do kit
+      mais recente.</li>
+    <li><span class="campo">Remessa</span> — em qual remessa o veículo está, pela linha dele
+      (quando entrou como “a produzir”) ou pelo kit. Com kits em mais de uma remessa, vale a
+      mais recente. Remessa fechada ou arquivada aparece com essa marca; “Sem remessa” quando
+      não está em nenhuma. O nome abre a remessa.</li>
   </ul>
   <h3>Filtrar pelas colunas</h3>
   <p>
     A <strong>busca</strong> continua no topo, ao vivo. Os filtros ficam <strong>na própria
     tabela</strong>: clique no <strong>nome de qualquer coluna</strong> — Número, Cliente,
-    Garagem, Modelo (kit), Localização atual, Importado em, Kits enviados, Último envio — e
+    Garagem, Modelo (kit), Localização atual, Importado em, Kits montados, Última montagem,
+    Remessa (inclusive “sem remessa”) — e
     marque o que quer ver (ou digite, no caso do número; datas de/até nas colunas de data, que
     também ordenam). Clique em <strong>Aplicar</strong>. Dá pra combinar várias colunas e a
     busca; dentro da mesma coluna as opções somam (dois clientes = os dois).
@@ -905,7 +915,7 @@
     <li><strong>Atualizar os veículos que já existem</strong> — em Veículos e Clientes, use
       <em>Exportar Excel</em> (sem filtro traz todos), preencha Chassi, PG e Tipo e importe a
       <strong>mesma planilha</strong> em Importar. As colunas extras da exportação (Localização,
-      Kits enviados…) são ignoradas, e o que ficar vazio não altera o cadastro.</li>
+      Kits montados, Remessa…) são ignoradas, e o que ficar vazio não altera o cadastro.</li>
     <li>Se o cliente da linha tem <strong>prefixo</strong> cadastrado e o número veio cru
       (só dígitos), o número final já sai formatado — veja acima.</li>
   </ul>

@@ -494,16 +494,19 @@
             <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=importado_asc" class="{{ 'on' if ordem == 'importado_asc' }}">mais antigos</a>
           </div>
         {% endcall %}
-        {% call th_filtro('kits', 'Kits enviados') %}
-          {{ thf_opcoes('kits', [('com', 'Já recebeu kit'), ('sem', 'Nunca recebeu kit')], filtro_kits, false) }}
+        {% call th_filtro('kits', 'Kits montados') %}
+          {{ thf_opcoes('kits', [('com', 'Tem kit montado'), ('sem', 'Nenhum kit montado')], filtro_kits, false) }}
         {% endcall %}
-        {% call th_filtro('ultimo', 'Último envio', 'white-space:nowrap;') %}
+        {% call th_filtro('ultimo', 'Última montagem', 'white-space:nowrap;') %}
           {{ thf_periodo('ult_ini', ult_ini, 'ult_fim', ult_fim) }}
           <div class="thf-ordem">
             Ordenar:
             <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=ultimo_desc" class="{{ 'on' if ordem == 'ultimo_desc' }}">mais recentes</a>
             <a href="/admin/veiculos?{{ qs_sem_ordem }}{{ '&' if qs_sem_ordem }}ordem=ultimo_asc" class="{{ 'on' if ordem == 'ultimo_asc' }}">mais antigos</a>
           </div>
+        {% endcall %}
+        {% call th_filtro('remessa', 'Remessa') %}
+          {{ thf_opcoes('remessa', [('__sem__', '— sem remessa —')] + remessa_opcoes, filtro_remessa) }}
         {% endcall %}
         <th></th>
       </tr>
@@ -590,6 +593,20 @@
         {% endif %}
       </td>
       <td style="font-size:12px;color:var(--text-muted-2);">{{ v.ultimo_kit_em[:10] if v.ultimo_kit_em else '—' }}</td>
+      {# Remessa em que o veículo está (pela linha dele ou pelo kit). Mesmo
+         visual da coluna Remessa da Produção; o nome abre a remessa. #}
+      <td style="white-space:nowrap;">
+        {% if v.remessa %}
+        <a href="/admin/producao/remessas?remessa_id={{ v.remessa.remessa_id }}"
+           style="color:var(--brand-ink);font-weight:600;text-decoration:none;font-size:13px;"
+           title="Abrir esta remessa">{{ v.remessa.nome }}</a>
+        {% if v.remessa.status != 'aberta' %}
+        <span style="color:var(--text-muted-2);font-size:11px;">({{ 'fechada' if v.remessa.status == 'fechada' else 'arquivada' }})</span>
+        {% endif %}
+        {% else %}
+        <span style="color:var(--text-muted-2);font-size:12px;">Sem remessa</span>
+        {% endif %}
+      </td>
       <td>
         <a href="/admin/veiculos/{{ v.id }}" class="btn btn-sm btn-secondary">Ver</a>
       </td>

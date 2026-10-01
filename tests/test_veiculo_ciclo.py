@@ -76,3 +76,53 @@ def test_kit_em_transito_com_nota_fiscal(cenario):
     assert datas["Chegou ao cliente"] is None
     assert [e["rotulo"] for e in ciclo["etapas"] if e["atual"]] == ["Em trânsito"]
     assert ciclo["nota"] == {"numero": "NF-123", "data": "04/09/2026"}
+
+
+def _remessa(c, status="aberta"):
+    with db() as conn:
+        conn.execute("INSERT INTO remessa (nome, cliente, alvo, criada_em, status) "
+                     "VALUES (?, 'CliX', 90, '2026-09-01 08:00:00', ?)", (f"R-{c['sufixo']}", status))
+        return conn.execute("SELECT id FROM remessa WHERE nome = ?", (f"R-{c['sufixo']}",)).fetchone()["id"]
+
+
+def test_remessa_dos_veiculos_pela_linha_e_pelo_kit(cenario):
+    """Coluna Remessa de Veículos e Clientes: acha o veículo pela linha dele
+    (a produzir) e também pelo kit, quando a linha não guarda o veiculo_id."""
+    import app.remessas as remessas_mod
+    c = cenario
+    assert c["vid"] not in remessas_mod.remessa_dos_veiculos()
+    rid = _remessa(c, "fechada")
+    with db() as conn:
+        conn.execute("INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id, iniciado_em, veiculo_id) "
+                     "VALUES (?, 1, ?, '2026-09-03 07:00:00', ?)", (c["tid"], c["uid"], c["vid"]))
+        sid = conn.execute("SELECT id FROM scan_session WHERE veiculo_id = ?", (c["vid"],)).fetchone()["id"]
+        conn.execute("INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, kit_template_versao, operador_id, "
+                     "veiculo_id, veiculo, finalizado_em) VALUES (?, ?, ?, 1, ?, ?, '', '2026-09-03 10:30:00')",
+                     (f"K-{c['sufixo']}", sid, c["tid"], c["uid"], c["vid"]))
+        conn.execute("INSERT INTO remessa_kit (remessa_id, kit_id, entrou_em) VALUES (?, ?, '2026-09-03 10:31:00')",
+                     (rid, f"K-{c['sufixo']}"))
+    info = remessas_mod.remessa_dos_veiculos()[c["vid"]]
+    assert info == {"remessa_id": rid, "nome": f"R-{c['sufixo']}", "status": "fechada"}
+
+
+def test_tela_de_veiculos_filtra_por_remessa(cenario):
+    import main
+    c = cenario
+    numero = f"V-{c['sufixo']}"
+
+    def numeros(**kw):
+        ctx = main._admin_veiculos_context(busca=numero, **kw)
+        return [v["numero"] for v in ctx["veiculos_export"]], ctx
+
+    nums, ctx = numeros(remessa=["__sem__"])
+    assert nums == [numero] and ctx["veiculos_export"][0]["remessa"] is None
+    rid = _remessa(c)
+    with db() as conn:
+        conn.execute("INSERT INTO remessa_kit (remessa_id, veiculo_id, entrou_em) VALUES (?, ?, '2026-09-02 09:15:00')",
+                     (rid, c["vid"]))
+    assert numeros(remessa=["__sem__"])[0] == []
+    nums, ctx = numeros(remessa=[str(rid)])
+    assert nums == [numero]
+    assert (str(rid), f"R-{c['sufixo']}") in ctx["remessa_opcoes"]
+    assert ctx["col_ativa"]["remessa"] and any(ch["rotulo"] == f"Remessa: R-{c['sufixo']}"
+                                               for ch in ctx["chips_veiculos"])

@@ -99,8 +99,8 @@ def test_planilha_exportada_volta_como_importacao(numero):
     entrada: reimportar sem mexer não altera nada; preencher o chassi atualiza."""
     veic.criar(numero, "CliFicha", "G1", "")
     cab = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Chassi", "PG", "Tipo",
-           "Localização atual", "Kits enviados", "Último envio", "Cadastrado em"]
-    linha = [numero, "CliFicha", "G1", None, None, None, None, "", 0, None, "2026-01-01 10:00:00"]
+           "Localização atual", "Kits montados", "Última montagem", "Remessa", "Cadastrado em"]
+    linha = [numero, "CliFicha", "G1", None, None, None, None, "", 0, None, "R-1", "2026-01-01 10:00:00"]
     r = veic.importar_excel(_xlsx(cab, [linha]))
     assert r["itens"][0]["situacao"] == "igual" and not r["erros"]
     linha[4], linha[5], linha[6] = "XYZ987", "PG-3", "Combustão"

@@ -5491,7 +5491,8 @@ _VEIC_SITUACAO_TEXTO = {
 
 
 def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
-                         imp_ini, imp_fim, ult_ini, ult_fim, ordem) -> dict:
+                         imp_ini, imp_fim, ult_ini, ult_fim, ordem,
+                         remessa=(), remessa_nomes=None) -> dict:
     """O que a tela precisa pra manter os filtros por coluna: a querystring atual
     (paginação e ordenação não perdem filtro), os filtros ativos de cada coluna
     (o cabeçalho fica marcado) e os chips com o link que tira SÓ aquele filtro."""
@@ -5502,7 +5503,7 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
     if numero:
         pares.append(("numero", numero))
     for nome, valores in (("cliente", cliente), ("garagem", garagem), ("modelo", modelo),
-                          ("situacao", situacao), ("kits", kits)):
+                          ("situacao", situacao), ("kits", kits), ("remessa", remessa)):
         pares += [(nome, v) for v in valores]
     for nome, valor in (("imp_ini", imp_ini), ("imp_fim", imp_fim),
                         ("ult_ini", ult_ini), ("ult_fim", ult_fim)):
@@ -5529,10 +5530,11 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
             ("garagem", "Garagem", garagem, {"__sem__": "sem garagem"}),
             ("modelo", "Modelo", modelo, {"__sem__": "sem modelo"}),
             ("situacao", "Localização", situacao, _VEIC_SITUACAO_TEXTO),
-            ("kits", "Kits enviados", kits, {"com": "já recebeu", "sem": "nunca recebeu"})):
+            ("kits", "Kits montados", kits, {"com": "tem kit montado", "sem": "nenhum kit montado"}),
+            ("remessa", "Remessa", remessa, {"__sem__": "sem remessa", **(remessa_nomes or {})})):
         for v in valores:
             chips.append({"rotulo": f"{rotulo}: {texto.get(v, v)}", "url": url((nome, v))})
-    for ini, fim, rotulo in ((imp_ini, imp_fim, "Importado"), (ult_ini, ult_fim, "Último envio")):
+    for ini, fim, rotulo in ((imp_ini, imp_fim, "Importado"), (ult_ini, ult_fim, "Última montagem")):
         chave = "imp" if rotulo == "Importado" else "ult"
         if ini or fim:
             txt = (f"{br(ini)} a {br(fim)}" if ini and fim else
@@ -5554,6 +5556,7 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
             "numero": sem_nomes("numero"), "cliente": sem_nomes("cliente"),
             "garagem": sem_nomes("garagem"), "modelo": sem_nomes("modelo"),
             "localizacao": sem_nomes("situacao"), "kits": sem_nomes("kits"),
+            "remessa": sem_nomes("remessa"),
             "importado": sem_nomes("imp_ini", "imp_fim"), "ultimo": sem_nomes("ult_ini", "ult_fim"),
         },
         "qs_veiculos": qs,                               # sem página — a paginação acrescenta
@@ -5562,6 +5565,7 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
         "col_ativa": {
             "numero": bool(numero), "cliente": bool(cliente), "garagem": bool(garagem),
             "modelo": bool(modelo), "localizacao": bool(situacao), "kits": bool(kits),
+            "remessa": bool(remessa),
             "importado": bool(imp_ini or imp_fim), "ultimo": bool(ult_ini or ult_fim),
         },
     }
@@ -5574,12 +5578,14 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                             imp_ini: str = "", imp_fim: str = "",
                             ordem: str = "", numero: str = "",
                             kits: list[str] | None = None,
-                            ult_ini: str = "", ult_fim: str = "") -> dict:
+                            ult_ini: str = "", ult_fim: str = "",
+                            remessa: list[str] | None = None) -> dict:
     # Os filtros são LISTAS: dá pra ver duas garagens (ou três situações) ao
     # mesmo tempo. Vazio = sem filtro, como antes. Cada coluna da tabela tem o
     # seu (clicando no nome dela): Número, Cliente, Garagem, Modelo,
-    # Localização, Importado em, Kits enviados e Último envio.
+    # Localização, Importado em, Kits montados, Última montagem e Remessa.
     numero = (numero or "").strip()
+    remessa = [r for r in (remessa or []) if r]
     kits = [k for k in (kits or []) if k in ("com", "sem")]
     cliente = [c for c in (cliente or []) if c]
     modelo = [m for m in (modelo or []) if m]
@@ -5595,6 +5601,16 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         loc = localizacao.get(v["id"])
         v["localizacao"] = loc["texto"] if loc else ""
         v["localizacao_estado"] = loc["estado"] if loc else ""
+
+    # Remessa em que o veículo está (pela linha dele ou pelo kit) — também
+    # numa consulta só. Vazio = não está em nenhuma.
+    remessa_de = remessas_mod.remessa_dos_veiculos()
+    for v in todos:
+        v["remessa"] = remessa_de.get(v["id"])
+    # Opções do filtro: as remessas que têm veículo, da mais nova pra mais velha.
+    remessa_opcoes = sorted({(str(r["remessa_id"]), r["nome"] + (
+        "" if r["status"] == "aberta" else f" ({r['status']})"))
+        for r in remessa_de.values()}, key=lambda o: -int(o[0]))
 
     # Veículo cujo kit está devendo item — a pendência que não pode sumir de
     # vista até alguém repor. Um mapa só pra todos (nada de N+1).
@@ -5632,9 +5648,16 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
     if numero:
         alvo_num = numero.lower()
         veiculos = [v for v in veiculos if alvo_num in (v["numero"] or "").lower()]
-    # Kits enviados: já recebeu / nunca recebeu (cruza com os outros filtros).
+    # Kits montados: tem / não tem kit finalizado (cruza com os outros filtros).
+    # Conta todo kit montado pro veículo — despachado ou ainda no galpão.
     if kits and len(kits) == 1:
         veiculos = [v for v in veiculos if bool(v["total_kits"]) == (kits[0] == "com")]
+    # Remessa: as escolhidas somam; __sem__ = veículo que não está em nenhuma.
+    if remessa:
+        alvo_rem = set(remessa)
+        veiculos = [v for v in veiculos
+                    if (v["remessa"] and str(v["remessa"]["remessa_id"]) in alvo_rem)
+                    or (not v["remessa"] and "__sem__" in alvo_rem)]
     # Situação cobre tanto a etapa do fluxo (localização) quanto os furos de
     # cadastro — as duas coisas que fazem o operador filtrar essa lista.
     if situacao:
@@ -5693,7 +5716,7 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] >= imp_ini]
     if imp_fim:
         veiculos = [v for v in veiculos if (v.get("criado_em") or "")[:10] <= imp_fim]
-    # Último envio (último kit do veículo): mesma regra de data da importação.
+    # Última montagem (último kit finalizado do veículo): mesma regra de data da importação.
     if ult_ini:
         veiculos = [v for v in veiculos if (v.get("ultimo_kit_em") or "")[:10] >= ult_ini]
     if ult_fim:
@@ -5754,13 +5777,16 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         "ordem": ordem,
         "filtro_numero": numero,
         "filtro_kits": kits,
+        "filtro_remessa": remessa,
+        "remessa_opcoes": remessa_opcoes,
         "ult_ini": ult_ini,
         "ult_fim": ult_fim,
         **_veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
-                               imp_ini, imp_fim, ult_ini, ult_fim, ordem),
+                               imp_ini, imp_fim, ult_ini, ult_fim, ordem,
+                               remessa, dict(remessa_opcoes)),
         "total_geral": total_geral,
         "tem_filtro": bool(cliente or garagem or modelo or situacao or busca
-                           or numero or kits or ult_ini or ult_fim
+                           or numero or kits or remessa or ult_ini or ult_fim
                               or imp_ini or imp_fim or ordem),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(
@@ -5798,11 +5824,12 @@ async def admin_veiculos(request: Request, pagina: int = 1, busca: str = "",
                          garagem: list[str] = Query(default=[]),
                          imp_ini: str = "", imp_fim: str = "", ordem: str = "",
                          numero: str = "", kits: list[str] = Query(default=[]),
-                         ult_ini: str = "", ult_fim: str = ""):
+                         ult_ini: str = "", ult_fim: str = "",
+                         remessa: list[str] = Query(default=[])):
     return render(request, "admin_veiculos.html",
                   _admin_veiculos_context(cliente, pagina, busca, modelo, situacao,
                                           garagem, imp_ini, imp_fim, ordem,
-                                          numero, kits, ult_ini, ult_fim))
+                                          numero, kits, ult_ini, ult_fim, remessa))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)
@@ -5934,7 +5961,8 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
                                    garagem: list[str] = Query(default=[]),
                                    imp_ini: str = "", imp_fim: str = "", ordem: str = "",
                                    numero: str = "", kits: list[str] = Query(default=[]),
-                                   ult_ini: str = "", ult_fim: str = ""):
+                                   ult_ini: str = "", ult_fim: str = "",
+                                   remessa: list[str] = Query(default=[])):
     """Exporta os veículos filtrados -- os MESMOS filtros da tela (cliente,
     garagem, modelo, situação, busca, datas), reaproveitando
     _admin_veiculos_context() pra planilha nunca discordar do que a lista
@@ -5945,7 +5973,7 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     from fastapi.responses import Response as _Resp
 
     ctx = _admin_veiculos_context(cliente, 1, busca, modelo, situacao, garagem, imp_ini, imp_fim, ordem,
-                                  numero, kits, ult_ini, ult_fim)
+                                  numero, kits, ult_ini, ult_fim, remessa)
     veiculos = ctx["veiculos_export"]
 
     wb = openpyxl.Workbook()
@@ -5953,7 +5981,7 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     ws = wb.active
     ws.title = "Veículos"
     colunas = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Chassi", "PG", "Tipo",
-               "Localização atual", "Kits enviados", "Último envio", "Cadastrado em"]
+               "Localização atual", "Kits montados", "Última montagem", "Remessa", "Cadastrado em"]
     for col, h in enumerate(colunas, 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
@@ -5971,11 +5999,12 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
         ws.cell(row, 8, v.get("localizacao") or "")
         ws.cell(row, 9, v["total_kits"])
         ws.cell(row, 10, v.get("ultimo_kit_em") or "")
-        ws.cell(row, 11, v.get("criado_em") or "")
+        ws.cell(row, 11, v["remessa"]["nome"] if v.get("remessa") else "")
+        ws.cell(row, 12, v.get("criado_em") or "")
         if i % 2 == 0:
             for col in range(1, len(colunas) + 1):
                 ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGHIJK", (16, 26, 22, 26, 22, 14, 14, 20, 14, 20, 20)):
+    for col, w in zip("ABCDEFGHIJKL", (16, 26, 22, 26, 22, 14, 14, 20, 14, 20, 18, 20)):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
 
