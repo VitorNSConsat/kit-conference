@@ -67,14 +67,20 @@
 {% endmacro %}
 
 {% block acoes_topo %}
+{# Barra de ferramentas da Produção: tudo que não é a esteira em si fica aqui
+   em cima, em botões — a tela começa direto nas remessas e nas etapas. #}
 <a href="/admin/producao/historico" class="btn btn-secondary btn-sm">{{ ic.svg('historico', 15) }} Histórico de Alterações</a>
 <a href="/producao/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
+{% if user and user.admin %}
+<button type="button" class="btn btn-secondary btn-sm" onclick="abrirPopup(event, 'tv-config')"
+        title="Quantos kits cabem em cada coluna do Painel da TV">{{ ic.svg('filtro', 15) }} Exibição da TV</button>
+{% endif %}
 {# Liberado pra todos: zera só a numeração da etiqueta de
    acompanhamento, sem tocar em kit, estoque ou produção. #}
-<form method="post" action="/admin/producao/zerar-sequencia"
-      onsubmit="return confirm('Zerar o contador de sequência das etiquetas \'Em Andamento\'? O próximo kit voltará a começar do 0001.')">
-  <button type="submit" class="btn btn-danger btn-sm" title="Reinicia o número SEQ das etiquetas de acompanhamento">{{ ic.svg('reiniciar', 15) }} Zerar Contador</button>
-</form>
+<button type="button" class="btn btn-danger btn-sm" onclick="abrirPopup(event, 'zerar-seq')"
+        title="Recomeça o número SEQ das etiquetas de acompanhamento (ex.: produção nova pra outro cliente)">
+  {{ ic.svg('reiniciar', 15) }} Zerar sequência
+</button>
 {% endblock %}
 
 {% block content %}
@@ -182,15 +188,40 @@
   seguem a bipagem sozinhas — o resto é marcado manualmente aqui.
 </p>
 
+<!-- ── Pop-up: Zerar sequência (todos os usuários) ─────────────────────── -->
+<div id="popup-zerar-seq" class="config-popup" role="dialog" aria-modal="true" style="width:min(520px, calc(100vw - 32px));">
+  <div class="config-cabecalho">
+    <div><strong>Zerar sequência</strong><span class="config-sub">Número SEQ das etiquetas de acompanhamento (Em Andamento)</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo" style="display:block;">
+    <div class="seq-atual">
+      <div><span class="seq-rotulo">Última etiqueta</span><span class="seq-num">{{ '%04d' % sequencia_atual }}</span></div>
+      <div class="seq-seta">{{ ic.svg('seta-direita', 18) }}</div>
+      <div><span class="seq-rotulo">Depois de zerar, a próxima sai</span><span class="seq-num seq-num-novo">0001</span></div>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin:14px 0;">
+      Use ao começar uma <strong>produção nova</strong> (por exemplo, pra outro cliente), pra
+      numeração não continuar de onde a anterior parou. Muda <strong>só o número impresso</strong>
+      nas próximas etiquetas: nenhum kit, estoque ou etapa da produção é alterado, e etiqueta já
+      impressa mantém o número dela. Fica registrado no Histórico de Alterações.
+    </p>
+    <form method="post" action="/admin/producao/zerar-sequencia" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button type="button" class="btn btn-ghost" onclick="fecharPopup()">Cancelar</button>
+      <button type="submit" class="btn btn-danger">{{ ic.svg('reiniciar', 14) }} Zerar e recomeçar do 0001</button>
+    </form>
+  </div>
+</div>
+
 {% if user and user.admin %}
-<!-- ── Config de exibição do Painel da TV ──────────────────────────────── -->
-<details class="card" style="padding:0;">
-  <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:var(--text);">
-    Exibição do Painel da TV
-    <span style="font-weight:400;color:#888;font-size:13px;">— quantos kits cabem em cada coluna</span>
-  </summary>
-  <div style="padding:0 18px 18px;">
-    <p style="color:#666;font-size:13px;margin-top:0;">
+<!-- ── Pop-up: Exibição do Painel da TV ─────────────────────────────────── -->
+<div id="popup-tv-config" class="config-popup" role="dialog" aria-modal="true">
+  <div class="config-cabecalho">
+    <div><strong>Exibição do Painel da TV</strong><span class="config-sub">Quantos kits cabem em cada coluna</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div class="config-corpo" style="display:block;">
+    <p style="color:var(--text-muted);font-size:13px;margin-top:0;line-height:1.5;">
       Vale <strong>só pro Painel da TV</strong> e é apenas filtro de tela: nada sai do banco nem dos
       relatórios, e esta página de controle continua mostrando tudo. Ao passar do limite, o kit mais
       novo entra e o mais antigo sai da tela — a lista gira sozinha. Use <strong>0</strong> pra não limitar.
@@ -237,8 +268,18 @@
       <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Salvar</button>
     </form>
   </div>
-</details>
+</div>
 {% endif %}
+
+<style>
+.seq-atual { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.seq-atual > div:not(.seq-seta) { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.seq-rotulo { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted-2); font-weight: 700; }
+.seq-num { font: 800 28px/1.1 monospace; color: var(--brand-ink); }
+.seq-num-novo { color: var(--ok-text); }
+.seq-seta { color: var(--text-muted-2); }
+</style>
 
 <!-- ── Kits a Produzir — etapa ANTES da bipagem começar ──────────────────── -->
 {# Cada etapa é uma lista que abre. Fechada, a tela inteira cabe numa olhada:

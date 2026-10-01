@@ -96,6 +96,13 @@ def atribuir_sequencia(sessao_id: int) -> int:
         return novo
 
 
+def valor_sequencia() -> int:
+    """Último número SEQ entregue (0 = zerado; a próxima etiqueta sai com +1)."""
+    with db() as conn:
+        r = conn.execute("SELECT valor FROM producao_sequencia WHERE id = 1").fetchone()
+    return int(r["valor"]) if r else 0
+
+
 def zerar_sequencia() -> None:
     with db() as conn:
         conn.execute("UPDATE producao_sequencia SET valor = 0 WHERE id = 1")

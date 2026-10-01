@@ -4337,6 +4337,9 @@ async def admin_producao(request: Request):
         # aparecer pra alguém repor antes de despachar.
         "faltando_item": sessions_mod.kits_incompletos(),
         "tv_config": producao_mod.get_tv_config(),
+        # Último SEQ impresso — a janela "Zerar sequência" mostra de onde
+        # a numeração vai recomeçar antes de confirmar.
+        "sequencia_atual": producao_mod.valor_sequencia(),
         # TODAS as remessas abertas: agora pode haver mais de uma (duas
         # frentes de trabalho), e mostrar só a última esconderia a outra.
         "remessas_abertas": remessas_mod.listar_abertas(),
