@@ -186,3 +186,97 @@ def do_veiculo(veiculo_id: int, limite: int = 20) -> list[dict]:
             (veiculo_id, limite)
         ).fetchall()
     return [_enfeitar(dict(r)) for r in rows]
+
+
+# ── Prévia (validador) ───────────────────────────────────────────────────────
+# A planilha enviada NÃO é importada na hora: primeiro o sistema simula a
+# importação inteira (veiculos.importar_excel(simular=True) desfaz tudo no fim)
+# e mostra o que vai mudar. A planilha espera aqui, num arquivo, até a pessoa
+# confirmar — ou cancelar. Só a confirmação grava.
+
+import json as _json
+import os as _os
+import time as _time
+import uuid as _uuid
+
+PENDENTE_VALIDADE_S = 24 * 3600
+
+
+def _pasta_pendentes() -> str:
+    import database
+    base = _os.path.dirname(_os.path.abspath(database._get_db_path()))
+    if database._get_db_path() == ":memory:":
+        import tempfile
+        base = tempfile.gettempdir()
+    pasta = _os.path.join(base, "importacoes_pendentes")
+    _os.makedirs(pasta, exist_ok=True)
+    return pasta
+
+
+def _limpar_vencidas(pasta: str) -> None:
+    agora = _time.time()
+    for nome in _os.listdir(pasta):
+        caminho = _os.path.join(pasta, nome)
+        try:
+            if agora - _os.path.getmtime(caminho) > PENDENTE_VALIDADE_S:
+                _os.remove(caminho)
+        except OSError:
+            pass
+
+
+def guardar_pendente(conteudo: bytes, arquivo: str, user_id: int | None) -> str:
+    """Guarda a planilha até a confirmação e devolve o código dela."""
+    pasta = _pasta_pendentes()
+    _limpar_vencidas(pasta)
+    token = _uuid.uuid4().hex
+    with open(_os.path.join(pasta, token + ".xlsx"), "wb") as f:
+        f.write(conteudo)
+    with open(_os.path.join(pasta, token + ".json"), "w", encoding="utf-8") as f:
+        _json.dump({"arquivo": arquivo or "", "user_id": user_id}, f)
+    return token
+
+
+def ler_pendente(token: str) -> tuple[bytes, dict] | None:
+    """(conteúdo, {arquivo, user_id}) — None se o código não existe ou venceu."""
+    if not token or not all(c in "0123456789abcdef" for c in token) or len(token) != 32:
+        return None
+    pasta = _pasta_pendentes()
+    xlsx = _os.path.join(pasta, token + ".xlsx")
+    meta = _os.path.join(pasta, token + ".json")
+    if not (_os.path.exists(xlsx) and _os.path.exists(meta)):
+        return None
+    if _time.time() - _os.path.getmtime(xlsx) > PENDENTE_VALIDADE_S:
+        descartar_pendente(token)
+        return None
+    with open(xlsx, "rb") as f:
+        conteudo = f.read()
+    with open(meta, encoding="utf-8") as f:
+        return conteudo, _json.load(f)
+
+
+def descartar_pendente(token: str) -> None:
+    if not token or len(token) != 32:
+        return
+    pasta = _pasta_pendentes()
+    for ext in (".xlsx", ".json"):
+        try:
+            _os.remove(_os.path.join(pasta, token + ext))
+        except OSError:
+            pass
+
+
+def previa(resultado: dict) -> dict:
+    """Linhas (com antes → depois de cada campo) e totais da importação
+    SIMULADA — o mesmo formato da conferência, sem gravar nada."""
+    linhas = [_enfeitar(dict(i)) for i in resultado.get("itens") or []]
+    c = {k: 0 for k in TEXTO}
+    for l in linhas:
+        c[l["situacao"]] = c.get(l["situacao"], 0) + 1
+    c["avisos"] = sum(1 for l in linhas if l.get("erro") and l["situacao"] != "erro")
+    c["total"] = len(linhas)
+    por_campo: dict = {}
+    for l in linhas:
+        if l["situacao"] in ("novo", "alterado"):
+            for m in l["mudancas"]:
+                por_campo[m["campo"]] = por_campo.get(m["campo"], 0) + 1
+    return {"linhas": linhas, "contagens": c, "por_campo": por_campo}

@@ -133,3 +133,49 @@ def test_tela_filtra_e_exporta_a_regiao(numero):
     assert main._admin_veiculos_context(busca=numero, regiao=["__sem__"])["veiculos_export"] == []
     assert ctx["col_ativa"]["regiao"] and any(c["rotulo"] == "Região: T. GARAVELO" for c in ctx["chips_veiculos"])
     assert veic.buscar(vid)["regiao"] == "T. GARAVELO"
+
+
+def test_validador_simula_e_so_grava_ao_confirmar(numero):
+    """Enviar a planilha só mostra a prévia (nada gravado); Confirmar importa;
+    Cancelar descarta."""
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    veic.criar(numero, "CliFicha", "G1", "")
+    planilha = _xlsx(["Número do Veículo", "Cliente", "Região de Operação"],
+                     [[numero, "CliFicha", "T. Dergo"]])
+    # A simulação calcula tudo e desfaz.
+    r = veic.importar_excel(planilha, simular=True)
+    assert r["itens"][0]["situacao"] == "alterado" and _v(numero)["regiao"] == ""
+    nome = f"adm_val_{uuid.uuid4().hex[:6]}"
+    usuarios.criar("Adm Val", nome, "Teste#Val2026", True)
+    try:
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#Val2026"})
+            r = c.post("/admin/veiculos/import", files={"arquivo": ("p.xlsx", planilha)},
+                       follow_redirects=False)
+            previa = r.headers["location"]
+            assert previa.startswith("/admin/veiculos/import/previa/")
+            h = c.get(previa).text
+            assert "T. DERGO" in h and "Confirmar importação" in h
+            assert _v(numero)["regiao"] == ""                       # nada gravado ainda
+            r = c.post(previa + "/confirmar", follow_redirects=False)
+            assert r.headers["location"].startswith("/admin/veiculos/import/")
+            assert _v(numero)["regiao"] == "T. DERGO"
+            # A mesma prévia não pode ser confirmada de novo.
+            assert "não existe mais" in c.post(previa + "/confirmar").text
+            # Cancelar descarta sem gravar.
+            outra = _xlsx(["Número do Veículo", "Cliente", "Região de Operação"],
+                          [[numero, "CliFicha", "PA CAMPUS"]])
+            previa2 = c.post("/admin/veiculos/import", files={"arquivo": ("p.xlsx", outra)},
+                             follow_redirects=False).headers["location"]
+            c.post(previa2 + "/cancelar")
+            assert _v(numero)["regiao"] == "T. DERGO"
+            assert "não existe mais" in c.get(previa2).text
+    finally:
+        with db() as conn:
+            uid = conn.execute("SELECT id FROM users WHERE username = ?", (nome,)).fetchone()["id"]
+            conn.execute("DELETE FROM importacao_item WHERE importacao_id IN "
+                         "(SELECT id FROM importacao WHERE criada_por = ?)", (uid,))
+            conn.execute("DELETE FROM importacao WHERE criada_por = ?", (uid,))
+            conn.execute("DELETE FROM users WHERE id = ?", (uid,))

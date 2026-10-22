@@ -24,3 +24,5 @@ certs/
 
 # Logs do servico Windows (deploy/instalar_servico.ps1)
 servico*.log
+# Planilhas de importação esperando confirmação (validador) — dados reais.
+importacoes_pendentes/

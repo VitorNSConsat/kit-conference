@@ -443,7 +443,7 @@ def deletar(veiculo_id: int):
         conn.execute("DELETE FROM veiculos WHERE id=?", (veiculo_id,))
 
 
-def importar_excel(file_bytes: bytes) -> dict:
+def importar_excel(file_bytes: bytes, simular: bool = False) -> dict:
     """Importa veículos da planilha. O veículo é identificado SÓ pelo
     número — ele é único no sistema inteiro, então reimportar nunca duplica,
     nem quando a planilha traz o mesmo número em outro cliente.
@@ -677,6 +677,11 @@ def importar_excel(file_bytes: bytes) -> dict:
                       {"cliente": cliente, "garagem": garagem, "modelo": modelo,
                        "chassi": chassi, "pg": pg, "tipo": tipo, "regiao": regiao},
                       " ".join(x for x in (aviso, aviso_tipo) if x))
+        # Prévia (validador): faz TUDO igual — mesmas regras, mesmos avisos —
+        # e desfaz no fim. É o que garante que a prévia mostra exatamente o
+        # que a importação de verdade vai fazer.
+        if simular:
+            conn.rollback()
     return {"inseridos": inseridos, "atualizados": atualizados,
             "ignorados": ignorados, "inativos": inativos,
             "modelos_ajustados": modelos_ajustados, "erros": erros,

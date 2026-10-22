@@ -6226,12 +6226,58 @@ async def admin_veiculos_import_post(request: Request):
     except ValueError as e:
         return render(request, "admin_veiculos_import.html", {"erro": str(e)})
     user = request.state.user
-    resultado = veiculos_mod.importar_excel(file_bytes)
-    # Grava a conferência e MANDA PRA ELA. Antes o resultado morria na resposta
-    # do POST: um F5 e ninguém mais sabia o que a planilha tinha feito.
-    imp_id = importacoes_mod.registrar(
-        resultado, getattr(arquivo, "filename", "") or "", user["id"])
+    # VALIDADOR: nada é gravado agora. A importação roda inteira em modo
+    # simulação (desfeita no fim) e a tela mostra o que VAI mudar; a planilha
+    # espera guardada até a pessoa confirmar.
+    token = importacoes_mod.guardar_pendente(
+        file_bytes, getattr(arquivo, "filename", "") or "", user["id"])
+    return RedirectResponse(f"/admin/veiculos/import/previa/{token}", status_code=302)
+
+
+@app.get("/admin/veiculos/import/previa/{token}", response_class=HTMLResponse)
+@require_login
+async def admin_veiculos_import_previa(request: Request, token: str):
+    """O que a planilha vai fazer, linha a linha — recalculado na hora contra
+    o cadastro atual, então a prévia nunca fica velha."""
+    pend = importacoes_mod.ler_pendente(token)
+    if not pend:
+        return render(request, "admin_veiculos_import.html", {
+            "erro": "Essa prévia não existe mais (já foi confirmada, cancelada ou passou de "
+                    "24 horas). Envie a planilha de novo."})
+    conteudo, meta = pend
+    resultado = veiculos_mod.importar_excel(conteudo, simular=True)
+    return render(request, "admin_veiculos_previa.html", {
+        "token": token,
+        "arquivo": meta.get("arquivo", ""),
+        **importacoes_mod.previa(resultado),
+        "situacoes": importacoes_mod.SITUACOES,
+        "voltar_para": "/admin/veiculos/import",
+    })
+
+
+@app.post("/admin/veiculos/import/previa/{token}/confirmar")
+@require_login
+async def admin_veiculos_import_confirmar(request: Request, token: str):
+    pend = importacoes_mod.ler_pendente(token)
+    if not pend:
+        return render(request, "admin_veiculos_import.html", {
+            "erro": "Essa prévia não existe mais. Envie a planilha de novo."})
+    conteudo, meta = pend
+    importacoes_mod.descartar_pendente(token)   # antes de importar: clique duplo não importa duas vezes
+    resultado = veiculos_mod.importar_excel(conteudo)
+    # Grava a conferência e MANDA PRA ELA — o registro do que foi feito de verdade.
+    imp_id = importacoes_mod.registrar(resultado, meta.get("arquivo", ""), request.state.user["id"])
+    request.state.auditoria_detalhe = (
+        f"Importação de veículos confirmada ({meta.get('arquivo', '')}): "
+        f"{resultado['inseridos']} novo(s), {resultado['atualizados']} alterado(s)")
     return RedirectResponse(f"/admin/veiculos/import/{imp_id}", status_code=302)
+
+
+@app.post("/admin/veiculos/import/previa/{token}/cancelar")
+@require_login
+async def admin_veiculos_import_cancelar(request: Request, token: str):
+    importacoes_mod.descartar_pendente(token)
+    return RedirectResponse("/admin/veiculos/import?cancelada=1", status_code=302)
 
 
 def _conferencia_context(request: Request, importacao_id: int) -> dict | None:

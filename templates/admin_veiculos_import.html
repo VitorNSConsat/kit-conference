@@ -11,6 +11,9 @@
 {% if erro is defined and erro %}
 <div class="alert alert-danger">{{ erro }}</div>
 {% endif %}
+{% if request.query_params.get('cancelada') %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Importação cancelada — nada foi alterado no cadastro.</div>
+{% endif %}
 
 <div class="card">
   <h2>Arquivo Excel</h2>
@@ -53,11 +56,12 @@
       <label>Planilha (.xlsx)</label>
       <input type="file" name="arquivo" accept=".xlsx" required>
     </div>
-    <button type="submit" class="btn btn-success">{{ ic.svg('importar', 15) }} Importar</button>
+    <button type="submit" class="btn btn-success">{{ ic.svg('busca', 15) }} Validar planilha</button>
     <p style="color:#555;font-size:13px;margin:12px 0 0;">
-      Ao terminar, o sistema abre a <strong>conferência</strong>: a planilha inteira
-      linha a linha, dizendo o que cada uma virou (novo, já existente, alterado ou
-      erro) e, nos alterados, o valor <strong>antes e depois</strong> de cada campo.
+      <strong>Nada é gravado neste passo.</strong> O sistema abre a <strong>prévia</strong>: tudo o
+      que a planilha vai fazer, linha a linha — os veículos novos, os que vão mudar (com o valor
+      <strong>antes → depois</strong> de cada campo), os avisos e os erros. Só depois de conferir
+      você clica em <strong>Confirmar importação</strong> (ou cancela).
     </p>
   </form>
 </div>

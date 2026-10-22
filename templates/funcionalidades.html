@@ -937,9 +937,25 @@
       (só dígitos), o número final já sai formatado — veja acima.</li>
   </ul>
 
+  <h3>Validar antes de importar</h3>
+  <p>
+    Enviar a planilha <strong>não grava nada</strong>. O botão é <strong>Validar planilha</strong>: o
+    sistema roda a importação inteira em modo simulação (as mesmas regras de sempre, desfeitas no fim)
+    e abre a <strong>prévia</strong> — quantos veículos são novos, quantos vão ser alterados, quantos
+    ficam iguais e quais linhas têm erro ou aviso; quais campos vão mudar e em quantos veículos; e,
+    linha a linha, o valor <strong>antes → depois</strong> de cada campo. Os cartões do topo filtram a
+    lista, e dá pra procurar por número ou valor.
+  </p>
+  <ul>
+    <li><strong>Confirmar importação</strong> grava de verdade e abre a conferência abaixo. Fica
+      desligado quando a planilha não muda nada.</li>
+    <li><strong>Cancelar</strong> descarta a planilha — o cadastro fica como estava.</li>
+    <li>A prévia é recalculada contra o cadastro <strong>do momento</strong>; a planilha espera a
+      confirmação por até 24 horas e não pode ser confirmada duas vezes.</li>
+  </ul>
   <h3>Conferência da importação</h3>
   <p>
-    Terminada a importação, o sistema abre a <strong>conferência</strong>: a planilha
+    Confirmada a importação, o sistema abre a <strong>conferência</strong>: a planilha
     inteira, <strong>linha por linha</strong>, dizendo o que cada uma virou. Antes o
     resultado era só um placar (“12 novos, 3 atualizados”) que sumia no primeiro F5 —
     quem subia 200 linhas não tinha como saber <em>quais</em> foram os 3.

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% block title %}Validar Importação{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
+{% block content %}
+{#  Validador da importação: a planilha foi SIMULADA (mesmas regras da
+    importação de verdade, desfeita no fim). Nada foi gravado ainda — só o
+    botão Confirmar grava. #}
+{% set vai_mudar = contagens.novo + contagens.alterado %}
+
+<div class="card prev-topo">
+  <div class="prev-cab">
+    <div>
+      <h2 style="margin:0 0 4px;">Confira antes de importar</h2>
+      <p style="margin:0;color:var(--text-muted);font-size:13px;">
+        {% if arquivo %}<strong>{{ arquivo }}</strong> — {% endif %}
+        <strong>nada foi gravado ainda.</strong> Abaixo está tudo o que esta planilha vai fazer no
+        cadastro. Confira e confirme — ou cancele.
+      </p>
+    </div>
+    <div class="prev-acoes">
+      <form method="post" action="/admin/veiculos/import/previa/{{ token }}/cancelar">
+        <button type="submit" class="btn btn-secondary">{{ ic.svg('fechar', 14) }} Cancelar</button>
+      </form>
+      <form method="post" action="/admin/veiculos/import/previa/{{ token }}/confirmar"
+            onsubmit="this.querySelector('button').disabled=true; return true;">
+        <button type="submit" class="btn btn-success" {{ 'disabled' if not vai_mudar }}
+                title="{{ 'A planilha não muda nada no cadastro' if not vai_mudar }}">
+          {{ ic.svg('check', 14) }} Confirmar importação
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="conf-resumo" style="margin-top:14px;">
+    <button type="button" class="conf-bloco conf-ativo" data-filtro="mudancas">
+      <span class="conf-n">{{ vai_mudar + contagens.erro }}</span>
+      <span class="conf-r">Vão mudar / com erro</span>
+    </button>
+    <button type="button" class="conf-bloco conf-novo" data-filtro="novo">
+      <span class="conf-n">{{ contagens.novo }}</span><span class="conf-r">Novos</span>
+    </button>
+    <button type="button" class="conf-bloco conf-alterado" data-filtro="alterado">
+      <span class="conf-n">{{ contagens.alterado }}</span><span class="conf-r">Vão ser alterados</span>
+    </button>
+    <button type="button" class="conf-bloco conf-igual" data-filtro="igual">
+      <span class="conf-n">{{ contagens.igual }}</span><span class="conf-r">Sem mudança</span>
+    </button>
+    <button type="button" class="conf-bloco conf-erro" data-filtro="erro">
+      <span class="conf-n">{{ contagens.erro }}</span><span class="conf-r">Erros (não entram)</span>
+    </button>
+    {% if contagens.avisos %}
+    <button type="button" class="conf-bloco conf-aviso" data-filtro="aviso">
+      <span class="conf-n">{{ contagens.avisos }}</span><span class="conf-r">Com aviso</span>
+    </button>
+    {% endif %}
+    <button type="button" class="conf-bloco" data-filtro="todas">
+      <span class="conf-n">{{ contagens.total }}</span><span class="conf-r">Linhas na planilha</span>
+    </button>
+  </div>
+
+  {% if por_campo %}
+  <div class="prev-campos">
+    <span>Campos que vão mudar:</span>
+    {% for campo, n in por_campo | dictsort(by='value', reverse=true) %}
+    <span class="prev-campo"><strong>{{ campo }}</strong> em {{ n }} veículo{{ 's' if n != 1 }}</span>
+    {% endfor %}
+  </div>
+  {% elif not vai_mudar %}
+  <p class="prev-nada">{{ ic.svg('info', 14) }} Esta planilha não muda nada no cadastro — todos os veículos já estão iguais.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <input type="text" id="prev-busca" class="busca-box" placeholder="Procurar número do veículo, campo ou valor..."
+         autocomplete="off" style="margin-bottom:10px;">
+  <p id="prev-contagem" class="paginacao-contagem"></p>
+  <div class="table-scroll">
+    <table class="tabela-conferencia">
+      <thead>
+        <tr><th style="width:56px;">Linha</th><th>Situação</th><th>Veículo</th><th>O que vai mudar</th></tr>
+      </thead>
+      <tbody>
+        {% for l in linhas %}
+        <tr class="prev-linha" data-situacao="{{ l.situacao }}" data-aviso="{{ '1' if l.erro and l.situacao != 'erro' }}">
+          <td>{{ l.linha }}</td>
+          <td><span class="conf-tag conf-tag-{{ l.situacao }}">{{ 'Vai ser alterado' if l.situacao == 'alterado' else ('Sem mudança' if l.situacao == 'igual' else l.situacao_texto) }}</span></td>
+          <td><strong>{{ l.numero or '—' }}</strong>
+            {% if l.cliente_depois or l.cliente_antes %}<div style="font-size:12px;color:var(--text-muted-2);">{{ l.cliente_depois or l.cliente_antes }}</div>{% endif %}
+          </td>
+          <td>
+            {% if l.situacao == 'erro' %}
+            <span class="conf-erro-texto">{{ l.erro }}</span>
+            {% else %}
+              {% if l.mudancas %}
+              <ul class="prev-mudancas">
+                {% for m in l.mudancas %}
+                <li><span class="prev-rotulo">{{ m.campo }}</span>
+                  {% if l.situacao == 'novo' %}<strong class="conf-depois">{{ m.depois }}</strong>
+                  {% else %}<span class="conf-antes">{{ m.antes or '(vazio)' }}</span> <span class="conf-seta">→</span> <strong class="conf-depois">{{ m.depois or '(vazio)' }}</strong>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}<span style="color:var(--text-muted-2);">Nada</span>{% endif %}
+              {% if l.erro %}<div class="prev-aviso">{{ ic.svg('alerta', 12) }} {{ l.erro }}</div>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p id="prev-vazio" class="rem-vazio" style="display:none;color:var(--text-muted-2);">Nenhuma linha com esse filtro.</p>
+</div>
+
+<style>
+.prev-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.prev-acoes { display: flex; gap: 8px; align-items: center; }
+.prev-acoes form { margin: 0; }
+.prev-topo { position: sticky; top: calc(var(--topbar-altura, 56px) + 8px); z-index: 5; }
+.conf-resumo button.conf-bloco { font: inherit; cursor: pointer; text-align: left; }
+.prev-campos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; font-size: 12.5px; color: var(--text-muted); }
+.prev-campo { background: var(--brand-soft); border: 1px solid var(--brand-border); color: var(--brand-ink); border-radius: 999px; padding: 2px 10px; }
+.prev-nada { margin: 12px 0 0; color: var(--text-muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.prev-mudancas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.prev-rotulo { display: inline-block; min-width: 72px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted-2); }
+.prev-aviso { margin-top: 4px; font-size: 12px; color: var(--warn-text); display: flex; gap: 5px; align-items: flex-start; }
+@media (max-width: 760px) { .prev-topo { position: static; } }
+</style>
+
+<script>
+(function () {
+  const linhas = Array.from(document.querySelectorAll('.prev-linha'));
+  const busca = document.getElementById('prev-busca');
+  let filtro = 'mudancas';
+  function aplica() {
+    const termo = (busca.value || '').trim().toLowerCase();
+    let n = 0;
+    linhas.forEach(function (tr) {
+      const s = tr.dataset.situacao;
+      const ok = (filtro === 'todas')
+        || (filtro === 'mudancas' && s !== 'igual')
+        || (filtro === 'aviso' && tr.dataset.aviso === '1')
+        || s === filtro;
+      const casa = !termo || tr.innerText.toLowerCase().includes(termo);
+      tr.style.display = (ok && casa) ? '' : 'none';
+      if (ok && casa) n++;
+    });
+    document.getElementById('prev-contagem').innerHTML = '<strong>' + n + '</strong> linha' + (n === 1 ? '' : 's');
+    document.getElementById('prev-vazio').style.display = n ? 'none' : '';
+  }
+  document.querySelectorAll('[data-filtro]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      filtro = b.dataset.filtro;
+      document.querySelectorAll('[data-filtro]').forEach(x => x.classList.toggle('conf-ativo', x === b));
+      aplica();
+    });
+  });
+  busca.addEventListener('input', aplica);
+  aplica();
+})();
+</script>
+{% endblock %}
