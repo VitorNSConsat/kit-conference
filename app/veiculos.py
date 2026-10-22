@@ -121,8 +121,30 @@ def _limpa_chassi(texto: str) -> str:
     return "".join((texto or "").split()).upper()
 
 
+def _limpa_regiao(texto: str) -> str:
+    """Região em maiúsculas e sem espaço sobrando — "t. bandeiras " e
+    "T. BANDEIRAS" são a mesma região (e o mesmo item no filtro)."""
+    return " ".join((texto or "").split()).upper()
+
+
+def regioes_disponiveis() -> list[str]:
+    """As regiões já usadas — opções do filtro e sugestões ao digitar."""
+    with db() as conn:
+        return [r[0] for r in conn.execute(
+            "SELECT DISTINCT regiao FROM veiculos WHERE TRIM(COALESCE(regiao, '')) <> '' "
+            "ORDER BY regiao").fetchall()]
+
+
+def atualizar_regiao(veiculo_id: int, regiao: str) -> str:
+    """Troca só a região do veículo (vazio limpa). Devolve como ficou gravada."""
+    regiao = _limpa_regiao(regiao)
+    with db() as conn:
+        conn.execute("UPDATE veiculos SET regiao=? WHERE id=?", (regiao, veiculo_id))
+    return regiao
+
+
 def criar(numero: str, cliente: str, garagem: str, modelo: str = "",
-          chassi: str = "", pg: str = "", tipo: str = "") -> int:
+          chassi: str = "", pg: str = "", tipo: str = "", regiao: str = "") -> int:
     # Cliente com prefixo cadastrado (ex: REDEMOB = 31001): número cru
     # ("01") vira PREFIXO-00001 sozinho. Número já formatado ou cliente
     # sem prefixo passa direto — só se aplica quando faz sentido.
@@ -135,17 +157,17 @@ def criar(numero: str, cliente: str, garagem: str, modelo: str = "",
             "edite o cadastro existente em vez de criar outro.")
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO veiculos (numero, cliente, garagem, modelo, chassi, pg, tipo, criado_em) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO veiculos (numero, cliente, garagem, modelo, chassi, pg, tipo, regiao, criado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (numero.strip(), cliente.strip(), garagem.strip().upper(),
              modelo.strip(), _limpa_chassi(chassi), (pg or "").strip(),
-             normalizar_tipo(tipo) or "", now_brt())
+             normalizar_tipo(tipo) or "", _limpa_regiao(regiao), now_brt())
         )
         return cur.lastrowid
 
 
 def atualizar_ficha(veiculo_id: int, chassi: str | None = None, pg: str | None = None,
-                    tipo: str | None = None) -> None:
+                    tipo: str | None = None, regiao: str | None = None) -> None:
     """Grava chassi/PG/tipo. None mantém o que já está; string vazia LIMPA o
     campo. Tipo inválido levanta ValueError (a tela mostra a mensagem)."""
     campos, valores = [], []
@@ -161,6 +183,9 @@ def atualizar_ficha(veiculo_id: int, chassi: str | None = None, pg: str | None =
             raise ValueError("Tipo inválido — use Elétrico ou Combustão.")
         campos.append("tipo=?")
         valores.append(t)
+    if regiao is not None:
+        campos.append("regiao=?")
+        valores.append(_limpa_regiao(regiao))
     if not campos:
         return
     with db() as conn:
@@ -465,6 +490,8 @@ def importar_excel(file_bytes: bytes) -> dict:
                    if h == "pg" or h.startswith("pg ") or h.startswith("pg(")
                    or "configura" in h), None)
     col_tipo = next((i for i, h in enumerate(headers) if h == "tipo" or h.startswith("tipo ")), None)
+    # "Região de Operação" (ou só "Região"/"Regiao").
+    col_regiao = next((i for i, h in enumerate(headers) if h.startswith("regi")), None)
 
     def celula(row, col):
         return str(row[col] or "").strip() if col is not None and len(row) > col else ""
@@ -485,6 +512,7 @@ def importar_excel(file_bytes: bytes) -> dict:
             "chassi_antes": antes.get("chassi", ""), "chassi_depois": depois.get("chassi", ""),
             "pg_antes": antes.get("pg", ""), "pg_depois": depois.get("pg", ""),
             "tipo_antes": antes.get("tipo", ""), "tipo_depois": depois.get("tipo", ""),
+            "regiao_antes": antes.get("regiao", ""), "regiao_depois": depois.get("regiao", ""),
         })
 
     inseridos = atualizados = ignorados = inativos = 0
@@ -519,6 +547,7 @@ def importar_excel(file_bytes: bytes) -> dict:
                 modelo_digitado = str(row[col_mod] or "").strip()
             chassi = _limpa_chassi(celula(row, col_chassi))
             pg = celula(row, col_pg)
+            regiao = _limpa_regiao(celula(row, col_regiao))
             tipo_digitado = celula(row, col_tipo)
             tipo = normalizar_tipo(tipo_digitado)
             aviso_tipo = ""
@@ -587,7 +616,7 @@ def importar_excel(file_bytes: bytes) -> dict:
             # mesmo veículo — a planilha atualiza o cadastro em vez de criar
             # a duplicata.
             existe = conn.execute(
-                "SELECT id, cliente, garagem, modelo, chassi, pg, tipo, ativo FROM veiculos "
+                "SELECT id, cliente, garagem, modelo, chassi, pg, tipo, regiao, ativo FROM veiculos "
                 "WHERE LOWER(TRIM(numero)) = ?",
                 (numero.lower(),)
             ).fetchone()
@@ -599,7 +628,8 @@ def importar_excel(file_bytes: bytes) -> dict:
                          "modelo": existe["modelo"] or "",
                          "chassi": existe["chassi"] or "",
                          "pg": existe["pg"] or "",
-                         "tipo": existe["tipo"] or ""}
+                         "tipo": existe["tipo"] or "",
+                         "regiao": existe["regiao"] or ""}
                 depois = dict(antes)
                 mudou = False
                 if cliente and cliente != (existe["cliente"] or ""):
@@ -617,7 +647,8 @@ def importar_excel(file_bytes: bytes) -> dict:
                                  (modelo, existe["id"]))
                     depois["modelo"] = modelo
                     mudou = True
-                for campo, novo in (("chassi", chassi), ("pg", pg), ("tipo", tipo)):
+                for campo, novo in (("chassi", chassi), ("pg", pg), ("tipo", tipo),
+                                    ("regiao", regiao)):
                     if novo and novo != antes[campo]:
                         conn.execute(f"UPDATE veiculos SET {campo}=? WHERE id=?", (novo, existe["id"]))
                         depois[campo] = novo
@@ -637,14 +668,14 @@ def importar_excel(file_bytes: bytes) -> dict:
                       ("" if existe["ativo"] else "Veículo já cadastrado, mas está desativado."))
             else:
                 vid = conn.execute(
-                    "INSERT INTO veiculos (numero, cliente, garagem, modelo, chassi, pg, tipo, criado_em) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (numero, cliente, garagem, modelo, chassi, pg, tipo, now_brt())
+                    "INSERT INTO veiculos (numero, cliente, garagem, modelo, chassi, pg, tipo, regiao, criado_em) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (numero, cliente, garagem, modelo, chassi, pg, tipo, regiao, now_brt())
                 ).lastrowid
                 inseridos += 1
                 anota(row_idx, numero, "novo", vid, {},
                       {"cliente": cliente, "garagem": garagem, "modelo": modelo,
-                       "chassi": chassi, "pg": pg, "tipo": tipo},
+                       "chassi": chassi, "pg": pg, "tipo": tipo, "regiao": regiao},
                       " ".join(x for x in (aviso, aviso_tipo) if x))
     return {"inseridos": inseridos, "atualizados": atualizados,
             "ignorados": ignorados, "inativos": inativos,

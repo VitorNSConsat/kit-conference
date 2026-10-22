@@ -661,6 +661,9 @@ def render(request: Request, template: str, ctx: dict = {}):
                                              # mesma frota tem que ter a mesma cor na lista,
                                              # na janela e em qualquer lugar novo.
                                              "cor_do_cliente": clientes_mod.cor_do_cliente,
+                                             # Regiões de operação já usadas — sugestões
+                                             # ao digitar a região (só consulta se chamada).
+                                             "regioes_veiculo": veiculos_mod.regioes_disponiveis,
                                              **ctx})
 
 
@@ -5635,7 +5638,7 @@ _VEIC_SITUACAO_TEXTO = {
 
 def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
                          imp_ini, imp_fim, ult_ini, ult_fim, ordem,
-                         remessa=(), remessa_nomes=None) -> dict:
+                         remessa=(), remessa_nomes=None, regiao=()) -> dict:
     """O que a tela precisa pra manter os filtros por coluna: a querystring atual
     (paginação e ordenação não perdem filtro), os filtros ativos de cada coluna
     (o cabeçalho fica marcado) e os chips com o link que tira SÓ aquele filtro."""
@@ -5646,7 +5649,8 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
     if numero:
         pares.append(("numero", numero))
     for nome, valores in (("cliente", cliente), ("garagem", garagem), ("modelo", modelo),
-                          ("situacao", situacao), ("kits", kits), ("remessa", remessa)):
+                          ("situacao", situacao), ("kits", kits), ("remessa", remessa),
+                          ("regiao", regiao)):
         pares += [(nome, v) for v in valores]
     for nome, valor in (("imp_ini", imp_ini), ("imp_fim", imp_fim),
                         ("ult_ini", ult_ini), ("ult_fim", ult_fim)):
@@ -5674,7 +5678,8 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
             ("modelo", "Modelo", modelo, {"__sem__": "sem modelo"}),
             ("situacao", "Localização", situacao, _VEIC_SITUACAO_TEXTO),
             ("kits", "Kits montados", kits, {"com": "tem kit montado", "sem": "nenhum kit montado"}),
-            ("remessa", "Remessa", remessa, {"__sem__": "sem remessa", **(remessa_nomes or {})})):
+            ("remessa", "Remessa", remessa, {"__sem__": "sem remessa", **(remessa_nomes or {})}),
+            ("regiao", "Região", regiao, {"__sem__": "sem região"})):
         for v in valores:
             chips.append({"rotulo": f"{rotulo}: {texto.get(v, v)}", "url": url((nome, v))})
     for ini, fim, rotulo in ((imp_ini, imp_fim, "Importado"), (ult_ini, ult_fim, "Última montagem")):
@@ -5700,6 +5705,7 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
             "garagem": sem_nomes("garagem"), "modelo": sem_nomes("modelo"),
             "localizacao": sem_nomes("situacao"), "kits": sem_nomes("kits"),
             "remessa": sem_nomes("remessa"),
+            "regiao": sem_nomes("regiao"),
             "importado": sem_nomes("imp_ini", "imp_fim"), "ultimo": sem_nomes("ult_ini", "ult_fim"),
         },
         "qs_veiculos": qs,                               # sem página — a paginação acrescenta
@@ -5709,6 +5715,7 @@ def _veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits
             "numero": bool(numero), "cliente": bool(cliente), "garagem": bool(garagem),
             "modelo": bool(modelo), "localizacao": bool(situacao), "kits": bool(kits),
             "remessa": bool(remessa),
+            "regiao": bool(regiao),
             "importado": bool(imp_ini or imp_fim), "ultimo": bool(ult_ini or ult_fim),
         },
     }
@@ -5722,13 +5729,15 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
                             ordem: str = "", numero: str = "",
                             kits: list[str] | None = None,
                             ult_ini: str = "", ult_fim: str = "",
-                            remessa: list[str] | None = None) -> dict:
+                            remessa: list[str] | None = None,
+                            regiao: list[str] | None = None) -> dict:
     # Os filtros são LISTAS: dá pra ver duas garagens (ou três situações) ao
     # mesmo tempo. Vazio = sem filtro, como antes. Cada coluna da tabela tem o
     # seu (clicando no nome dela): Número, Cliente, Garagem, Modelo,
     # Localização, Importado em, Kits montados, Última montagem e Remessa.
     numero = (numero or "").strip()
     remessa = [r for r in (remessa or []) if r]
+    regiao = [r for r in (regiao or []) if r]
     kits = [k for k in (kits or []) if k in ("com", "sem")]
     cliente = [c for c in (cliente or []) if c]
     modelo = [m for m in (modelo or []) if m]
@@ -5795,6 +5804,12 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
     # Conta todo kit montado pro veículo — despachado ou ainda no galpão.
     if kits and len(kits) == 1:
         veiculos = [v for v in veiculos if bool(v["total_kits"]) == (kits[0] == "com")]
+    # Região de operação: as escolhidas somam; __sem__ = sem região informada.
+    if regiao:
+        alvo_reg = {r.strip().upper() for r in regiao}
+        veiculos = [v for v in veiculos
+                    if ((v.get("regiao") or "").strip().upper() in alvo_reg)
+                    or (not (v.get("regiao") or "").strip() and "__SEM__" in alvo_reg)]
     # Remessa: as escolhidas somam; __sem__ = veículo que não está em nenhuma.
     if remessa:
         alvo_rem = set(remessa)
@@ -5832,7 +5847,7 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
 
     if busca:
         por_texto = paginacao_mod.filtrar(
-            veiculos, busca, ("numero", "cliente", "garagem", "modelo", "localizacao"))
+            veiculos, busca, ("numero", "cliente", "garagem", "modelo", "localizacao", "regiao"))
         # Busca por PATRIMÔNIO: acha o veículo pelo código de um item bipado
         # em qualquer kit dele. Mínimo de 4 caracteres — menos que isso o
         # LIKE varre demais e devolve veículo demais pra servir de busca.
@@ -5921,15 +5936,16 @@ def _admin_veiculos_context(cliente: list[str] | None = None, pagina: int = 1,
         "filtro_numero": numero,
         "filtro_kits": kits,
         "filtro_remessa": remessa,
+        "filtro_regiao": regiao,
         "remessa_opcoes": remessa_opcoes,
         "ult_ini": ult_ini,
         "ult_fim": ult_fim,
         **_veiculos_filtros_ui(busca, cliente, garagem, modelo, situacao, numero, kits,
                                imp_ini, imp_fim, ult_ini, ult_fim, ordem,
-                               remessa, dict(remessa_opcoes)),
+                               remessa, dict(remessa_opcoes), regiao),
         "total_geral": total_geral,
         "tem_filtro": bool(cliente or garagem or modelo or situacao or busca
-                           or numero or kits or remessa or ult_ini or ult_fim
+                           or numero or kits or remessa or regiao or ult_ini or ult_fim
                               or imp_ini or imp_fim or ordem),
         "modelos": veiculos_mod.modelos_disponiveis(),
         "sem_modelo": veiculos_mod.contar_sem_modelo(
@@ -5968,11 +5984,12 @@ async def admin_veiculos(request: Request, pagina: int = 1, busca: str = "",
                          imp_ini: str = "", imp_fim: str = "", ordem: str = "",
                          numero: str = "", kits: list[str] = Query(default=[]),
                          ult_ini: str = "", ult_fim: str = "",
-                         remessa: list[str] = Query(default=[])):
+                         remessa: list[str] = Query(default=[]),
+                         regiao: list[str] = Query(default=[])):
     return render(request, "admin_veiculos.html",
                   _admin_veiculos_context(cliente, pagina, busca, modelo, situacao,
                                           garagem, imp_ini, imp_fim, ordem,
-                                          numero, kits, ult_ini, ult_fim, remessa))
+                                          numero, kits, ult_ini, ult_fim, remessa, regiao))
 
 
 @app.post("/admin/veiculos", response_class=HTMLResponse)
@@ -5986,6 +6003,7 @@ async def admin_veiculos_post(request: Request):
     chassi = str(form.get("chassi", "")).strip()
     pg = str(form.get("pg", "")).strip()
     tipo = str(form.get("tipo", "")).strip()
+    regiao = str(form.get("regiao", "")).strip()
     if not numero or not cliente:
         return render(request, "admin_veiculos.html", {
             **_admin_veiculos_context(),
@@ -5997,7 +6015,7 @@ async def admin_veiculos_post(request: Request):
             "erro": "Tipo inválido — use Elétrico ou Combustão.",
         })
     try:
-        veiculos_mod.criar(numero, cliente, garagem, modelo, chassi, pg, tipo)
+        veiculos_mod.criar(numero, cliente, garagem, modelo, chassi, pg, tipo, regiao)
     except ValueError as e:
         # Número já em uso — o número do veículo é único no sistema inteiro.
         return render(request, "admin_veiculos.html", {
@@ -6023,6 +6041,21 @@ async def admin_veiculos_excluir_em_massa(request: Request):
     return RedirectResponse(destino + f"ok=excluidos&qtd={len(ids)}", status_code=302)
 
 
+@app.post("/admin/veiculos/{veiculo_id}/regiao")
+@require_login
+async def admin_veiculo_regiao(request: Request, veiculo_id: int):
+    """Troca só a região de operação — o lápis da janela do veículo. Responde
+    JSON (a janela atualiza sem recarregar); sem JS, volta pro cadastro."""
+    form = await request.form()
+    if not veiculos_mod.buscar(veiculo_id):
+        return JSONResponse({"erro": "Veículo não encontrado."}, status_code=404)
+    regiao = veiculos_mod.atualizar_regiao(veiculo_id, str(form.get("regiao", "")))
+    request.state.auditoria_detalhe = f"Região do veículo {veiculo_id}: {regiao or '(vazia)'}"
+    if "application/json" in request.headers.get("accept", ""):
+        return JSONResponse({"regiao": regiao})
+    return RedirectResponse(f"/admin/veiculos/{veiculo_id}?ok=1", status_code=302)
+
+
 @app.get("/admin/veiculos/modelo.xlsx")
 @require_login
 async def admin_veiculos_modelo(request: Request):
@@ -6035,7 +6068,7 @@ async def admin_veiculos_modelo(request: Request):
     ws = wb.active
     ws.title = "Veículos"
     for col, h in enumerate(["Número do Veículo", "Cliente", "Garagem", "Modelo (Kit)",
-                             "Chassi", "PG", "Tipo"], 1):
+                             "Chassi", "PG", "Tipo", "Região de Operação"], 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
         c.fill = PatternFill("solid", fgColor=azul)
@@ -6048,9 +6081,11 @@ async def admin_veiculos_modelo(request: Request):
     ex2 = modelos[1] if len(modelos) > 1 else ex1
     ws.cell(2, 1, "VH-001"); ws.cell(2, 2, "Exemplo Cliente"); ws.cell(2, 3, "Base Norte"); ws.cell(2, 4, ex1)
     ws.cell(2, 5, "9BM384078LB123456"); ws.cell(2, 6, "PG-01"); ws.cell(2, 7, "Combustão")
+    ws.cell(2, 8, "T. BANDEIRAS")
     ws.cell(3, 1, "VH-002"); ws.cell(3, 2, "Outro Cliente");  ws.cell(3, 3, "Base Sul");   ws.cell(3, 4, ex2)
     ws.cell(3, 5, "LC0CE4CB5N0123456"); ws.cell(3, 6, "PG-02"); ws.cell(3, 7, "Elétrico")
-    # Chassi, PG e Tipo são opcionais; célula vazia preserva o cadastro.
+    ws.cell(3, 8, "T. GARAVELO")
+    # Chassi, PG, Tipo e Região são opcionais; célula vazia preserva o cadastro.
     from openpyxl.worksheet.datavalidation import DataValidation as _DV
     dv_tipo = _DV(type="list", formula1='"Elétrico,Combustão"', allow_blank=True)
     ws.add_data_validation(dv_tipo)
@@ -6105,7 +6140,8 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
                                    imp_ini: str = "", imp_fim: str = "", ordem: str = "",
                                    numero: str = "", kits: list[str] = Query(default=[]),
                                    ult_ini: str = "", ult_fim: str = "",
-                                   remessa: list[str] = Query(default=[])):
+                                   remessa: list[str] = Query(default=[]),
+                                   regiao: list[str] = Query(default=[])):
     """Exporta os veículos filtrados -- os MESMOS filtros da tela (cliente,
     garagem, modelo, situação, busca, datas), reaproveitando
     _admin_veiculos_context() pra planilha nunca discordar do que a lista
@@ -6116,15 +6152,18 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     from fastapi.responses import Response as _Resp
 
     ctx = _admin_veiculos_context(cliente, 1, busca, modelo, situacao, garagem, imp_ini, imp_fim, ordem,
-                                  numero, kits, ult_ini, ult_fim, remessa)
+                                  numero, kits, ult_ini, ult_fim, remessa, regiao)
     veiculos = ctx["veiculos_export"]
 
     wb = openpyxl.Workbook()
     azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
     ws = wb.active
     ws.title = "Veículos"
+    # Região logo depois de Tipo: as oito primeiras colunas são as da planilha
+    # de importação, então a exportação volta como importação sem ajuste.
     colunas = ["Número", "Cliente", "Garagem", "Modelo (Kit)", "Chassi", "PG", "Tipo",
-               "Localização atual", "Kits montados", "Última montagem", "Remessa", "Cadastrado em"]
+               "Região de Operação", "Localização atual", "Kits montados", "Última montagem",
+               "Remessa", "Cadastrado em"]
     for col, h in enumerate(colunas, 1):
         c = ws.cell(1, col, h)
         c.font = Font(bold=True, color=branco)
@@ -6139,15 +6178,16 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
         ws.cell(row, 5, v.get("chassi") or "")
         ws.cell(row, 6, v.get("pg") or "")
         ws.cell(row, 7, v.get("tipo") or "")
-        ws.cell(row, 8, v.get("localizacao") or "")
-        ws.cell(row, 9, v["total_kits"])
-        ws.cell(row, 10, v.get("ultimo_kit_em") or "")
-        ws.cell(row, 11, v["remessa"]["nome"] if v.get("remessa") else "")
-        ws.cell(row, 12, v.get("criado_em") or "")
+        ws.cell(row, 8, v.get("regiao") or "")
+        ws.cell(row, 9, v.get("localizacao") or "")
+        ws.cell(row, 10, v["total_kits"])
+        ws.cell(row, 11, v.get("ultimo_kit_em") or "")
+        ws.cell(row, 12, v["remessa"]["nome"] if v.get("remessa") else "")
+        ws.cell(row, 13, v.get("criado_em") or "")
         if i % 2 == 0:
             for col in range(1, len(colunas) + 1):
                 ws.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGHIJKL", (16, 26, 22, 26, 22, 14, 14, 20, 14, 20, 18, 20)):
+    for col, w in zip("ABCDEFGHIJKLM", (16, 26, 22, 26, 22, 14, 14, 22, 20, 14, 20, 18, 20)):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
 
@@ -6410,7 +6450,8 @@ async def admin_veiculo_editar(request: Request, veiculo_id: int):
             veiculo_id,
             chassi=str(form.get("chassi")) if form.get("chassi") is not None else None,
             pg=str(form.get("pg")) if form.get("pg") is not None else None,
-            tipo=str(form.get("tipo")) if form.get("tipo") is not None else None)
+            tipo=str(form.get("tipo")) if form.get("tipo") is not None else None,
+            regiao=str(form.get("regiao")) if form.get("regiao") is not None else None)
     except ValueError as e:
         # Número já em uso por outro veículo — único no sistema inteiro.
         v = veiculos_mod.buscar(veiculo_id)

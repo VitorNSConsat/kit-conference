@@ -85,6 +85,12 @@
         <option value="Combustão" {{ 'selected' if v.tipo == 'Combustão' }}>Combustão</option>
       </select>
     </div>
+    <div class="form-group" style="margin:0;">
+      <label>Região de operação</label>
+      <input type="text" name="regiao" value="{{ v.regiao or '' }}" maxlength="60" list="lista-regioes-cad"
+             placeholder="ex.: T. BANDEIRAS" style="text-transform:uppercase;" autocomplete="off">
+      <datalist id="lista-regioes-cad">{% for r in regioes_veiculo() %}<option value="{{ r }}">{% endfor %}</datalist>
+    </div>
     <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar</button>
   </form>
 </div>

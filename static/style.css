@@ -1766,3 +1766,12 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 .rel-filtros .form-group { margin: 0; }
 .rel-filtros input, .rel-filtros select { margin: 0; }
 .rel-filtros .rel-busca { flex: 1; min-width: 220px; }
+
+
+/* Região de operação na janela do veículo (com o lápis pra editar ali mesmo). */
+.pat-regiao form { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; }
+.pat-regiao-lapis { background: none; border: 0; padding: 2px 4px; border-radius: 6px; cursor: pointer; color: var(--text-muted-2); display: inline-flex; }
+.pat-regiao-lapis:hover { color: var(--brand); background: var(--brand-soft); }
+.pat-regiao-edicao { display: inline-flex; gap: 6px; align-items: center; }
+.pat-regiao-edicao[hidden], .pat-regiao-lapis[hidden] { display: none; }
+.pat-regiao-edicao input { margin: 0; padding: 4px 8px; font-size: 13px; width: 190px; text-transform: uppercase; }

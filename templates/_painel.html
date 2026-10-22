@@ -77,6 +77,21 @@
         <strong>{{ kit.finalizado_em[:16] if kit.finalizado_em else '—' }}</strong>
       </div>
       {% endif %}
+      {# Região de operação: onde o veículo roda — ajuda a achar o ônibus.
+         O lápis troca a região ali mesmo, sem sair da janela. #}
+      <div class="pat-campo pat-regiao">
+        <span>Região de operação</span>
+        <form method="post" action="/admin/veiculos/{{ v.id }}/regiao" onsubmit="return salvarRegiaoVeiculo(this)">
+          <strong class="pat-regiao-valor">{% if v.regiao %}{{ v.regiao }}{% else %}<em class="pat-vazio-campo">não informada</em>{% endif %}</strong>
+          <button type="button" class="pat-regiao-lapis" onclick="editarRegiaoVeiculo(this)" title="Alterar a região">{{ ic.svg('editar', 12) }}</button>
+          <span class="pat-regiao-edicao" hidden>
+            <input type="text" name="regiao" value="{{ v.regiao or '' }}" list="lista-regioes-painel"
+                   placeholder="ex.: T. BANDEIRAS" autocomplete="off" maxlength="60">
+            <button type="submit" class="btn btn-sm btn-primary">Salvar</button>
+          </span>
+        </form>
+        <datalist id="lista-regioes-painel">{% for r in regioes_veiculo() %}<option value="{{ r }}">{% endfor %}</datalist>
+      </div>
     </div>
     {# Ciclo do veículo: remessa a que pertence e a data de cada etapa, tudo
        lido do que o sistema já grava (nada é preenchido à mão aqui). #}

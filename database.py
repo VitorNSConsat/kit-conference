@@ -206,6 +206,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "hardware_status_opcao" not in tabelas
         or "hardware_responsavel_opcao" not in tabelas
         or "hardware_importacao" not in tabelas
+        or "regiao" not in colunas_veiculos
     )
     if not pendente:
         return None
@@ -1008,6 +1009,11 @@ def init_db():
             "ALTER TABLE importacao_item ADD COLUMN pg_depois TEXT",
             "ALTER TABLE importacao_item ADD COLUMN tipo_antes TEXT",
             "ALTER TABLE importacao_item ADD COLUMN tipo_depois TEXT",
+            # Região de operação do veículo (ex.: "T. BANDEIRAS") — onde ele
+            # roda. Só informação, pra achar o veículo; vem da planilha.
+            "ALTER TABLE veiculos ADD COLUMN regiao TEXT DEFAULT ''",
+            "ALTER TABLE importacao_item ADD COLUMN regiao_antes TEXT",
+            "ALTER TABLE importacao_item ADD COLUMN regiao_depois TEXT",
             # Observação livre de uma correção feita no kit já finalizado
             # (troca de veículo, por exemplo). Aparece no relatório.
             "ALTER TABLE kit_record ADD COLUMN observacao TEXT",

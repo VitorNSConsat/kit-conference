@@ -108,3 +108,28 @@ def test_planilha_exportada_volta_como_importacao(numero):
     assert r["itens"][0]["situacao"] == "alterado"
     v = _v(numero)
     assert (v["chassi"], v["pg"], v["tipo"]) == ("XYZ987", "PG-3", "Combustão")
+
+
+def test_regiao_pela_planilha_e_pelo_lapis(numero):
+    """Região de Operação: entra pela planilha (só ela muda), normalizada em
+    maiúsculas; célula vazia preserva; o lápis da janela troca só a região."""
+    veic.criar(numero, "CliFicha", "G1", "", "CH1", "PG-1", "Elétrico")
+    cab = ["Número do Veículo", "Cliente", "Região de Operação"]
+    r = veic.importar_excel(_xlsx(cab, [[numero, "CliFicha", "  t. bandeiras "]]))
+    assert r["itens"][0]["situacao"] == "alterado" and r["itens"][0]["regiao_depois"] == "T. BANDEIRAS"
+    v = _v(numero)
+    assert v["regiao"] == "T. BANDEIRAS" and (v["chassi"], v["pg"], v["garagem"]) == ("CH1", "PG-1", "G1")
+    r = veic.importar_excel(_xlsx(cab, [[numero, "CliFicha", None]]))
+    assert r["itens"][0]["situacao"] == "igual" and _v(numero)["regiao"] == "T. BANDEIRAS"
+    assert "T. BANDEIRAS" in veic.regioes_disponiveis()
+    assert veic.atualizar_regiao(v["id"], "pa campus") == "PA CAMPUS" and _v(numero)["regiao"] == "PA CAMPUS"
+
+
+def test_tela_filtra_e_exporta_a_regiao(numero):
+    import main
+    vid = veic.criar(numero, "CliFicha", "G1", "", regiao="T. Garavelo")
+    ctx = main._admin_veiculos_context(busca=numero, regiao=["T. GARAVELO"])
+    assert [v["numero"] for v in ctx["veiculos_export"]] == [numero]
+    assert main._admin_veiculos_context(busca=numero, regiao=["__sem__"])["veiculos_export"] == []
+    assert ctx["col_ativa"]["regiao"] and any(c["rotulo"] == "Região: T. GARAVELO" for c in ctx["chips_veiculos"])
+    assert veic.buscar(vid)["regiao"] == "T. GARAVELO"

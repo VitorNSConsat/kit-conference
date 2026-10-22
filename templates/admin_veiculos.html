@@ -368,6 +368,12 @@
         <option value="Combustão">Combustão</option>
       </select>
     </div>
+    <div class="form-group" style="margin:0;">
+      <label>Região de operação</label>
+      <input type="text" name="regiao" maxlength="60" list="lista-regioes-novo" placeholder="ex.: T. BANDEIRAS"
+             style="text-transform:uppercase;" autocomplete="off">
+      <datalist id="lista-regioes-novo">{% for r in regioes_veiculo() %}<option value="{{ r }}">{% endfor %}</datalist>
+    </div>
     <div>
       <button type="submit" class="btn btn-success">{{ ic.svg('mais', 15) }} Adicionar Veículo</button>
     </div>
@@ -486,6 +492,9 @@
                ('sem_localizacao', '— não configurado'), ('falta_item', 'Kit faltando item')],
              filtro_situacao, false) }}
         {% endcall %}
+        {% call th_filtro('regiao', 'Região') %}
+          {{ thf_opcoes('regiao', [('__sem__', '— sem região —')] + regioes_veiculo(), filtro_regiao) }}
+        {% endcall %}
         {% call th_filtro('importado', 'Importado em', 'white-space:nowrap;') %}
           {{ thf_periodo('imp_ini', imp_ini, 'imp_fim', imp_fim) }}
           <div class="thf-ordem">
@@ -577,6 +586,9 @@
         {% else %}
         <span style="color:var(--text-muted-2);font-size:12px;" title="Falta cliente, garagem ou kit no cadastro">— não configurado</span>
         {% endif %}
+      </td>
+      <td style="font-size:12.5px;white-space:nowrap;">
+        {% if v.regiao %}{{ v.regiao }}{% else %}<span style="color:var(--text-muted-2);">—</span>{% endif %}
       </td>
       {# Data e hora em que o veículo entrou no sistema. Vem do cadastro
          (criado_em) e não muda quando alguém edita o veículo depois. #}

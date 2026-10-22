@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=61">
+    <link rel="stylesheet" href="/static/style.css?v=62">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -260,6 +260,33 @@ function abrirPopup(event, id) {
     document.body.style.overflow = 'hidden';
     if (barra > 0) document.body.style.paddingRight = barra + 'px';
     _popupAberto = id;
+}
+
+// Região de operação do veículo, editada direto na janela do veículo.
+function editarRegiaoVeiculo(btn) {
+    const form = btn.closest('form');
+    form.querySelector('.pat-regiao-edicao').hidden = false;
+    btn.hidden = true;
+    const campo = form.querySelector('input[name=regiao]');
+    campo.focus(); campo.select();
+}
+function salvarRegiaoVeiculo(form) {
+    const botao = form.querySelector('button[type=submit]');
+    botao.disabled = true;
+    fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'Accept': 'application/json'}})
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(j => {
+            const valor = form.querySelector('.pat-regiao-valor');
+            valor.innerHTML = '';
+            if (j.regiao) { valor.textContent = j.regiao; }
+            else { const em = document.createElement('em'); em.className = 'pat-vazio-campo'; em.textContent = 'não informada'; valor.appendChild(em); }
+            form.querySelector('input[name=regiao]').value = j.regiao;
+            form.querySelector('.pat-regiao-edicao').hidden = true;
+            form.querySelector('.pat-regiao-lapis').hidden = false;
+        })
+        .catch(() => alert('Não foi possível salvar a região. Confira se o seu usuário tem acesso a Veículos e Clientes.'))
+        .finally(() => { botao.disabled = false; });
+    return false;
 }
 
 function fecharPopup() {
