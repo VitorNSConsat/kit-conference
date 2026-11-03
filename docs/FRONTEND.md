@@ -86,9 +86,13 @@ cliente** em todas as telas — é identidade, não link.
 └──────────────┴──────────────────────────────────────────────┘
 ```
 
-- **Menu lateral** (`.ds-sidebar`): gerado a partir da **mesma lista de telas
-  que controla permissão** (`app/permissoes.py`, `TELAS`). Esconder o link e
-  barrar a rota nunca discordam. Grupos: Operação / Cadastros / Gestão.
+- **Menu lateral** (`.ds-sidebar`): montado em `app/menu.py` (`montar()`,
+  injetado como `menu_grupos` pelo `render()`). Grupos: Operação / Cadastros /
+  Importações / Modelos de planilha / Relatórios / Gestão. Cada atalho declara as
+  permissões do destino (as mesmas do porteiro das rotas) — esconder o link e barrar
+  a rota nunca discordam. O título do grupo é um botão que abre/fecha
+  (`alternarGrupoMenu`, estado em `localStorage.menu_grupos_fechados`); o grupo da
+  tela aberta sempre abre. Atalho novo: uma linha em `_GRUPOS`.
 - **Barra do topo** (`.ds-topbar`): mostra o `{% block title %}` como título e
   o `{% block acoes_topo %}` à direita. **As ações principais da tela ficam
   aqui** (Voltar, Novo, Exportar, Editar…).

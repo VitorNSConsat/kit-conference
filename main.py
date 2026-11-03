@@ -48,6 +48,7 @@ import app.inatividade as inatividade_mod
 import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 import app.relatorio_patrimonio as relatorio_patrimonio_mod
+import app.menu as menu_mod
 import app.hardware as hardware_mod
 import app.hardware_importacoes as hardware_importacoes_mod
 import app.sobressalentes as sobressalentes_mod
@@ -664,6 +665,10 @@ def render(request: Request, template: str, ctx: dict = {}):
                                              # Regiões de operação já usadas — sugestões
                                              # ao digitar a região (só consulta se chamada).
                                              "regioes_veiculo": veiculos_mod.regioes_disponiveis,
+                                             # Menu lateral montado num lugar só (app/menu.py):
+                                             # grupos, atalhos e qual está aberto agora.
+                                             "menu_grupos": menu_mod.montar(
+                                                 request.url.path, request.url.query, user, pode),
                                              **ctx})
 
 

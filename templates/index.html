@@ -3,32 +3,62 @@
 {% block title %}Início — Conferência de Kits{% endblock %}
 {% block content %}
 {% if sessoes_em_andamento %}
-<div class="card" style="border-left:4px solid var(--warn-text); margin-bottom:20px;">
-    <h2 style="margin-top:0;">Sessões em Andamento</h2>
-    <p style="color:var(--text-muted); font-size:13px; margin-top:-8px; margin-bottom:12px;">
-        Sessões salvas pela equipe. Retome onde parou ou cancele para descartar.
-    </p>
-    {% for s in sessoes_em_andamento %}
-    <div style="display:flex; align-items:center; gap:12px; padding:10px 0;
-                border-bottom:1px solid var(--border-subtle); flex-wrap:wrap;">
-        <div style="flex:1; min-width:140px;">
-            <strong>{{ s.veiculo or s.kit_nome }}</strong>
-            <span style="color:var(--text-muted); font-size:13px;"> — {{ s.cliente }}</span>
-            <br>
-            <span style="font-size:12px; color:var(--text-muted-2);">
-                {{ s.kit_nome }}{% if s.garagem %} · {{ s.garagem }}{% endif %}
-                &nbsp;·&nbsp; Operador: <strong style="color:var(--text-muted);">{{ s.operador_nome }}</strong>
-                &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
-            </span>
-        </div>
-        <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">{{ ic.svg('seta-direita', 13) }} Retomar</a>
-        <form method="post" action="/session/{{ s.id }}/cancel"
-              onsubmit="return confirm('Cancelar esta sessão? Os itens bipados serão descartados.')">
-            <button type="submit" class="btn btn-sm btn-danger">Cancelar</button>
-        </form>
-    </div>
-    {% endfor %}
-</div>
+{# Lista que abre e fecha (como as etapas da Produção): com centenas de kits em
+   bipagem, aberta ela empurrava "Nova Sessão" pra muito longe. O estado fica
+   guardado no navegador; sem escolha guardada, começa fechada quando passa de 15. #}
+{% set n_sessoes = sessoes_em_andamento | length %}
+<details class="card etapa" id="sessoes-andamento" data-padrao-aberto="{{ '1' if n_sessoes <= 15 else '0' }}">
+  <summary>
+    <h2>Sessões em Andamento
+      <span class="badge badge-warning">{{ n_sessoes }} sess{{ 'ão' if n_sessoes == 1 else 'ões' }}</span>
+    </h2>
+  </summary>
+  <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">
+    Sessões salvas pela equipe. Retome onde parou ou cancele para descartar.
+  </p>
+  {% if n_sessoes > 5 %}
+  <input type="text" class="busca-box" placeholder="Procurar veículo, kit, cliente ou operador..."
+         oninput="filtrarLista(this)" data-filtro-alvo="#sessoes-andamento .sessao-linha" autocomplete="off">
+  {% endif %}
+  <div class="sessoes-lista">
+  {% for s in sessoes_em_andamento %}
+  <div class="sessao-linha">
+      <div style="flex:1; min-width:140px;">
+          <strong>{{ s.veiculo or s.kit_nome }}</strong>
+          <span style="color:var(--text-muted); font-size:13px;"> — {{ s.cliente }}</span>
+          <br>
+          <span style="font-size:12px; color:var(--text-muted-2);">
+              {{ s.kit_nome }}{% if s.garagem %} · {{ s.garagem }}{% endif %}
+              &nbsp;·&nbsp; Operador: <strong style="color:var(--text-muted);">{{ s.operador_nome }}</strong>
+              &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
+          </span>
+      </div>
+      <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">{{ ic.svg('seta-direita', 13) }} Retomar</a>
+      <form method="post" action="/session/{{ s.id }}/cancel"
+            onsubmit="return confirm('Cancelar esta sessão? Os itens bipados serão descartados.')">
+          <button type="submit" class="btn btn-sm btn-danger">Cancelar</button>
+      </form>
+  </div>
+  {% endfor %}
+  </div>
+</details>
+<style>
+.sessoes-lista { max-height: 60vh; overflow-y: auto; }
+.sessao-linha { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+</style>
+<script>
+(function () {
+    const d = document.getElementById('sessoes-andamento');
+    const CHAVE = 'bipagem_sessoes_aberta';
+    let salvo = null;
+    try { salvo = localStorage.getItem(CHAVE); } catch (e) {}
+    d.open = salvo === null ? d.dataset.padraoAberto === '1' : salvo === '1';
+    d.addEventListener('toggle', function () {
+        try { localStorage.setItem(CHAVE, d.open ? '1' : '0'); } catch (e) {}
+    });
+})();
+</script>
 {% endif %}
 
 <h1>Nova Sessão de Bipagem</h1>

@@ -124,7 +124,7 @@
 </div>
 {% else %}
 <!-- ── Importar Planilha do Pedido (ICCID/Telefone/CDT/ID Hardware) ──────── -->
-<div class="card" style="border:1px solid var(--brand-border);">
+<div class="card" id="importar-pedido" style="border:1px solid var(--brand-border);">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
             <h2 style="margin:0;">Importar Planilha do Pedido</h2>
@@ -453,6 +453,15 @@ const catalogo = {{ tipos_catalogo | tojson }};
 // Novo Kit: a escolha do caminho troca pra onde o formulário vai e mostra só
 // a parte que vale (catálogo OU arquivo). O arquivo fica desligado no modo
 // manual pra não ser exigido nem enviado.
+// Atalho do menu (Importações → Criar kit pela BOM) chega com #bom: já
+// escolhe o caminho da planilha.
+document.addEventListener('DOMContentLoaded', function () {
+    if (location.hash === '#bom') {
+        const r = document.querySelector('#form-template-kit input[value=bom]');
+        if (r) { r.checked = true; escolherModoKit('bom'); document.getElementById('criar-kit').scrollIntoView({block: 'start'}); }
+    }
+});
+
 function escolherModoKit(modo) {
     const form = document.getElementById('form-template-kit');
     const bom = modo === 'bom';

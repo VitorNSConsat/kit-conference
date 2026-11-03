@@ -115,13 +115,27 @@ body {
 .ds-brand-sub { font-size: 11px; font-weight: 600; color: var(--text-muted); line-height: 1; }
 
 .ds-nav { padding: 14px 12px; overflow-y: auto; flex: 1 1 auto; }
-.ds-nav-group { margin-bottom: 20px; }
+.ds-nav-group { margin-bottom: 8px; }
 .ds-nav-group:last-child { margin-bottom: 0; }
+/* Título do grupo = botão que abre/fecha. Destacado (texto forte, fundo
+   suave, ícone) pra separar bem os grupos num menu comprido. */
 .ds-nav-title {
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .07em; color: var(--text-muted-2);
-    padding: 0 10px 7px;
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; margin: 0 0 2px; border: 0; border-radius: 8px; cursor: pointer;
+    background: var(--surface-alt); color: var(--brand-ink);
+    font-family: inherit; font-size: 11.5px; font-weight: 700; line-height: 1.2;
+    text-transform: uppercase; letter-spacing: .07em;
+    text-align: left;
 }
+.ds-nav-title:hover { background: var(--brand-soft); }
+.ds-nav-title:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.ds-nav-title-ic { display: inline-flex; color: var(--brand); }
+.ds-nav-title-txt { flex: 1; }
+.ds-nav-title-seta { display: inline-flex; color: var(--text-muted-2); transition: transform .15s; }
+.ds-nav-group.fechado .ds-nav-title-seta { transform: rotate(-90deg); }
+.ds-nav-group.fechado .ds-nav-itens { display: none; }
+.ds-nav-group[data-ativo="1"] .ds-nav-title { background: var(--brand-soft); }
+.ds-nav-itens { padding: 2px 0 6px; }
 .ds-nav-item {
     height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px;
     color: var(--text-muted); text-decoration: none; border-radius: 7px; margin: 1px 0;
