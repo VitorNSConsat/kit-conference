@@ -41,22 +41,36 @@
   topo do menu inverte de cor sozinho conforme o tema.
 </p>
 <p class="nota">
-  <strong>Menu lateral:</strong> os grupos — <em>Operação</em>, <em>Cadastros</em>,
-  <em>Importações</em>, <em>Modelos de planilha</em>, <em>Relatórios</em> e <em>Gestão</em> —
-  abrem e fecham clicando no título. O que você fecha fica fechado neste navegador; o grupo da
-  tela aberta sempre aparece aberto. <strong>Tudo fica centralizado no menu</strong>: além das
-  telas principais, ele leva direto ao que antes ficava dentro de outras telas — em
-  <em>Operação</em>, <em>Remessas</em> e os <em>Painéis da TV</em> (Produção e Prateleira, abrem
-  numa aba nova); em <em>Cadastros</em>, <em>Itens cadastrados</em>, <em>Etiquetas &amp; Códigos</em>,
-  <em>Sobressalentes</em> e <em>Produtos de RMA</em>; em <em>Importações</em>, importar veículos e
-  RMAs (e os históricos de cada uma), ajustar estoque por planilha, importar BOM de itens, criar
-  kit pela BOM e importar planilha de pedido; em <em>Downloads</em>, as planilhas modelo
-  (veículos, RMAs, ajuste de estoque), as exportações completas (estoque, todos os veículos,
-  todas as RMAs, todos os kits finalizados, histórico da produção) e o certificado do celular;
-  em <em>Relatórios</em>, todos os relatórios, o histórico da produção e a auditoria (admin).
+  <strong>Menu lateral:</strong> tudo fica centralizado nele, organizado por assunto. Os grupos
+  abrem e fecham clicando no título; o que você fecha fica fechado neste navegador, e o grupo da
+  tela aberta sempre aparece aberto. Cada atalho só aparece pra quem tem acesso à tela de destino.
+</p>
+<ul>
+  <li><strong>Produção</strong> — Bipagem, Fila de impressão, Acompanhar produção, Remessas e o
+    Painel da TV (abre numa aba nova).</li>
+  <li><strong>Estoque</strong> — Estoque de itens, Cadastrar item, Patrimônios, Etiquetas e
+    códigos, Sobressalentes, Prateleira e o Painel da prateleira.</li>
+  <li><strong>Kits e pedidos</strong> — Kits, Pedidos e Conjuntos.</li>
+  <li><strong>Veículos e clientes</strong> — Veículos, Novo veículo, Clientes e Garagens (os três
+    últimos abrem a janela certa direto).</li>
+  <li><strong>RMA</strong> — Ocorrências de RMA e Produtos de RMA.</li>
+  <li><strong>Importações</strong> — importar veículos e RMAs (e os históricos de cada uma),
+    ajustar estoque por planilha, importar itens (BOM), criar kit pela BOM e importar pedido.</li>
+  <li><strong>Downloads</strong> — as planilhas modelo (veículos, RMAs, ajuste de estoque), as
+    exportações completas (estoque, todos os veículos, todas as RMAs, todos os kits finalizados,
+    histórico da produção) e o certificado do celular.</li>
+  <li><strong>Relatórios</strong> — todos os relatórios, o histórico da produção e a auditoria
+    (admin).</li>
+  <li><strong>Sistema</strong> — Manual do sistema, Rede e acesso, Backup e Padrão visual.</li>
+</ul>
+<p>
   As telas não repetem esses botões no topo; continuam nelas só as ações da própria tela e o
   <em>Exportar Excel</em> que leva os <strong>filtros aplicados</strong> (Veículos, RMAs,
-  Relatórios, Produção, Remessas). Cada atalho só aparece pra quem tem acesso à tela de destino.
+  Relatórios, Produção, Remessas).
+</p>
+<p class="nota">
+  <strong>Ajuda “?”:</strong> as explicações longas saíram da tela. Fica uma frase curta e, ao lado,
+  um <strong>?</strong> — passe o mouse (ou toque, no celular) para ler a explicação completa.
 </p>
 
 <div class="card">
@@ -951,7 +965,7 @@
       cadastro do veículo; no antes/depois da conferência; e na exportação para Excel, logo depois
       de Tipo. A planilha modelo já traz a coluna.</li>
     <li><strong>Atualizar os veículos que já existem</strong> — em Veículos e Clientes, use
-      <em>Exportar Excel</em> (sem filtro traz todos — ou <em>Downloads → Veículos — todos</em>, no menu), preencha Chassi, PG, Tipo e Região e importe a
+      <em>Exportar Excel</em> (sem filtro traz todos — ou <em>Downloads → Todos os veículos</em>, no menu), preencha Chassi, PG, Tipo e Região e importe a
       <strong>mesma planilha</strong> em Importar. As colunas extras da exportação (Localização,
       Kits montados, Remessa…) são ignoradas, e o que ficar vazio não altera o cadastro.</li>
     <li>Se o cliente da linha tem <strong>prefixo</strong> cadastrado e o número veio cru
@@ -1315,7 +1329,7 @@
   <p>A <strong>barra de cima</strong> da Produção tem <em>Exibição da TV</em> (só admin — abre uma
     janela com quantos kits cabem em cada coluna da TV) e <em>Zerar sequência</em>. O Histórico de
     Alterações fica no menu lateral, em <em>Relatórios → Histórico da produção</em>, e o painel em
-    <em>Operação → Painel da TV — Produção</em> (abre numa aba nova).</p>
+    <em>Produção → Painel da TV</em> (abre numa aba nova).</p>
   <p>O <strong>painel de TV</strong> mostra os mesmos números em tela cheia, incluindo “Kits a
     produzir”, com limites configuráveis por estágio.</p>
   <p>
@@ -1349,7 +1363,7 @@
     derivado do id — nunca precisa digitar nem escolher.
   </p>
   <p>
-    <strong>Produto é um cadastro à parte</strong> (no menu lateral, <em>Cadastros → Produtos de RMA</em>), separado do catálogo de peças de Itens &amp; Estoque de propósito — equipamento
+    <strong>Produto é um cadastro à parte</strong> (no menu lateral, <em>RMA → Produtos de RMA</em>), separado do catálogo de peças de Itens &amp; Estoque de propósito — equipamento
     completo com defeito e peça de reposição são coisas diferentes, e misturar os dois faria a
     busca de produto de uma ocorrência aparecer cheia de parafuso e cabo. <strong>Serial ou
     patrimônio</strong> é texto livre, mas quando bate com um patrimônio já cadastrado no

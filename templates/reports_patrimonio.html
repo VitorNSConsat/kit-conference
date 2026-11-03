@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
@@ -9,11 +10,9 @@
 
 {% block content %}
 {% set cor_tipo = {'movido': 'badge-info', 'retirado': 'badge-danger', 'reposicao': 'badge-success', 'correcao': 'badge-warning'} %}
-<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">
-  Tudo que aconteceu com um patrimônio <strong>depois da montagem do kit</strong>: de qual veículo
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">Mudanças de peças depois da montagem do kit, inclusive as antigas. {% call aj.ajuda() %}Tudo que aconteceu com um patrimônio <strong>depois da montagem do kit</strong>: de qual veículo
   saiu, em qual entrou, onde está agora, quando, por quê e quem fez. Inclui as mudanças antigas —
-  o relatório é montado a partir do histórico que cada item já guarda.
-</p>
+  o relatório é montado a partir do histórico que cada item já guarda.{% endcall %}</p>
 
 <div class="card">
   <h2>Filtros</h2>

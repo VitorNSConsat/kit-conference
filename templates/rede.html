@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Rede e Conectividade{% endblock %}
 {% block content %}
@@ -58,10 +59,8 @@
     <h3 style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
       <span style="color:var(--brand);">{{ ic.svg('camera', 18) }}</span> A câmera exige HTTPS
     </h3>
-    <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">
-      Consultar Kit/Item, Ler RMA, Ler Sobressalentes e a bipagem por câmera <strong>só abrem a câmera em HTTPS</strong>.
-      Por <code>http://</code> o navegador bloqueia (aparece o pedido de foto, ou nada).
-    </p>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">A câmera só abre em HTTPS. {% call aj.ajuda() %}Consultar Kit/Item, Ler RMA, Ler Sobressalentes e a bipagem por câmera <strong>só abrem a câmera em HTTPS</strong>.
+      Por <code>http://</code> o navegador bloqueia (aparece o pedido de foto, ou nada).{% endcall %}</p>
     <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-muted);display:flex;flex-direction:column;gap:5px;">
       {% if publico %}<li><strong>Melhor opção:</strong> o endereço público acima (Cloudflare) — HTTPS válido, nada a instalar.</li>{% endif %}
       {% if tem_ssl %}

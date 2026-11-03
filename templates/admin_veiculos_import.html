@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Importar Veículos{% endblock %}
 {% block acoes_topo %}
@@ -17,12 +18,10 @@
 
 <div class="card">
   <h2>Arquivo Excel</h2>
-  <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    A planilha deve ter as colunas <strong>Número do Veículo</strong>, <strong>Cliente</strong>,
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">Colunas: Número do Veículo, Cliente, Garagem e Modelo (Kit). {% call aj.ajuda() %}A planilha deve ter as colunas <strong>Número do Veículo</strong>, <strong>Cliente</strong>,
     <strong>Garagem</strong> e <strong>Modelo (Kit)</strong>. Clientes e garagens que ainda não
     existirem são cadastrados automaticamente.
-    <a href="/admin/veiculos/modelo.xlsx">Baixar modelo</a>
-  </p>
+    <a href="/admin/veiculos/modelo.xlsx">Baixar modelo</a>{% endcall %}</p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
     Colunas opcionais: <strong>Chassi</strong>, <strong>PG</strong>, <strong>Tipo</strong>
     (Elétrico ou Combustão) e <strong>Região de Operação</strong>. Célula vazia mantém o que já está cadastrado.
@@ -34,35 +33,29 @@
     <strong>Chassi</strong>, <strong>PG</strong>, <strong>Tipo</strong> e <strong>Região de Operação</strong>
     e importe a mesma planilha aqui. As demais colunas (Localização, Kits montados…) são ignoradas.
   </div>
-  <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    O <strong>Modelo</strong> é o <strong>nome de um kit já existente</strong>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">O Modelo é o nome de um kit já cadastrado. {% call aj.ajuda() %}O <strong>Modelo</strong> é o <strong>nome de um kit já existente</strong>
     (ex: "Mercedes Euro 5 Diesel") — é ele que decide em qual bipagem o veículo aparece.
     Na planilha modelo essa coluna já vem com uma <strong>lista suspensa</strong> dos kits
     existentes: basta escolher, sem digitar. Texto digitado à mão é casado com o kit
     <strong>mais próximo</strong> ("mercedes Euro 6" vira "Mercedes Euro 6 Diesel");
     o que não parecer com kit nenhum é recusado e aparece como erro no resultado.
     A planilha <strong>não cria kit</strong> — crie o kit primeiro na tela de Kits.
-    Veículo sem modelo <strong>não aparece em nenhum kit</strong>.
-  </p>
-  <p style="color:#555;font-size:13px;margin-bottom:12px;">
-    Pode importar a mesma planilha quantas vezes precisar: o veículo é identificado pelo
+    Veículo sem modelo <strong>não aparece em nenhum kit</strong>.{% endcall %}</p>
+  <p style="color:#555;font-size:13px;margin-bottom:12px;">Reimportar não duplica: o veículo é identificado pelo número. {% call aj.ajuda() %}Pode importar a mesma planilha quantas vezes precisar: o veículo é identificado pelo
     <strong>número</strong> (único no sistema, mesmo entre clientes diferentes), então
     nunca duplica. Nos que já existem, <strong>a planilha manda</strong>: célula preenchida
     sobrescreve o cadastro (cliente, garagem e modelo), célula vazia preserva o que está lá —
-    é assim que uma correção na planilha chega ao sistema ao reimportar.
-  </p>
+    é assim que uma correção na planilha chega ao sistema ao reimportar.{% endcall %}</p>
   <form method="post" enctype="multipart/form-data">
     <div class="form-group">
       <label>Planilha (.xlsx)</label>
       <input type="file" name="arquivo" accept=".xlsx" required>
     </div>
     <button type="submit" class="btn btn-success">{{ ic.svg('busca', 15) }} Validar planilha</button>
-    <p style="color:#555;font-size:13px;margin:12px 0 0;">
-      <strong>Nada é gravado neste passo.</strong> O sistema abre a <strong>prévia</strong>: tudo o
+    <p style="color:#555;font-size:13px;margin:12px 0 0;">Nada é gravado agora: primeiro você confere a prévia. {% call aj.ajuda() %}<strong>Nada é gravado neste passo.</strong> O sistema abre a <strong>prévia</strong>: tudo o
       que a planilha vai fazer, linha a linha — os veículos novos, os que vão mudar (com o valor
       <strong>antes → depois</strong> de cada campo), os avisos e os erros. Só depois de conferir
-      você clica em <strong>Confirmar importação</strong> (ou cancela).
-    </p>
+      você clica em <strong>Confirmar importação</strong> (ou cancela).{% endcall %}</p>
   </form>
 </div>
 {% endblock %}

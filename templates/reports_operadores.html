@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
@@ -8,11 +9,9 @@
 {% endblock %}
 
 {% block content %}
-<p style="color:var(--text-muted);font-size:13px;margin:-4px 0 16px;">
-  Inclui os kits <strong>em montagem agora</strong>, que o relatório de kits não mostra
+<p style="color:var(--text-muted);font-size:13px;margin:-4px 0 16px;">Inclui os kits em montagem agora. {% call aj.ajuda() %}Inclui os kits <strong>em montagem agora</strong>, que o relatório de kits não mostra
   (lá só entram os finalizados). O operador listado é sempre <strong>quem abriu</strong> o kit —
-  quem responde por ele. Quando outra pessoa finalizou, os dois nomes aparecem.
-</p>
+  quem responde por ele. Quando outra pessoa finalizou, os dois nomes aparecem.{% endcall %}</p>
 
 <!-- Filtros -->
 <div class="card">

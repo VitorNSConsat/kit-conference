@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Veículo {{ v.numero }}{% endblock %}
 {% block acoes_topo %}
@@ -222,11 +223,9 @@
       escolhido acima, que vale pras próximas bipagens.
     </p>
     {% if kits_para_vincular %}
-    <p style="color:#666;font-size:13px;margin:0 0 8px;">
-      Kits sem veículo aparecem livres. Kits que já estão em outro veículo também podem
+    <p style="color:#666;font-size:13px;margin:0 0 8px;">Kits livres ou de outro veículo (com motivo). {% call aj.ajuda() %}Kits sem veículo aparecem livres. Kits que já estão em outro veículo também podem
       ser trazidos pra cá — nesse caso o <strong>motivo é obrigatório</strong> e a troca
-      fica registrada na auditoria.
-    </p>
+      fica registrada na auditoria.{% endcall %}</p>
     <form method="post" action="" id="form-vincular-kit"
           style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;"
           onsubmit="return prepararVinculo(this);">

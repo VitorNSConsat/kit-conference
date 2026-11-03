@@ -1789,3 +1789,28 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 .pat-regiao-edicao { display: inline-flex; gap: 6px; align-items: center; }
 .pat-regiao-edicao[hidden], .pat-regiao-lapis[hidden] { display: none; }
 .pat-regiao-edicao input { margin: 0; padding: 4px 8px; font-size: 13px; width: 190px; text-transform: uppercase; }
+
+/* Ajuda "?" (templates/_ajuda.html): explicação longa num balão que abre ao
+   parar o mouse, tocar ou focar com Tab. Na tela fica só a frase curta. */
+.ajuda { position: relative; display: inline-flex; vertical-align: middle; margin-left: 4px; cursor: help; outline: none; }
+.ajuda-q {
+    width: 17px; height: 17px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand-soft); border: 1px solid var(--brand-border); color: var(--brand);
+    font: 700 11px/1 -apple-system, 'Segoe UI', Arial, sans-serif; font-style: normal;
+}
+.ajuda:hover .ajuda-q, .ajuda:focus .ajuda-q { background: var(--brand); border-color: var(--brand); color: #fff; }
+.ajuda:focus-visible .ajuda-q { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ajuda-texto {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%); z-index: 600;
+    width: max-content; max-width: min(340px, 86vw); margin-top: 6px; padding: 10px 12px;
+    background: var(--text); color: var(--surface); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.22);
+    font: 400 13px/1.5 -apple-system, 'Segoe UI', Arial, sans-serif; text-align: left; white-space: normal;
+    text-transform: none; letter-spacing: 0; visibility: hidden; opacity: 0; transition: opacity .12s; pointer-events: none;
+}
+/* Ponte invisível entre o "?" e o balão: dá pra levar o mouse até um link dentro dele. */
+.ajuda-texto::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
+.ajuda:hover .ajuda-texto, .ajuda:focus .ajuda-texto, .ajuda:focus-within .ajuda-texto { visibility: visible; opacity: 1; pointer-events: auto; }
+.ajuda-texto a { color: inherit; text-decoration: underline; }
+.ajuda-texto strong, .ajuda-texto em { color: inherit; }
+.ajuda-texto.para-esq { left: auto; right: -6px; transform: none; }
+.ajuda-texto.para-dir { left: -6px; transform: none; }

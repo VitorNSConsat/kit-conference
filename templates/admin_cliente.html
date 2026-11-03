@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Cliente {{ cliente.nome }}{% endblock %}
 {% block acoes_topo %}
@@ -134,11 +135,9 @@
      dois de verdade. #}
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Atribuir garagem aos veículos deste cliente</summary>
-    <p style="color:#666;font-size:13px;margin:8px 0;">
-      Move de uma vez todos os veículos deste cliente que estão numa garagem para outra.
+    <p style="color:#666;font-size:13px;margin:8px 0;">Move os veículos deste cliente de uma garagem para outra. {% call aj.ajuda() %}Move de uma vez todos os veículos deste cliente que estão numa garagem para outra.
       Só muda o <strong>cadastro do veículo</strong> — kits já bipados continuam com a
-      garagem que valia na hora da montagem.
-    </p>
+      garagem que valia na hora da montagem.{% endcall %}</p>
     <form method="post" action="/admin/clientes/{{ cliente.id }}/mover-garagem"
           style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
           onsubmit="return confirm('Mover os veículos para a garagem escolhida?')">

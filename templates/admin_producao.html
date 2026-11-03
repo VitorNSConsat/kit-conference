@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
 {% block title %}Produção{% endblock %}
@@ -223,11 +224,9 @@
 @media (max-width: 860px) { .rem-linha { grid-template-columns: 1fr auto; } .rem-barra-bloco, .rem-acoes { grid-column: 1 / -1; justify-content: flex-start; } }
 </style>
 
-<p style="color:#666;font-size:13px;margin-bottom:16px;">
-  Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
+<p style="color:#666;font-size:13px;margin-bottom:16px;">Kits a Produzir → Em Produção → Produzido → Em Trânsito → Cliente. {% call aj.ajuda() %}Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
   Em Trânsito → Cliente (Em Produção → Produzido)</strong>. As três primeiras etapas
-  seguem a bipagem sozinhas — o resto é marcado manualmente aqui.
-</p>
+  seguem a bipagem sozinhas — o resto é marcado manualmente aqui.{% endcall %}</p>
 
 <!-- ── Pop-up: Zerar sequência (todos os usuários) ─────────────────────── -->
 <div id="popup-zerar-seq" class="config-popup" role="dialog" aria-modal="true" style="width:min(520px, calc(100vw - 32px));">
@@ -241,12 +240,10 @@
       <div class="seq-seta">{{ ic.svg('seta-direita', 18) }}</div>
       <div><span class="seq-rotulo">Depois de zerar, a próxima sai</span><span class="seq-num seq-num-novo">0001</span></div>
     </div>
-    <p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin:14px 0;">
-      Use ao começar uma <strong>produção nova</strong> (por exemplo, pra outro cliente), pra
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin:14px 0;">Recomeça a numeração das próximas etiquetas. {% call aj.ajuda() %}Use ao começar uma <strong>produção nova</strong> (por exemplo, pra outro cliente), pra
       numeração não continuar de onde a anterior parou. Muda <strong>só o número impresso</strong>
       nas próximas etiquetas: nenhum kit, estoque ou etapa da produção é alterado, e etiqueta já
-      impressa mantém o número dela. Fica registrado no Histórico de Alterações.
-    </p>
+      impressa mantém o número dela. Fica registrado no Histórico de Alterações.{% endcall %}</p>
     <form method="post" action="/admin/producao/zerar-sequencia" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
       <button type="button" class="btn btn-ghost" onclick="fecharPopup()">Cancelar</button>
       <button type="submit" class="btn btn-danger">{{ ic.svg('reiniciar', 14) }} Zerar e recomeçar do 0001</button>
@@ -262,11 +259,9 @@
     <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
   </div>
   <div class="config-corpo" style="display:block;">
-    <p style="color:var(--text-muted);font-size:13px;margin-top:0;line-height:1.5;">
-      Vale <strong>só pro Painel da TV</strong> e é apenas filtro de tela: nada sai do banco nem dos
+    <p style="color:var(--text-muted);font-size:13px;margin-top:0;line-height:1.5;">Limite de kits por coluna no Painel da TV (0 = sem limite). {% call aj.ajuda() %}Vale <strong>só pro Painel da TV</strong> e é apenas filtro de tela: nada sai do banco nem dos
       relatórios, e esta página de controle continua mostrando tudo. Ao passar do limite, o kit mais
-      novo entra e o mais antigo sai da tela — a lista gira sozinha. Use <strong>0</strong> pra não limitar.
-    </p>
+      novo entra e o mais antigo sai da tela — a lista gira sozinha. Use <strong>0</strong> pra não limitar.{% endcall %}</p>
     <form method="post" action="/admin/producao/tv-config"
           style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
       <div class="form-group" style="margin:0;">

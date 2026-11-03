@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
@@ -158,8 +159,7 @@
         <div id="bloco-importar-ajuste" style="display:none;background:var(--surface-alt);
              border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
           <h3 style="font-size:15px;margin:0 0 6px;">Atualizar estoque pela planilha</h3>
-          <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">
-            Baixe a planilha em <strong>Downloads → Planilha de ajuste de estoque</strong>
+          <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">Baixe a planilha de ajuste, altere e devolva aqui. {% call aj.ajuda() %}Baixe a planilha em <strong>Downloads → Planilha de ajuste de estoque</strong>
             (<a href="/admin/estoque/ajuste-modelo.xlsx" download>baixar agora</a>), altere as colunas de quantidade, mínima
             e status de compra, e devolva o arquivo aqui. Célula em branco significa
             <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
@@ -168,8 +168,7 @@
             igual ao ajuste feito na tela.
             <br><strong>Baixe a planilha na hora de usar:</strong> ela leva os números do
             momento do download, então enviar um arquivo antigo faz o estoque voltar
-            para os valores daquele dia.
-          </p>
+            para os valores daquele dia.{% endcall %}</p>
           <form method="post" action="/admin/estoque/importar-ajuste"
                 enctype="multipart/form-data"
                 style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
@@ -183,11 +182,9 @@
           </form>
         </div>
         {% endif %}
-        <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">
-            Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
+        <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Quantidade em estoque de cada tipo; a engrenagem configura o item. {% call aj.ajuda() %}Cada tipo mostra sua quantidade em estoque (quando cadastrado). Use a engrenagem
             para configurar medida, reutilização, código da caixa e estoque.
-            A exportação em Excel traz a relação atual e o histórico completo de movimentações.
-        </p>
+            A exportação em Excel traz a relação atual e o histórico completo de movimentações.{% endcall %}</p>
 
         {# Busca e filtro de quantidade no mesmo formulário: filtrar por
            "no vermelho" e depois buscar não pode perder o filtro. #}
@@ -561,11 +558,9 @@
 <div id="tab-novo" class="tab-panel" style="display:{{ 'block' if aba == 'novo' else 'none' }};">
     <div class="card">
         <h2>Cadastrar Novo Item</h2>
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
-            Cadastre o tipo do item e, se ele tiver controle de quantidade (ex: caixa de
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Cadastre o tipo do item e, se houver, o código e a quantidade. {% call aj.ajuda() %}Cadastre o tipo do item e, se ele tiver controle de quantidade (ex: caixa de
             parafusos, rolo de cabo), já atribua o código de barras e a quantidade em estoque —
-            tudo em um só passo.
-        </p>
+            tudo em um só passo.{% endcall %}</p>
         <form method="post" action="/admin/tipos/completo">
             <div class="form-group">
                 <label>Nome do tipo</label>
@@ -589,12 +584,10 @@
 
             <hr style="margin:16px 0;border:none;border-top:1px solid var(--border-subtle);">
             <p style="font-weight:700;color:var(--text);margin-bottom:4px;">Estoque (opcional)</p>
-            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:14px;">
-                Preencha se este item tiver <strong>um único código de barras</strong> para o
+            <p style="font-size:12px;color:var(--text-muted-2);margin-bottom:14px;">Preencha só se o item tiver um código para o lote inteiro. {% call aj.ajuda() %}Preencha se este item tiver <strong>um único código de barras</strong> para o
                 lote/caixa inteiro, com controle de quantidade. Deixe o código em branco se este
                 for um patrimônio individual (cada peça com seu próprio código, cadastrado na
-                aba "Itens Cadastrados").
-            </p>
+                aba "Itens Cadastrados").{% endcall %}</p>
             <div class="form-group">
                 <label>Código de Barras</label>
                 <input type="text" name="codigo_barra" placeholder="Bipe ou digite">
@@ -617,16 +610,14 @@
         </form>
     </div>
 
-    {# Aparece pelo menu (Importações → Importar BOM de itens), que chega com #importar-bom. #}
+    {# Aparece pelo menu (Importações → Importar itens (BOM)), que chega com #importar-bom. #}
     <div class="card" id="importar-bom" hidden>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <h2 style="margin:0;">Importar BOM</h2>
         </div>
-        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 12px;">
-            Planilha com colunas <strong>Description</strong> (tipo do item) e
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 12px;">Colunas: Description e Code (opcional). {% call aj.ajuda() %}Planilha com colunas <strong>Description</strong> (tipo do item) e
             <strong>Code</strong> (código de barras, opcional).
-            Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.
-        </p>
+            Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.{% endcall %}</p>
         <form method="post" action="/admin/tipos/importar-bom" enctype="multipart/form-data"
               style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="margin-bottom:0;min-width:200px;">
@@ -639,12 +630,10 @@
 <div id="tab-patrimonios" class="tab-panel" style="display:{{ 'block' if aba == 'patrimonios' else 'none' }};">
     <div class="card">
         <h2 style="margin-bottom:4px;">Itens Cadastrados no Sistema</h2>
-        <p style="color:var(--text-muted);font-size:13px;margin-top:0;margin-bottom:14px;">
-            Um item por linha: <strong>que peça é</strong>, <strong>em que veículo
+        <p style="color:var(--text-muted);font-size:13px;margin-top:0;margin-bottom:14px;">Um patrimônio por linha: que peça é e em que veículo está. {% call aj.ajuda() %}Um item por linha: <strong>que peça é</strong>, <strong>em que veículo
             está</strong> e <strong>como ela chegou lá</strong>. Cada patrimônio nasce
             sozinho na bipagem — esta tela é pra <em>encontrar</em> um e
-            <em>consertar</em> o que ficou errado.
-        </p>
+            <em>consertar</em> o que ficou errado.{% endcall %}</p>
         <p class="ajuda-passo">
             <strong>Clique no código</strong> pra abrir a janela do item: onde ele
             está, o que mudou depois da montagem, e as ações de
@@ -839,12 +828,10 @@
     <!-- Gerador de etiqueta avulsa (sem item_tipo/estoque) -->
     <div class="card" style="border:1.5px solid var(--brand-ink);">
         <h2 style="margin-bottom:4px;">Gerar Nova Etiqueta</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-top:0;margin-bottom:12px;">
-            Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
+        <p style="font-size:13px;color:var(--text-muted);margin-top:0;margin-bottom:12px;">Gere uma etiqueta com QR e código de barras a partir de qualquer texto. {% call aj.ajuda() %}Digite qualquer texto e gere uma etiqueta com QR e código de barras — igual às
             etiquetas de estoque, mas sem precisar cadastrar um item. Útil para códigos de
             conjunto/componente usados na hora de montar um kit. Todo código gerado aqui
-            aparece na lista abaixo, onde dá pra editar depois.
-        </p>
+            aparece na lista abaixo, onde dá pra editar depois.{% endcall %}</p>
         <form method="get" action="/admin/gerar-codigo/etiqueta" target="_blank" style="display:flex;gap:8px;">
             <input type="text" name="texto" required placeholder="Digite o texto ou código"
                    style="flex:1;margin-bottom:0;">
@@ -854,12 +841,10 @@
 
     <div class="card">
         <h2 style="margin-bottom:4px;">Códigos Já Gerados</h2>
-        <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
-            Clique no código pra corrigir o texto — o patrimônio que usa esse código é
+        <p style="color:var(--text-muted);font-size:13px;margin-top:0;">Clique no código para corrigir; marque os recicláveis. {% call aj.ajuda() %}Clique no código pra corrigir o texto — o patrimônio que usa esse código é
             atualizado junto. Marque como reciclável os códigos reaproveitados em mais de um
             kit: isso libera o tipo do item pra ser bipado em vários kits ativos ao mesmo
-            tempo (equivale a marcar "Reutilizável" no Estoque).
-        </p>
+            tempo (equivale a marcar "Reutilizável" no Estoque).{% endcall %}</p>
         <form method="get" action="/admin/items" class="busca-form"
               data-busca-viva="#bloco-codigos">
             <input type="hidden" name="tab" value="codigos">
@@ -957,10 +942,8 @@
             <span class="badge badge-info" id="badge-exibindo-sob"
                   style="font-size:13px;{{ '' if sob_tem_filtro else 'display:none;' }}">exibindo {{ pag_sobressalentes.total }}</span>
         </div>
-        <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px;">
-            “Kit coringa”: itens e quantidades à escolha, sem veículo, para um cliente. Ao criar, o estoque é
-            descontado e o pacote ganha uma etiqueta com QR. Clique no pacote para ver o que tem dentro.
-        </p>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px;">Pacotes de peças para um cliente, com etiqueta e baixa no estoque. {% call aj.ajuda() %}“Kit coringa”: itens e quantidades à escolha, sem veículo, para um cliente. Ao criar, o estoque é
+            descontado e o pacote ganha uma etiqueta com QR. Clique no pacote para ver o que tem dentro.{% endcall %}</p>
 
         {% if pode('estoque_editar') %}
         <details class="sob-novo" {{ 'open' if request.query_params.get('erro') }}

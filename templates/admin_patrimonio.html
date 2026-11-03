@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Patrimônio {{ codigo_barra }}{% endblock %}
 {% block acoes_topo %}
@@ -84,13 +85,11 @@
      do item, que é o que se digita errado. #}
   <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Corrigir patrimônio</summary>
-    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
-      Para corrigir um número digitado errado. Funciona mesmo com o kit já produzido,
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">Corrige um número digitado errado, em qualquer estágio. {% call aj.ajuda() %}Para corrigir um número digitado errado. Funciona mesmo com o kit já produzido,
       enviado ou no cliente — <strong>a produção não é reaberta</strong> e o veículo
       continua no estágio em que está. O histórico de bipagens não é apagado: as
       passagens antigas passam a apontar pro código novo, com data, operador e kit
-      preservados.
-    </p>
+      preservados.{% endcall %}</p>
     <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/corrigir"
           style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
           onsubmit="return confirm('Confirmar a correção deste patrimônio? O histórico é preservado e a produção não muda.')">
@@ -119,12 +118,10 @@
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;"
            {{ 'open' if previa_mover }}>
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Mover para outro veículo</summary>
-    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
-      Para quando o item saiu do kit de um veículo e foi instalado em outro — troca feita
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">Passa o item para o kit de outro veículo. {% call aj.ajuda() %}Para quando o item saiu do kit de um veículo e foi instalado em outro — troca feita
       na hora da instalação, por exemplo. O kit de origem passa a acusar o item faltando
       (e entra na lista de pendências); o de destino recebe. Nada muda de estágio na
-      produção e o histórico do item guarda as duas passagens.
-    </p>
+      produção e o histórico do item guarda as duas passagens.{% endcall %}</p>
 
     {% if previa_mover %}
     {% if previa_mover.bloqueio %}
@@ -176,11 +173,9 @@
   {% if pode('patrimonio_atribuir') and onde_esta %}
   <details style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px;">
     <summary style="cursor:pointer;font-weight:600;font-size:14px;">Retirar do kit</summary>
-    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">
-      Para quando o item saiu do kit e <strong>não</strong> foi pra outro veículo — voltou
+    <p style="color:var(--text-muted);font-size:13px;margin:8px 0;">Tira o item do kit sem colocar em outro. {% call aj.ajuda() %}Para quando o item saiu do kit e <strong>não</strong> foi pra outro veículo — voltou
       pro estoque, quebrou ou sumiu. O kit fica acusando o item faltando, que é a verdade,
-      e aparece na lista de pendências até receber outro.
-    </p>
+      e aparece na lista de pendências até receber outro.{% endcall %}</p>
     <form method="post" action="/admin/items/patrimonio/{{ codigo_barra | urlencode }}/retirar"
           style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;"
           onsubmit="return confirm('Retirar este patrimônio do kit do veículo {{ onde_esta.veiculo or '—' }}?')">
@@ -274,14 +269,12 @@
 {% if vizinhos %}
 <div class="card">
   <h2 style="margin-bottom:4px;">Bipado junto (última sessão)</h2>
-  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
-    Itens que formaram o <strong>mesmo kit</strong> deste patrimônio na última vez que ele
+  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">Itens que formaram o mesmo kit deste patrimônio. {% call aj.ajuda() %}Itens que formaram o <strong>mesmo kit</strong> deste patrimônio na última vez que ele
     foi bipado{% if kit_sessao %} — kit <strong>{{ kit_sessao.kit_nome }}</strong>
     {%- if kit_sessao.veiculo %}, veículo <strong>{{ kit_sessao.veiculo }}</strong>{% endif %}
     {%- if kit_sessao.garagem %} · {{ kit_sessao.garagem }}{% endif %}{% endif %}.
     O corte é a sessão de bipagem, não a proximidade de horário: item bipado logo depois,
-    já em outro kit, não entra aqui. A linha destacada é o próprio item.
-  </p>
+    já em outro kit, não entra aqui. A linha destacada é o próprio item.{% endcall %}</p>
   <div style="overflow-x:auto;">
   <table>
     <thead>

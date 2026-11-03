@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Trocar o kit — {{ session.kit_nome }}{% endblock %}
 {% block acoes_topo %}
@@ -16,11 +17,9 @@
     <span style="color:var(--text-muted-2);">(v{{ session.kit_template_versao }})</span>,
     no veículo <strong>{{ session.veiculo }}</strong> · {{ session.garagem }}.
   </p>
-  <p style="color:var(--text-muted);margin-bottom:0;">
-    Trocar o kit <strong>não apaga bipagem nenhuma</strong>: o que os dois kits têm em
+  <p style="color:var(--text-muted);margin-bottom:0;">Trocar o kit não apaga bipagem nenhuma. {% call aj.ajuda() %}Trocar o kit <strong>não apaga bipagem nenhuma</strong>: o que os dois kits têm em
     comum continua contado, e só o que falta no kit novo passa a aparecer pendente.
-    É pra corrigir uma bipagem que começou no modelo errado sem precisar rebipar tudo.
-  </p>
+    É pra corrigir uma bipagem que começou no modelo errado sem precisar rebipar tudo.{% endcall %}</p>
 </div>
 
 <div class="card">

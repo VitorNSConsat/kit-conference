@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
 {% block title %}Usuários{% endblock %}
@@ -33,12 +34,10 @@
 
 <div class="card">
   <h2>Encerrar login parado</h2>
-  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">
-    Depois de um tempo <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa
+  <p style="color:var(--text-muted);font-size:13px;margin-top:0;">Tempo sem uso até o login cair sozinho. {% call aj.ajuda() %}Depois de um tempo <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa
     precisa entrar de novo. É o que evita o caso de sempre: alguém sai da estação com o
     login aberto, o próximo senta e bipa no usuário de quem saiu — e o histórico do kit
-    passa a responder o nome errado, sem ninguém perceber.
-  </p>
+    passa a responder o nome errado, sem ninguém perceber.{% endcall %}</p>
   <form method="post" action="/admin/usuarios/inatividade"
         style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
     <div class="form-group" style="margin:0;">

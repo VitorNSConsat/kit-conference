@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
 {% block title %}Criar Kit/Pedido{% endblock %}
@@ -128,14 +129,12 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
         <div>
             <h2 style="margin:0;">Importar Planilha do Pedido</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">
-                Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
+            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">Colunas: ICCID, Número de Telefone, CDT e ID Hardware. {% call aj.ajuda() %}Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
                 <strong>CDT</strong> e <strong>ID Hardware</strong> — uma linha por unidade. O número do
                 pedido é detectado automaticamente: pode vir numa coluna <strong>Pedido</strong> (repetida
                 em cada linha) ou numa célula solta acima do cabeçalho. Se não encontrar nenhum dos dois,
                 informe abaixo. Os itens do pedido (tipos/quantidades) são adicionados manualmente depois,
-                na edição.
-            </p>
+                na edição.{% endcall %}</p>
         </div>
     </div>
     <form method="post" action="/admin/templates/import-pedido" enctype="multipart/form-data">
@@ -350,11 +349,9 @@
 <div id="tab-conjuntos" class="tab-panel" style="display:none;">
     <div class="card">
         <h2 style="margin-top:0;">Conjuntos</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
-            Itens com o mesmo código de conjunto são bipados e conferidos juntos — marcar um deles marca
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">Itens com o mesmo código de conjunto são bipados juntos. {% call aj.ajuda() %}Itens com o mesmo código de conjunto são bipados e conferidos juntos — marcar um deles marca
             os outros automaticamente. Desligue "Verifica em conjunto" pra um conjunto específico exigir
-            conferência item a item na tela de verificação (exceção, ex: um kit que precisa de checagem manual).
-        </p>
+            conferência item a item na tela de verificação (exceção, ex: um kit que precisa de checagem manual).{% endcall %}</p>
         {% if conjuntos %}
         {% for t in conjuntos %}
         <details class="conjunto-template-details">

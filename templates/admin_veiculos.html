@@ -729,6 +729,10 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharListaC
     if (p.get('erro_cliente')) abrirListaCadastro('clientes');
     else if (p.get('erro_garagem')) abrirListaCadastro('garagens');
     {% if erro is defined and erro %}else abrirListaCadastro('veiculo');{% endif %}
+    // Atalhos do menu lateral: #clientes, #garagens e #novo abrem a janela certa.
+    else if (location.hash === '#clientes') abrirListaCadastro('clientes');
+    else if (location.hash === '#garagens') abrirListaCadastro('garagens');
+    else if (location.hash === '#novo') abrirListaCadastro('veiculo');
 })();
 
 // Seleção em massa: o quadradinho do topo marca/desmarca a página inteira,

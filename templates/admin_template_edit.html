@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Editar {{ 'Pedido' if template.tipo == 'pedido' else 'Kit' }} — {{ template.nome }}{% endblock %}
 {% block acoes_topo %}
@@ -64,11 +65,9 @@
             {{ ic.svg('baixar', 14) }} Exportar Excel
         </a>
     </div>
-    <p style="font-size:12px;color:var(--text-muted-2);margin:6px 0 12px;">
-        A ficha de cada aparelho do pedido. D&aacute; pra corrigir aqui mesmo e cadastrar novas
+    <p style="font-size:12px;color:var(--text-muted-2);margin:6px 0 12px;">A ficha de cada aparelho do pedido. {% call aj.ajuda() %}A ficha de cada aparelho do pedido. D&aacute; pra corrigir aqui mesmo e cadastrar novas
         &agrave; m&atilde;o, sem depender da planilha. N&atilde;o entram na bipagem &mdash;
-        &eacute; consulta e confer&ecirc;ncia.
-    </p>
+        &eacute; consulta e confer&ecirc;ncia.{% endcall %}</p>
 
     {% if request.query_params.get('ok_unidades') %}
     <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} {{ request.query_params.get('ok_unidades') }}</div>
@@ -304,11 +303,9 @@
     </table>
     </div>
 
-    <p style="font-size:11px;color:var(--text-muted-2);margin-top:10px;">
-        O gasto real vem das saídas de estoque ligadas a cada kit finalizado — por isso
+    <p style="font-size:11px;color:var(--text-muted-2);margin-top:10px;">De onde vem o gasto real. {% call aj.ajuda() %}O gasto real vem das saídas de estoque ligadas a cada kit finalizado — por isso
         pode passar do planejado quando há substituição de equipamento com defeito no meio
-        da bipagem. Itens sem estoque vinculado usam o planejado, que para eles é exato.
-    </p>
+        da bipagem. Itens sem estoque vinculado usam o planejado, que para eles é exato.{% endcall %}</p>
     </details>
 </div>
 {% endif %}

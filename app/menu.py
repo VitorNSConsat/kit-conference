@@ -23,28 +23,43 @@ def _a(rotulo, icone, href, perms=(), prefixos=(), excluir=(), admin=False, tipo
             "prefixos": list(prefixos), "excluir": list(excluir), "admin": admin, "tipo": tipo}
 
 
+# Organizado por ASSUNTO, com o nome que o operador usa. Antes "Cadastros"
+# misturava veículo, peça, kit e RMA — agora cada assunto tem o seu grupo.
 _GRUPOS = [
-    ("Operação", "bipagem", [
+    ("Produção", "producao", [
         _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"]),
-        _a("Impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
-        _a("Produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
+        _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
+        _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
            ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
         _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
-        _a("RMAs", "alerta", "/admin/hardware", ["ver_hardware"], ["/admin/hardware"],
-           ["/admin/hardware/importar", "/admin/hardware/importacoes", "/admin/hardware/produtos"]),
-        _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
-        _a("Painel da TV — Produção", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
-        _a("Painel da TV — Prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
+        _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
     ]),
-    ("Cadastros", "kits", [
-        _a("Veículos e Clientes", "veiculos", "/admin/veiculos", ["ver_veiculos"],
+    ("Estoque", "itens", [
+        _a("Estoque de itens", "itens", "/admin/items?tab=catalogo", ["ver_itens"],
+           ["/admin/items", "/admin/tipos", "/admin/estoque"]),
+        _a("Cadastrar item", "mais", "/admin/items?tab=novo", ["ver_itens"], ["/admin/items"]),
+        _a("Patrimônios", "clipboard", "/admin/items?tab=patrimonios", ["ver_itens"], ["/admin/items"]),
+        _a("Etiquetas e códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
+        _a("Sobressalentes", "caixa", "/admin/items?tab=sobressalentes", ["ver_itens"], ["/admin/items"]),
+        _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
+        _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
+    ]),
+    ("Kits e pedidos", "kits", [
+        _a("Kits", "kits", "/admin/templates?tab=kit", ["ver_kits"], ["/admin/templates"]),
+        _a("Pedidos", "arquivo", "/admin/templates?tab=pedido", ["ver_kits"], ["/admin/templates"]),
+        _a("Conjuntos", "caixa", "/admin/templates?tab=conjuntos", ["ver_kits"], ["/admin/templates"]),
+    ]),
+    ("Veículos e clientes", "veiculos", [
+        _a("Veículos", "veiculos", "/admin/veiculos", ["ver_veiculos"],
            ["/admin/veiculos", "/admin/clientes", "/admin/garagens"],
            ["/admin/veiculos/import", "/admin/veiculos/importacoes"]),
-        _a("Itens & Estoque", "itens", "/admin/items", ["ver_itens"], ["/admin/items", "/admin/tipos", "/admin/estoque"]),
-        _a("Itens cadastrados", "clipboard", "/admin/items?tab=patrimonios", ["ver_itens"], ["/admin/items"]),
-        _a("Etiquetas & Códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
-        _a("Sobressalentes", "caixa", "/admin/items?tab=sobressalentes", ["ver_itens"], ["/admin/items"]),
-        _a("Criar Kit/Pedido", "kits", "/admin/templates", ["ver_kits"], ["/admin/templates"]),
+        _a("Novo veículo", "mais", "/admin/veiculos#novo", ["ver_veiculos"]),
+        _a("Clientes", "cliente", "/admin/veiculos#clientes", ["ver_veiculos"]),
+        _a("Garagens", "garagem", "/admin/veiculos#garagens", ["ver_veiculos"]),
+    ]),
+    ("RMA", "alerta", [
+        _a("Ocorrências de RMA", "alerta", "/admin/hardware", ["ver_hardware"], ["/admin/hardware"],
+           ["/admin/hardware/importar", "/admin/hardware/importacoes", "/admin/hardware/produtos"]),
         _a("Produtos de RMA", "clipboard", "/admin/hardware/produtos", ["ver_hardware"], ["/admin/hardware/produtos"]),
     ]),
     ("Importações", "importar", [
@@ -54,9 +69,9 @@ _GRUPOS = [
         _a("Importações de RMAs", "relogio", "/admin/hardware/importacoes", ["ver_hardware"], ["/admin/hardware/importacoes"]),
         _a("Ajustar estoque por planilha", "importar", "/admin/items?tab=catalogo#importar-ajuste",
            ["ver_itens", "estoque_editar"]),
-        _a("Importar BOM de itens", "importar", "/admin/items?tab=novo#importar-bom", ["ver_itens"]),
+        _a("Importar itens (BOM)", "importar", "/admin/items?tab=novo#importar-bom", ["ver_itens"]),
         _a("Criar kit pela BOM", "importar", "/admin/templates?tab=kit#bom", ["ver_kits"]),
-        _a("Importar planilha de pedido", "importar", "/admin/templates?tab=pedido#importar-pedido",
+        _a("Importar pedido", "importar", "/admin/templates?tab=pedido#importar-pedido",
            ["ver_kits", "pedidos_criar_editar"]),
     ]),
     ("Downloads", "baixar", [
@@ -68,9 +83,9 @@ _GRUPOS = [
         # Exportações COMPLETAS (sem filtro). Com filtro, cada tela segue
         # exportando o que está mostrando.
         _a("Estoque completo", "baixar", "/admin/estoque/exportar.xlsx", ["ver_itens"], tipo="download"),
-        _a("Veículos — todos", "baixar", "/admin/veiculos/exportar.xlsx", ["ver_veiculos"], tipo="download"),
-        _a("RMAs — todas", "baixar", "/admin/hardware/exportar.xlsx", ["ver_hardware"], tipo="download"),
-        _a("Kits finalizados — todos", "baixar", "/reports/exportar-todos.xlsx", ["ver_relatorios"], tipo="download"),
+        _a("Todos os veículos", "baixar", "/admin/veiculos/exportar.xlsx", ["ver_veiculos"], tipo="download"),
+        _a("Todas as RMAs", "baixar", "/admin/hardware/exportar.xlsx", ["ver_hardware"], tipo="download"),
+        _a("Todos os kits finalizados", "baixar", "/reports/exportar-todos.xlsx", ["ver_relatorios"], tipo="download"),
         _a("Histórico da produção", "baixar", "/admin/producao/historico/exportar.xlsx", ["ver_producao"], tipo="download"),
         _a("Certificado do celular", "cadeado", "/cert", tipo="download"),
     ]),
@@ -83,13 +98,16 @@ _GRUPOS = [
         _a("Histórico da produção", "historico", "/admin/producao/historico", ["ver_producao"], ["/admin/producao/historico"]),
         _a("Auditoria", "cadeado", "/admin/auditoria", [], ["/admin/auditoria"], admin=True),
     ]),
-    ("Gestão", "funcionalidades", [
-        _a("Rede", "rede", "/rede", ["ver_rede"], ["/rede"]),
-        _a("Funcionalidades", "funcionalidades", "/funcionalidades", ["ver_funcionalidades"], ["/funcionalidades"]),
+    ("Sistema", "funcionalidades", [
+        _a("Manual do sistema", "funcionalidades", "/funcionalidades", ["ver_funcionalidades"], ["/funcionalidades"]),
+        _a("Rede e acesso", "rede", "/rede", ["ver_rede"], ["/rede"]),
         _a("Backup", "backup", "/admin/backup", ["ver_backup"], ["/admin/backup"]),
-        _a("Padrão Visual", "paleta", "/admin/padrao-visual", [], ["/admin/padrao-visual"], admin=True),
+        _a("Padrão visual", "paleta", "/admin/padrao-visual", [], ["/admin/padrao-visual"], admin=True),
     ]),
 ]
+
+# Aba que a tela abre quando o link não diz qual (pra acender o atalho certo).
+_ABA_PADRAO = {"/admin/items": "catalogo", "/admin/templates": "kit"}
 
 _RELATORIOS_PROPRIOS = ("operadores", "validacoes", "sobressalentes", "patrimonio")
 
@@ -98,6 +116,19 @@ def _casa(caminho: str, prefixo: str) -> bool:
     if prefixo == "/":
         return caminho == "/" or caminho.startswith("/session")
     return caminho == prefixo or caminho.startswith(prefixo + "/")
+
+
+def _aba_atual(caminho: str, aba: str) -> str:
+    if aba:
+        return aba
+    if caminho.startswith("/admin/items/patrimonio"):
+        return "patrimonios"            # página de um patrimônio é da aba Patrimônios
+    if caminho.startswith(("/admin/tipos", "/admin/estoque")):
+        return "catalogo"
+    for prefixo, padrao in _ABA_PADRAO.items():
+        if caminho == prefixo or caminho.startswith(prefixo + "/"):
+            return padrao
+    return ""
 
 
 def _ativo(item: dict, caminho: str, aba: str) -> bool:
@@ -123,7 +154,7 @@ def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
     só os grupos com algum atalho que este usuário pode abrir."""
     if not user:
         return []
-    aba = (parse_qs(query or "").get("tab") or [""])[0]
+    aba = _aba_atual(caminho, (parse_qs(query or "").get("tab") or [""])[0])
     grupos = []
     for nome, icone_grupo, itens in _GRUPOS:
         visiveis = []

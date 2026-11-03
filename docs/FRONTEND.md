@@ -87,8 +87,9 @@ cliente** em todas as telas — é identidade, não link.
 ```
 
 - **Menu lateral** (`.ds-sidebar`): montado em `app/menu.py` (`montar()`,
-  injetado como `menu_grupos` pelo `render()`). Grupos: Operação / Cadastros /
-  Importações / Modelos de planilha / Relatórios / Gestão. Cada atalho declara as
+  injetado como `menu_grupos` pelo `render()`). Grupos por assunto: Produção /
+  Estoque / Kits e pedidos / Veículos e clientes / RMA / Importações / Downloads /
+  Relatórios / Sistema. Cada atalho declara as
   permissões do destino (as mesmas do porteiro das rotas) — esconder o link e barrar
   a rota nunca discordam. O título do grupo é um botão que abre/fecha
   (`alternarGrupoMenu`, estado em `localStorage.menu_grupos_fechados`); o grupo da
@@ -217,6 +218,14 @@ usa as classes `.pat-painel`, `.pat-onde`, `.pat-campos`/`.pat-campo`,
 `.pat-coluna`, `.pat-acao` (seção recolhível), `.vp-itens`/`.vp-item`.
 Formulário dentro com `data-fragmento="1"` é enviado por fetch e troca só o
 conteúdo da janela.
+
+### Ajuda "?" (texto longo)
+Explicação longa não fica na tela: uma frase curta e um "?" que abre o texto
+completo ao parar o mouse (ou tocar / focar com Tab). Aceita HTML (negrito, links).
+```jinja
+{% import "_ajuda.html" as aj %}
+<p>Frase curta. {% call aj.ajuda() %}Explicação completa…{% endcall %}</p>
+```
 
 ### Popup de edição / criação
 ```html

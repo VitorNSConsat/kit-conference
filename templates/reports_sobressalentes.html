@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
@@ -8,11 +9,9 @@
 {% endblock %}
 
 {% block content %}
-<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">
-  Cada <strong>envio</strong> numa linha — o pacote (SOB-0001, SOB-0002...) com o cliente, a data e
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">Um envio por linha; clique nele para ver os itens. {% call aj.ajuda() %}Cada <strong>envio</strong> numa linha — o pacote (SOB-0001, SOB-0002...) com o cliente, a data e
   quem enviou. Clique no envio para ver os itens que ele levou. Envios feitos antes dos pacotes
-  aparecem como <strong>Avulso</strong>. O estoque já foi descontado em cada um.
-</p>
+  aparecem como <strong>Avulso</strong>. O estoque já foi descontado em cada um.{% endcall %}</p>
 
 <div class="card">
   <h2>Filtros</h2>

@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=63">
+    <link rel="stylesheet" href="/static/style.css?v=64">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -162,6 +162,17 @@ function alternarGrupoMenu(botao) {
         _aplicarGrupoMenu(g, g.dataset.ativo === '1' || !fechados.includes(g.dataset.grupo));
     });
 })();
+
+// Ajuda "?": perto da borda da tela o balão abre pro lado de dentro.
+document.addEventListener('mouseover', function (e) {
+    const a = e.target.closest && e.target.closest('.ajuda');
+    if (!a) return;
+    const t = a.querySelector('.ajuda-texto');
+    t.classList.remove('para-esq', 'para-dir');
+    const r = a.getBoundingClientRect(), meia = Math.min(340, window.innerWidth * .86) / 2;
+    if (r.left + r.width / 2 + meia > window.innerWidth - 8) t.classList.add('para-esq');
+    else if (r.left + r.width / 2 - meia < 8) t.classList.add('para-dir');
+});
 
 function toggleNav() {
     document.getElementById('ds-sidebar').classList.toggle('aberta');

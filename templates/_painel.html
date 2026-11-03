@@ -1,3 +1,4 @@
+{% import "_ajuda.html" as aj %}
 {# Painel único do sistema: um veículo e (opcionalmente) um patrimônio dele
    em foco. É o MESMO pedaço de tela aberto pelo número do veículo (em
    Veículos e Clientes) e pelo código do patrimônio (em Itens Cadastrados).
@@ -361,11 +362,9 @@
     {% if completo and kit and (pode('patrimonio_atribuir') or pode('patrimonio_mover')) %}
     <details class="pat-acao" {{ 'open' if previa_add or (faltas and not item_sel) }}>
       <summary>Adicionar item</summary>
-      <p class="pat-ajuda">
-        Bipe ou digite o código do patrimônio que vai fazer parte deste kit. Se ele já
+      <p class="pat-ajuda">Bipe ou digite o patrimônio que vai entrar neste kit. {% call aj.ajuda() %}Bipe ou digite o código do patrimônio que vai fazer parte deste kit. Se ele já
         estiver em outro veículo, o sistema avisa <strong>qual</strong> e pede confirmação —
-        e o veículo de origem fica devendo o item: <strong>nada é reposto sozinho</strong>.
-      </p>
+        e o veículo de origem fica devendo o item: <strong>nada é reposto sozinho</strong>.{% endcall %}</p>
 
       {% if previa_add %}
       {% if previa_add.erro %}

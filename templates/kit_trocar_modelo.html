@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
 {% block title %}Trocar o kit — {{ kit.kit_nome }}{% endblock %}
 {% block acoes_topo %}
@@ -17,18 +18,14 @@
     no veículo <strong>{{ kit.veiculo }}</strong> · {{ kit.garagem }}{% endif %},
     finalizado em {{ kit.finalizado_em[:16] if kit.finalizado_em else '—' }}.
   </p>
-  <p style="color:#555;margin-bottom:0;">
-    É a mesma troca da bipagem, com um passo a mais: como o kit já está pronto,
+  <p style="color:#555;margin-bottom:0;">O estoque é acertado sozinho na troca. {% call aj.ajuda() %}É a mesma troca da bipagem, com um passo a mais: como o kit já está pronto,
     <strong>o estoque é acertado sozinho</strong> — o que sai do kit e veio do estoque
     volta pro estoque, e o que o kit novo pede a mais sai do estoque automaticamente.
-    Ninguém precisa corrigir estoque na mão depois.
-  </p>
-  <p style="color:#555;margin-bottom:0;">
-    <strong>Os patrimônios continuam os mesmos.</strong> Item que existe nos dois kits
+    Ninguém precisa corrigir estoque na mão depois.{% endcall %}</p>
+  <p style="color:#555;margin-bottom:0;">Os patrimônios continuam os mesmos. {% call aj.ajuda() %}<strong>Os patrimônios continuam os mesmos.</strong> Item que existe nos dois kits
     mantém a peça que já está na caixa — trocar de Euro 5 para Euro 6 não obriga a
     rebipar nada em comum. Se alguma peça precisar ser trocada de verdade, o operador
-    exclui aquela bipagem na tela do kit e bipa a nova.
-  </p>
+    exclui aquela bipagem na tela do kit e bipa a nova.{% endcall %}</p>
 </div>
 
 <div class="card">

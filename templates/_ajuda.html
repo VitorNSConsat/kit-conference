@@ -1,0 +1,9 @@
+{# Ajuda "?": o texto longo de explicação sai da tela e fica num balão que
+   abre ao parar o mouse (ou tocar / focar com Tab). Na tela fica só a frase
+   curta. O conteúdo é HTML normal (negrito, links, listas inline).
+   Uso:
+     {% import "_ajuda.html" as aj %}
+     <p>Frase curta. {% call aj.ajuda() %}Explicação completa…{% endcall %}</p> #}
+{% macro ajuda(rotulo="Mais detalhes") -%}
+<span class="ajuda" tabindex="0" role="button" aria-label="{{ rotulo }}"><span class="ajuda-q" aria-hidden="true">?</span><span class="ajuda-texto" role="tooltip">{{ caller() }}</span></span>
+{%- endmacro %}
