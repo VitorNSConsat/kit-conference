@@ -53,7 +53,8 @@
       </button>
       <div class="ds-nav-itens">
         {% for i in g.itens %}
-        <a href="{{ i.href }}" class="ds-nav-item {{ 'ativo' if i.ativo }}"{% if i.download %} title="Baixar a planilha modelo"{% endif %}>
+        <a href="{{ i.href }}" class="ds-nav-item {{ 'ativo' if i.ativo }}"
+           {%- if i.tipo == 'download' %} download title="Baixar o arquivo"{% elif i.tipo == 'tv' %} target="_blank" rel="noopener" title="Abre numa aba nova"{% endif %}>
           {{ ic.svg(i.icone) }}<span>{{ i.rotulo }}</span>
         </a>
         {% endfor %}

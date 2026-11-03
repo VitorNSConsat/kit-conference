@@ -1,9 +1,7 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
 {% block title %}Prateleira{% endblock %}
-{% block acoes_topo %}
-<a href="/prateleira/tv" target="_blank" class="btn btn-secondary btn-sm">{{ ic.svg('monitor', 15) }} Abrir Painel da TV</a>
-{% endblock %}
+{# O Painel da TV da prateleira abre pelo menu lateral (Operação). #}
 
 {% block content %}
 {% if request.query_params.get('ok') == 'layout' %}

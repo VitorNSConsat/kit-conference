@@ -6,13 +6,9 @@
 {% block acoes_topo %}
 {% set aba_topo = tab_ativo or 'catalogo' %}
 {% if aba_topo == 'catalogo' %}
-<a href="/admin/estoque/exportar.xlsx" class="btn btn-sm btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+{# Exportar o estoque, baixar a planilha de ajuste e importar o ajuste estão
+   no menu lateral (Downloads / Importações). #}
 {% if pode('estoque_editar') %}
-<a href="/admin/estoque/ajuste-modelo.xlsx" class="btn btn-sm btn-secondary"
-   title="Baixa o estoque atual numa planilha pronta pra editar e devolver">{{ ic.svg('baixar', 14) }} Baixar p/ Ajuste</a>
-<button type="button" class="btn btn-sm btn-secondary" onclick="abrirImportarAjuste()">
-  {{ ic.svg('importar', 14) }} Importar Ajuste
-</button>
 <button type="button" class="btn btn-sm btn-secondary" onclick="abrirModalAvisos()">
   {{ ic.svg('alerta', 14) }} Avisos de estoque baixo
 </button>
@@ -163,7 +159,8 @@
              border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
           <h3 style="font-size:15px;margin:0 0 6px;">Atualizar estoque pela planilha</h3>
           <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">
-            Baixe <strong>Baixar p/ Ajuste</strong>, altere as colunas de quantidade, mínima
+            Baixe a planilha em <strong>Downloads → Planilha de ajuste de estoque</strong>
+            (<a href="/admin/estoque/ajuste-modelo.xlsx" download>baixar agora</a>), altere as colunas de quantidade, mínima
             e status de compra, e devolva o arquivo aqui. Célula em branco significa
             <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
             Linha sem alteração não gera movimento, então reenviar a mesma planilha não
@@ -620,7 +617,8 @@
         </form>
     </div>
 
-    <div class="card" id="importar-bom">
+    {# Aparece pelo menu (Importações → Importar BOM de itens), que chega com #importar-bom. #}
+    <div class="card" id="importar-bom" hidden>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <h2 style="margin:0;">Importar BOM</h2>
         </div>
@@ -1303,8 +1301,13 @@ function abrirImportarAjuste() {
     const b = document.getElementById('bloco-importar-ajuste');
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
 }
-// Atalho do menu (Importações → Ajustar estoque por planilha) chega com #importar-ajuste.
+// Atalhos do menu (Importações) chegam com #importar-ajuste ou #importar-bom:
+// os dois blocos ficam escondidos na tela e só aparecem por eles.
 document.addEventListener('DOMContentLoaded', function () {
+    if (location.hash === '#importar-bom') {
+        const c = document.getElementById('importar-bom');
+        if (c) { c.hidden = false; c.scrollIntoView({block: 'start'}); }
+    }
     if (location.hash === '#importar-ajuste') {
         const b = document.getElementById('bloco-importar-ajuste');
         if (b) { b.style.display = 'block'; b.scrollIntoView({block: 'start'}); }

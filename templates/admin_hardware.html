@@ -94,8 +94,6 @@
 <a href="/admin/hardware" class="btn btn-sm btn-voltar">{{ ic.svg('voltar', 14) }} Clientes</a>
 {% endif %}
 <button type="button" class="btn btn-sm btn-primary" onclick="abrirPopup(event, 'nova-ocorrencia')">{{ ic.svg('mais', 14) }} Nova ocorrência</button>
-<a href="/admin/hardware/importar" class="btn btn-sm btn-secondary">{{ ic.svg('importar', 14) }} Importar planilha</a>
-<a href="/admin/hardware/produtos" class="btn btn-sm btn-secondary">{{ ic.svg('itens', 14) }} Produtos cadastrados</a>
 {% if visao == 'clientes' %}
 <a href="/admin/hardware?somente_arquivadas=1" class="btn btn-sm btn-secondary">{{ ic.svg('arquivo', 14) }} Arquivadas ({{ total_arquivadas }})</a>
 {% endif %}

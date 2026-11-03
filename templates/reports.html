@@ -3,20 +3,7 @@
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
 {% block title %}Relatório de Kits Finalizados{% endblock %}
-{% block acoes_topo %}
-<a href="/reports/operadores" class="btn btn-secondary btn-sm">
-  {{ ic.svg('relatorios', 15) }} Kits por Operador
-</a>
-<a href="/reports/validacoes" class="btn btn-secondary btn-sm">
-  {{ ic.svg('check-circulo', 15) }} Relatório de Verificações
-</a>
-<a href="/reports/sobressalentes" class="btn btn-secondary btn-sm">
-  {{ ic.svg('caixa', 15) }} Sobressalentes Enviados
-</a>
-<a href="/reports/patrimonio" class="btn btn-secondary btn-sm">
-  {{ ic.svg('historico', 15) }} Mudanças de Patrimônio
-</a>
-{% endblock %}
+{# Os outros relatórios estão no menu lateral (grupo Relatórios). #}
 {% block content %}
 {% if ok == 'reimpresso' %}
 <div class="alert alert-success" style="margin-bottom:12px;">

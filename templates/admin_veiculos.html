@@ -49,9 +49,9 @@
 <button type="button" class="btn btn-primary btn-sm" onclick="abrirListaCadastro('veiculo')">
   {{ ic.svg('mais', 15) }} Novo Veículo
 </button>
-<a href="/admin/veiculos/import" class="btn btn-secondary btn-sm">{{ ic.svg('importar', 15) }} Importar Excel</a>
-<a href="/admin/veiculos/importacoes" class="btn btn-ghost btn-sm">{{ ic.svg('relogio', 15) }} Importações</a>
-<a href="/admin/veiculos/modelo.xlsx" class="btn btn-ghost btn-sm">{{ ic.svg('baixar', 15) }} Baixar Modelo</a>
+{# Importar, histórico de importações e modelo ficam no menu lateral
+   (Importações / Downloads). Aqui só o que é desta lista: o Excel leva os
+   filtros da tela. #}
 <a href="/admin/veiculos/exportar.xlsx?{{ request.query_params }}" class="btn btn-secondary btn-sm"
    title="Exporta os veículos com os filtros atuais da tela -- sem filtro nenhum, exporta todos.">
   {{ ic.svg('baixar', 15) }} Exportar Excel
