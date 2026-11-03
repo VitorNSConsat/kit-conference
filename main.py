@@ -6201,7 +6201,13 @@ async def admin_veiculos_exportar(request: Request, busca: str = "",
     buf.seek(0)
     # Nome do arquivo carrega o filtro de cliente quando é só um -- facilita
     # achar o arquivo certo depois de várias exportações seguidas.
-    sufixo = cliente[0].replace(" ", "-").lower() if len(cliente) == 1 else "todos"
+    # O nome diz o que tem dentro: um cliente só (e nenhum outro filtro) leva o
+    # nome dele; qualquer outro filtro vira "filtrado"; sem filtro, "todos".
+    so_um_cliente = len(cliente) == 1 and not (busca or modelo or situacao or garagem or numero
+                                               or kits or remessa or regiao or imp_ini or imp_fim
+                                               or ult_ini or ult_fim)
+    sufixo = (cliente[0].replace(" ", "-").lower() if so_um_cliente
+              else "filtrado" if ctx["tem_filtro"] else "todos")
     filename = f"veiculos_{sufixo}_{now_brt()[:10]}.xlsx"
     return _Resp(
         content=buf.read(),
@@ -7313,8 +7319,15 @@ async def admin_hardware_exportar(request: Request):
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
+    # Nome que diz o que tem dentro: as marcadas, um cliente só, um filtro ou tudo.
     clientes_no_export = {o["cliente"] for o in ocorrencias}
-    sufixo = next(iter(clientes_no_export)).replace(" ", "-").lower() if len(clientes_no_export) == 1 else "todos"
+    filtrou = any(v for k, v in qp.multi_items() if k != "ocorrencia_ids")
+    if ids_marcados:
+        sufixo = "selecionadas"
+    elif len(clientes_no_export) == 1:
+        sufixo = next(iter(clientes_no_export)).replace(" ", "-").lower()
+    else:
+        sufixo = "filtrado" if filtrou else "todos"
     filename = f"rmas_{sufixo}_{now_brt()[:10]}.xlsx"
     return _Resp(
         content=buf.read(),
