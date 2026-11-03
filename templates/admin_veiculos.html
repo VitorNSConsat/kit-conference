@@ -728,12 +728,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharListaC
     const p = new URLSearchParams(window.location.search);
     if (p.get('erro_cliente')) abrirListaCadastro('clientes');
     else if (p.get('erro_garagem')) abrirListaCadastro('garagens');
-    {% if erro is defined and erro %}else abrirListaCadastro('veiculo');{% endif %}
-    // Atalhos do menu lateral: #clientes, #garagens e #novo abrem a janela certa.
-    else if (location.hash === '#clientes') abrirListaCadastro('clientes');
-    else if (location.hash === '#garagens') abrirListaCadastro('garagens');
-    else if (location.hash === '#novo') abrirListaCadastro('veiculo');
+    {% if erro is defined and erro %}else abrirListaCadastro('veiculo');
+    {% else %}else abrirPelaAncora();{% endif %}
 })();
+
+// Atalhos do menu lateral (Novo veículo / Clientes / Garagens) apontam pra
+// #novo, #clientes e #garagens. Vindo de outra tela, a âncora chega no
+// carregamento; já estando aqui, só o endereço muda (hashchange). Depois de
+// abrir, a âncora sai do endereço: clicar de novo no mesmo atalho volta a abrir.
+function abrirPelaAncora() {
+    const qual = {'#clientes': 'clientes', '#garagens': 'garagens', '#novo': 'veiculo'}[location.hash];
+    if (!qual) return;
+    abrirListaCadastro(qual);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+}
+window.addEventListener('hashchange', abrirPelaAncora);
 
 // Seleção em massa: o quadradinho do topo marca/desmarca a página inteira,
 // e o botão de excluir só habilita com algo marcado — mostra a contagem
