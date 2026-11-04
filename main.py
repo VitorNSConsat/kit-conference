@@ -49,6 +49,7 @@ import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 import app.relatorio_patrimonio as relatorio_patrimonio_mod
 import app.menu as menu_mod
+import app.conferencia_manual as conferencia_manual_mod
 import app.hardware as hardware_mod
 import app.hardware_importacoes as hardware_importacoes_mod
 import app.sobressalentes as sobressalentes_mod
@@ -63,7 +64,7 @@ _MOBILE_UA = re.compile(r'(Mobile|Android|iPhone|iPad|iPod)', re.IGNORECASE)
 # o operador quer consultar em campo, com o celular na mão.
 _MOBILE_OK_EXACT = {'/mobile', '/login', '/logout', '/ping', '/cert', '/estoque',
                     '/funcionalidades'}
-_MOBILE_OK_PREFIX = ('/static/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/', '/hardware/', '/sobressalente/')
+_MOBILE_OK_PREFIX = ('/static/', '/mobile/', '/session/', '/ws/', '/kit/', '/admin/estoque', '/estoque/', '/prateleira/', '/producao/', '/hardware/', '/sobressalente/')
 
 
 class _MobileGateMiddleware(BaseHTTPMiddleware):
@@ -2973,6 +2974,18 @@ async def print_queue_pausa_impresso(request: Request, pq_id: int):
 async def print_queue_pausa_cancelar(request: Request, pq_id: int):
     pq_mod.cancelar_pausa(pq_id)
     return RedirectResponse("/print-queue", status_code=302)
+
+
+# ── Conferência manual (celular, só leitura) ─────────────────────────────────
+
+@app.get("/mobile/conferencia", response_class=HTMLResponse)
+@require_login
+async def mobile_conferencia(request: Request):
+    """Os kits em montagem item a item, pra conferir a caixa antes de o kit
+    fechar. Não grava nada: o "conferi" é marcado só no celular."""
+    return render(request, "mobile_conferencia.html", {
+        "kits": conferencia_manual_mod.listar(),
+    })
 
 
 # ── Mobile Hub (público) ──────────────────────────────────────────────────────

@@ -341,6 +341,12 @@
       <div class="qb-icon">{{ ic.svg('kits', 24) }}</div>
       <div class="qb-label">Consultar Kit</div>
     </button>
+    {# Kits em montagem item a item, pra conferir a caixa antes de fechar.
+       Só leitura — não grava nada. #}
+    <a href="/mobile/conferencia" class="quick-btn">
+      <div class="qb-icon">{{ ic.svg('clipboard', 24) }}</div>
+      <div class="qb-label">Conferência manual</div>
+    </a>
     {% if pode('ver_itens') %}
     {# Lê a etiqueta do pacote de sobressalentes (SOB-000X) com a mesma câmera
        dos outros leitores e abre o que tem dentro. #}

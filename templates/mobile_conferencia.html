@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+<title>Conferência manual</title>
+{% import "_icones.html" as ic %}
+{# Conferência manual: os kits em MONTAGEM, item a item, com o mesmo visual da
+   conferência do Consultar Kit (kit_detail.html — que não é alterada). Aqui
+   NADA é gravado: o toque marca o item só neste celular (fica guardado no
+   navegador), pra conferir a caixa antes de o item que falta chegar. #}
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --warn-text: #b45309; --danger-text: #b42318; --brand: #246b84; --ok: #18804b; }
+  a[href^="tel:"], a[href^="sms:"] { color: inherit !important; text-decoration: inherit !important; }
+  body { font-family: -apple-system, Arial, sans-serif; background: #f0f2f5; color: #1a1a1a; min-height: 100vh; }
+
+  .header { background: #246b84; color: #fff; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .header h1 { font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .header .subtitulo { font-size: 13px; opacity: .8; margin-top: 4px; }
+  .btn-voltar-topo { display: inline-block; background: rgba(255,255,255,.15); color: #fff; text-decoration: none;
+                     font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; margin-bottom: 10px; }
+  .btn-voltar-topo:active { background: rgba(255,255,255,.3); }
+
+  .container { padding: 16px; max-width: 500px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #5f6873; margin-bottom: 10px; }
+
+  .busca { width: 100%; padding: 12px 14px; font-size: 16px; border: 1.5px solid #ddd; border-radius: 8px; }
+  .busca:focus { outline: none; border-color: #246b84; }
+  .acoes-topo { display: flex; gap: 8px; margin-top: 10px; }
+  .modo-toggle-btn { width: 100%; padding: 10px; margin-bottom: 10px; background: #eef3f7; color: #246b84;
+                     border: 1.5px solid #cfe0e8; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .acoes-topo .modo-toggle-btn { margin-bottom: 0; }
+  .modo-toggle-btn:active { background: #dfe9ef; }
+  .contagem { font-size: 12px; color: #5f6873; margin-top: 10px; }
+
+  /* ── Kit (lista que abre e fecha) ───────────── */
+  details.kit { padding: 0; }
+  details.kit > summary { list-style: none; cursor: pointer; padding: 14px 16px; }
+  details.kit > summary::-webkit-details-marker { display: none; }
+  details.kit[open] > summary { border-bottom: 1px solid #f0f0f0; }
+  .kit-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .kit-veic { font-size: 17px; font-weight: 800; color: #222; }
+  .kit-seta { color: #6b7480; display: inline-flex; transition: transform .15s; }
+  details.kit[open] .kit-seta { transform: rotate(90deg); }
+  .kit-sub { font-size: 13px; color: #4b5560; margin-top: 3px; }
+  .kit-sub2 { font-size: 12px; color: #5f6873; margin-top: 2px; }
+  .selo { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; color: #fff; }
+  .selo.falta { background: #b42318; }
+  .selo.ok { background: #18804b; }
+  .kit-corpo { padding: 12px 16px 16px; }
+
+  /* ── Lista de itens (igual à conferência do Consultar Kit) ── */
+  .item-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; gap: 12px;
+              cursor: pointer; border-radius: 8px; transition: background .12s; user-select: none; -webkit-user-select: none; }
+  .item-row:last-child { border-bottom: none; }
+  .item-row:active { background: #f0f2f5; }
+  .item-row.checked { background: #f0fff4; }
+  .item-row.checked .item-qtd { background: #18804b !important; }
+  .item-qtd { min-width: 36px; height: 36px; background: #246b84; color: #fff; border-radius: 50%; display: flex;
+              align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; transition: background .2s; padding: 0 4px; }
+  .item-row.estado-falta .item-qtd { background: #b42318; }
+  .item-row.estado-parcial .item-qtd { background: #b45309; }
+  .item-row.estado-fora { background: #fffaf0; }
+  .item-row.estado-fora .item-qtd { background: #8a6100; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-tipo { font-size: 15px; font-weight: 600; color: #222; }
+  .item-barcodes { font-size: 11px; color: #5f6873; margin-top: 3px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-estado { font-size: 12px; font-weight: 700; margin-top: 3px; }
+  .item-estado.falta { color: #b42318; }
+  .item-estado.parcial { color: #b45309; }
+  .item-estado.completo { color: #18804b; }
+  .item-estado.fora { color: #8a6100; }
+  .item-check-icon { font-size: 22px; flex-shrink: 0; width: 28px; text-align: center; color: #18804b; transition: transform .15s; }
+  .item-row.checked .item-check-icon { transform: scale(1.15); }
+
+  .progress-wrap { margin-bottom: 12px; }
+  .progress-track { height: 6px; background: #eee; border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; background: #18804b; border-radius: 99px; transition: width .25s ease; }
+  .progress-fill.bip { background: #246b84; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: #5f6873; }
+
+  /* Modo "um item por vez" — o mesmo do Consultar Kit, dentro de cada kit. */
+  .modo-unico-contador { text-align: center; font-size: 12px; font-weight: 700; color: #5f6873; letter-spacing: .5px; margin-bottom: 8px; }
+  .lista-itens.modo-unico .item-row { display: none; }
+  .lista-itens.modo-unico .item-row.ativo { display: flex; border: 2px solid #246b84; border-radius: 12px; padding: 22px 14px; margin-bottom: 4px; }
+  .lista-itens.modo-unico .item-row.ativo.checked { border-color: #18804b; }
+  .lista-itens.modo-unico .item-tipo { font-size: 19px; }
+  .lista-itens.modo-unico .item-qtd { min-width: 48px; height: 48px; font-size: 17px; }
+  .nav-botoes { display: flex; gap: 8px; margin-top: 4px; }
+  .modo-unico-nav-btn { flex: 1; padding: 12px; background: #fff; color: #246b84; border: 1.5px solid #cfe0e8; border-radius: 8px;
+                        font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .modo-unico-nav-btn:disabled { opacity: .35; cursor: default; }
+  .aviso-leitura { font-size: 12px; color: #5f6873; text-align: center; margin: 4px 0 14px; }
+  .vazio { text-align: center; color: #5f6873; padding: 28px 16px; font-size: 14px; }
+  .footer { text-align: center; padding: 20px 16px; font-size: 11px; color: #6b7480; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/mobile" class="btn-voltar-topo">← Voltar</a>
+  <h1>Conferência manual</h1>
+  <div class="subtitulo">Kits em montagem · só conferência, nada é gravado</div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <input type="search" id="busca" class="busca" placeholder="Buscar veículo, kit ou cliente (ex.: 50038)"
+           autocomplete="off" inputmode="search">
+    <div class="acoes-topo">
+      <button type="button" class="modo-toggle-btn" onclick="abrirTodos(true)">Mostrar todos os itens</button>
+      <button type="button" class="modo-toggle-btn" onclick="abrirTodos(false)">Ocultar todos</button>
+    </div>
+    <div class="contagem" id="contagem">{{ kits | length }} kit{{ 's' if kits | length != 1 }} em montagem</div>
+  </div>
+
+  <p class="aviso-leitura">Toque num item para marcar como conferido. A marcação fica só neste celular.</p>
+
+  {% for k in kits %}
+  <details class="card kit" data-sessao="{{ k.id }}"
+           data-busca="{{ (k.veiculo ~ ' ' ~ k.kit_nome ~ ' ' ~ (k.cliente or '') ~ ' ' ~ (k.garagem or '') ~ ' ' ~ (k.operador_nome or '')) | lower }}">
+    <summary>
+      <div class="kit-cab">
+        <div style="min-width:0;">
+          <div class="kit-veic">{{ k.veiculo or k.kit_nome }}</div>
+          <div class="kit-sub">{{ k.kit_nome }}{% if k.cliente %} · {{ k.cliente }}{% endif %}</div>
+          <div class="kit-sub2">{{ k.operador_nome }} · desde {{ k.iniciado_em[8:10] }}/{{ k.iniciado_em[5:7] }} {{ k.iniciado_em[11:16] }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          {% if k.faltam %}<span class="selo falta">falta {{ k.faltam }}</span>
+          {% else %}<span class="selo ok">tudo bipado</span>{% endif %}
+          <span class="kit-seta">{{ ic.svg('seta-direita', 16) }}</span>
+        </div>
+      </div>
+      <div class="progress-wrap" style="margin:10px 0 0;">
+        <div class="progress-label"><span>Bipado</span><span>{{ k.completos }}/{{ k.total }}</span></div>
+        <div class="progress-track"><div class="progress-fill bip" style="width:{{ (k.completos / k.total * 100) if k.total else 0 }}%"></div></div>
+      </div>
+    </summary>
+
+    <div class="kit-corpo">
+      {% set conferiveis = k.itens | rejectattr('estado', 'equalto', 'fora') | list %}
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Toque nos itens para conferir</span>
+          <span class="progress-text">0/{{ conferiveis | length }}</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill conf" style="width:0%"></div></div>
+      </div>
+      {% if conferiveis | length > 1 %}
+      <button type="button" class="modo-toggle-btn btn-modo" onclick="alternarModo(this)">Ver um item por vez</button>
+      {% endif %}
+      <div class="nav-contador" hidden><div class="modo-unico-contador">1 de {{ conferiveis | length }}</div></div>
+
+      <div class="lista-itens">
+        {% for i in k.itens %}
+        <div class="item-row estado-{{ i.estado }}" data-tipo-id="{{ i.item_tipo_id }}"
+             {% if i.estado == 'fora' %}data-fora="1"{% endif %} onclick="marcar(this)">
+          <div class="item-qtd">{{ i.exigido if i.estado != 'fora' else i.bipado }}</div>
+          <div class="item-info">
+            <div class="item-tipo">{{ i.descricao }}</div>
+            {% if i.codigos %}<div class="item-barcodes">{{ i.codigos }}</div>{% endif %}
+            {% if i.estado == 'completo' %}
+            <div class="item-estado completo">bipado {{ i.bipado }} de {{ i.exigido }}{{ ' ' ~ i.unidade if i.unidade == 'm' }}</div>
+            {% elif i.estado == 'parcial' %}
+            <div class="item-estado parcial">bipado {{ i.bipado }} de {{ i.exigido }}{{ ' ' ~ i.unidade if i.unidade == 'm' }} — faltam {{ i.faltam }}</div>
+            {% elif i.estado == 'falta' %}
+            <div class="item-estado falta">ainda não bipado{{ '' if i.obrigatorio else ' (opcional)' }}</div>
+            {% else %}
+            <div class="item-estado fora">bipado, mas não faz parte do modelo</div>
+            {% endif %}
+            {% if i.conjunto %}<div style="font-size:11px;color:var(--warn-text);margin-top:3px;font-weight:600;">conjunto {{ i.conjunto }}</div>{% endif %}
+          </div>
+          <div class="item-check-icon"></div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="nav-botoes" hidden>
+        <button type="button" class="modo-unico-nav-btn btn-ant" onclick="irPara(this, -1)">{{ ic.svg('voltar', 16) }} Anterior</button>
+        <button type="button" class="modo-unico-nav-btn btn-prox" onclick="irPara(this, 1)">Próximo {{ ic.svg('seta-direita', 16) }}</button>
+      </div>
+    </div>
+  </details>
+  {% else %}
+  <div class="card vazio">Nenhum kit em montagem agora.</div>
+  {% endfor %}
+  <div class="card vazio" id="sem-resultado" hidden>Nenhum kit com essa busca.</div>
+</div>
+
+<div class="footer">Conferência de Kits · conferência manual (somente leitura)</div>
+
+<script>
+// Marcação de "conferido": só neste celular (localStorage), por sessão de
+// bipagem. Nada é enviado ao sistema — é uma conferência prévia da caixa.
+const CHECK = '{{ ic.svg("check-circulo", 20) }}';
+function _chave(kit) { return 'confman_' + kit.dataset.sessao; }
+function _ler(kit) { try { return JSON.parse(localStorage.getItem(_chave(kit))) || []; } catch (e) { return []; } }
+function _gravar(kit, ids) { try { localStorage.setItem(_chave(kit), JSON.stringify(ids)); } catch (e) {} }
+
+function _aplicar(row, marcado) {
+  row.classList.toggle('checked', marcado);
+  row.querySelector('.item-check-icon').innerHTML = marcado ? CHECK : '';
+}
+function _linhas(kit) { return [...kit.querySelectorAll('.item-row:not([data-fora])')]; }
+
+function atualizarProgresso(kit) {
+  const linhas = _linhas(kit);
+  const n = linhas.filter(r => r.classList.contains('checked')).length;
+  kit.querySelector('.progress-text').textContent = n + '/' + linhas.length;
+  kit.querySelector('.progress-fill.conf').style.width = (linhas.length ? n / linhas.length * 100 : 0) + '%';
+}
+
+function marcar(row) {
+  if (row.dataset.fora) return;
+  const kit = row.closest('details.kit');
+  const marcado = !row.classList.contains('checked');
+  _aplicar(row, marcado);
+  let ids = _ler(kit).filter(id => id !== row.dataset.tipoId);
+  if (marcado) ids.push(row.dataset.tipoId);
+  _gravar(kit, ids);
+  atualizarProgresso(kit);
+  if (kit.classList.contains('unico') && marcado) avancar(kit);
+}
+
+// ── Modo "um item por vez" (o mesmo do Consultar Kit, por kit) ────────────
+function alternarModo(btn) {
+  const kit = btn.closest('details.kit');
+  kit.classList.contains('unico') ? desativar(kit) : ativar(kit);
+}
+function ativar(kit) {
+  const linhas = _linhas(kit);
+  if (!linhas.length) return;
+  kit.classList.add('unico');
+  const pend = linhas.findIndex(r => !r.classList.contains('checked'));
+  kit.dataset.indice = pend >= 0 ? pend : 0;
+  kit.querySelector('.lista-itens').classList.add('modo-unico');
+  kit.querySelector('.nav-contador').hidden = false;
+  kit.querySelector('.nav-botoes').hidden = false;
+  kit.querySelector('.btn-modo').textContent = 'Ver lista completa';
+  exibir(kit);
+}
+function desativar(kit) {
+  kit.classList.remove('unico');
+  kit.querySelector('.lista-itens').classList.remove('modo-unico');
+  _linhas(kit).forEach(r => r.classList.remove('ativo'));
+  kit.querySelector('.nav-contador').hidden = true;
+  kit.querySelector('.nav-botoes').hidden = true;
+  const b = kit.querySelector('.btn-modo'); if (b) b.textContent = 'Ver um item por vez';
+}
+function exibir(kit) {
+  const linhas = _linhas(kit), i = +kit.dataset.indice;
+  linhas.forEach((r, j) => r.classList.toggle('ativo', j === i));
+  kit.querySelector('.modo-unico-contador').textContent = (i + 1) + ' de ' + linhas.length;
+  kit.querySelector('.btn-ant').disabled = i === 0;
+  kit.querySelector('.btn-prox').disabled = i === linhas.length - 1;
+}
+function irPara(btn, delta) {
+  const kit = btn.closest('details.kit'), n = _linhas(kit).length;
+  kit.dataset.indice = Math.max(0, Math.min(n - 1, +kit.dataset.indice + delta));
+  exibir(kit);
+}
+function avancar(kit) {
+  const linhas = _linhas(kit), i = +kit.dataset.indice;
+  for (let p = 1; p <= linhas.length; p++) {
+    const j = (i + p) % linhas.length;
+    if (!linhas[j].classList.contains('checked')) { kit.dataset.indice = j; exibir(kit); return; }
+  }
+  desativar(kit);   // conferiu tudo: volta pra lista inteira
+}
+
+// ── Mostrar / ocultar todos, busca ────────────────────────────────────────
+function abrirTodos(abrir) {
+  document.querySelectorAll('details.kit').forEach(d => { if (!d.hidden) d.open = abrir; });
+}
+document.getElementById('busca').addEventListener('input', function () {
+  const termo = this.value.trim().toLowerCase();
+  let n = 0;
+  document.querySelectorAll('details.kit').forEach(d => {
+    const casa = !termo || d.dataset.busca.includes(termo);
+    d.hidden = !casa;
+    if (casa) n++;
+  });
+  document.getElementById('sem-resultado').hidden = n > 0 || !document.querySelector('details.kit');
+  const total = document.querySelectorAll('details.kit').length;
+  document.getElementById('contagem').textContent = termo ? (n + ' de ' + total + ' kits') : (total + ' kit' + (total === 1 ? '' : 's') + ' em montagem');
+  // Busca que deixa um kit só: já abre a lista dele.
+  const visiveis = [...document.querySelectorAll('details.kit')].filter(d => !d.hidden);
+  if (termo && visiveis.length === 1) visiveis[0].open = true;
+});
+
+// Marcações guardadas deste celular.
+document.querySelectorAll('details.kit').forEach(kit => {
+  const ids = _ler(kit);
+  _linhas(kit).forEach(r => _aplicar(r, ids.includes(r.dataset.tipoId)));
+  atualizarProgresso(kit);
+});
+</script>
+</body>
+</html>
