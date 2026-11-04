@@ -207,6 +207,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "hardware_responsavel_opcao" not in tabelas
         or "hardware_importacao" not in tabelas
         or "regiao" not in colunas_veiculos
+        or "pre_conferencia" not in tabelas
     )
     if not pendente:
         return None
@@ -900,6 +901,23 @@ def init_db():
             -- (que exige kit_id NOT NULL referenciando um kit ja finalizado)
             -- pra nao precisar reconstruir aquela tabela. As duas aparecem
             -- juntas na tela de Fila de Impressao.
+            -- Pré-conferência (Conferência manual do celular): os itens que
+            -- alguém conferiu na caixa ENQUANTO o kit ainda estava em
+            -- montagem. Não marca nada na conferência oficial sozinha: quando
+            -- o kit fica pronto, a tela de conferência pergunta se aplica
+            -- (decisao = 'aplicada') ou segue normal (decisao = 'ignorada').
+            -- Uma por bipagem; registrar de novo substitui a anterior.
+            CREATE TABLE IF NOT EXISTS pre_conferencia (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                sessao_id      INTEGER NOT NULL UNIQUE REFERENCES scan_session(id),
+                item_tipo_ids  TEXT NOT NULL,
+                usuario_id     INTEGER REFERENCES users(id),
+                registrado_em  TEXT NOT NULL,
+                decisao        TEXT,
+                decidido_por   INTEGER REFERENCES users(id),
+                decidido_em    TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS print_queue_pausa (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
                 sessao_id      INTEGER NOT NULL REFERENCES scan_session(id),

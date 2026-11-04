@@ -2988,6 +2988,24 @@ async def mobile_conferencia(request: Request):
     })
 
 
+@app.post("/mobile/conferencia/{sessao_id}/registrar")
+@require_login
+async def mobile_conferencia_registrar(request: Request, sessao_id: int):
+    """Grava a pré-conferência: só a lista dos itens marcados no celular. Não
+    mexe na bipagem nem na conferência oficial — quando o kit ficar pronto, a
+    conferência dele pergunta se aplica."""
+    form = await request.form()
+    user = get_current_user(request)
+    try:
+        r = conferencia_manual_mod.registrar(sessao_id, form.getlist("item_tipo_id"),
+                                             user["id"] if user else None)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "erro": str(e)}, status_code=400)
+    request.state.auditoria_detalhe = f"Pré-conferência registrada: {r['itens']} item(ns) (sessão {sessao_id})"
+    return JSONResponse({"ok": True, **r, "registrado_em": now_brt()[:16],
+                         "usuario": (user or {}).get("nome", "")})
+
+
 # ── Mobile Hub (público) ──────────────────────────────────────────────────────
 
 @app.get("/mobile", response_class=HTMLResponse)
@@ -3177,6 +3195,9 @@ async def kit_detail(request: Request, kit_id: str):
         "operadores_kit": operadores_kit,
         "conferidos": conferidos,
         "grupos": grupos,
+        # Pré-conferência feita no celular enquanto o kit estava em montagem e
+        # que ainda espera a decisão (aplicar ou seguir normal).
+        "pre_conferencia": conferencia_manual_mod.pendente_do_kit(kit_id) if _u else None,
     })
 
 
@@ -3249,6 +3270,23 @@ async def kit_conferir_item(request: Request, kit_id: str):
     afetados = validacoes_mod.conferir_item(
         kit_id, kit["kit_template_id"], kit["sessao_id"], item_tipo_id, user["id"])
     return JSONResponse({"ok": True, "item_tipo_ids": afetados})
+
+
+@app.post("/kit/{kit_id}/pre-conferencia")
+@require_login
+async def kit_pre_conferencia(request: Request, kit_id: str):
+    """Decisão sobre a pré-conferência feita no celular: aplicar (marca como
+    conferidos os itens pré-conferidos — o que faltou continua pendente) ou
+    seguir sem aplicar."""
+    form = await request.form()
+    user = get_current_user(request)
+    aplicar = str(form.get("acao", "")) == "aplicar"
+    n = conferencia_manual_mod.decidir(kit_id, aplicar, user["id"] if user else None)
+    request.state.auditoria_detalhe = (f"Pré-conferência {'aplicada' if aplicar else 'ignorada'}"
+                                       f" no kit {kit_id}" + (f": {n} item(ns)" if aplicar else ""))
+    msg = (f"Pré-conferência aplicada: {n} item(ns) marcado(s) como conferido(s). Confira o que faltou."
+           if aplicar else "Pré-conferência deixada de lado — a conferência segue normal.")
+    return RedirectResponse(f"/kit/{kit_id}?ok=" + quote(msg), status_code=302)
 
 
 @app.post("/kit/{kit_id}/desfazer-item")

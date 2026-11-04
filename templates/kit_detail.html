@@ -531,6 +531,34 @@
     </div>
   </div>
 
+  {# Pré-conferência (Conferência manual do celular): os itens foram conferidos
+     na caixa enquanto o kit ainda estava em montagem. Só aparece quando há uma
+     esperando decisão; aplicar marca esses itens — o que não foi pré-conferido
+     (a peça que faltava) continua pendente pra conferir aqui. #}
+  {% if pre_conferencia and itens %}
+  {% set pre_ids = pre_conferencia.item_tipo_ids %}
+  {% set nao_pre = itens | rejectattr('fora_do_template') | rejectattr('item_tipo_id', 'in', pre_ids) | list %}
+  <div class="card" style="border:1.5px solid #246b84;background:#eef5f8;">
+    <div class="card-title" style="color:#246b84;">Pré-conferência encontrada</div>
+    <p style="font-size:14px;line-height:1.45;color:#222;margin-bottom:8px;">
+      <strong>{{ pre_ids | length }} item(ns)</strong> já foram pré-conferidos na caixa
+      {%- if pre_conferencia.usuario_nome %} por <strong>{{ pre_conferencia.usuario_nome }}</strong>{% endif %}
+      em {{ pre_conferencia.registrado_em[8:10] }}/{{ pre_conferencia.registrado_em[5:7] }} às {{ pre_conferencia.registrado_em[11:16] }},
+      enquanto o kit estava em montagem.
+    </p>
+    {% if nao_pre %}
+    <p style="font-size:13px;color:#b42318;font-weight:600;margin-bottom:10px;">
+      Não pré-conferido{{ 's' if nao_pre | length > 1 }} (confira aqui): {{ nao_pre | map(attribute='tipo_nome') | join(', ') }}
+    </p>
+    {% endif %}
+    <p style="font-size:13px;color:#4b5560;margin-bottom:12px;">Deseja aplicar? Os itens pré-conferidos ficam marcados e você confere só o restante.</p>
+    <form method="post" action="/kit/{{ kit.kit_id }}/pre-conferencia" style="display:flex;gap:8px;">
+      <button type="submit" name="acao" value="aplicar" class="val-btn" style="flex:1;padding:12px;font-size:15px;">Aplicar pré-conferência</button>
+      <button type="submit" name="acao" value="ignorar" class="modo-toggle-btn" style="flex:1;margin:0;">Seguir sem aplicar</button>
+    </form>
+  </div>
+  {% endif %}
+
   <!-- Composição do kit -->
   <div class="card">
     <div class="card-title">Composição do Kit ({{ itens | length }} tipo{{ 's' if itens | length != 1 else '' }})</div>

@@ -2,12 +2,13 @@
 a caixa antes de o kit fechar — o caso de quem montou 90% e espera uma peça
 chegar.
 
-SÓ LEITURA. Nada aqui grava: a marcação de "conferi" é do celular de quem
-está olhando (fica no navegador), e o kit continua seguindo pela bipagem
-normal. A régua do que falta é a MESMA da finalização da bipagem
+A marcação de "conferi" fica no celular de quem está olhando; o único registro
+no sistema é a PRÉ-CONFERÊNCIA (botão no fim do kit), que guarda só a lista dos
+itens marcados. Nada mexe na bipagem: o kit continua pela bipagem normal. A régua do que falta é a MESMA da finalização da bipagem
 (sessions.validate_kit_complete): itens do modelo × o que já foi bipado.
 """
-from database import db
+from database import db, now_brt
+from app.validacoes import _verifica_em_conjunto
 
 
 def listar() -> list[dict]:
@@ -93,6 +94,24 @@ def listar() -> list[dict]:
                     "obrigatorio": False, "conjunto": "", "codigos": b["codigos"] or "",
                     "estado": "fora",
                 })
+        # Conjunto: a MESMA regra da verificação original (validacoes) — tocar
+        # num item marca junto os outros do mesmo conjunto que JÁ estão no kit
+        # (bipados), a menos que o conjunto esteja marcado pra conferir item a
+        # item. Peça do conjunto que ainda não chegou fica de fora: continua
+        # pendente, que é o ponto da pré-conferência.
+        por_codigo: dict = {}
+        for i in itens:
+            if i["conjunto"] and i["estado"] in ("completo", "parcial"):
+                por_codigo.setdefault(i["conjunto"], []).append(i)
+        for codigo, membros in por_codigo.items():
+            junto = len(membros) >= 2 and _verifica_em_conjunto(s["kit_template_id"], codigo)
+            for i in membros:
+                if junto:
+                    i["grupo"] = codigo
+                    i["junto_com"] = [o["descricao"] for o in membros if o is not i]
+        for i in itens:
+            i.setdefault("grupo", "")
+            i.setdefault("junto_com", [])
         # O que falta primeiro: é atrás disso que quem abre esta tela está.
         ordem = {"falta": 0, "parcial": 1, "completo": 2, "fora": 3}
         itens.sort(key=lambda i: ordem[i["estado"]])
@@ -100,6 +119,11 @@ def listar() -> list[dict]:
         s["faltam"] = faltam
         s["total"] = sum(1 for i in itens if i["estado"] != "fora")
         s["completos"] = sum(1 for i in itens if i["estado"] == "completo")
+    # Pré-conferência já registrada (se houver): a tela mostra quando/quem e
+    # já começa com esses itens marcados.
+    registradas = da_sessao([s["id"] for s in sessoes])
+    for s in sessoes:
+        s["pre"] = registradas.get(s["id"])
     return sessoes
 
 
@@ -110,3 +134,96 @@ def _num(v):
     except (TypeError, ValueError):
         return v
     return int(f) if f == int(f) else round(f, 2)
+
+
+# ── Pré-conferência registrada no sistema ────────────────────────────────────
+# A conferência manual continua só no celular até alguém tocar em "Registrar
+# pré-conferência". Aí vai pro banco SÓ a lista dos itens marcados — nada na
+# bipagem, nada na conferência oficial. Quando o kit fica pronto, a tela de
+# conferência dele pergunta se aplica: sim marca esses itens como conferidos
+# (o que não foi pré-conferido, como a peça que faltava, continua pendente);
+# não segue a conferência normal.
+
+def registrar(sessao_id: int, item_tipo_ids: list, user_id: int | None) -> dict:
+    """Grava (ou substitui) a pré-conferência de uma bipagem em andamento.
+    Só entram itens do modelo daquele kit."""
+    import json
+    with db() as conn:
+        s = conn.execute("SELECT kit_template_id, status FROM scan_session WHERE id = ?",
+                         (sessao_id,)).fetchone()
+        if not s:
+            raise ValueError("Kit não encontrado.")
+        if s["status"] != "em_andamento":
+            raise ValueError("Este kit não está mais em montagem.")
+        do_modelo = {r[0] for r in conn.execute(
+            "SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ?",
+            (s["kit_template_id"],)).fetchall()}
+        ids = sorted({int(i) for i in item_tipo_ids if str(i).isdigit() and int(i) in do_modelo})
+        conn.execute(
+            "INSERT INTO pre_conferencia (sessao_id, item_tipo_ids, usuario_id, registrado_em) "
+            "VALUES (?, ?, ?, ?) ON CONFLICT(sessao_id) DO UPDATE SET "
+            "item_tipo_ids = excluded.item_tipo_ids, usuario_id = excluded.usuario_id, "
+            "registrado_em = excluded.registrado_em, decisao = NULL, decidido_por = NULL, decidido_em = NULL",
+            (sessao_id, json.dumps(ids), user_id, now_brt()))
+    return {"itens": len(ids), "item_tipo_ids": ids}
+
+
+def da_sessao(sessao_ids: list) -> dict:
+    """{sessao_id: {item_tipo_ids, registrado_em, usuario_nome, decisao}}."""
+    import json
+    if not sessao_ids:
+        return {}
+    marcas = ",".join("?" * len(sessao_ids))
+    with db() as conn:
+        rows = conn.execute(
+            f"SELECT p.*, u.nome AS usuario_nome FROM pre_conferencia p "
+            f"LEFT JOIN users u ON u.id = p.usuario_id WHERE p.sessao_id IN ({marcas})",
+            list(sessao_ids)).fetchall()
+    saida = {}
+    for r in rows:
+        d = dict(r)
+        d["item_tipo_ids"] = json.loads(d["item_tipo_ids"] or "[]")
+        saida[d["sessao_id"]] = d
+    return saida
+
+
+def pendente_do_kit(kit_id: str) -> dict | None:
+    """A pré-conferência do kit pronto que ainda espera a decisão (aplicar ou não)."""
+    with db() as conn:
+        k = conn.execute("SELECT sessao_id FROM kit_record WHERE kit_id = ?", (kit_id,)).fetchone()
+    if not k:
+        return None
+    p = da_sessao([k["sessao_id"]]).get(k["sessao_id"])
+    return p if p and not p["decisao"] else None
+
+
+def decidir(kit_id: str, aplicar: bool, user_id: int | None) -> int:
+    """Aplica (marca como conferidos os itens pré-conferidos que o kit tem) ou
+    ignora. Devolve quantos itens foram marcados.
+
+    Marca item a item, SEM puxar o conjunto junto (o toque na tela puxa): a
+    peça que faltou na pré-conferência tem que continuar pendente mesmo se for
+    do mesmo conjunto de uma que foi pré-conferida."""
+    p = pendente_do_kit(kit_id)
+    if not p:
+        return 0
+    marcados = 0
+    with db() as conn:
+        k = conn.execute("SELECT kit_template_id, sessao_id FROM kit_record WHERE kit_id = ?",
+                         (kit_id,)).fetchone()
+        exigidos = {r[0] for r in conn.execute(
+            "SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ?",
+            (k["kit_template_id"],)).fetchall()}
+        if aplicar:
+            agora = now_brt()
+            for tid in p["item_tipo_ids"]:
+                if tid in exigidos:
+                    cur = conn.execute(
+                        "INSERT OR IGNORE INTO kit_verificacao_itens "
+                        "(kit_id, item_tipo_id, conferido_por, conferido_em) VALUES (?, ?, ?, ?)",
+                        (kit_id, tid, user_id, agora))
+                    marcados += cur.rowcount
+        conn.execute("UPDATE pre_conferencia SET decisao = ?, decidido_por = ?, decidido_em = ? "
+                     "WHERE sessao_id = ?",
+                     ("aplicada" if aplicar else "ignorada", user_id, now_brt(), k["sessao_id"]))
+    return marcados

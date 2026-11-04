@@ -98,6 +98,14 @@
   .vazio { text-align: center; color: #5f6873; padding: 28px 16px; font-size: 14px; }
   .footer { text-align: center; padding: 20px 16px; font-size: 11px; color: #6b7480; }
   [hidden] { display: none !important; }
+  .registro { margin-top: 16px; padding-top: 14px; border-top: 1px dashed #d5dce2; }
+  .registro-status { font-size: 12px; font-weight: 700; color: #246b84; margin-bottom: 8px; }
+  .registro-status.erro { color: #b42318; }
+  .registro-ajuda { font-size: 12px; color: #5f6873; margin-top: 8px; line-height: 1.4; }
+  .val-btn { width: 100%; padding: 14px; background: #18804b; color: #fff; border: none; border-radius: 10px;
+             font-size: 15px; font-weight: 700; cursor: pointer; }
+  .val-btn:active { background: #136339; }
+  .val-btn:disabled { opacity: .6; }
 </style>
 </head>
 <body>
@@ -105,7 +113,7 @@
 <div class="header">
   <a href="/mobile" class="btn-voltar-topo">← Voltar</a>
   <h1>Conferência manual</h1>
-  <div class="subtitulo">Kits em montagem · só conferência, nada é gravado</div>
+  <div class="subtitulo">Kits em montagem · conferência prévia da caixa</div>
 </div>
 
 <div class="container">
@@ -119,10 +127,10 @@
     <div class="contagem" id="contagem">{{ kits | length }} kit{{ 's' if kits | length != 1 }} em montagem</div>
   </div>
 
-  <p class="aviso-leitura">Toque num item para marcar como conferido. A marcação fica só neste celular.</p>
+  <p class="aviso-leitura">Toque num item para marcar como conferido. No fim do kit, registre a pré-conferência no sistema.</p>
 
   {% for k in kits %}
-  <details class="card kit" data-sessao="{{ k.id }}"
+  <details class="card kit" data-sessao="{{ k.id }}" data-pre="{{ (k.pre.item_tipo_ids | join(',')) if k.pre else '' }}"
            data-busca="{{ (k.veiculo ~ ' ' ~ k.kit_nome ~ ' ' ~ (k.cliente or '') ~ ' ' ~ (k.garagem or '') ~ ' ' ~ (k.operador_nome or '')) | lower }}">
     <summary>
       <div class="kit-cab">
@@ -160,7 +168,7 @@
       <div class="lista-itens">
         {% for i in k.itens %}
         <div class="item-row estado-{{ i.estado }}" data-tipo-id="{{ i.item_tipo_id }}"
-             {% if i.estado == 'fora' %}data-fora="1"{% endif %} onclick="marcar(this)">
+             {% if i.estado == 'fora' %}data-fora="1"{% endif %}{% if i.grupo %} data-grupo="{{ i.grupo }}"{% endif %} onclick="marcar(this)">
           <div class="item-qtd">{{ i.exigido if i.estado != 'fora' else i.bipado }}</div>
           <div class="item-info">
             <div class="item-tipo">{{ i.descricao }}</div>
@@ -174,7 +182,8 @@
             {% else %}
             <div class="item-estado fora">bipado, mas não faz parte do modelo</div>
             {% endif %}
-            {% if i.conjunto %}<div style="font-size:11px;color:var(--warn-text);margin-top:3px;font-weight:600;">conjunto {{ i.conjunto }}</div>{% endif %}
+            {% if i.junto_com %}<div style="font-size:11px;color:var(--warn-text);margin-top:3px;font-weight:600;">conjunto — confere junto com {{ i.junto_com | join(', ') }}</div>
+            {% elif i.conjunto %}<div style="font-size:11px;color:var(--warn-text);margin-top:3px;font-weight:600;">conjunto {{ i.conjunto }}</div>{% endif %}
           </div>
           <div class="item-check-icon"></div>
         </div>
@@ -185,6 +194,18 @@
         <button type="button" class="modo-unico-nav-btn btn-ant" onclick="irPara(this, -1)">{{ ic.svg('voltar', 16) }} Anterior</button>
         <button type="button" class="modo-unico-nav-btn btn-prox" onclick="irPara(this, 1)">Próximo {{ ic.svg('seta-direita', 16) }}</button>
       </div>
+
+      {# Registrar no sistema: só a lista do que foi marcado. Quando o kit ficar
+         pronto, a conferência dele pergunta se aplica esses itens. #}
+      <div class="registro">
+        <div class="registro-status">
+          {% if k.pre %}Registrada por {{ k.pre.usuario_nome or '—' }} em {{ k.pre.registrado_em[8:10] }}/{{ k.pre.registrado_em[5:7] }} {{ k.pre.registrado_em[11:16] }}
+          ({{ k.pre.item_tipo_ids | length }} itens).{% else %}Ainda não registrada no sistema.{% endif %}
+        </div>
+        <button type="button" class="val-btn" onclick="registrar(this)">Registrar pré-conferência no sistema</button>
+        <div class="registro-ajuda">Grava só quais itens você conferiu. Quando o kit ficar pronto, a conferência dele
+          pergunta se aplica — o que não foi marcado aqui continua pendente.</div>
+      </div>
     </div>
   </details>
   {% else %}
@@ -193,7 +214,7 @@
   <div class="card vazio" id="sem-resultado" hidden>Nenhum kit com essa busca.</div>
 </div>
 
-<div class="footer">Conferência de Kits · conferência manual (somente leitura)</div>
+<div class="footer">Conferência de Kits · conferência manual</div>
 
 <script>
 // Marcação de "conferido": só neste celular (localStorage), por sessão de
@@ -220,9 +241,15 @@ function marcar(row) {
   if (row.dataset.fora) return;
   const kit = row.closest('details.kit');
   const marcado = !row.classList.contains('checked');
-  _aplicar(row, marcado);
-  let ids = _ler(kit).filter(id => id !== row.dataset.tipoId);
-  if (marcado) ids.push(row.dataset.tipoId);
+  // Conjunto: marca/desmarca todos do mesmo conjunto juntos, como na
+  // verificação original (data-grupo só existe quando a regra vale).
+  const alvo = row.dataset.grupo
+    ? _linhas(kit).filter(r => r.dataset.grupo === row.dataset.grupo)
+    : [row];
+  const tocados = alvo.map(r => r.dataset.tipoId);
+  alvo.forEach(r => _aplicar(r, marcado));
+  let ids = _ler(kit).filter(id => !tocados.includes(id));
+  if (marcado) ids.push(...tocados);
   _gravar(kit, ids);
   atualizarProgresso(kit);
   if (kit.classList.contains('unico') && marcado) avancar(kit);
@@ -294,9 +321,34 @@ document.getElementById('busca').addEventListener('input', function () {
   if (termo && visiveis.length === 1) visiveis[0].open = true;
 });
 
-// Marcações guardadas deste celular.
+// Registra no sistema só a lista dos itens marcados neste kit.
+async function registrar(btn) {
+  const kit = btn.closest('details.kit');
+  const status = kit.querySelector('.registro-status');
+  const ids = _linhas(kit).filter(r => r.classList.contains('checked')).map(r => r.dataset.tipoId);
+  const corpo = new URLSearchParams();
+  ids.forEach(id => corpo.append('item_tipo_id', id));
+  btn.disabled = true;
+  status.classList.remove('erro');
+  try {
+    const r = await fetch('/mobile/conferencia/' + kit.dataset.sessao + '/registrar', {method: 'POST', body: corpo});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.erro || 'Não foi possível registrar.');
+    const faltam = _linhas(kit).length - j.itens;
+    status.textContent = 'Registrada agora: ' + j.itens + ' itens pré-conferidos' +
+      (faltam > 0 ? ' (' + faltam + ' ficam pendentes pra conferir no kit pronto).' : '.');
+  } catch (e) {
+    status.classList.add('erro');
+    status.textContent = e.message || 'Sem conexão — tente de novo.';
+  }
+  btn.disabled = false;
+}
+
+// Marcações: as deste celular; sem nenhuma, começa com a pré-conferência já
+// registrada (feita em outro celular, por exemplo).
 document.querySelectorAll('details.kit').forEach(kit => {
-  const ids = _ler(kit);
+  let ids = _ler(kit);
+  if (!ids.length && kit.dataset.pre) ids = kit.dataset.pre.split(',');
   _linhas(kit).forEach(r => _aplicar(r, ids.includes(r.dataset.tipoId)));
   atualizarProgresso(kit);
 });

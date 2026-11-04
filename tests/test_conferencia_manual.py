@@ -83,3 +83,83 @@ def test_tela_no_celular_nao_grava_nada(kit):
     finally:
         with db() as conn:
             conn.execute("DELETE FROM users WHERE username = ?", (nome,))
+
+
+def _finalizar(sid, kit_id):
+    with db() as conn:
+        s = conn.execute("SELECT * FROM scan_session WHERE id = ?", (sid,)).fetchone()
+        conn.execute("UPDATE scan_session SET status = 'finalizado' WHERE id = ?", (sid,))
+        conn.execute("INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, kit_template_versao, operador_id, "
+                     "veiculo_id, veiculo, finalizado_em) VALUES (?, ?, ?, 1, ?, ?, '', '2026-11-04 12:00:00')",
+                     (kit_id, sid, s["kit_template_id"], s["operador_id"], s["veiculo_id"]))
+
+
+def _conferidos(kit_id):
+    with db() as conn:
+        return {r[0] for r in conn.execute("SELECT item_tipo_id FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))}
+
+
+@pytest.mark.parametrize("acao", ["aplicar", "ignorar"])
+def test_pre_conferencia_registrada_e_aplicada_no_kit_pronto(kit, acao):
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    nome, kit_id = f"op_pc_{kit['s']}_{acao[:2]}", f"KPC-{kit['s']}-{acao[:2]}"
+    usuarios.criar("Op PC", nome, "Teste#PreConf26", False)
+    k = next(x for x in conf.listar() if x["id"] == kit["sid"])
+    ids = {i["descricao"].split()[0]: i["item_tipo_id"] for i in k["itens"]}
+    try:
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#PreConf26"})
+            # Celular: pré-confere Antena e Cabo; o Display (que falta) fica de fora.
+            # O Parafuso (fora do modelo) é ignorado mesmo se vier na lista.
+            r = c.post(f"/mobile/conferencia/{kit['sid']}/registrar",
+                       data={"item_tipo_id": [ids["Antena"], ids["Cabo"], ids["Parafuso"]]})
+            assert r.json()["ok"] and r.json()["itens"] == 2
+            assert _conferidos(kit_id) == set()                       # nada na conferência oficial
+            # A peça que faltava chega e é bipada; aí o kit fecha.
+            with db() as conn:
+                conn.execute("INSERT INTO scan_session_items (sessao_id, codigo_barra, item_tipo_id, status, bipado_em, quantidade) "
+                             "VALUES (?, ?, ?, 'completo', '2026-11-04 11:00:00', 1)", (kit["sid"], f"DSP-{kit['s']}", ids["Display"]))
+            _finalizar(kit["sid"], kit_id)
+            h = c.get(f"/kit/{kit_id}").text
+            assert "Pré-conferência encontrada" in h and "Display" in h.split("Não pré-conferido")[1][:200]
+            c.post(f"/kit/{kit_id}/pre-conferencia", data={"acao": acao})
+            if acao == "aplicar":
+                assert _conferidos(kit_id) == {ids["Antena"], ids["Cabo"]}   # Display segue pendente
+            else:
+                assert _conferidos(kit_id) == set()
+            assert "Pré-conferência encontrada" not in c.get(f"/kit/{kit_id}").text   # decidido, some
+            # Kit que não está mais em montagem não aceita nova pré-conferência.
+            assert c.post(f"/mobile/conferencia/{kit['sid']}/registrar",
+                          data={"item_tipo_id": [ids["Antena"]]}).status_code == 400
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM kit_itens_exigidos WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM pre_conferencia WHERE sessao_id = ?", (kit["sid"],))
+            conn.execute("DELETE FROM users WHERE username = ?", (nome,))
+
+
+def test_conjunto_marca_junto_como_na_verificacao(kit):
+    """Antena e Cabo no mesmo conjunto (os dois já bipados) andam juntos; o
+    Display, do mesmo conjunto mas ainda não bipado, fica de fora. Com o
+    conjunto marcado pra conferir item a item, ninguém anda junto."""
+    with db() as conn:
+        tid = conn.execute("SELECT kit_template_id FROM scan_session WHERE id = ?", (kit["sid"],)).fetchone()[0]
+        conn.execute("UPDATE kit_template_items SET componente_codigo = 'CJ1' WHERE kit_template_id = ?", (tid,))
+    k = next(x for x in conf.listar() if x["id"] == kit["sid"])
+    g = {i["descricao"].split()[0]: i for i in k["itens"]}
+    assert g["Antena"]["grupo"] == g["Cabo"]["grupo"] == "CJ1"
+    assert g["Antena"]["junto_com"] == [g["Cabo"]["descricao"]]
+    assert g["Display"]["grupo"] == ""                        # não chegou: segue sozinho e pendente
+    with db() as conn:
+        conn.execute("INSERT INTO kit_template_conjuntos (kit_template_id, componente_codigo, verifica_em_conjunto) "
+                     "VALUES (?, 'CJ1', 0)", (tid,))
+    try:
+        k = next(x for x in conf.listar() if x["id"] == kit["sid"])
+        assert all(i["grupo"] == "" for i in k["itens"])
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM kit_template_conjuntos WHERE kit_template_id = ?", (tid,))
