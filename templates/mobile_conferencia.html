@@ -19,7 +19,7 @@
   .header { background: #246b84; color: #fff; padding: 18px 20px 14px; position: sticky; top: 0; z-index: 10;
             box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .header h1 { font-size: 18px; font-weight: 800; line-height: 1.2; }
-  .header .subtitulo { font-size: 13px; opacity: .8; margin-top: 4px; }
+  .header .subtitulo { font-size: 13px; color: #fff; margin-top: 4px; }
   .btn-voltar-topo { display: inline-block; background: rgba(255,255,255,.15); color: #fff; text-decoration: none;
                      font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; margin-bottom: 10px; }
   .btn-voltar-topo:active { background: rgba(255,255,255,.3); }
@@ -79,7 +79,7 @@
 
   .progress-wrap { margin-bottom: 12px; }
   .progress-track { height: 6px; background: #eee; border-radius: 99px; overflow: hidden; margin-top: 6px; }
-  .progress-fill { height: 100%; background: #18804b; border-radius: 99px; transition: width .25s ease; }
+  .progress-fill { height: 100%; width: 100%; background: #18804b; border-radius: 99px; transform-origin: left; transform: scaleX(0); transition: transform .25s ease; }
   .progress-fill.bip { background: #246b84; }
   .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: #5f6873; }
 
@@ -139,7 +139,7 @@
       </div>
       <div class="progress-wrap" style="margin:10px 0 0;">
         <div class="progress-label"><span>Bipado</span><span>{{ k.completos }}/{{ k.total }}</span></div>
-        <div class="progress-track"><div class="progress-fill bip" style="width:{{ (k.completos / k.total * 100) if k.total else 0 }}%"></div></div>
+        <div class="progress-track"><div class="progress-fill bip" style="transform:scaleX({{ (k.completos / k.total) if k.total else 0 }})"></div></div>
       </div>
     </summary>
 
@@ -150,7 +150,7 @@
           <span>Toque nos itens para conferir</span>
           <span class="progress-text">0/{{ conferiveis | length }}</span>
         </div>
-        <div class="progress-track"><div class="progress-fill conf" style="width:0%"></div></div>
+        <div class="progress-track"><div class="progress-fill conf"></div></div>
       </div>
       {% if conferiveis | length > 1 %}
       <button type="button" class="modo-toggle-btn btn-modo" onclick="alternarModo(this)">Ver um item por vez</button>
@@ -213,7 +213,7 @@ function atualizarProgresso(kit) {
   const linhas = _linhas(kit);
   const n = linhas.filter(r => r.classList.contains('checked')).length;
   kit.querySelector('.progress-text').textContent = n + '/' + linhas.length;
-  kit.querySelector('.progress-fill.conf').style.width = (linhas.length ? n / linhas.length * 100 : 0) + '%';
+  kit.querySelector('.progress-fill.conf').style.transform = 'scaleX(' + (linhas.length ? n / linhas.length : 0) + ')';
 }
 
 function marcar(row) {
