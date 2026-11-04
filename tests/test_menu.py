@@ -29,6 +29,9 @@ def test_permissoes():
     rotulos = [i["rotulo"] for g in sem_editar for i in g["itens"]]
     assert "Ajustar estoque por planilha" not in rotulos and "Importar veículos" in rotulos
     assert "Auditoria" not in rotulos and "Padrão visual" not in rotulos     # só admin
+    assert "Usuários" not in rotulos
+    assert "Usuários" in [i["rotulo"] for g in menu.montar("/", "", {"admin": True}, lambda k: True) for i in g["itens"]]
+    assert _ativos("/admin/usuarios") == ["Usuários"]
     assert menu.montar("/", "", None, lambda k: True) == []
 
 

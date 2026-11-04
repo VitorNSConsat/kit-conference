@@ -42,8 +42,10 @@
 </p>
 <p class="nota">
   <strong>Menu lateral:</strong> tudo fica centralizado nele, organizado por assunto. Os grupos
-  abrem e fecham clicando no título; o que você fecha fica fechado neste navegador, e o grupo da
-  tela aberta sempre aparece aberto. Cada atalho só aparece pra quem tem acesso à tela de destino.
+  abrem e fecham clicando no título; o que você fecha <strong>continua fechado</strong> de uma tela
+  pra outra (neste navegador) até você reabrir — o grupo da tela aberta fica com o título destacado.
+  Ao clicar num atalho, o menu <strong>fica na mesma altura</strong> em vez de voltar pro topo.
+  Cada atalho só aparece pra quem tem acesso à tela de destino.
 </p>
 <ul>
   <li><strong>Produção</strong> — Bipagem, Fila de impressão, Acompanhar produção, Remessas e o
@@ -61,7 +63,7 @@
     histórico da produção) e o certificado do celular.</li>
   <li><strong>Relatórios</strong> — todos os relatórios, o histórico da produção e a auditoria
     (admin).</li>
-  <li><strong>Sistema</strong> — Manual do sistema, Rede e acesso, Backup e Padrão visual.</li>
+  <li><strong>Sistema</strong> — Manual do sistema, Usuários (só administrador: usuários, permissões e tempo de inatividade), Rede e acesso, Backup e Padrão visual.</li>
 </ul>
 <p>
   As telas não repetem esses botões no topo; continuam nelas só as ações da própria tela e o
@@ -425,8 +427,11 @@
     cadastro mudou. Célula em branco = <strong>não mexe</strong> naquele campo.
   </div>
 
-  <h3>Novo Item</h3>
-  <p>Cadastra o tipo de item. As marcações mudam o comportamento na bipagem:</p>
+  <h3>Novo item</h3>
+  <p>O botão <strong>Novo item</strong>, no topo de Itens &amp; Estoque (ou o menu → Cadastrar item),
+    abre uma <strong>janela</strong> por cima da tela — não é mais uma aba. Nela ficam o cadastro do
+    tipo (com código e quantidade, se houver) e, embaixo, <em>Cadastrar vários de uma vez pela
+    planilha (BOM)</em>. Cadastra o tipo de item. As marcações mudam o comportamento na bipagem:</p>
   <ul>
     <li><span class="campo">Item de Patrimônio</span> — cada unidade é rastreada individualmente.</li>
     <li><span class="campo">Requer serial</span> — depois do patrimônio, exige o número de série.</li>
@@ -733,8 +738,12 @@
       <strong>período</strong>, contagem e paginação. <strong>Clicar no pacote</strong> (SOB-0007) abre a
       janela com o que tem dentro e o histórico (quando foi criado, por quem e cada vez que a etiqueta foi
       gerada). Marque <strong>um ou mais pacotes</strong> e use <strong>Imprimir etiquetas
-      selecionadas</strong> (uma por folha; ou o ícone da impressora na linha para um só). O formulário
-      <strong>Montar novo pacote</strong> fica no topo, com a escolha do cliente. Abaixo, recolhida, a
+      selecionadas</strong> (uma por folha; ou o ícone da impressora na linha para um só).
+      <strong>Montar novo pacote</strong> abre uma <strong>janela</strong>: cliente e nome em cima; à
+      esquerda os itens do estoque, com <strong>busca</strong> por nome ou código e filtros
+      (<em>Todos, Com saldo, Abaixo do mínimo, Zerados, No pacote</em>); à direita o pacote. Clicar no
+      item já coloca no pacote — clicar de novo soma mais uma — e cada linha tem quantidade (− / +),
+      observação e ✕ pra tirar. Quantidade acima do estoque fica em vermelho. Abaixo, recolhida, a
       tabela de <strong>baixas de estoque por item</strong>, com a coluna Pacote (inclui envios anteriores
       aos pacotes).</li>
   </ul>
@@ -773,10 +782,17 @@
   </ul>
   <h3>Criar um kit novo</h3>
   <p>
-    Na aba <strong>Kit</strong>, o card <strong>Novo Kit</strong> fica no topo: nome, cliente(s) e
-    a escolha entre <em>Montar manualmente</em> (escolhe no catálogo, com quantidade e conjunto) ou
-    <em>Importar planilha (BOM)</em> (.xlsx com Description e Quantity). Aparece só o que vale
-    para a escolha — o catálogo ou o envio do arquivo. A lista de kits cadastrados vem logo abaixo.
+    Na aba <strong>Kit</strong>, o card <strong>Novo Kit</strong> fica no topo e vai aparecendo
+    conforme você preenche: o <strong>nome</strong>; com o nome, os <strong>cliente(s)</strong>; com um
+    cliente marcado, a escolha entre <em>Montar manualmente</em> (escolhe no catálogo, com quantidade e
+    conjunto) ou <em>Importar planilha (BOM)</em> (.xlsx com Description e Quantity). Aparece só o que
+    vale para a escolha — o catálogo ou o envio do arquivo. A lista de kits cadastrados vem logo abaixo.
+  </p>
+  <p>
+    Na aba <strong>Pedido</strong>, o card <strong>Novo Pedido</strong> segue o mesmo jeito:
+    <strong>cliente(s)</strong>; com um cliente marcado, <em>Montar manualmente</em> (nome do pedido e
+    itens do catálogo) ou <em>Importar planilha do pedido</em> (ICCID, Número de Telefone, CDT e ID
+    Hardware; número do pedido opcional). A importação vai para <strong>um cliente só</strong>.
   </p>
   <h3>Tela de edição do kit</h3>
   <ul>
@@ -1725,7 +1741,8 @@
   {% endfor %}
   <h3>Encerrar login parado (inatividade)</h3>
   <p>
-    Configurável em <strong>Usuários</strong>, só por administrador: depois de X minutos
+    Configurável em <strong>Usuários</strong> (menu → Sistema → Usuários, que só aparece para
+    administrador), junto com os usuários e as permissões: depois de X minutos
     <strong>sem uso nenhum</strong>, o login cai sozinho e a pessoa precisa entrar de novo.
     <span class="campo">0 = desligado</span>.
   </p>

@@ -101,6 +101,8 @@ _GRUPOS = [
     ]),
     ("Sistema", "funcionalidades", [
         _a("Manual do sistema", "funcionalidades", "/funcionalidades", ["ver_funcionalidades"], ["/funcionalidades"]),
+        # Usuários, permissões e o tempo de inatividade que encerra o login.
+        _a("Usuários", "usuarios", "/admin/usuarios", [], ["/admin/usuarios"], admin=True),
         _a("Rede e acesso", "rede", "/rede", ["ver_rede"], ["/rede"]),
         _a("Backup", "backup", "/admin/backup", ["ver_backup"], ["/admin/backup"]),
         _a("Padrão visual", "paleta", "/admin/padrao-visual", [], ["/admin/padrao-visual"], admin=True),

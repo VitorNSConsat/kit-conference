@@ -6,6 +6,7 @@
 {% block title %}Itens & Estoque{% endblock %}
 {% block acoes_topo %}
 {% set aba_topo = tab_ativo or 'catalogo' %}
+<button type="button" class="btn btn-sm btn-primary" onclick="abrirNovoItem()">{{ ic.svg('mais', 14) }} Novo item</button>
 {% if aba_topo == 'catalogo' %}
 {# Exportar o estoque, baixar a planilha de ajuste e importar o ajuste estão
    no menu lateral (Downloads / Importações). #}
@@ -145,7 +146,6 @@
        próprios dados, então mostrar outra aba sem recarregar exibiria um
        painel vazio. #}
     <a href="/admin/items?tab=catalogo" class="tab-btn {{ 'active' if aba == 'catalogo' }}" data-tab="catalogo">Estoque</a>
-    <a href="/admin/items?tab=novo" class="tab-btn {{ 'active' if aba == 'novo' }}" data-tab="novo">Novo Item</a>
     <a href="/admin/items?tab=patrimonios" class="tab-btn {{ 'active' if aba == 'patrimonios' }}" data-tab="patrimonios">Itens Cadastrados</a>
     <a href="/admin/items?tab=codigos" class="tab-btn {{ 'active' if aba == 'codigos' }}" data-tab="codigos">Etiquetas &amp; Códigos</a>
     <a href="/admin/items?tab=sobressalentes" class="tab-btn {{ 'active' if aba == 'sobressalentes' }}" data-tab="sobressalentes">Sobressalentes</a>
@@ -548,23 +548,28 @@
         {# Fundo escurecido agora é global (templates/base.html:#popup-overlay). #}
 
         {% else %}
-        <p style="color:var(--text-muted-2);">Nenhum tipo cadastrado ainda. Cadastre na aba "Novo Item".</p>
+        <p style="color:var(--text-muted-2);">Nenhum tipo cadastrado ainda. Cadastre em "Novo item", no topo da tela.</p>
         {% endif %}
         </div>{# /bloco-catalogo #}
     </div>
 </div>
 
-<!-- ── Aba: Novo Item ────────────────────────────────────────────────────── -->
-<div id="tab-novo" class="tab-panel" style="display:{{ 'block' if aba == 'novo' else 'none' }};">
-    <div class="card">
-        <h2>Cadastrar Novo Item</h2>
-        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Cadastre o tipo do item e, se houver, o código e a quantidade. {% call aj.ajuda() %}Cadastre o tipo do item e, se ele tiver controle de quantidade (ex: caixa de
-            parafusos, rolo de cabo), já atribua o código de barras e a quantidade em estoque —
-            tudo em um só passo.{% endcall %}</p>
-        <form method="post" action="/admin/tipos/completo">
+<!-- ── Janela: Novo item (antes era a aba "Novo Item") ──────────────────── -->
+{# Abre pelo botão "Novo item" do topo, pelo menu (Cadastrar item → ?tab=novo)
+   e pela volta com erro do cadastro. A importação pela BOM mora junto, embaixo. #}
+<div id="modal-novo-item" class="modal-lista" role="dialog" aria-modal="true" aria-labelledby="ni-titulo">
+    <div class="modal-cabecalho">
+        <div>
+            <strong id="ni-titulo">Novo item</strong>
+            <span class="modal-sub">Cadastre o tipo do item e, se houver, o código e a quantidade.</span>
+        </div>
+        <button type="button" class="modal-fechar" onclick="fecharNovoItem()" title="Fechar (Esc)">{{ ic.svg('fechar', 18) }}</button>
+    </div>
+    <div class="modal-corpo">
+        <form method="post" action="/admin/tipos/completo" id="form-novo-item">
             <div class="form-group">
                 <label>Nome do tipo</label>
-                <input type="text" name="nome" required placeholder="ex: Antena 5dBi, Cabo UTP">
+                <input type="text" name="nome" id="ni-nome" required placeholder="ex: Antena 5dBi, Cabo UTP">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div class="form-group">
@@ -606,25 +611,26 @@
                     <div style="font-size:11px;color:var(--text-muted-2);margin-top:2px;">Dispara alerta abaixo desse valor</div>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top:16px;">Cadastrar</button>
+            <div class="ni-rodape">
+                <button type="button" class="btn btn-secondary" onclick="fecharNovoItem()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">{{ ic.svg('check', 14) }} Cadastrar item</button>
+            </div>
         </form>
-    </div>
 
-    {# Aparece pelo menu (Importações → Importar itens (BOM)), que chega com #importar-bom. #}
-    <div class="card" id="importar-bom" hidden>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-            <h2 style="margin:0;">Importar BOM</h2>
-        </div>
-        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 12px;">Colunas: Description e Code (opcional). {% call aj.ajuda() %}Planilha com colunas <strong>Description</strong> (tipo do item) e
-            <strong>Code</strong> (código de barras, opcional).
-            Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.{% endcall %}</p>
-        <form method="post" action="/admin/tipos/importar-bom" enctype="multipart/form-data"
+        <details class="ni-bom" id="importar-bom">
+            <summary>{{ ic.svg('importar', 14) }} Cadastrar vários de uma vez pela planilha (BOM)</summary>
+            <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin:8px 0 12px;">Colunas: Description e Code (opcional). {% call aj.ajuda() %}Planilha com colunas <strong>Description</strong> (tipo do item) e
+                <strong>Code</strong> (código de barras, opcional).
+                Cabeçalho detectado automaticamente. Tipos e patrimônios são criados em uma etapa só.{% endcall %}</p>
+            <form method="post" action="/admin/tipos/importar-bom" enctype="multipart/form-data"
               style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <input type="file" name="arquivo" accept=".xlsx" required style="margin-bottom:0;min-width:200px;">
             <button type="submit" class="btn btn-primary">Importar</button>
         </form>
+        </details>
     </div>
 </div>
+<div id="modal-fundo-novo-item" class="modal-fundo" onclick="fecharNovoItem()"></div>
 
 <!-- ── Aba: Patrimônios ──────────────────────────────────────────────────── -->
 <div id="tab-patrimonios" class="tab-panel" style="display:{{ 'block' if aba == 'patrimonios' else 'none' }};">
@@ -941,62 +947,85 @@
             <span class="badge" style="font-size:13px;">{{ sob_total }} cadastrados</span>
             <span class="badge badge-info" id="badge-exibindo-sob"
                   style="font-size:13px;{{ '' if sob_tem_filtro else 'display:none;' }}">exibindo {{ pag_sobressalentes.total }}</span>
+            {% if pode('estoque_editar') %}
+            <button type="button" class="btn btn-warning btn-sm" style="margin-left:auto;" onclick="abrirNovoPacote()">
+                {{ ic.svg('mais', 14) }} Montar novo pacote</button>
+            {% endif %}
         </div>
         <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px;">Pacotes de peças para um cliente, com etiqueta e baixa no estoque. {% call aj.ajuda() %}“Kit coringa”: itens e quantidades à escolha, sem veículo, para um cliente. Ao criar, o estoque é
             descontado e o pacote ganha uma etiqueta com QR. Clique no pacote para ver o que tem dentro.{% endcall %}</p>
 
         {% if pode('estoque_editar') %}
-        <details class="sob-novo" {{ 'open' if request.query_params.get('erro') }}
-                 style="background:var(--surface-alt);border-radius:8px;padding:12px 14px;margin-bottom:16px;">
-            <summary style="cursor:pointer;font-weight:700;font-size:14px;">{{ ic.svg('mais', 14) }} Montar novo pacote</summary>
-            <form method="post" action="/admin/sobressalente" id="form-sobressalente" style="margin-top:12px;">
-                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
-                    <div class="form-group" style="margin:0;min-width:220px;">
-                        <label>Cliente *</label>
-                        <select name="cliente" required style="margin:0;">
-                            <option value="">— selecione —</option>
-                            {% for c in clientes %}
-                            <option value="{{ c.nome }}" {{ 'selected' if sob_clientes | length == 1 and sob_clientes[0] == c.nome }}>{{ c.nome }}</option>
-                            {% endfor %}
-                        </select>
+        {# Janela do novo pacote: catálogo com busca e filtros à esquerda, o pacote
+           à direita. Clicar no item já coloca no pacote (de novo = +1) — sem o
+           "adicionar outro item" de antes, que abria uma lista gigante por linha. #}
+        <div id="modal-novo-pacote" class="modal-lista modal-largo" role="dialog" aria-modal="true" aria-labelledby="np-titulo">
+            <div class="modal-cabecalho">
+                <div>
+                    <strong id="np-titulo">Montar novo pacote de sobressalentes</strong>
+                    <span class="modal-sub">Escolha o cliente e clique nos itens para colocar no pacote.</span>
+                </div>
+                <button type="button" class="modal-fechar" onclick="fecharNovoPacote()" title="Fechar (Esc)">{{ ic.svg('fechar', 18) }}</button>
+            </div>
+            <form method="post" action="/admin/sobressalente" id="form-sobressalente" class="np-form">
+                <div class="modal-corpo">
+                    <div class="np-topo">
+                        <div class="form-group" style="margin:0;">
+                            <label>Cliente *</label>
+                            <select name="cliente" id="np-cliente" required style="margin:0;" onchange="atualizarPacote()">
+                                <option value="">— selecione —</option>
+                                {% for c in clientes %}
+                                <option value="{{ c.nome }}" {{ 'selected' if sob_clientes | length == 1 and sob_clientes[0] == c.nome }}>{{ c.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>Nome do pacote (opcional)</label>
+                            <input type="text" name="nome" maxlength="80" placeholder="ex: Reposição instalação Sul" style="margin:0;">
+                        </div>
                     </div>
-                    <div class="form-group" style="margin:0;min-width:240px;flex:1;max-width:420px;">
-                        <label>Nome do pacote (opcional)</label>
-                        <input type="text" name="nome" maxlength="80" placeholder="ex: Reposição instalação Sul" style="margin:0;">
+                    <div class="np-colunas">
+                        <section class="np-coluna">
+                            <div class="np-cab"><strong>Itens do estoque</strong><span id="np-cont-cat" class="np-cab-info"></span></div>
+                            <input type="search" id="np-busca" class="np-busca" placeholder="Buscar por nome ou código..."
+                                   oninput="filtrarCatalogoPacote()" autocomplete="off">
+                            <div class="np-chips" role="group" aria-label="Filtrar itens">
+                                <button type="button" class="np-chip ativo" data-filtro="todos" onclick="filtroPacote(this)">Todos</button>
+                                <button type="button" class="np-chip" data-filtro="saldo" onclick="filtroPacote(this)">Com saldo</button>
+                                <button type="button" class="np-chip" data-filtro="baixo" onclick="filtroPacote(this)">Abaixo do mínimo</button>
+                                <button type="button" class="np-chip" data-filtro="zerado" onclick="filtroPacote(this)">Zerados</button>
+                                <button type="button" class="np-chip" data-filtro="pacote" onclick="filtroPacote(this)">No pacote</button>
+                            </div>
+                            <div class="np-lista" id="np-lista">
+                                {% for e in estoque_itens %}
+                                {% set nivel = 'zerado' if e.quantidade_atual <= 0 else ('baixo' if e.quantidade_atual < (e.quantidade_minima or 0) else '') %}
+                                <button type="button" class="np-item" data-id="{{ e.id }}" data-nome="{{ e.tipo_nome }}"
+                                        data-codigo="{{ e.codigo_barra }}" data-saldo="{{ e.quantidade_atual }}" data-nivel="{{ nivel }}"
+                                        onclick="adicionarAoPacote(this)">
+                                    <span class="np-item-nome">{{ e.tipo_nome }}<small>{{ e.codigo_barra }}</small></span>
+                                    <span class="np-saldo {{ nivel }}">{{ e.quantidade_atual }} em estoque</span>
+                                    <span class="np-item-acao" aria-hidden="true">+</span>
+                                </button>
+                                {% endfor %}
+                                <p class="np-vazio" id="np-lista-vazia" hidden>Nenhum item com essa busca ou filtro.</p>
+                            </div>
+                        </section>
+                        <section class="np-coluna np-coluna-pacote">
+                            <div class="np-cab"><strong>No pacote</strong><span id="np-resumo" class="np-cab-info">nenhum item</span></div>
+                            <div id="np-selecionados" class="np-selecionados"></div>
+                            <p class="np-vazio" id="np-sel-vazio">Clique em um item ao lado para colocar no pacote.
+                                Clicar de novo soma mais uma unidade.</p>
+                        </section>
                     </div>
                 </div>
-                <div id="linhas-sobressalente"></div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="addLinhaSobressalente()">＋ Adicionar outro item</button>
-                    <button type="submit" class="btn btn-warning">{{ ic.svg('caixa', 14) }} Criar pacote (<span id="qtd-linhas-sobr">1</span> item)</button>
-                    <span style="font-size:12px;color:var(--text-muted-2);">Tudo ou nada: se faltar estoque em qualquer linha, nenhuma é enviada.</span>
+                <div class="np-rodape">
+                    <span class="np-rodape-nota">Tudo ou nada: se faltar estoque em qualquer item, nada é enviado.</span>
+                    <button type="button" class="btn btn-secondary" onclick="fecharNovoPacote()">Cancelar</button>
+                    <button type="submit" class="btn btn-warning" id="np-criar" disabled>{{ ic.svg('caixa', 14) }} <span id="np-criar-txt">Criar pacote</span></button>
                 </div>
             </form>
-
-            <template id="modelo-linha-sobressalente">
-                <div class="linha-sobressalente" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px;">
-                    <div class="form-group" style="margin:0;min-width:240px;flex:1;">
-                        <label>Item</label>
-                        <select name="estoque_id" required style="margin:0;">
-                            <option value="">— selecione o item —</option>
-                            {% for e in estoque_itens %}
-                            <option value="{{ e.id }}">{{ e.tipo_nome }} ({{ e.codigo_barra }}) — {{ e.quantidade_atual }} em estoque</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin:0;">
-                        <label>Quantidade</label>
-                        <input type="number" name="quantidade" value="1" min="1" style="width:90px;margin:0;text-align:center;" required>
-                    </div>
-                    <div class="form-group" style="margin:0;flex:1;min-width:180px;">
-                        <label>Observação (opcional)</label>
-                        <input type="text" name="observacao" style="margin:0;">
-                    </div>
-                    <button type="button" class="btn btn-sm btn-danger btn-remover-linha"
-                            onclick="removerLinhaSobressalente(this)" title="Remover esta linha">{{ ic.svg('fechar', 13) }}</button>
-                </div>
-            </template>
-        </details>
+        </div>
+        <div id="modal-fundo-novo-pacote" class="modal-fundo" onclick="fecharNovoPacote()"></div>
         {% endif %}
 
         <form method="get" action="/admin/items" id="form-filtros-sob"
@@ -1223,38 +1252,156 @@ function fecharModalAvisos() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModalAvisos(); });
 
 // Abre/fecha o bloco de importação de ajuste do estoque.
-// ── Sobressalentes: várias peças num envio só ─────────────────────────────
-// Clona a linha modelo do <template>, então as opções de item vêm prontas do
-// servidor — nada de montar <option> em JS e arriscar divergir da lista real.
-function addLinhaSobressalente() {
-    const alvo = document.getElementById('linhas-sobressalente');
-    const modelo = document.getElementById('modelo-linha-sobressalente');
-    if (!alvo || !modelo) return;
-    alvo.appendChild(modelo.content.cloneNode(true));
-    atualizarLinhasSobressalente();
+// ── Janela Novo item ─────────────────────────────────────────────────────
+function abrirNovoItem(bom) {
+    const m = document.getElementById('modal-novo-item');
+    if (!m) return;
+    m.classList.add('aberto');
+    document.getElementById('modal-fundo-novo-item').classList.add('aberto');
+    const d = document.getElementById('importar-bom');
+    if (bom && d) d.open = true;
+    setTimeout(() => { const n = document.getElementById('ni-nome'); if (n && !bom) n.focus(); }, 50);
+}
+function fecharNovoItem() {
+    const m = document.getElementById('modal-novo-item');
+    if (!m) return;
+    m.classList.remove('aberto');
+    document.getElementById('modal-fundo-novo-item').classList.remove('aberto');
 }
 
-function removerLinhaSobressalente(botao) {
-    const linha = botao.closest('.linha-sobressalente');
-    if (linha) linha.remove();
-    // Nunca deixa o formulário sem nenhuma linha: sem campo nenhum o envio
-    // viraria um POST vazio e o operador não entenderia o erro.
-    if (!document.querySelectorAll('.linha-sobressalente').length) addLinhaSobressalente();
-    atualizarLinhasSobressalente();
+// ── Janela Novo pacote de sobressalentes ─────────────────────────────────
+// O catálogo vem pronto do servidor (botões .np-item); clicar coloca no
+// pacote, clicar de novo soma 1. Os campos enviados são os mesmos de antes
+// (estoque_id[], quantidade[], observacao[]), na ordem do pacote.
+function abrirNovoPacote() {
+    const m = document.getElementById('modal-novo-pacote');
+    if (!m) return;
+    m.classList.add('aberto');
+    document.getElementById('modal-fundo-novo-pacote').classList.add('aberto');
+    atualizarPacote();
+    setTimeout(() => { const b = document.getElementById('np-busca'); if (b) b.focus(); }, 50);
 }
-
-function atualizarLinhasSobressalente() {
-    const linhas = document.querySelectorAll('.linha-sobressalente');
-    const cont = document.getElementById('qtd-linhas-sobr');
-    if (cont) cont.textContent = linhas.length;
-    // Com uma linha só, o ✕ não tem o que remover — some pra não confundir.
-    linhas.forEach(l => {
-        const b = l.querySelector('.btn-remover-linha');
-        if (b) b.style.visibility = linhas.length > 1 ? 'visible' : 'hidden';
+function fecharNovoPacote() {
+    const m = document.getElementById('modal-novo-pacote');
+    if (!m) return;
+    m.classList.remove('aberto');
+    document.getElementById('modal-fundo-novo-pacote').classList.remove('aberto');
+}
+let _filtroPacote = 'todos';
+function filtroPacote(chip) {
+    _filtroPacote = chip.dataset.filtro;
+    document.querySelectorAll('.np-chip').forEach(c => c.classList.toggle('ativo', c === chip));
+    filtrarCatalogoPacote();
+}
+function _semAcento(t) { return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function filtrarCatalogoPacote() {
+    const termo = _semAcento(document.getElementById('np-busca').value.trim());
+    let vis = 0;
+    const itens = document.querySelectorAll('#np-lista .np-item');
+    itens.forEach(b => {
+        const saldo = parseFloat(b.dataset.saldo) || 0;
+        const okFiltro = _filtroPacote === 'todos'
+            || (_filtroPacote === 'saldo' && saldo > 0)
+            || (_filtroPacote === 'baixo' && b.dataset.nivel === 'baixo')
+            || (_filtroPacote === 'zerado' && b.dataset.nivel === 'zerado')
+            || (_filtroPacote === 'pacote' && b.classList.contains('no-pacote'));
+        const okBusca = !termo || _semAcento(b.dataset.nome + ' ' + b.dataset.codigo).includes(termo);
+        b.hidden = !(okFiltro && okBusca);
+        if (!b.hidden) vis++;
     });
+    document.getElementById('np-lista-vazia').hidden = vis > 0;
+    document.getElementById('np-cont-cat').textContent = vis + ' de ' + itens.length;
 }
-
-if (document.getElementById('linhas-sobressalente')) addLinhaSobressalente();
+function _linhaDoPacote(id) {
+    return document.querySelector('#np-selecionados .np-sel[data-id="' + id + '"]');
+}
+function adicionarAoPacote(b) {
+    const existente = _linhaDoPacote(b.dataset.id);
+    if (existente) {
+        const q = existente.querySelector('input[name=quantidade]');
+        q.value = (parseInt(q.value, 10) || 0) + 1;
+        atualizarPacote();
+        return;
+    }
+    const linha = document.createElement('div');
+    linha.className = 'np-sel';
+    linha.dataset.id = b.dataset.id;
+    linha.dataset.saldo = b.dataset.saldo;
+    const id = document.createElement('input');
+    id.type = 'hidden'; id.name = 'estoque_id'; id.value = b.dataset.id;
+    const nome = document.createElement('div');
+    nome.className = 'np-sel-nome';
+    nome.textContent = b.dataset.nome;
+    const sub = document.createElement('small');
+    sub.textContent = b.dataset.codigo + ' · ' + b.dataset.saldo + ' em estoque';
+    nome.appendChild(sub);
+    const qtd = document.createElement('div');
+    qtd.className = 'np-qtd';
+    const menos = document.createElement('button');
+    menos.type = 'button'; menos.textContent = '−'; menos.title = 'Uma a menos';
+    const campo = document.createElement('input');
+    campo.type = 'number'; campo.name = 'quantidade'; campo.min = '1'; campo.value = '1'; campo.required = true;
+    campo.setAttribute('aria-label', 'Quantidade');
+    const mais = document.createElement('button');
+    mais.type = 'button'; mais.textContent = '+'; mais.title = 'Uma a mais';
+    menos.onclick = () => { campo.value = Math.max(1, (parseInt(campo.value, 10) || 1) - 1); atualizarPacote(); };
+    mais.onclick = () => { campo.value = (parseInt(campo.value, 10) || 0) + 1; atualizarPacote(); };
+    campo.oninput = atualizarPacote;
+    qtd.append(menos, campo, mais);
+    const obs = document.createElement('input');
+    obs.type = 'text'; obs.name = 'observacao'; obs.className = 'np-obs'; obs.placeholder = 'Observação (opcional)';
+    const tirar = document.createElement('button');
+    tirar.type = 'button'; tirar.className = 'np-tirar'; tirar.title = 'Tirar do pacote'; tirar.textContent = '×';
+    tirar.onclick = () => { linha.remove(); atualizarPacote(); };
+    const aviso = document.createElement('div');
+    aviso.className = 'np-aviso'; aviso.hidden = true;
+    linha.append(id, nome, qtd, obs, tirar, aviso);
+    document.getElementById('np-selecionados').appendChild(linha);
+    atualizarPacote();
+}
+function atualizarPacote() {
+    const linhas = document.querySelectorAll('#np-selecionados .np-sel');
+    let unidades = 0;
+    linhas.forEach(l => {
+        const q = parseInt(l.querySelector('input[name=quantidade]').value, 10) || 0;
+        unidades += q;
+        const saldo = parseFloat(l.dataset.saldo) || 0;
+        const aviso = l.querySelector('.np-aviso');
+        aviso.hidden = q <= saldo;
+        aviso.textContent = 'Mais do que o estoque (' + saldo + ') — o pacote não será criado assim.';
+        l.classList.toggle('acima', q > saldo);
+    });
+    const ids = new Set(Array.from(linhas).map(l => l.dataset.id));
+    document.querySelectorAll('#np-lista .np-item').forEach(b => {
+        const dentro = ids.has(b.dataset.id);
+        b.classList.toggle('no-pacote', dentro);
+        const l = dentro ? _linhaDoPacote(b.dataset.id) : null;
+        b.querySelector('.np-item-acao').textContent = l
+            ? '✓ ' + (parseInt(l.querySelector('input[name=quantidade]').value, 10) || 0) : '+';
+    });
+    const n = linhas.length;
+    document.getElementById('np-sel-vazio').hidden = n > 0;
+    document.getElementById('np-resumo').textContent = n
+        ? n + (n === 1 ? ' item' : ' itens') + ' · ' + unidades + (unidades === 1 ? ' unidade' : ' unidades')
+        : 'nenhum item';
+    const cliente = document.getElementById('np-cliente').value;
+    const botao = document.getElementById('np-criar');
+    botao.disabled = !n || !cliente;
+    botao.title = !cliente ? 'Escolha o cliente' : (!n ? 'Coloque ao menos um item' : '');
+    document.getElementById('np-criar-txt').textContent = n
+        ? 'Criar pacote (' + n + (n === 1 ? ' item' : ' itens') + ')' : 'Criar pacote';
+    if (_filtroPacote === 'pacote') filtrarCatalogoPacote();
+}
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    fecharNovoPacote();
+    fecharNovoItem();
+});
+document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('np-lista')) filtrarCatalogoPacote();
+    {% if abrir_novo_item %}abrirNovoItem(location.hash === '#importar-bom');{% endif %}
+    {% if tab_ativo == 'sobressalentes' and request.query_params.get('erro') %}abrirNovoPacote();{% endif %}
+});
 
 // ── Sobressalentes: seleção de pacotes pra imprimir etiquetas ─────────────
 function marcarTodosSob(chefe) {
@@ -1285,12 +1432,10 @@ function abrirImportarAjuste() {
     if (b) b.style.display = (b.style.display === 'none' ? 'block' : 'none');
 }
 // Atalhos do menu (Importações) chegam com #importar-ajuste ou #importar-bom:
-// os dois blocos ficam escondidos na tela e só aparecem por eles.
+// o ajuste fica escondido na tela e só aparece por ele; a BOM abre a janela
+// Novo item já com a importação aberta.
 document.addEventListener('DOMContentLoaded', function () {
-    if (location.hash === '#importar-bom') {
-        const c = document.getElementById('importar-bom');
-        if (c) { c.hidden = false; c.scrollIntoView({block: 'start'}); }
-    }
+    if (location.hash === '#importar-bom') abrirNovoItem(true);
     if (location.hash === '#importar-ajuste') {
         const b = document.getElementById('bloco-importar-ajuste');
         if (b) { b.style.display = 'block'; b.scrollIntoView({block: 'start'}); }

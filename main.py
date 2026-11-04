@@ -1467,7 +1467,7 @@ async def admin_tipo_set_codigo_fixo(request: Request, tipo_id: int):
 
 # ── Admin: Itens (Patrimônios) ────────────────────────────────────────────────
 
-ABAS_ITENS = ("catalogo", "novo", "patrimonios", "codigos", "sobressalentes")
+ABAS_ITENS = ("catalogo", "patrimonios", "codigos", "sobressalentes")
 
 
 def _admin_items_context(sobressalente_cliente="",
@@ -1483,6 +1483,9 @@ def _admin_items_context(sobressalente_cliente="",
                          q_situacao: list[str] | None = None,
                          q_min: str = "",
                          q_max: str = "") -> dict:
+    # "novo" deixou de ser aba: é a janela Novo item, aberta por cima do
+    # Estoque (atalho do menu, link antigo ou volta com erro do cadastro).
+    abrir_novo_item = tab == "novo"
     aba = tab if tab in ABAS_ITENS else "catalogo"
     busca = (busca or "").strip()
     # Filtros de múltipla escolha chegam como lista.
@@ -1501,6 +1504,7 @@ def _admin_items_context(sobressalente_cliente="",
         # depois que a página carrega, o navegador pintaria a primeira aba
         # antes de trocar — o "pisca" que aparecia ao recarregar filtrado.
         "tab_ativo": aba,
+        "abrir_novo_item": abrir_novo_item,
         "busca": busca,
         "q_situacao": q_situacao,
         "q_min": q_min,
@@ -1617,9 +1621,6 @@ def _admin_items_context(sobressalente_cliente="",
         ctx["total_tipos"] = len(items_mod.listar_tipos())
         ctx["alerta_config"] = cfg_alerta
         ctx["alerta_telas_opcoes"] = estoque_mod.ALERTA_TELAS
-
-    elif aba == "novo":
-        ctx["tipos"] = items_mod.listar_tipos()
 
     elif aba == "codigos":
         codigos = paginacao_mod.filtrar(

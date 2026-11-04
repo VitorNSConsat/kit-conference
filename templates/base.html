@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=64">
+    <link rel="stylesheet" href="/static/style.css?v=65">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -41,8 +41,9 @@
     <a href="http://{{ request.url.hostname }}:8001/" class="ds-nav-item" style="margin-bottom:10px" title="Voltar ao portal de aplicações">
       {{ ic.svg('portal') }}<span>Portal</span>
     </a>
-    {# Grupos que abrem e fecham (o título é o botão). O grupo da tela aberta
-       fica sempre aberto; os outros lembram como a pessoa deixou (no navegador).
+    {# Grupos que abrem e fecham (o título é o botão). Todos lembram como a
+       pessoa deixou (no navegador) — fechado fica fechado até ela reabrir, mesmo
+       o grupo da tela aberta (que continua com o título destacado).
        Grupos e atalhos vêm de app/menu.py, já filtrados pela permissão. #}
     {% for g in menu_grupos %}
     <div class="ds-nav-group" data-grupo="{{ g.chave }}" data-ativo="{{ '1' if g.ativo }}">
@@ -138,8 +139,8 @@
 </div>
 <div id="janela-painel-fundo" class="modal-fundo" onclick="fecharJanelaPainel()"></div>
 <script>
-// Grupos do menu lateral: fechados ficam guardados no navegador. O grupo da
-// tela aberta nunca começa fechado (senão a pessoa não vê onde está).
+// Grupos do menu lateral: fechados ficam guardados no navegador e continuam
+// fechados de uma tela pra outra até a pessoa reabrir.
 function _gruposFechados() {
     try { return JSON.parse(localStorage.getItem('menu_grupos_fechados')) || []; } catch (e) { return []; }
 }
@@ -159,8 +160,25 @@ function alternarGrupoMenu(botao) {
 (function () {
     const fechados = _gruposFechados();
     document.querySelectorAll('.ds-nav-group[data-grupo]').forEach(function (g) {
-        _aplicarGrupoMenu(g, g.dataset.ativo === '1' || !fechados.includes(g.dataset.grupo));
+        _aplicarGrupoMenu(g, !fechados.includes(g.dataset.grupo));
     });
+    // Rolagem do menu: clicar num atalho recarrega a página e o menu voltava
+    // pro topo. Guarda onde estava (por aba do navegador) e volta pra lá; se o
+    // atalho da tela aberta ficar fora da vista, centraliza nele.
+    const nav = document.querySelector('.ds-nav');
+    if (!nav) return;
+    let pos = null;
+    try { pos = sessionStorage.getItem('menu_rolagem'); } catch (e) {}
+    if (pos !== null) nav.scrollTop = parseInt(pos, 10) || 0;
+    const ativo = nav.querySelector('.ds-nav-item.ativo');
+    if (ativo && ativo.offsetParent) {
+        const r = ativo.getBoundingClientRect(), n = nav.getBoundingClientRect();
+        if (r.top < n.top || r.bottom > n.bottom)
+            nav.scrollTop += (r.top - n.top) - (n.height - r.height) / 2;
+    }
+    const guardar = function () { try { sessionStorage.setItem('menu_rolagem', String(nav.scrollTop)); } catch (e) {} };
+    nav.addEventListener('click', guardar);
+    window.addEventListener('pagehide', guardar);
 })();
 
 // Ajuda "?": perto da borda da tela o balão abre pro lado de dentro.

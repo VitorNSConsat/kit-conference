@@ -73,25 +73,23 @@
 {% macro secao_templates(tipo, label, pag, clientes, tipos_catalogo, consumo_resumo) %}
 {% if tipo == 'kit' %}
 <!-- ── Novo Kit: um caminho só, manual ou pela planilha ─────────────────── -->
-{# Antes eram dois cards em pontas opostas da tela (BOM em cima, manual lá
-   embaixo). Agora o operador segue um caminho: nome e clientes, depois escolhe
-   COMO montar — e só o que vale pra essa escolha aparece. #}
+{# Um caminho só, que vai aparecendo conforme preenche: nome → clientes →
+   COMO montar (manual ou planilha) — e só o que vale pra essa escolha. #}
 <div class="card ck" id="criar-kit">
     <h2 style="margin:0 0 14px;">{{ ic.svg('kits', 17) }} Novo Kit</h2>
     <form method="post" action="/admin/templates" enctype="multipart/form-data" id="form-template-kit">
         <input type="hidden" name="tipo" value="kit">
-        <div class="ck-grade">
-            <div class="form-group" style="margin:0;">
-                <label>Nome do Kit *</label>
-                <input type="text" name="nome" required placeholder="ex: Kit VW 2025">
-            </div>
-            <div class="form-group" style="margin:0;">
-                <label>Cliente(s) *</label>
-                {{ seletor_clientes(clientes) }}
-            </div>
+        <div class="ck-passo">
+            <label class="ck-rot" for="ck-nome">Nome do Kit *</label>
+            <input type="text" name="nome" id="ck-nome" required placeholder="ex: Kit VW 2025" autocomplete="off">
         </div>
-
-        <div class="ck-modos" style="margin-top:14px;">
+        <div class="ck-passo" data-depois="nome" hidden>
+            <label class="ck-rot">Cliente(s) *</label>
+            {{ seletor_clientes(clientes) }}
+        </div>
+        <div class="ck-passo" data-depois="clientes" hidden>
+        <span class="ck-rot">Como montar</span>
+        <div class="ck-modos">
             <label class="ck-modo">
                 <input type="radio" name="_modo" value="manual" onchange="escolherModoKit('manual')">
                 <span class="ck-modo-ic">{{ ic.svg('clipboard', 22) }}</span>
@@ -104,6 +102,7 @@
                 <span><strong>Importar planilha (BOM)</strong>
                     <small>Envio o .xlsx com Description e Quantity e o kit nasce com todos os itens.</small></span>
             </label>
+        </div>
         </div>
 
         <div id="ck-bom" class="ck-etapa" hidden style="margin-top:14px;">
@@ -124,38 +123,62 @@
     <p style="margin:0;color:var(--warn-text);">Seu usuário não tem permissão pra criar Pedidos.</p>
 </div>
 {% else %}
-<!-- ── Importar Planilha do Pedido (ICCID/Telefone/CDT/ID Hardware) ──────── -->
-<div class="card" id="importar-pedido" style="border:1px solid var(--brand-border);">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-        <div>
-            <h2 style="margin:0;">Importar Planilha do Pedido</h2>
-            <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted);">Colunas: ICCID, Número de Telefone, CDT e ID Hardware. {% call aj.ajuda() %}Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
+<!-- ── Novo Pedido: manual ou pela planilha (ICCID/Telefone/CDT/ID Hardware) ─ -->
+{# Mesmo jeito do Novo Kit: aparece conforme preenche — clientes → como criar →
+   o que vale pra essa escolha. Antes eram dois cards separados (planilha em
+   cima, manual lá embaixo, atrás de "Começar Novo Pedido"). #}
+<div class="card ck" id="criar-pedido">
+    <span id="importar-pedido"></span>
+    <h2 style="margin:0 0 14px;">{{ ic.svg('arquivo', 17) }} Novo Pedido</h2>
+    <form method="post" action="/admin/templates" enctype="multipart/form-data" id="form-template-pedido">
+        <input type="hidden" name="tipo" value="pedido">
+        <div class="ck-passo">
+            <label class="ck-rot">Cliente(s) *</label>
+            {{ seletor_clientes(clientes) }}
+        </div>
+        <div class="ck-passo" data-depois="clientes" hidden>
+            <span class="ck-rot">Como criar</span>
+            <div class="ck-modos">
+                <label class="ck-modo">
+                    <input type="radio" name="_modo" value="manual" onchange="escolherModoPedido('manual')">
+                    <span class="ck-modo-ic">{{ ic.svg('clipboard', 22) }}</span>
+                    <span><strong>Montar manualmente</strong>
+                        <small>Dou um nome e escolho os itens no catálogo, com quantidade e conjunto.</small></span>
+                </label>
+                <label class="ck-modo">
+                    <input type="radio" name="_modo" value="planilha" onchange="escolherModoPedido('planilha')">
+                    <span class="ck-modo-ic">{{ ic.svg('importar', 22) }}</span>
+                    <span><strong>Importar planilha do pedido</strong>
+                        <small>Envio o .xlsx com ICCID, Número de Telefone, CDT e ID Hardware — uma linha por unidade.</small></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="cp-planilha" class="ck-etapa" hidden style="margin-top:14px;">
+            <p style="margin:0 0 10px;font-size:13px;color:var(--text-muted);">Uma planilha pode ter vários pedidos. {% call aj.ajuda() %}Planilha com as colunas <strong>ICCID</strong>, <strong>Número de Telefone</strong>,
                 <strong>CDT</strong> e <strong>ID Hardware</strong> — uma linha por unidade. O número do
                 pedido é detectado automaticamente: pode vir numa coluna <strong>Pedido</strong> (repetida
                 em cada linha) ou numa célula solta acima do cabeçalho. Se não encontrar nenhum dos dois,
                 informe abaixo. Os itens do pedido (tipos/quantidades) são adicionados manualmente depois,
                 na edição.{% endcall %}</p>
-        </div>
-    </div>
-    <form method="post" action="/admin/templates/import-pedido" enctype="multipart/form-data">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-            <div class="form-group" style="margin:0;">
-                <label>Cliente *</label>
-                <select name="cliente" required>
-                    <option value="">— selecione —</option>
-                    {% for c in clientes %}
-                    <option value="{{ c.nome }}">{{ c.nome }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;">
+            <p class="cp-aviso" id="cp-aviso-cliente" hidden>Para importar a planilha, marque <strong>um cliente só</strong>.</p>
+            <div class="form-group" style="max-width:420px;">
                 <label>Número do Pedido</label>
-                <input type="text" name="numero_pedido" placeholder="deixe em branco para detectar automaticamente">
+                <input type="text" name="numero_pedido" id="cp-numero" disabled placeholder="deixe em branco para detectar automaticamente">
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <input type="file" name="arquivo" accept=".xlsx" id="cp-arquivo" disabled style="flex:1;min-width:220px;margin-bottom:0;">
+                <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar planilha</button>
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <input type="file" name="arquivo" accept=".xlsx" required style="flex:1;min-width:220px;margin-bottom:0;">
-            <button type="submit" class="btn btn-primary">{{ ic.svg('importar', 15) }} Importar Planilha</button>
+
+        <div id="cp-manual" class="ck-etapa" hidden style="margin-top:14px;">
+            <div class="ck-passo" style="max-width:520px;">
+                <label class="ck-rot" for="cp-nome">Nome do Pedido *</label>
+                <input type="text" name="nome" id="cp-nome" disabled required placeholder="ex: Pedido Instalação Básica" autocomplete="off">
+            </div>
+{{ secao_itens('pedido', 'Pedido', tipos_catalogo) }}
+            <button type="submit" class="btn btn-primary">{{ ic.svg('check', 15) }} Criar Pedido</button>
         </div>
     </form>
 </div>
@@ -273,33 +296,6 @@
     </div>
 </div>
 
-{% if tipo != 'kit' %}
-<div class="card">
-    <h2>Novo {{ label }}</h2>
-    <form method="post" action="/admin/templates" id="form-template-{{ tipo }}">
-        <input type="hidden" name="tipo" value="{{ tipo }}">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-            <div class="form-group">
-                <label>Nome do {{ label }}</label>
-                <input type="text" name="nome" required placeholder="ex: {{ label }} Instalação Básica">
-            </div>
-            <div class="form-group">
-                <label>Cliente</label>
-                {{ seletor_clientes(clientes) }}
-            </div>
-        </div>
-
-        <button type="button" id="btn-comecar-{{ tipo }}" class="btn btn-primary" onclick="comecarNovoTemplate('{{ tipo }}')">
-            {{ ic.svg('seta-direita', 15) }} Começar Novo {{ label }}
-        </button>
-
-        <div id="secao-itens-{{ tipo }}" style="display:none;">
-{{ secao_itens(tipo, label, tipos_catalogo) }}
-            <button type="submit" class="btn btn-primary">Criar {{ label }}</button>
-        </div>
-    </form>
-</div>
-{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -406,6 +402,16 @@
 .ck-modo strong { display: block; font-size: 14px; color: var(--text); }
 .ck-modo small { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
 .ck-etapa[hidden] { display: none; }
+/* Os passos aparecem conforme o anterior é preenchido. */
+.ck-passo { margin-bottom: 14px; }
+.ck-passo[hidden] { display: none; }
+.ck-passo.chegou { animation: ckChegou .18s ease; }
+@keyframes ckChegou { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.ck-rot { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ck-passo > input[type=text] { max-width: 520px; margin: 0; }
+.cp-aviso { margin: 0 0 10px; font-size: 13px; color: var(--warn-text); background: var(--warn-bg);
+    border-radius: 8px; padding: 8px 10px; }
+.cp-aviso[hidden] { display: none; }
 
 .conjunto-template-details {
     border: 1px solid var(--border);
@@ -450,14 +456,72 @@ const catalogo = {{ tipos_catalogo | tojson }};
 // Novo Kit: a escolha do caminho troca pra onde o formulário vai e mostra só
 // a parte que vale (catálogo OU arquivo). O arquivo fica desligado no modo
 // manual pra não ser exigido nem enviado.
-// Atalho do menu (Importações → Criar kit pela BOM) chega com #bom: já
-// escolhe o caminho da planilha.
+// Passos que aparecem conforme preenche: data-depois="nome" aparece quando o
+// nome tem texto; data-depois="clientes", quando há cliente marcado. Uma vez
+// à vista, o passo fica (apagar o nome não some com o que já foi escolhido).
+function atualizarPassos(form) {
+    const nome = form.querySelector('input[name=nome]:not([disabled])');
+    const pronto = {
+        nome: !!(nome && nome.value.trim()),
+        clientes: !!form.querySelector('[data-sel-clientes] input[type=checkbox]:checked'),
+    };
+    form.querySelectorAll('.ck-passo[data-depois]').forEach(function (p) {
+        if (p.hidden && pronto[p.dataset.depois]) {
+            p.hidden = false;
+            p.classList.add('chegou');
+        }
+    });
+    if (form.id === 'form-template-pedido') avisoClientePedido();
+}
+function mostrarTodosPassos(form) {
+    form.querySelectorAll('.ck-passo[data-depois]').forEach(p => { p.hidden = false; });
+}
+['form-template-kit', 'form-template-pedido'].forEach(function (id) {
+    const f = document.getElementById(id);
+    if (!f) return;
+    f.addEventListener('input', () => atualizarPassos(f));
+    f.addEventListener('change', () => atualizarPassos(f));
+});
+
+// Atalhos do menu (Importações) chegam com #bom (Criar kit pela BOM) ou
+// #importar-pedido: já escolhem o caminho da planilha.
 document.addEventListener('DOMContentLoaded', function () {
     if (location.hash === '#bom') {
-        const r = document.querySelector('#form-template-kit input[value=bom]');
-        if (r) { r.checked = true; escolherModoKit('bom'); document.getElementById('criar-kit').scrollIntoView({block: 'start'}); }
+        const f = document.getElementById('form-template-kit');
+        const r = f && f.querySelector('input[value=bom]');
+        if (r) { mostrarTodosPassos(f); r.checked = true; escolherModoKit('bom'); document.getElementById('criar-kit').scrollIntoView({block: 'start'}); }
+    }
+    if (location.hash === '#importar-pedido') {
+        const f = document.getElementById('form-template-pedido');
+        const r = f && f.querySelector('input[value=planilha]');
+        if (r) { mostrarTodosPassos(f); r.checked = true; escolherModoPedido('planilha'); document.getElementById('criar-pedido').scrollIntoView({block: 'start'}); }
     }
 });
+
+// Novo Pedido: manual vai pra /admin/templates (nome + itens); planilha vai
+// pra importação (um cliente, número opcional, arquivo). O que não vale pra
+// escolha fica desligado — nem é exigido nem enviado.
+function escolherModoPedido(modo) {
+    const form = document.getElementById('form-template-pedido');
+    const planilha = modo === 'planilha';
+    form.action = planilha ? '/admin/templates/import-pedido' : '/admin/templates';
+    document.getElementById('cp-planilha').hidden = !planilha;
+    document.getElementById('cp-manual').hidden = planilha;
+    const arq = document.getElementById('cp-arquivo');
+    arq.disabled = !planilha; arq.required = planilha;
+    document.getElementById('cp-numero').disabled = !planilha;
+    document.getElementById('cp-nome').disabled = planilha;
+    form.querySelectorAll('.ck-modo').forEach(l => l.classList.toggle('ativo', l.querySelector('input').checked));
+    avisoClientePedido();
+    if (!planilha) setTimeout(() => document.getElementById('cp-nome').focus(), 30);
+}
+function avisoClientePedido() {
+    const form = document.getElementById('form-template-pedido');
+    if (!form) return;
+    const planilha = form.action.endsWith('/import-pedido');
+    const n = form.querySelectorAll('[data-sel-clientes] input[type=checkbox]:checked').length;
+    document.getElementById('cp-aviso-cliente').hidden = !(planilha && n > 1);
+}
 
 function escolherModoKit(modo) {
     const form = document.getElementById('form-template-kit');
@@ -468,11 +532,6 @@ function escolherModoKit(modo) {
     const arq = document.getElementById('ck-arquivo');
     arq.disabled = !bom; arq.required = bom;
     form.querySelectorAll('.ck-modo').forEach(l => l.classList.toggle('ativo', l.querySelector('input').checked));
-}
-
-function comecarNovoTemplate(tipo) {
-    document.getElementById('btn-comecar-' + tipo).style.display = 'none';
-    document.getElementById('secao-itens-' + tipo).style.display = 'block';
 }
 
 function adicionarTipoFromCard(btn, tipo) {
@@ -556,6 +615,13 @@ document.addEventListener('submit', function (e) {
     if (grupo && !grupo.querySelector('input[type=checkbox]:checked')) {
         e.preventDefault();
         alert('Marque ao menos um cliente.');
+        return;
+    }
+    // A planilha do pedido vai pra UM cliente.
+    if (grupo && e.target.action.endsWith('/import-pedido')
+            && grupo.querySelectorAll('input[type=checkbox]:checked').length > 1) {
+        e.preventDefault();
+        alert('Para importar a planilha do pedido, marque um cliente só.');
     }
 }, true);
 
