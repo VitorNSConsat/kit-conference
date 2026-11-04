@@ -95,6 +95,7 @@ _GRUPOS = [
         _a("Verificações", "check-circulo", "/reports/validacoes", ["ver_relatorios"], ["/reports/validacoes"]),
         _a("Sobressalentes enviados", "caixa", "/reports/sobressalentes", ["ver_relatorios"], ["/reports/sobressalentes"]),
         _a("Mudanças de patrimônio", "historico", "/reports/patrimonio", ["ver_relatorios"], ["/reports/patrimonio"]),
+        _a("Pré-check de kits", "clipboard", "/reports/pre-check", ["ver_relatorios"], ["/reports/pre-check"]),
         _a("Histórico da produção", "historico", "/admin/producao/historico", ["ver_producao"], ["/admin/producao/historico"]),
         _a("Auditoria", "cadeado", "/admin/auditoria", [], ["/admin/auditoria"], admin=True),
     ]),
@@ -109,7 +110,7 @@ _GRUPOS = [
 # Aba que a tela abre quando o link não diz qual (pra acender o atalho certo).
 _ABA_PADRAO = {"/admin/items": "catalogo", "/admin/templates": "kit"}
 
-_RELATORIOS_PROPRIOS = ("operadores", "validacoes", "sobressalentes", "patrimonio")
+_RELATORIOS_PROPRIOS = ("operadores", "validacoes", "sobressalentes", "patrimonio", "pre-check")
 
 
 def _casa(caminho: str, prefixo: str) -> bool:

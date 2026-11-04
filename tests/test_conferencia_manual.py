@@ -163,3 +163,51 @@ def test_conjunto_marca_junto_como_na_verificacao(kit):
     finally:
         with db() as conn:
             conn.execute("DELETE FROM kit_template_conjuntos WHERE kit_template_id = ?", (tid,))
+
+
+def test_relatorio_pre_check_acompanha_as_tres_situacoes(kit):
+    from fastapi.testclient import TestClient
+    import main, io, openpyxl
+    from app import usuarios
+    k = next(x for x in conf.listar() if x["id"] == kit["sid"])
+    ids = {i["descricao"].split()[0]: i["item_tipo_id"] for i in k["itens"]}
+    kit_id = f"KRP-{kit['s']}"
+    with db() as conn:
+        uid = conn.execute("SELECT operador_id FROM scan_session WHERE id = ?", (kit["sid"],)).fetchone()[0]
+    conf.registrar(kit["sid"], [ids["Antena"], ids["Cabo"]], uid)
+
+    def linha():
+        return next(l for l in conf.relatorio(busca=kit["veiculo"]) if l["sessao_id"] == kit["sid"])
+    try:
+        l = linha()
+        assert l["situacao"] == "montagem" and len(l["pre_itens"]) == 2
+        assert [n.split()[0] for n in l["nao_pre"]] == ["Display"]
+        _finalizar(kit["sid"], kit_id)
+        l = linha()
+        assert l["situacao"] == "aguardando" and l["decisao_texto"] == "Sem decisão ainda"
+        assert {n.split()[0] for n in l["pendentes_conferencia"]} == {"Antena", "Cabo", "Display"}
+        conf.decidir(kit_id, True, uid)
+        assert [n.split()[0] for n in linha()["pendentes_conferencia"]] == ["Display"]
+        with db() as conn:
+            conn.execute("INSERT INTO kit_validacoes (kit_id, validado_por, validado_em) VALUES (?, ?, '2026-11-04 15:00:00')",
+                         (kit_id, uid))
+        l = linha()
+        assert l["situacao"] == "dupla" and l["validacao"]["validado_em"].startswith("2026-11-04 15:00")
+        assert [x["sessao_id"] for x in conf.relatorio(situacao=["aguardando"], busca=kit["veiculo"])] == []
+
+        nome = f"adm_rp_{kit['s']}"
+        usuarios.criar("Adm RP", nome, "Teste#RelPre26", True)
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#RelPre26"})
+            h = c.get("/reports/pre-check", params={"busca": kit["veiculo"]}).text
+            assert "Verificado 2 vezes" in h and kit["veiculo"] in h
+            x = c.get("/reports/pre-check/export", params={"busca": kit["veiculo"]})
+            ws = openpyxl.load_workbook(io.BytesIO(x.content)).active
+            assert ws.cell(2, 1).value == kit["veiculo"] and ws.cell(2, 4).value == "Verificado 2 vezes"
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM kit_validacoes WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM kit_verificacao_itens WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))
+            conn.execute("DELETE FROM pre_conferencia WHERE sessao_id = ?", (kit["sid"],))
+            conn.execute("DELETE FROM users WHERE username = ?", (f"adm_rp_{kit['s']}",))

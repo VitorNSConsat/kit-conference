@@ -227,3 +227,93 @@ def decidir(kit_id: str, aplicar: bool, user_id: int | None) -> int:
                      "WHERE sessao_id = ?",
                      ("aplicada" if aplicar else "ignorada", user_id, now_brt(), k["sessao_id"]))
     return marcados
+
+
+# ── Relatório de pré-check ───────────────────────────────────────────────────
+SITUACOES_PRECHECK = (
+    ("montagem", "Em montagem"),
+    ("aguardando", "Aguardando validação"),
+    ("dupla", "Verificado 2 vezes"),
+)
+
+
+def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
+              cliente=None, busca: str = "") -> list[dict]:
+    """Um kit por linha: os que tiveram pré-check (pré-conferência registrada
+    no celular) e em que pé estão.
+
+      montagem   — pré-check feito, o kit ainda está sendo bipado;
+      aguardando — o kit está pronto mas a verificação oficial ainda não foi
+                   feita (com o pré-check aplicado, ignorado ou sem decisão);
+      dupla      — pré-check + verificação oficial: verificado duas vezes.
+
+    Também diz, item a item, o que foi pré-checado e o que faltou (não
+    pré-checado e, no kit pronto, ainda não conferido na conferência)."""
+    import json
+    import app.datas as datas_mod
+    sql = """
+        SELECT p.sessao_id, p.item_tipo_ids, p.registrado_em, p.decisao, p.decidido_em,
+               u.nome AS pre_por, ud.nome AS decidido_por_nome,
+               s.status AS sessao_status, s.kit_template_id,
+               t.nome AS kit_nome, t.cliente,
+               COALESCE(v.numero, kr.veiculo, s.veiculo, '') AS veiculo,
+               kr.kit_id, kr.finalizado_em, COALESCE(kr.verificacao_corte, 0) AS corte
+        FROM pre_conferencia p
+        JOIN scan_session s ON s.id = p.sessao_id
+        JOIN kit_template t ON t.id = s.kit_template_id
+        LEFT JOIN kit_record kr ON kr.sessao_id = p.sessao_id
+        LEFT JOIN veiculos v ON v.id = COALESCE(kr.veiculo_id, s.veiculo_id)
+        LEFT JOIN users u ON u.id = p.usuario_id
+        LEFT JOIN users ud ON ud.id = p.decidido_por
+        WHERE 1 = 1"""
+    params: list = []
+    sql_d, p_d = datas_mod.clausula("p.registrado_em", data_ini, data_fim)
+    sql += sql_d + " ORDER BY p.registrado_em DESC"
+    params += p_d
+    with db() as conn:
+        linhas = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        nomes = {r[0]: r[1] for r in conn.execute("SELECT id, nome FROM item_tipo").fetchall()}
+        for l in linhas:
+            modelo = [r[0] for r in conn.execute(
+                "SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ? ORDER BY id",
+                (l["kit_template_id"],)).fetchall()]
+            pre = set(json.loads(l["item_tipo_ids"] or "[]"))
+            l["pre_itens"] = [nomes.get(i, "?") for i in modelo if i in pre]
+            l["nao_pre"] = [nomes.get(i, "?") for i in modelo if i not in pre]
+            l["total_modelo"] = len(modelo)
+            validacao = None
+            pendentes = []
+            if l["kit_id"]:
+                validacao = conn.execute(
+                    "SELECT kv.validado_em, uv.nome AS validado_por FROM kit_validacoes kv "
+                    "LEFT JOIN users uv ON uv.id = kv.validado_por "
+                    "WHERE kv.kit_id = ? AND kv.id > ? ORDER BY kv.id DESC LIMIT 1",
+                    (l["kit_id"], l["corte"])).fetchone()
+                conferidos = {r[0] for r in conn.execute(
+                    "SELECT item_tipo_id FROM kit_verificacao_itens WHERE kit_id = ?", (l["kit_id"],))}
+                pendentes = [nomes.get(i, "?") for i in modelo if i not in conferidos]
+            l["validacao"] = dict(validacao) if validacao else None
+            # Na conferência do kit pronto: o que ainda não foi conferido.
+            l["pendentes_conferencia"] = pendentes if l["kit_id"] and not validacao else []
+            if not l["kit_id"]:
+                l["situacao"] = "montagem"
+            elif validacao:
+                l["situacao"] = "dupla"
+            else:
+                l["situacao"] = "aguardando"
+            l["situacao_texto"] = dict(SITUACOES_PRECHECK)[l["situacao"]]
+            l["decisao_texto"] = {"aplicada": "Aplicado", "ignorada": "Não aplicado"}.get(
+                l["decisao"] or "", "Sem decisão ainda" if l["kit_id"] else "—")
+
+    sits = [x for x in (situacao or []) if x in dict(SITUACOES_PRECHECK)]
+    if sits:
+        linhas = [l for l in linhas if l["situacao"] in sits]
+    clientes = [c for c in (cliente or []) if c]
+    if clientes:
+        linhas = [l for l in linhas if l["cliente"] in clientes]
+    termo = (busca or "").strip().lower()
+    if termo:
+        linhas = [l for l in linhas if termo in " ".join(
+            [l["veiculo"] or "", l["kit_nome"] or "", l["cliente"] or "", l["pre_por"] or ""]
+            + l["pre_itens"] + l["nao_pre"]).lower()]
+    return linhas

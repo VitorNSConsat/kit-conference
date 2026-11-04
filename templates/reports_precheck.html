@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% import "_filtros.html" as f %}
+{% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
+{% import "_ajuda.html" as aj %}
+{% block title %}Pré-check de Kits{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
+{% block content %}
+{% set cor_sit = {'montagem': 'badge-info', 'aguardando': 'badge-warning', 'dupla': 'badge-success'} %}
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
+  Kits que tiveram pré-check no celular e em que pé estão.
+  {% call aj.ajuda() %}<strong>Pré-check</strong> é a pré-conferência registrada pela Conferência manual
+  do celular, enquanto o kit ainda estava em montagem. <strong>Verificado 2 vezes</strong>: teve
+  pré-check e depois a verificação oficial do kit pronto. <strong>Aguardando validação</strong>: o kit
+  está pronto, mas a verificação oficial ainda não foi feita. <strong>Em montagem</strong>: o kit
+  ainda está sendo bipado. Abra um kit para ver o que foi pré-checado e o que faltou.{% endcall %}
+</p>
+
+<div class="pat-resumo">
+  {% for chave, rotulo in situacoes %}
+  <a href="/reports/pre-check?data_ini={{ data_ini }}&data_fim={{ data_fim }}&situacao={{ chave }}"
+     class="pat-resumo-card {{ 'ativo' if situacao == [chave] }}">
+    <span class="badge {{ cor_sit[chave] }}">{{ rotulo }}</span>
+    <strong>{{ contagem[chave] }}</strong>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Filtros</h2>
+  <form method="get" class="rel-filtros">
+    <div class="form-group"><label>Pré-check de</label><input type="date" name="data_ini" value="{{ data_ini }}"></div>
+    <div class="form-group"><label>até</label><input type="date" name="data_fim" value="{{ data_fim }}"></div>
+    <div class="form-group"><label>Situação</label>{{ f.multi('situacao', 'Situação', situacoes, situacao, 'todas') }}</div>
+    <div class="form-group"><label>Cliente</label>{{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}</div>
+    <div class="form-group rel-busca"><label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" placeholder="Veículo, kit, cliente, item...">
+    </div>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
+    <a href="/reports/pre-check/export?{{ qs }}" class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Kits</h2>
+  {{ pg.contagem(pag, "kits") }}
+  {% if linhas %}
+  <div class="pc-lista">
+    {% for l in linhas %}
+    <details class="pc-kit">
+      <summary>
+        <span class="pc-seta">{{ ic.svg('seta-direita', 14) }}</span>
+        <span class="pc-info">
+          <span class="pc-l1"><strong style="color:{{ cor_do_cliente(l.cliente) }};">{{ l.veiculo or '—' }}</strong>
+            <span class="pc-sub">· {{ l.kit_nome }} · {{ l.cliente }}</span></span>
+          <span class="pc-sub">Pré-check por {{ l.pre_por or '—' }} em {{ l.registrado_em[8:10] }}/{{ l.registrado_em[5:7] }} {{ l.registrado_em[11:16] }}
+            — {{ l.pre_itens | length }} de {{ l.total_modelo }} itens</span>
+        </span>
+        <span class="pc-dir">
+          <span class="badge {{ cor_sit[l.situacao] }}">{{ l.situacao_texto }}</span>
+          {% if l.nao_pre %}<span class="pc-falta">{{ l.nao_pre | length }} não pré-checado{{ 's' if l.nao_pre | length > 1 }}</span>{% endif %}
+        </span>
+      </summary>
+      <div class="pc-corpo">
+        <div class="pc-grade">
+          <div><span class="pc-rot">Kit pronto</span><strong>{{ l.finalizado_em[:16] if l.finalizado_em else 'ainda em montagem' }}</strong></div>
+          <div><span class="pc-rot">Pré-check no kit pronto</span><strong>{{ l.decisao_texto }}</strong></div>
+          <div><span class="pc-rot">Verificação oficial</span>
+            <strong>{% if l.validacao %}{{ l.validacao.validado_em[:16] }} · {{ l.validacao.validado_por }}{% else %}ainda não feita{% endif %}</strong></div>
+        </div>
+        {% if l.nao_pre %}
+        <div class="pc-bloco pc-bloco-falta"><span class="pc-rot">Não pré-checados (faltavam no pré-check)</span>{{ l.nao_pre | join(', ') }}</div>
+        {% endif %}
+        {% if l.pendentes_conferencia %}
+        <div class="pc-bloco pc-bloco-pend"><span class="pc-rot">Ainda não conferidos no kit pronto</span>{{ l.pendentes_conferencia | join(', ') }}</div>
+        {% endif %}
+        <div class="pc-bloco"><span class="pc-rot">Pré-checados ({{ l.pre_itens | length }})</span>{{ l.pre_itens | join(', ') or '—' }}</div>
+        {% if l.kit_id %}<a href="/kit/{{ l.kit_id }}" target="_blank" class="btn btn-sm btn-secondary" style="margin-top:10px;">Abrir conferência do kit</a>{% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}<a href="/reports/pre-check?{{ qs }}&pagina={{ p }}" class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">Nenhum kit com pré-check para esses filtros.</p>
+  {% endif %}
+</div>
+
+<style>
+.pat-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.pat-resumo-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-decoration: none; color: var(--text); }
+.pat-resumo-card:hover { border-color: var(--brand-border); background: var(--brand-soft); }
+.pat-resumo-card.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.pat-resumo-card strong { font-size: 20px; color: var(--brand-ink); }
+.pc-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.pc-kit { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.pc-kit[open] { border-color: var(--brand-border); }
+.pc-kit > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.pc-kit > summary::-webkit-details-marker { display: none; }
+.pc-kit > summary:hover { background: var(--brand-soft); border-radius: 10px; }
+.pc-seta { color: var(--text-muted-2); display: inline-flex; transition: transform .15s; }
+.pc-kit[open] .pc-seta { transform: rotate(90deg); }
+.pc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pc-l1 { font-size: 14px; }
+.pc-sub { font-size: 12.5px; color: var(--text-muted); }
+.pc-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
+.pc-falta { font-size: 12px; font-weight: 700; color: var(--danger-text); }
+.pc-corpo { padding: 6px 14px 14px 52px; border-top: 1px solid var(--border-subtle); }
+.pc-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 8px 0 10px; font-size: 13px; }
+.pc-grade strong { display: block; color: var(--text); }
+.pc-rot { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); margin-bottom: 2px; }
+.pc-bloco { font-size: 13px; color: var(--text); margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface-alt); line-height: 1.45; }
+.pc-bloco-falta { background: var(--danger-bg); color: var(--danger-text); }
+.pc-bloco-pend { background: var(--warn-bg); color: var(--warn-text); }
+@media (max-width: 640px) { .pc-kit > summary { flex-wrap: wrap; } .pc-dir { align-items: flex-start; flex-direction: row; } .pc-corpo { padding-left: 14px; } }
+</style>
+{% endblock %}

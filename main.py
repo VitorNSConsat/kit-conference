@@ -4127,6 +4127,54 @@ async def reports_sobressalentes_export(request: Request,
     return _xlsx_resposta(wb, "sobressalentes.xlsx")
 
 
+@app.get("/reports/pre-check", response_class=HTMLResponse)
+@require_permission("ver_relatorios")
+async def reports_pre_check(request: Request, data_ini: str = "", data_fim: str = "",
+                            busca: str = "", pagina: int = 1,
+                            situacao: list[str] = Query(default=[]),
+                            cliente: list[str] = Query(default=[])):
+    """Kits com pré-check (pré-conferência do celular): verificados duas vezes,
+    aguardando validação ou ainda em montagem — e o que faltou em cada um."""
+    todos = conferencia_manual_mod.relatorio(data_ini, data_fim, None, None, "")
+    linhas = conferencia_manual_mod.relatorio(data_ini, data_fim, situacao, cliente, busca)
+    contagem = {k: 0 for k, _ in conferencia_manual_mod.SITUACOES_PRECHECK}
+    for l in todos:
+        contagem[l["situacao"]] += 1
+    pag = paginacao_mod.paginar(linhas, pagina)
+    return render(request, "reports_precheck.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
+        "linhas": pag["itens"], "pag": pag, "contagem": contagem,
+        "situacoes": conferencia_manual_mod.SITUACOES_PRECHECK,
+        "clientes": clientes_mod.listar(),
+        "data_ini": data_ini, "data_fim": data_fim, "busca": busca,
+        "situacao": situacao, "cliente": cliente,
+        "qs": urlencode([("data_ini", data_ini), ("data_fim", data_fim), ("busca", busca)]
+                        + [("situacao", x) for x in situacao] + [("cliente", c) for c in cliente]),
+    })
+
+
+@app.get("/reports/pre-check/export")
+@require_permission("ver_relatorios")
+async def reports_pre_check_export(request: Request, data_ini: str = "", data_fim: str = "",
+                                   busca: str = "",
+                                   situacao: list[str] = Query(default=[]),
+                                   cliente: list[str] = Query(default=[])):
+    import openpyxl
+    linhas = conferencia_manual_mod.relatorio(data_ini, data_fim, situacao, cliente, busca)
+    wb = openpyxl.Workbook()
+    _xlsx_planilha(wb, "Pré-check",
+                   ["Veículo", "Kit", "Cliente", "Situação", "Pré-check por", "Pré-check em",
+                    "Itens pré-checados", "Não pré-checados", "Decisão no kit pronto",
+                    "Verificação oficial em", "Verificado por", "Pendentes na conferência"],
+                   [16, 28, 18, 22, 20, 17, 12, 44, 18, 20, 20, 44],
+                   [[l["veiculo"], l["kit_nome"], l["cliente"], l["situacao_texto"], l["pre_por"] or "",
+                     (l["registrado_em"] or "")[:16], len(l["pre_itens"]), ", ".join(l["nao_pre"]),
+                     l["decisao_texto"], ((l["validacao"] or {}).get("validado_em") or "")[:16],
+                     (l["validacao"] or {}).get("validado_por") or "", ", ".join(l["pendentes_conferencia"])]
+                    for l in linhas], primeira=True)
+    return _xlsx_resposta(wb, f"pre_check_{now_brt()[:10]}.xlsx")
+
+
 @app.get("/reports/patrimonio", response_class=HTMLResponse)
 @require_permission("ver_relatorios")
 async def reports_patrimonio(request: Request,
