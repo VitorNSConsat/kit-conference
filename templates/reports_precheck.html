@@ -9,17 +9,23 @@
 {% endblock %}
 
 {% block content %}
-{% set cor_sit = {'montagem': 'badge-info', 'aguardando': 'badge-warning', 'dupla': 'badge-success'} %}
+{% set cor_sit = {'sem_pre': 'pc-badge-sem', 'montagem': 'badge-info', 'aguardando': 'badge-warning', 'dupla': 'badge-success'} %}
 <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
-  Kits que tiveram pré-check no celular e em que pé estão.
+  Todos os kits em montagem, quais já tiveram pré-check no celular e em que pé estão.
   {% call aj.ajuda() %}<strong>Pré-check</strong> é a pré-conferência registrada pela Conferência manual
-  do celular, enquanto o kit ainda estava em montagem. <strong>Verificado 2 vezes</strong>: teve
-  pré-check e depois a verificação oficial do kit pronto. <strong>Aguardando validação</strong>: o kit
-  está pronto, mas a verificação oficial ainda não foi feita. <strong>Em montagem</strong>: o kit
-  ainda está sendo bipado. Abra um kit para ver o que foi pré-checado e o que faltou.{% endcall %}
+  do celular, enquanto o kit ainda estava em montagem. <strong>Sem pré-check</strong>: em montagem, o
+  pré-check ainda não foi feito. <strong>Pré-check feito</strong>: em montagem, já pré-checado.
+  <strong>Aguardando validação</strong>: o kit está pronto, mas a verificação oficial ainda não foi
+  feita. <strong>Verificado 2 vezes</strong>: teve pré-check e depois a verificação oficial do kit
+  pronto. Abra um kit para ver o que foi pré-checado e o que faltou.{% endcall %}
 </p>
 
 <div class="pat-resumo">
+  <a href="/reports/pre-check?data_ini={{ data_ini }}&data_fim={{ data_fim }}&situacao=sem_pre&situacao=montagem"
+     class="pat-resumo-card pc-total {{ 'ativo' if situacao | sort == ['montagem', 'sem_pre'] }}">
+    <span class="pc-total-rot">Em montagem <span class="pc-sub">(total)</span></span>
+    <strong>{{ contagem.em_montagem }}</strong>
+  </a>
   {% for chave, rotulo in situacoes %}
   <a href="/reports/pre-check?data_ini={{ data_ini }}&data_fim={{ data_fim }}&situacao={{ chave }}"
      class="pat-resumo-card {{ 'ativo' if situacao == [chave] }}">
@@ -32,7 +38,7 @@
 <div class="card">
   <h2>Filtros</h2>
   <form method="get" class="rel-filtros">
-    <div class="form-group"><label>Pré-check de</label><input type="date" name="data_ini" value="{{ data_ini }}"></div>
+    <div class="form-group"><label>Data de</label><input type="date" name="data_ini" value="{{ data_ini }}"></div>
     <div class="form-group"><label>até</label><input type="date" name="data_fim" value="{{ data_fim }}"></div>
     <div class="form-group"><label>Situação</label>{{ f.multi('situacao', 'Situação', situacoes, situacao, 'todas') }}</div>
     <div class="form-group"><label>Cliente</label>{{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}</div>
@@ -56,8 +62,13 @@
         <span class="pc-info">
           <span class="pc-l1"><strong style="color:{{ cor_do_cliente(l.cliente) }};">{{ l.veiculo or '—' }}</strong>
             <span class="pc-sub">· {{ l.kit_nome }} · {{ l.cliente }}</span></span>
+          {% if l.situacao == 'sem_pre' %}
+          <span class="pc-sub">Montagem iniciada{% if l.iniciado_em %} em {{ l.iniciado_em[8:10] }}/{{ l.iniciado_em[5:7] }} {{ l.iniciado_em[11:16] }}{% endif %}
+            por {{ l.operador_nome or '—' }} — pré-check ainda não feito</span>
+          {% else %}
           <span class="pc-sub">Pré-check por {{ l.pre_por or '—' }} em {{ l.registrado_em[8:10] }}/{{ l.registrado_em[5:7] }} {{ l.registrado_em[11:16] }}
             — {{ l.pre_itens | length }} de {{ l.total_modelo }} itens</span>
+          {% endif %}
         </span>
         <span class="pc-dir">
           <span class="badge {{ cor_sit[l.situacao] }}">{{ l.situacao_texto }}</span>
@@ -71,13 +82,19 @@
           <div><span class="pc-rot">Verificação oficial</span>
             <strong>{% if l.validacao %}{{ l.validacao.validado_em[:16] }} · {{ l.validacao.validado_por }}{% else %}ainda não feita{% endif %}</strong></div>
         </div>
+        {% if l.situacao == 'sem_pre' %}
+        <div class="pc-bloco">O pré-check deste kit ainda não foi feito. Ele aparece na <strong>Conferência
+          manual</strong> do celular enquanto estiver em montagem ({{ l.total_modelo }} itens no modelo).</div>
+        {% endif %}
         {% if l.nao_pre %}
         <div class="pc-bloco pc-bloco-falta"><span class="pc-rot">Não pré-checados (faltavam no pré-check)</span>{{ l.nao_pre | join(', ') }}</div>
         {% endif %}
         {% if l.pendentes_conferencia %}
         <div class="pc-bloco pc-bloco-pend"><span class="pc-rot">Ainda não conferidos no kit pronto</span>{{ l.pendentes_conferencia | join(', ') }}</div>
         {% endif %}
+        {% if l.situacao != 'sem_pre' %}
         <div class="pc-bloco"><span class="pc-rot">Pré-checados ({{ l.pre_itens | length }})</span>{{ l.pre_itens | join(', ') or '—' }}</div>
+        {% endif %}
         {% if l.kit_id %}<a href="/kit/{{ l.kit_id }}" target="_blank" class="btn btn-sm btn-secondary" style="margin-top:10px;">Abrir conferência do kit</a>{% endif %}
       </div>
     </details>
@@ -93,7 +110,7 @@
   </div>
   {% endif %}
   {% else %}
-  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">Nenhum kit com pré-check para esses filtros.</p>
+  <p style="color:var(--text-muted-2);text-align:center;padding:24px;">Nenhum kit para esses filtros.</p>
   {% endif %}
 </div>
 
@@ -104,6 +121,9 @@
 .pat-resumo-card:hover { border-color: var(--brand-border); background: var(--brand-soft); }
 .pat-resumo-card.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
 .pat-resumo-card strong { font-size: 20px; color: var(--brand-ink); }
+.pc-badge-sem { background: var(--surface-alt); color: var(--text); border: 1px solid var(--border); }
+.pc-total { background: var(--brand-soft); border-color: var(--brand-border); }
+.pc-total-rot { font-size: 13.5px; font-weight: 700; color: var(--brand-ink); }
 .pc-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .pc-kit { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .pc-kit[open] { border-color: var(--brand-border); }

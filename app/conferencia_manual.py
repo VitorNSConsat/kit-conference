@@ -231,7 +231,8 @@ def decidir(kit_id: str, aplicar: bool, user_id: int | None) -> int:
 
 # ── Relatório de pré-check ───────────────────────────────────────────────────
 SITUACOES_PRECHECK = (
-    ("montagem", "Em montagem"),
+    ("sem_pre", "Sem pré-check"),
+    ("montagem", "Pré-check feito"),
     ("aguardando", "Aguardando validação"),
     ("dupla", "Verificado 2 vezes"),
 )
@@ -239,10 +240,11 @@ SITUACOES_PRECHECK = (
 
 def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
               cliente=None, busca: str = "") -> list[dict]:
-    """Um kit por linha: os que tiveram pré-check (pré-conferência registrada
-    no celular) e em que pé estão.
+    """Um kit por linha: TODOS os kits em montagem (com ou sem pré-check) e os
+    que já saíram da montagem depois de um pré-check, e em que pé estão.
 
-      montagem   — pré-check feito, o kit ainda está sendo bipado;
+      sem_pre    — em montagem, o pré-check ainda não foi feito;
+      montagem   — em montagem, pré-check feito (o kit ainda está sendo bipado);
       aguardando — o kit está pronto mas a verificação oficial ainda não foi
                    feita (com o pré-check aplicado, ignorado ou sem decisão);
       dupla      — pré-check + verificação oficial: verificado duas vezes.
@@ -254,7 +256,8 @@ def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
     sql = """
         SELECT p.sessao_id, p.item_tipo_ids, p.registrado_em, p.decisao, p.decidido_em,
                u.nome AS pre_por, ud.nome AS decidido_por_nome,
-               s.status AS sessao_status, s.kit_template_id,
+               s.status AS sessao_status, s.kit_template_id, s.iniciado_em,
+               uo.nome AS operador_nome,
                t.nome AS kit_nome, t.cliente,
                COALESCE(v.numero, kr.veiculo, s.veiculo, '') AS veiculo,
                kr.kit_id, kr.finalizado_em, COALESCE(kr.verificacao_corte, 0) AS corte
@@ -265,21 +268,44 @@ def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
         LEFT JOIN veiculos v ON v.id = COALESCE(kr.veiculo_id, s.veiculo_id)
         LEFT JOIN users u ON u.id = p.usuario_id
         LEFT JOIN users ud ON ud.id = p.decidido_por
+        LEFT JOIN users uo ON uo.id = s.operador_id
         WHERE 1 = 1"""
     params: list = []
     sql_d, p_d = datas_mod.clausula("p.registrado_em", data_ini, data_fim)
-    sql += sql_d + " ORDER BY p.registrado_em DESC"
+    sql += sql_d
     params += p_d
+    # Kits em montagem que ainda não tiveram pré-check (o período, aqui, vale
+    # pelo início da montagem).
+    sql_sem = """
+        SELECT s.id AS sessao_id, NULL AS item_tipo_ids, NULL AS registrado_em,
+               NULL AS decisao, NULL AS decidido_em, NULL AS pre_por, NULL AS decidido_por_nome,
+               s.status AS sessao_status, s.kit_template_id, s.iniciado_em,
+               uo.nome AS operador_nome,
+               t.nome AS kit_nome, t.cliente,
+               COALESCE(v.numero, s.veiculo, '') AS veiculo,
+               NULL AS kit_id, NULL AS finalizado_em, 0 AS corte
+        FROM scan_session s
+        JOIN kit_template t ON t.id = s.kit_template_id
+        LEFT JOIN veiculos v ON v.id = s.veiculo_id
+        LEFT JOIN users uo ON uo.id = s.operador_id
+        WHERE s.status = 'em_andamento'
+          AND NOT EXISTS (SELECT 1 FROM pre_conferencia p WHERE p.sessao_id = s.id)"""
+    sql_d, p_sem = datas_mod.clausula("s.iniciado_em", data_ini, data_fim)
+    sql_sem += sql_d
     with db() as conn:
         linhas = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        linhas += [dict(r) for r in conn.execute(sql_sem, p_sem).fetchall()]
+        linhas.sort(key=lambda l: l["registrado_em"] or l["iniciado_em"] or "", reverse=True)
         nomes = {r[0]: r[1] for r in conn.execute("SELECT id, nome FROM item_tipo").fetchall()}
         for l in linhas:
             modelo = [r[0] for r in conn.execute(
                 "SELECT item_tipo_id FROM kit_template_items WHERE kit_template_id = ? ORDER BY id",
                 (l["kit_template_id"],)).fetchall()]
             pre = set(json.loads(l["item_tipo_ids"] or "[]"))
+            sem_pre = l["item_tipo_ids"] is None
             l["pre_itens"] = [nomes.get(i, "?") for i in modelo if i in pre]
-            l["nao_pre"] = [nomes.get(i, "?") for i in modelo if i not in pre]
+            # Sem pré-check, "não pré-checado" seria o kit inteiro — não ajuda.
+            l["nao_pre"] = [] if sem_pre else [nomes.get(i, "?") for i in modelo if i not in pre]
             l["total_modelo"] = len(modelo)
             validacao = None
             pendentes = []
@@ -295,7 +321,9 @@ def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
             l["validacao"] = dict(validacao) if validacao else None
             # Na conferência do kit pronto: o que ainda não foi conferido.
             l["pendentes_conferencia"] = pendentes if l["kit_id"] and not validacao else []
-            if not l["kit_id"]:
+            if sem_pre:
+                l["situacao"] = "sem_pre"
+            elif not l["kit_id"]:
                 l["situacao"] = "montagem"
             elif validacao:
                 l["situacao"] = "dupla"
@@ -314,6 +342,7 @@ def relatorio(data_ini: str = "", data_fim: str = "", situacao=None,
     termo = (busca or "").strip().lower()
     if termo:
         linhas = [l for l in linhas if termo in " ".join(
-            [l["veiculo"] or "", l["kit_nome"] or "", l["cliente"] or "", l["pre_por"] or ""]
+            [l["veiculo"] or "", l["kit_nome"] or "", l["cliente"] or "", l["pre_por"] or "",
+             l["operador_nome"] or ""]
             + l["pre_itens"] + l["nao_pre"]).lower()]
     return linhas

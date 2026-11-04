@@ -4133,13 +4133,14 @@ async def reports_pre_check(request: Request, data_ini: str = "", data_fim: str 
                             busca: str = "", pagina: int = 1,
                             situacao: list[str] = Query(default=[]),
                             cliente: list[str] = Query(default=[])):
-    """Kits com pré-check (pré-conferência do celular): verificados duas vezes,
-    aguardando validação ou ainda em montagem — e o que faltou em cada um."""
+    """Todos os kits em montagem (com e sem pré-check) e os que tiveram
+    pré-check: verificados duas vezes, aguardando validação — e o que faltou."""
     todos = conferencia_manual_mod.relatorio(data_ini, data_fim, None, None, "")
     linhas = conferencia_manual_mod.relatorio(data_ini, data_fim, situacao, cliente, busca)
     contagem = {k: 0 for k, _ in conferencia_manual_mod.SITUACOES_PRECHECK}
     for l in todos:
         contagem[l["situacao"]] += 1
+    contagem["em_montagem"] = contagem["sem_pre"] + contagem["montagem"]
     pag = paginacao_mod.paginar(linhas, pagina)
     return render(request, "reports_precheck.html", {
         "voltar_para": _voltar_para(request, "/reports"),
@@ -4163,11 +4164,13 @@ async def reports_pre_check_export(request: Request, data_ini: str = "", data_fi
     linhas = conferencia_manual_mod.relatorio(data_ini, data_fim, situacao, cliente, busca)
     wb = openpyxl.Workbook()
     _xlsx_planilha(wb, "Pré-check",
-                   ["Veículo", "Kit", "Cliente", "Situação", "Pré-check por", "Pré-check em",
+                   ["Veículo", "Kit", "Cliente", "Situação", "Montagem iniciada em", "Operador",
+                    "Pré-check por", "Pré-check em",
                     "Itens pré-checados", "Não pré-checados", "Decisão no kit pronto",
                     "Verificação oficial em", "Verificado por", "Pendentes na conferência"],
-                   [16, 28, 18, 22, 20, 17, 12, 44, 18, 20, 20, 44],
-                   [[l["veiculo"], l["kit_nome"], l["cliente"], l["situacao_texto"], l["pre_por"] or "",
+                   [16, 28, 18, 22, 20, 20, 20, 17, 12, 44, 18, 20, 20, 44],
+                   [[l["veiculo"], l["kit_nome"], l["cliente"], l["situacao_texto"],
+                     (l["iniciado_em"] or "")[:16], l["operador_nome"] or "", l["pre_por"] or "",
                      (l["registrado_em"] or "")[:16], len(l["pre_itens"]), ", ".join(l["nao_pre"]),
                      l["decisao_texto"], ((l["validacao"] or {}).get("validado_em") or "")[:16],
                      (l["validacao"] or {}).get("validado_por") or "", ", ".join(l["pendentes_conferencia"])]

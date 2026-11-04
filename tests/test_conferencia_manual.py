@@ -174,10 +174,14 @@ def test_relatorio_pre_check_acompanha_as_tres_situacoes(kit):
     kit_id = f"KRP-{kit['s']}"
     with db() as conn:
         uid = conn.execute("SELECT operador_id FROM scan_session WHERE id = ?", (kit["sid"],)).fetchone()[0]
-    conf.registrar(kit["sid"], [ids["Antena"], ids["Cabo"]], uid)
 
     def linha():
         return next(l for l in conf.relatorio(busca=kit["veiculo"]) if l["sessao_id"] == kit["sid"])
+    # Em montagem sem pré-check também aparece (pra ver o total em montagem).
+    l = linha()
+    assert l["situacao"] == "sem_pre" and l["pre_itens"] == [] and l["nao_pre"] == []
+    assert l["situacao_texto"] == "Sem pré-check" and l["total_modelo"] == 3
+    conf.registrar(kit["sid"], [ids["Antena"], ids["Cabo"]], uid)
     try:
         l = linha()
         assert l["situacao"] == "montagem" and len(l["pre_itens"]) == 2
@@ -204,6 +208,7 @@ def test_relatorio_pre_check_acompanha_as_tres_situacoes(kit):
             x = c.get("/reports/pre-check/export", params={"busca": kit["veiculo"]})
             ws = openpyxl.load_workbook(io.BytesIO(x.content)).active
             assert ws.cell(2, 1).value == kit["veiculo"] and ws.cell(2, 4).value == "Verificado 2 vezes"
+            assert "Em montagem" in c.get("/reports/pre-check").text
     finally:
         with db() as conn:
             conn.execute("DELETE FROM kit_validacoes WHERE kit_id = ?", (kit_id,))
