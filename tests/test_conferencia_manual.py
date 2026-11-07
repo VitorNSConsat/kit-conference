@@ -216,3 +216,27 @@ def test_relatorio_pre_check_acompanha_as_tres_situacoes(kit):
             conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))
             conn.execute("DELETE FROM pre_conferencia WHERE sessao_id = ?", (kit["sid"],))
             conn.execute("DELETE FROM users WHERE username = ?", (f"adm_rp_{kit['s']}",))
+
+
+def test_tela_de_bipagem_tem_janela_de_kit_completo_e_finaliza_sem_confirm(kit):
+    """A tela de bipagem abre (sem erro de template) com a janela "Kit completo"
+    e o formulário de finalizar sem o confirm() que pedia um clique a mais."""
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    nome = f"adm_bip_{kit['s']}"
+    with db() as conn:
+        conn.execute("UPDATE scan_session SET garagem = 'G' WHERE id = ?", (kit["sid"],))
+    usuarios.criar("Adm Bip", nome, "Teste#Bip2026", True)
+    try:
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#Bip2026"})
+            r = c.get(f"/session/{kit['sid']}")
+            assert r.status_code == 200
+            assert 'id="modal-kit-completo"' in r.text and "aoMudarKitCompleto" in r.text
+            assert 'id="form-finalizar"' in r.text and "confirm('Finalizar" not in r.text
+            r = c.get("/reports", params={"busca": "nao-existe-xyz"})
+            assert r.status_code == 200 and 'name="busca"' in r.text and "nao-existe-xyz" in r.text
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM users WHERE username = ?", (nome,))

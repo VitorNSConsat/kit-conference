@@ -3358,7 +3358,7 @@ async def reports_operadores(request: Request,
 # ── Relatórios ────────────────────────────────────────────────────────────────
 
 def _where_relatorio_kits(data_ini: str, data_fim: str,
-                          operador_id, tipo) -> tuple[str, list]:
+                          operador_id, tipo, busca: str = "") -> tuple[str, list]:
     """Filtros do relatório de kits, num lugar só — a TELA e a EXPORTAÇÃO
     chamam esta função, então não há como uma filtrar diferente da outra.
     Antes cada uma montava o próprio WHERE e elas já divergiam no limite.
@@ -3379,6 +3379,16 @@ def _where_relatorio_kits(data_ini: str, data_fim: str,
     sql_tp, p_tp = filtros_mod.em("kt.tipo", tipos)
     where += sql_tp
     params += p_tp
+    # Busca livre (veículo, cliente, garagem, kit, código do kit). O número
+    # do veículo cadastrado vem por subconsulta — a contagem da tela não tem
+    # o JOIN de veiculos, e as duas consultas precisam filtrar igual.
+    termo = (busca or "").strip()
+    if termo:
+        like = f"%{termo}%"
+        where += (" AND (kr.veiculo LIKE ? OR kr.garagem LIKE ? OR kt.nome LIKE ? OR kt.cliente LIKE ?"
+                  " OR kr.kit_id LIKE ?"
+                  " OR EXISTS (SELECT 1 FROM veiculos vb WHERE vb.id = kr.veiculo_id AND vb.numero LIKE ?))")
+        params += [like] * 6
     return where, params
 
 
@@ -3388,9 +3398,10 @@ async def reports(request: Request,
                   data_ini: str = "",
                   data_fim: str = "",
                   pagina: int = 1,
+                  busca: str = "",
                   operador_id: list[str] = Query(default=[]),
                   tipo: list[str] = Query(default=[])):
-    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo)
+    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo, busca)
 
     por_pagina = paginacao_mod.POR_PAGINA_PADRAO
     with db() as conn:
@@ -3455,6 +3466,7 @@ async def reports(request: Request,
         "data_fim": data_fim,
         "operador_id": operador_id,
         "tipo": tipo,
+        "busca": busca,
         "ok": request.query_params.get("ok", ""),
         "veiculos_todos": veiculos_todos,
         "pagina": pagina,
@@ -3757,6 +3769,7 @@ async def report_excel(request: Request, kit_id: str):
 async def reports_exportar_todos(request: Request,
                                   data_ini: str = "",
                                   data_fim: str = "",
+                                  busca: str = "",
                                   operador_id: list[str] = Query(default=[]),
                                   tipo: list[str] = Query(default=[])):
     """Exporta todos os kits/pedidos finalizados que batem com os filtros
@@ -3783,7 +3796,7 @@ async def reports_exportar_todos(request: Request,
     # exatamente o que a tela mostra. O LIMIT 200 que existia aqui cortava
     # em silêncio: 250 kits no filtro viravam 200 na planilha, sem aviso.
     # Quem limita o volume é o período escolhido, não um teto escondido.
-    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo)
+    where, params = _where_relatorio_kits(data_ini, data_fim, operador_id, tipo, busca)
     query += " " + where + " ORDER BY kr.finalizado_em DESC, kr.kit_id"
 
     with db() as conn:

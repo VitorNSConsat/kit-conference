@@ -152,8 +152,10 @@
         <div style="margin-top:20px;">
             {% set todos_ok = namespace(ok=true) %}
             {% for item in itens %}{% if item.obrigatorio and contagem.get(item.item_tipo_id, 0) < item.quantidade_exigida %}{% set todos_ok.ok = false %}{% endif %}{% endfor %}
-            <form method="post" action="/session/{{ session.id }}/finalize"
-                  onsubmit="return confirm('Finalizar o kit pra {{ session.veiculo }} · {{ session.garagem }}?')">
+            {# Sem confirm(): o botão só libera com o kit 100% bipado, e a etiqueta
+               vai direto pra fila de impressão — a pergunta extra era um clique a mais. #}
+            <form method="post" action="/session/{{ session.id }}/finalize" id="form-finalizar"
+                  onsubmit="return travarFinalizar()">
                 <button type="submit" class="btn btn-success" id="btn-finalizar"
                         {{ '' if todos_ok.ok else 'disabled' }}>
                     {{ ic.svg('check', 16) }} Finalizar Kit e Gerar Etiqueta
@@ -437,8 +439,68 @@
 }
 </style>
 <script src="/static/zxing.min.js"></script>
-<script src="/static/app.js?v=11"></script>
+<script src="/static/app.js?v=12"></script>
+{# Janela "Kit completo": aparece quando o último item obrigatório é bipado,
+   pra finalizar sem rolar a tela até o botão lá embaixo. O foco NÃO vai pro
+   botão de finalizar: o leitor de código manda Enter no fim de cada leitura
+   e um item opcional bipado com a janela aberta finalizaria o kit sem querer. #}
+<div id="modal-kit-completo" class="modal-lista" role="dialog" aria-modal="true" aria-labelledby="kc-titulo"
+     style="width:min(480px, calc(100vw - 32px));">
+    <div class="modal-cabecalho">
+        <div>
+            <strong id="kc-titulo">{{ ic.svg('check-circulo', 16) }} Todos os itens bipados</strong>
+            <span class="modal-sub">{{ session.veiculo }}{{ ' · ' ~ session.garagem if session.garagem }} — {{ session.kit_nome }}</span>
+        </div>
+        <button type="button" class="modal-fechar" onclick="fecharKitCompleto()" title="Continuar bipando (Esc)">{{ ic.svg('fechar', 18) }}</button>
+    </div>
+    <div class="modal-corpo">
+        <p style="margin:0 0 16px;color:var(--text);font-size:14px;line-height:1.5;">
+            O kit está completo. Ao finalizar, a etiqueta vai direto para a
+            <strong>fila de impressão</strong>.
+        </p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" onclick="fecharKitCompleto()">Continuar bipando</button>
+            <button type="button" class="btn btn-success" id="btn-finalizar-popup" onclick="finalizarKit()">
+                {{ ic.svg('check', 16) }} Finalizar e gerar etiqueta</button>
+        </div>
+    </div>
+</div>
+<div id="modal-fundo-kit-completo" class="modal-fundo" onclick="fecharKitCompleto()"></div>
+
 <script>
+// Estado inicial lido da própria página (o botão Finalizar só vem liberado
+// com o kit completo; total 0 = kit sem obrigatório, não abre a janela).
+let _kitCompleto = !document.getElementById('btn-finalizar').disabled
+    && parseFloat(document.getElementById('bip-progresso').dataset.total || '0') > 0;
+function abrirKitCompleto() {
+    document.getElementById('modal-kit-completo').classList.add('aberto');
+    document.getElementById('modal-fundo-kit-completo').classList.add('aberto');
+}
+function fecharKitCompleto() {
+    document.getElementById('modal-kit-completo').classList.remove('aberto');
+    document.getElementById('modal-fundo-kit-completo').classList.remove('aberto');
+}
+// Chamada pelo app.js a cada contagem: abre só na virada pra completo.
+function aoMudarKitCompleto(completo) {
+    if (completo && !_kitCompleto) abrirKitCompleto();
+    if (!completo) fecharKitCompleto();
+    _kitCompleto = completo;
+}
+let _finalizando = false;
+function travarFinalizar() {
+    if (_finalizando) return false;          // duplo clique não finaliza duas vezes
+    _finalizando = true;
+    document.getElementById('btn-finalizar').disabled = true;
+    const b = document.getElementById('btn-finalizar-popup');
+    if (b) { b.disabled = true; b.textContent = 'Finalizando...'; }
+    return true;
+}
+function finalizarKit() {
+    if (travarFinalizar()) document.getElementById('form-finalizar').submit();
+}
+// Abriu a tela com o kit já completo (ex.: recarregou): mostra a janela também.
+if (_kitCompleto) abrirKitCompleto();
+
 initScanner({{ session.id }});
 
 document.addEventListener("keydown", (e) => {
@@ -447,6 +509,7 @@ document.addEventListener("keydown", (e) => {
         fecharModalComponente();
         fecharModalSubstituicao();
         fecharModalQuantidade();
+        fecharKitCompleto();
         cancelarPatrimonioFixo();
         if (typeof fecharScannerCamera === 'function') fecharScannerCamera();
     }

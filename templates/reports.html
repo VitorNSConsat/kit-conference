@@ -15,6 +15,11 @@
 
 <div class="card">
     <form method="get" action="/reports" class="filter-form" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+        <div class="form-group" style="margin:0;flex:1 1 260px;max-width:420px;">
+            <label>Buscar</label>
+            <input type="search" name="busca" value="{{ busca }}" style="margin:0;" autocomplete="off"
+                   placeholder="Veículo, cliente, garagem ou kit...">
+        </div>
         <div class="form-group" style="margin:0;">
             <label>Data inicial</label>
             <input type="date" name="data_ini" value="{{ data_ini }}" style="width:160px; margin:0;">
@@ -28,7 +33,7 @@
         {{ f.multi('tipo', 'Tipo', [('kit', 'Kit'), ('pedido', 'Pedido')], tipo, 'todos') }}
         <button type="submit" class="btn btn-primary">Filtrar</button>
         <a href="/reports" class="btn btn-warning">Limpar</a>
-        <a href="/reports/exportar-todos.xlsx?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for o in operador_id %}&operador_id={{ o|urlencode }}{% endfor %}{% for tp in tipo %}&tipo={{ tp|urlencode }}{% endfor %}"
+        <a href="/reports/exportar-todos.xlsx?data_ini={{ data_ini }}&data_fim={{ data_fim }}&busca={{ busca | urlencode }}{% for o in operador_id %}&operador_id={{ o|urlencode }}{% endfor %}{% for tp in tipo %}&tipo={{ tp|urlencode }}{% endfor %}"
            class="btn btn-success" title="Exporta todos os kits/pedidos que batem com os filtros acima, num só Excel">
             {{ ic.svg('baixar', 14) }} Exportar Todos
         </a>
@@ -149,7 +154,7 @@
     </table>
 
     {% if total_paginas > 1 %}
-    {% set ns_qs = namespace(v='data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '')) %}
+    {% set ns_qs = namespace(v='data_ini=' + (data_ini or '') + '&data_fim=' + (data_fim or '') + '&busca=' + ((busca or '') | urlencode)) %}
     {% for o in operador_id %}{% set ns_qs.v = ns_qs.v + '&operador_id=' + (o|urlencode) %}{% endfor %}
     {% for tp in tipo %}{% set ns_qs.v = ns_qs.v + '&tipo=' + (tp|urlencode) %}{% endfor %}
     {% set filtros_qs = ns_qs.v %}

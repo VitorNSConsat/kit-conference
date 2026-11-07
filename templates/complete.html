@@ -12,5 +12,25 @@
         <a href="/" class="btn btn-primary">Nova Sessão</a>
         <a href="/print-queue" class="btn btn-warning">Abrir Fila de Impressão</a>
     </div>
+    {# Volta sozinho pra bipagem: o operador já emenda o próximo kit sem clicar. #}
+    <p id="volta-auto" style="margin:18px 0 0;font-size:13px;color:var(--text-muted);">
+        Voltando para a bipagem em <strong id="volta-seg">5</strong>s.
+        <button type="button" class="btn-link" onclick="ficarAqui()">Ficar nesta página</button>
+    </p>
 </div>
+<script>
+(function () {
+    let restam = 5;
+    const seg = document.getElementById('volta-seg');
+    const t = setInterval(function () {
+        restam -= 1;
+        if (restam <= 0) { clearInterval(t); location.href = '/'; return; }
+        seg.textContent = restam;
+    }, 1000);
+    window.ficarAqui = function () {
+        clearInterval(t);
+        document.getElementById('volta-auto').textContent = 'Volta automática cancelada.';
+    };
+})();
+</script>
 {% endblock %}

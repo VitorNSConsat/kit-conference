@@ -191,6 +191,9 @@ function atualizarContagem(itemTipoId, atual, _exigido, opcoes) {
     const pendentes = document.querySelectorAll(".item-row.pending[data-obrigatorio='true']");
     document.getElementById("btn-finalizar").disabled = pendentes.length > 0;
     atualizarProgressoBipagem();
+    // A tela de bipagem abre a janela "Kit completo" quando o último
+    // obrigatório entra (e fecha se uma bipagem for desfeita).
+    if (typeof aoMudarKitCompleto === "function") aoMudarKitCompleto(pendentes.length === 0);
 }
 
 // Publica a altura real da navbar em --altura-navbar, pra barra de
