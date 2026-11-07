@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=66">
+    <link rel="stylesheet" href="/static/style.css?v=69">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -53,11 +53,27 @@
         <span class="ds-nav-title-seta">{{ ic.svg('seta-baixo', 14) }}</span>
       </button>
       <div class="ds-nav-itens">
+        {# Atalho solto ou submenu (título que abre/fecha + os atalhos dele). #}
         {% for i in g.itens %}
-        <a href="{{ i.href }}" class="ds-nav-item {{ 'ativo' if i.ativo }}"
-           {%- if i.tipo == 'download' %} download title="Baixar o arquivo"{% elif i.tipo == 'tv' %} target="_blank" rel="noopener" title="Abre numa aba nova"{% endif %}>
-          {{ ic.svg(i.icone) }}<span>{{ i.rotulo }}</span>
+        {% if i.sub %}
+        <div class="ds-nav-sub" data-sub="{{ i.chave }}" data-ativo="{{ '1' if i.ativo }}">
+          <button type="button" class="ds-nav-sub-titulo" aria-expanded="false" onclick="alternarSubMenu(this)">
+            <span class="ds-nav-sub-ic">{{ ic.svg(i.icone, 15) }}</span>
+            <span class="ds-nav-sub-txt">{{ i.rotulo }}</span>
+            <span class="ds-nav-sub-seta">{{ ic.svg('seta-baixo', 13) }}</span>
+          </button>
+          <div class="ds-nav-sub-itens">
+        {% endif %}
+        {% for s in (i.itens if i.sub else [i]) %}
+        <a href="{{ s.href }}" class="ds-nav-item {{ 'ativo' if s.ativo }}"
+           {%- if s.tipo == 'download' %} download title="Baixar o arquivo"{% elif s.tipo == 'tv' %} target="_blank" rel="noopener" title="Abre numa aba nova"{% endif %}>
+          {{ ic.svg(s.icone) }}<span>{{ s.rotulo }}</span>
         </a>
+        {% endfor %}
+        {% if i.sub %}
+          </div>
+        </div>
+        {% endif %}
         {% endfor %}
       </div>
     </div>
@@ -157,10 +173,33 @@ function alternarGrupoMenu(botao) {
     if (!abrir) fechados.push(grupo.dataset.grupo);
     try { localStorage.setItem('menu_grupos_fechados', JSON.stringify(fechados)); } catch (e) {}
 }
+// Submenus: começam fechados, menos o da tela aberta; abrir/fechar à mão
+// fica guardado (e vale mais que o padrão) até a pessoa mudar de novo.
+function _subMenus() {
+    try { return JSON.parse(localStorage.getItem('menu_subs')) || {}; } catch (e) { return {}; }
+}
+function _aplicarSubMenu(sub, aberto) {
+    sub.classList.toggle('aberto', aberto);
+    const b = sub.querySelector('.ds-nav-sub-titulo');
+    if (b) b.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+}
+function alternarSubMenu(botao) {
+    const sub = botao.closest('.ds-nav-sub');
+    const abrir = !sub.classList.contains('aberto');
+    _aplicarSubMenu(sub, abrir);
+    const estado = _subMenus();
+    estado[sub.dataset.sub] = abrir ? 1 : 0;
+    try { localStorage.setItem('menu_subs', JSON.stringify(estado)); } catch (e) {}
+}
 (function () {
     const fechados = _gruposFechados();
     document.querySelectorAll('.ds-nav-group[data-grupo]').forEach(function (g) {
         _aplicarGrupoMenu(g, !fechados.includes(g.dataset.grupo));
+    });
+    const subs = _subMenus();
+    document.querySelectorAll('.ds-nav-sub[data-sub]').forEach(function (sub) {
+        const k = sub.dataset.sub;
+        _aplicarSubMenu(sub, k in subs ? subs[k] === 1 : sub.dataset.ativo === '1');
     });
     // Rolagem do menu: clicar num atalho recarrega a página e o menu voltava
     // pro topo. Guarda onde estava (por aba do navegador) e volta pra lá; se o

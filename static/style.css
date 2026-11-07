@@ -136,6 +136,23 @@ body {
 .ds-nav-group.fechado .ds-nav-itens { display: none; }
 .ds-nav-group[data-ativo="1"] .ds-nav-title { background: var(--brand-soft); }
 .ds-nav-itens { padding: 2px 0 6px; }
+/* Submenu: título discreto (não é grupo) que abre/fecha; os atalhos de
+   dentro ficam recuados, com um fio à esquerda marcando que são dele. */
+.ds-nav-sub-titulo {
+    width: 100%; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px;
+    border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left;
+    font-family: inherit; font-size: 13px; font-weight: 700; color: var(--text);
+}
+.ds-nav-sub-titulo:hover { background: var(--surface-hover); }
+.ds-nav-sub-titulo:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.ds-nav-sub-ic { display: inline-flex; color: var(--text-muted); }
+.ds-nav-sub-txt { flex: 1; }
+.ds-nav-sub-seta { display: inline-flex; color: var(--text-muted-2); transform: rotate(-90deg); transition: transform .15s; }
+.ds-nav-sub.aberto .ds-nav-sub-seta { transform: none; }
+.ds-nav-sub[data-ativo="1"] .ds-nav-sub-titulo, .ds-nav-sub[data-ativo="1"] .ds-nav-sub-ic { color: var(--brand-ink); }
+.ds-nav-sub-itens { display: none; margin: 0 0 4px 17px; padding-left: 6px; border-left: 1px solid var(--border); }
+.ds-nav-sub.aberto .ds-nav-sub-itens { display: block; }
+.ds-nav-sub-itens .ds-nav-item { height: 34px; font-size: 13px; }
 .ds-nav-item {
     height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px;
     color: var(--text-muted); text-decoration: none; border-radius: 7px; margin: 1px 0;
@@ -205,7 +222,11 @@ button.ds-hamburguer {
 
 /* Menu vira gaveta no celular — mesma navegação, escondida até tocar no ☰. */
 @media (max-width: 900px) {
+    /* No celular o menu é gaveta POR CIMA da tela: precisa passar do
+       .container (201) e da barra do topo (250) — com o 200 do desktop,
+       os cartões da página apareciam por cima do menu aberto. */
     .ds-sidebar {
+        z-index: 300;
         transform: translateX(-100%);
         transition: transform .18s ease;
         box-shadow: 0 0 0 transparent;
@@ -214,7 +235,7 @@ button.ds-hamburguer {
     .ds-main { margin-left: 0; }
     button.ds-hamburguer { display: inline-flex; align-items: center; }
     .ds-sidebar-fundo {
-        display: none; position: fixed; inset: 0; background: rgba(16,28,42,.35); z-index: 199;
+        display: none; position: fixed; inset: 0; background: rgba(16,28,42,.35); z-index: 299;
     }
     .ds-sidebar-fundo.aberta { display: block; }
 }
@@ -1621,6 +1642,10 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
    a página inteira ganhava barra horizontal. A barra de ações e a paginação
    ficam fora, sempre visíveis; a coluna Ações fixa na borda do invólucro. */
 .hw-rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Mesma ideia pra toda tabela em .table-scroll: tabela larga rola dentro do
+   cartão em qualquer largura, nunca a página inteira (antes só valia no
+   celular, e em tela média a página toda ganhava barra horizontal). */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .hw-btn-arquivo { color: var(--brand); border-color: var(--brand-border); }
 .hw-btn-arquivo:hover { background: var(--brand-soft); color: var(--brand); }

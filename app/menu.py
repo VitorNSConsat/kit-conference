@@ -12,6 +12,10 @@ pede uma (ex.: ajustar estoque exige estoque_editar).
 
 `ativo` diz se o atalho é a tela aberta agora: casa pelo caminho e, quando o
 atalho aponta pra uma aba (`?tab=…`), pela aba também.
+
+Dentro de um grupo, atalhos do mesmo assunto ficam num SUBMENU (`_sub`), que
+abre e fecha. Submenu que, pelas permissões, sobrar com um atalho só vira
+atalho solto — submenu de um item não organiza nada.
 """
 from urllib.parse import urlsplit, parse_qs
 
@@ -23,26 +27,37 @@ def _a(rotulo, icone, href, perms=(), prefixos=(), excluir=(), admin=False, tipo
             "prefixos": list(prefixos), "excluir": list(excluir), "admin": admin, "tipo": tipo}
 
 
+def _sub(rotulo, icone, itens):
+    """Submenu dentro de um grupo: um título que abre/fecha e os atalhos."""
+    return {"sub": True, "rotulo": rotulo, "icone": icone, "itens": list(itens)}
+
+
 # Organizado por ASSUNTO, com o nome que o operador usa. Antes "Cadastros"
 # misturava veículo, peça, kit e RMA — agora cada assunto tem o seu grupo.
 _GRUPOS = [
     ("Produção", "producao", [
         _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"]),
         _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
-        _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
-           ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
-        _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
-        _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
+        _sub("Acompanhamento", "producao", [
+            _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
+               ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
+            _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
+            _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
+        ]),
     ]),
     ("Estoque", "itens", [
-        _a("Estoque de itens", "itens", "/admin/items?tab=catalogo", ["ver_itens"],
-           ["/admin/items", "/admin/tipos", "/admin/estoque"]),
-        _a("Cadastrar item", "mais", "/admin/items?tab=novo", ["ver_itens"], ["/admin/items"]),
+        _sub("Itens", "itens", [
+            _a("Estoque de itens", "itens", "/admin/items?tab=catalogo", ["ver_itens"],
+               ["/admin/items", "/admin/tipos", "/admin/estoque"]),
+            _a("Cadastrar item", "mais", "/admin/items?tab=novo", ["ver_itens"], ["/admin/items"]),
+            _a("Etiquetas e códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
+        ]),
         _a("Patrimônios", "clipboard", "/admin/items?tab=patrimonios", ["ver_itens"], ["/admin/items"]),
-        _a("Etiquetas e códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
         _a("Sobressalentes", "caixa", "/admin/items?tab=sobressalentes", ["ver_itens"], ["/admin/items"]),
-        _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
-        _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
+        _sub("Prateleira", "prateleira", [
+            _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
+            _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
+        ]),
     ]),
     ("Kits e pedidos", "kits", [
         _a("Kits", "kits", "/admin/templates?tab=kit", ["ver_kits"], ["/admin/templates"]),
@@ -50,12 +65,16 @@ _GRUPOS = [
         _a("Conjuntos", "caixa", "/admin/templates?tab=conjuntos", ["ver_kits"], ["/admin/templates"]),
     ]),
     ("Veículos e clientes", "veiculos", [
-        _a("Veículos", "veiculos", "/admin/veiculos", ["ver_veiculos"],
-           ["/admin/veiculos", "/admin/clientes", "/admin/garagens"],
-           ["/admin/veiculos/import", "/admin/veiculos/importacoes"]),
-        _a("Novo veículo", "mais", "/admin/veiculos#novo", ["ver_veiculos"]),
-        _a("Clientes", "cliente", "/admin/veiculos#clientes", ["ver_veiculos"]),
-        _a("Garagens", "garagem", "/admin/veiculos#garagens", ["ver_veiculos"]),
+        _sub("Veículos", "veiculos", [
+            _a("Veículos", "veiculos", "/admin/veiculos", ["ver_veiculos"],
+               ["/admin/veiculos", "/admin/clientes", "/admin/garagens"],
+               ["/admin/veiculos/import", "/admin/veiculos/importacoes"]),
+            _a("Novo veículo", "mais", "/admin/veiculos#novo", ["ver_veiculos"]),
+        ]),
+        _sub("Clientes e garagens", "cliente", [
+            _a("Clientes", "cliente", "/admin/veiculos#clientes", ["ver_veiculos"]),
+            _a("Garagens", "garagem", "/admin/veiculos#garagens", ["ver_veiculos"]),
+        ]),
     ]),
     ("RMA", "alerta", [
         _a("Ocorrências de RMA", "alerta", "/admin/hardware", ["ver_hardware"], ["/admin/hardware"],
@@ -63,52 +82,70 @@ _GRUPOS = [
         _a("Produtos de RMA", "clipboard", "/admin/hardware/produtos", ["ver_hardware"], ["/admin/hardware/produtos"]),
     ]),
     ("Importações", "importar", [
-        _a("Importar veículos", "importar", "/admin/veiculos/import", ["ver_veiculos"], ["/admin/veiculos/import"]),
-        _a("Importações de veículos", "relogio", "/admin/veiculos/importacoes", ["ver_veiculos"], ["/admin/veiculos/importacoes"]),
-        _a("Importar RMAs", "importar", "/admin/hardware/importar", ["ver_hardware"], ["/admin/hardware/importar"]),
-        _a("Importações de RMAs", "relogio", "/admin/hardware/importacoes", ["ver_hardware"], ["/admin/hardware/importacoes"]),
-        _a("Ajustar estoque por planilha", "importar", "/admin/items?tab=catalogo#importar-ajuste",
-           ["ver_itens", "estoque_editar"]),
-        _a("Importar itens (BOM)", "importar", "/admin/items?tab=novo#importar-bom", ["ver_itens"]),
-        _a("Importar patrimônios", "importar", "/admin/patrimonios/importar", ["ver_itens", "estoque_editar"],
-           ["/admin/patrimonios/importar"]),
-        _a("Criar kit pela BOM", "importar", "/admin/templates?tab=kit#bom", ["ver_kits"]),
-        _a("Importar pedido", "importar", "/admin/templates?tab=pedido#importar-pedido",
-           ["ver_kits", "pedidos_criar_editar"]),
+        _sub("Veículos", "veiculos", [
+            _a("Importar veículos", "importar", "/admin/veiculos/import", ["ver_veiculos"], ["/admin/veiculos/import"]),
+            _a("Importações de veículos", "relogio", "/admin/veiculos/importacoes", ["ver_veiculos"], ["/admin/veiculos/importacoes"]),
+        ]),
+        _sub("RMA", "alerta", [
+            _a("Importar RMAs", "importar", "/admin/hardware/importar", ["ver_hardware"], ["/admin/hardware/importar"]),
+            _a("Importações de RMAs", "relogio", "/admin/hardware/importacoes", ["ver_hardware"], ["/admin/hardware/importacoes"]),
+        ]),
+        _sub("Estoque e patrimônios", "itens", [
+            _a("Ajustar estoque por planilha", "importar", "/admin/items?tab=catalogo#importar-ajuste",
+               ["ver_itens", "estoque_editar"]),
+            _a("Importar itens (BOM)", "importar", "/admin/items?tab=novo#importar-bom", ["ver_itens"]),
+            _a("Importar patrimônios", "importar", "/admin/patrimonios/importar", ["ver_itens", "estoque_editar"],
+               ["/admin/patrimonios/importar"]),
+        ]),
+        _sub("Kits e pedidos", "kits", [
+            _a("Criar kit pela BOM", "importar", "/admin/templates?tab=kit#bom", ["ver_kits"]),
+            _a("Importar pedido", "importar", "/admin/templates?tab=pedido#importar-pedido",
+               ["ver_kits", "pedidos_criar_editar"]),
+        ]),
     ]),
     ("Downloads", "baixar", [
         # Planilhas pra preencher e devolver em Importações.
-        _a("Modelo de veículos", "arquivo", "/admin/veiculos/modelo.xlsx", ["ver_veiculos"], tipo="download"),
-        _a("Modelo de RMAs", "arquivo", "/admin/hardware/modelo.xlsx", ["ver_hardware"], tipo="download"),
-        _a("Planilha de ajuste de estoque", "arquivo", "/admin/estoque/ajuste-modelo.xlsx",
-           ["ver_itens", "estoque_editar"], tipo="download"),
+        _sub("Modelos para preencher", "arquivo", [
+            _a("Modelo de veículos", "arquivo", "/admin/veiculos/modelo.xlsx", ["ver_veiculos"], tipo="download"),
+            _a("Modelo de RMAs", "arquivo", "/admin/hardware/modelo.xlsx", ["ver_hardware"], tipo="download"),
+            _a("Planilha de ajuste de estoque", "arquivo", "/admin/estoque/ajuste-modelo.xlsx",
+               ["ver_itens", "estoque_editar"], tipo="download"),
+        ]),
         # Exportações COMPLETAS (sem filtro). Com filtro, cada tela segue
         # exportando o que está mostrando.
-        _a("Estoque completo", "baixar", "/admin/estoque/exportar.xlsx", ["ver_itens"], tipo="download"),
-        _a("Todos os veículos", "baixar", "/admin/veiculos/exportar.xlsx", ["ver_veiculos"], tipo="download"),
-        _a("Todas as RMAs", "baixar", "/admin/hardware/exportar.xlsx", ["ver_hardware"], tipo="download"),
-        _a("Todos os kits finalizados", "baixar", "/reports/exportar-todos.xlsx", ["ver_relatorios"], tipo="download"),
-        _a("Histórico da produção", "baixar", "/admin/producao/historico/exportar.xlsx", ["ver_producao"], tipo="download"),
+        _sub("Exportações completas", "baixar", [
+            _a("Estoque completo", "baixar", "/admin/estoque/exportar.xlsx", ["ver_itens"], tipo="download"),
+            _a("Todos os veículos", "baixar", "/admin/veiculos/exportar.xlsx", ["ver_veiculos"], tipo="download"),
+            _a("Todas as RMAs", "baixar", "/admin/hardware/exportar.xlsx", ["ver_hardware"], tipo="download"),
+            _a("Todos os kits finalizados", "baixar", "/reports/exportar-todos.xlsx", ["ver_relatorios"], tipo="download"),
+            _a("Histórico da produção", "baixar", "/admin/producao/historico/exportar.xlsx", ["ver_producao"], tipo="download"),
+        ]),
         _a("Certificado do celular", "cadeado", "/cert", tipo="download"),
     ]),
     ("Relatórios", "relatorios", [
-        _a("Kits finalizados", "relatorios", "/reports", ["ver_relatorios"]),
-        _a("Kits por operador", "usuarios", "/reports/operadores", ["ver_relatorios"], ["/reports/operadores"]),
-        _a("Verificações", "check-circulo", "/reports/validacoes", ["ver_relatorios"], ["/reports/validacoes"]),
+        _sub("Kits e produção", "kits", [
+            _a("Kits finalizados", "relatorios", "/reports", ["ver_relatorios"]),
+            _a("Kits por operador", "usuarios", "/reports/operadores", ["ver_relatorios"], ["/reports/operadores"]),
+            _a("Verificações", "check-circulo", "/reports/validacoes", ["ver_relatorios"], ["/reports/validacoes"]),
+            _a("Pré-check de kits", "clipboard", "/reports/pre-check", ["ver_relatorios"], ["/reports/pre-check"]),
+            _a("Histórico da produção", "historico", "/admin/producao/historico", ["ver_producao"], ["/admin/producao/historico"]),
+        ]),
+        _sub("Patrimônio", "clipboard", [
+            _a("Patrimônios cadastrados", "clipboard", "/reports/patrimonios", ["ver_relatorios"], ["/reports/patrimonios"]),
+            _a("Mudanças de patrimônio", "historico", "/reports/patrimonio", ["ver_relatorios"], ["/reports/patrimonio"]),
+        ]),
         _a("Sobressalentes enviados", "caixa", "/reports/sobressalentes", ["ver_relatorios"], ["/reports/sobressalentes"]),
-        _a("Patrimônios cadastrados", "clipboard", "/reports/patrimonios", ["ver_relatorios"], ["/reports/patrimonios"]),
-        _a("Mudanças de patrimônio", "historico", "/reports/patrimonio", ["ver_relatorios"], ["/reports/patrimonio"]),
-        _a("Pré-check de kits", "clipboard", "/reports/pre-check", ["ver_relatorios"], ["/reports/pre-check"]),
-        _a("Histórico da produção", "historico", "/admin/producao/historico", ["ver_producao"], ["/admin/producao/historico"]),
         _a("Auditoria", "cadeado", "/admin/auditoria", [], ["/admin/auditoria"], admin=True),
     ]),
     ("Sistema", "funcionalidades", [
         _a("Manual do sistema", "funcionalidades", "/funcionalidades", ["ver_funcionalidades"], ["/funcionalidades"]),
-        # Usuários, permissões e o tempo de inatividade que encerra o login.
-        _a("Usuários", "usuarios", "/admin/usuarios", [], ["/admin/usuarios"], admin=True),
-        _a("Rede e acesso", "rede", "/rede", ["ver_rede"], ["/rede"]),
-        _a("Backup", "backup", "/admin/backup", ["ver_backup"], ["/admin/backup"]),
-        _a("Padrão visual", "paleta", "/admin/padrao-visual", [], ["/admin/padrao-visual"], admin=True),
+        _sub("Configurações", "cadeado", [
+            # Usuários, permissões e o tempo de inatividade que encerra o login.
+            _a("Usuários", "usuarios", "/admin/usuarios", [], ["/admin/usuarios"], admin=True),
+            _a("Rede e acesso", "rede", "/rede", ["ver_rede"], ["/rede"]),
+            _a("Backup", "backup", "/admin/backup", ["ver_backup"], ["/admin/backup"]),
+            _a("Padrão visual", "paleta", "/admin/padrao-visual", [], ["/admin/padrao-visual"], admin=True),
+        ]),
     ]),
 ]
 
@@ -155,33 +192,60 @@ def _ativo(item: dict, caminho: str, aba: str) -> bool:
     return casa and (not aba_destino or aba == aba_destino)
 
 
+def atalhos(grupo: dict):
+    """Os atalhos de um grupo já montado, com os de dentro dos submenus."""
+    for i in grupo["itens"]:
+        if i.get("sub"):
+            yield from i["itens"]
+        else:
+            yield i
+
+
+def _chave(texto: str) -> str:
+    return texto.lower().replace(" ", "-")
+
+
 def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
-    """[{nome, icone, chave, ativo, itens:[{rotulo, icone, href, ativo, tipo}]}] —
-    só os grupos com algum atalho que este usuário pode abrir."""
+    """[{nome, icone, chave, ativo, itens:[atalho | submenu]}] — só os grupos
+    com algum atalho que este usuário pode abrir. Atalho: {rotulo, icone,
+    href, ativo, tipo}; submenu: {sub, rotulo, icone, chave, ativo, itens}."""
     if not user:
         return []
     aba = _aba_atual(caminho, (parse_qs(query or "").get("tab") or [""])[0])
+
+    def visivel(it):
+        return not (it["admin"] and not user.get("admin")) and all(pode(p) for p in it["perms"])
+
+    def saida(it):
+        return {"rotulo": it["rotulo"], "icone": it["icone"], "href": it["href"],
+                "tipo": it["tipo"], "ativo": _ativo(it, caminho, aba)}
+
     grupos = []
-    for nome, icone_grupo, itens in _GRUPOS:
-        visiveis = []
-        for it in itens:
-            if it["admin"] and not user.get("admin"):
-                continue
-            if any(not pode(p) for p in it["perms"]):
-                continue
-            visiveis.append({"rotulo": it["rotulo"], "icone": it["icone"], "href": it["href"],
-                             "tipo": it["tipo"], "ativo": _ativo(it, caminho, aba)})
-        if visiveis:
-            grupos.append({"nome": nome, "icone": icone_grupo,
-                           "chave": nome.lower().replace(" ", "-"), "itens": visiveis})
+    for nome, icone_grupo, entradas in _GRUPOS:
+        linhas = []
+        for e in entradas:
+            if e.get("sub"):
+                filhos = [saida(it) for it in e["itens"] if visivel(it)]
+                if len(filhos) >= 2:
+                    linhas.append({"sub": True, "rotulo": e["rotulo"], "icone": e["icone"],
+                                   "chave": f"{_chave(nome)}/{_chave(e['rotulo'])}", "itens": filhos})
+                else:
+                    linhas.extend(filhos)          # sobrou um só: vira atalho solto
+            elif visivel(e):
+                linhas.append(saida(e))
+        if linhas:
+            grupos.append({"nome": nome, "icone": icone_grupo, "chave": _chave(nome), "itens": linhas})
     # A mesma tela com atalhos por aba (Itens & Estoque e as abas dela): a aba
     # com atalho próprio acende sozinha; o atalho geral, só nas outras abas.
     abas_com_atalho = {(urlsplit(i["href"]).path, (parse_qs(urlsplit(i["href"]).query).get("tab") or [""])[0])
-                       for g in grupos for i in g["itens"] if i["ativo"]}
+                       for g in grupos for i in atalhos(g) if i["ativo"]}
     for g in grupos:
-        for i in g["itens"]:
+        for i in atalhos(g):
             d = urlsplit(i["href"])
             if i["ativo"] and not d.query and (d.path, aba) in abas_com_atalho and aba:
                 i["ativo"] = False
-        g["ativo"] = any(i["ativo"] for i in g["itens"])
+        for i in g["itens"]:
+            if i.get("sub"):
+                i["ativo"] = any(x["ativo"] for x in i["itens"])
+        g["ativo"] = any(i["ativo"] for i in atalhos(g))
     return grupos

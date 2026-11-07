@@ -9,7 +9,11 @@ import app.menu as menu
 
 def _ativos(caminho, query="", user=None, pode=lambda k: True):
     return [i["rotulo"] for g in menu.montar(caminho, query, user or {"admin": True}, pode)
-            for i in g["itens"] if i["ativo"]]
+            for i in menu.atalhos(g) if i["ativo"]]
+
+
+def _rotulos(user, pode):
+    return [i["rotulo"] for g in menu.montar("/", "", user, pode) for i in menu.atalhos(g)]
 
 
 def test_grupos_por_assunto():
@@ -26,11 +30,11 @@ def test_permissoes():
     assert [i["rotulo"] for i in so_bipagem[1]["itens"]] == ["Certificado do celular"]
     # Ação que exige permissão própria: sem estoque_editar, some o atalho.
     sem_editar = menu.montar("/", "", {"admin": False}, lambda k: k != "estoque_editar")
-    rotulos = [i["rotulo"] for g in sem_editar for i in g["itens"]]
+    rotulos = [i["rotulo"] for g in sem_editar for i in menu.atalhos(g)]
     assert "Ajustar estoque por planilha" not in rotulos and "Importar veículos" in rotulos
     assert "Auditoria" not in rotulos and "Padrão visual" not in rotulos     # só admin
     assert "Usuários" not in rotulos
-    assert "Usuários" in [i["rotulo"] for g in menu.montar("/", "", {"admin": True}, lambda k: True) for i in g["itens"]]
+    assert "Usuários" in _rotulos({"admin": True}, lambda k: True)
     assert _ativos("/admin/usuarios") == ["Usuários"]
     assert menu.montar("/", "", None, lambda k: True) == []
 
@@ -61,9 +65,21 @@ def test_tela_aberta_acende_um_atalho_so():
 
 def test_downloads_centralizados():
     g = {x["nome"]: x for x in menu.montar("/", "", {"admin": True}, lambda k: True)}
-    d = g["Downloads"]["itens"]
+    d = list(menu.atalhos(g["Downloads"]))
     assert all(i["tipo"] == "download" for i in d)
     assert {"Planilha de ajuste de estoque", "Estoque completo", "Modelo de veículos",
             "Certificado do celular"} <= {i["rotulo"] for i in d}
-    tv = [i["href"] for gr in g.values() for i in gr["itens"] if i["tipo"] == "tv"]
+    tv = [i["href"] for gr in g.values() for i in menu.atalhos(gr) if i["tipo"] == "tv"]
     assert tv == ["/producao/tv", "/prateleira/tv"]
+
+
+def test_submenus_agrupam_por_assunto_e_somem_com_um_item_so():
+    g = {x["nome"]: x for x in menu.montar("/reports/patrimonios", "", {"admin": True}, lambda k: True)}
+    subs = {i["rotulo"]: i for i in g["Relatórios"]["itens"] if i.get("sub")}
+    assert [i["rotulo"] for i in subs["Patrimônio"]["itens"]] == ["Patrimônios cadastrados", "Mudanças de patrimônio"]
+    assert subs["Patrimônio"]["ativo"] and not subs["Kits e produção"]["ativo"]
+    assert subs["Patrimônio"]["chave"] == "relatórios/patrimônio"
+    # Sem admin, em Sistema → Configurações sobram Rede e Backup (continua submenu);
+    # só com "ver_rede", sobra um: vira atalho solto.
+    so_rede = {x["nome"]: x for x in menu.montar("/", "", {"admin": False}, lambda k: k == "ver_rede")}
+    assert [(i["rotulo"], bool(i.get("sub"))) for i in so_rede["Sistema"]["itens"]] == [("Rede e acesso", False)]
