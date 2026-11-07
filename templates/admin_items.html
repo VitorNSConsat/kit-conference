@@ -692,16 +692,6 @@
             </form>
         </div>
 
-        {# Cadastro em lote e a visão completa (origem, situação, Excel) moram fora:
-           a importação tem prévia própria e o relatório é a tela de verificar. #}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-            {% if pode('estoque_editar') %}
-            <a href="/admin/patrimonios/importar" class="btn btn-sm btn-primary">{{ ic.svg('importar', 14) }} Importar patrimônios (planilha)</a>
-            {% endif %}
-            {% if pode('ver_relatorios') %}
-            <a href="/reports/patrimonios" class="btn btn-sm btn-secondary">{{ ic.svg('relatorios', 14) }} Relatório de patrimônios</a>
-            {% endif %}
-        </div>
         <!-- Cadastro manual e limpeza saíram do topo: são exceção, e ocupavam
              a primeira tela de quem só veio procurar um item. -->
         <details class="pat-acao" style="margin-bottom:14px;">

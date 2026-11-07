@@ -2013,7 +2013,7 @@ def _tipos_para_patrimonio():
 @app.get("/admin/patrimonios/importar", response_class=HTMLResponse)
 @require_permission("estoque_editar")
 async def admin_patrimonios_importar(request: Request):
-    return render(request, "admin_patrimonios_importar.html", {})
+    return render(request, "admin_patrimonios_importar.html", {"voltar_para": _voltar_para(request, "/admin/items?tab=patrimonios")})
 
 
 @app.post("/admin/patrimonios/importar", response_class=HTMLResponse)
@@ -2025,9 +2025,10 @@ async def admin_patrimonios_importar_previa(request: Request, arquivo: UploadFil
         conteudo = await _ler_upload(request, arquivo)
         lido = patrimonios_import_mod.ler_planilha(conteudo)
     except ValueError as e:
-        return render(request, "admin_patrimonios_importar.html", {"erro": str(e)})
+        return render(request, "admin_patrimonios_importar.html", {"erro": str(e), "voltar_para": "/admin/patrimonios/importar"})
     tipos = _tipos_para_patrimonio()
     return render(request, "admin_patrimonios_importar.html", {
+        "voltar_para": "/admin/patrimonios/importar",
         "previa": patrimonios_import_mod.previa(lido["codigos"], bool(completar_zeros)),
         "codigos_brutos": lido["codigos"],
         "titulo": lido["titulo"],
@@ -2053,9 +2054,11 @@ async def admin_patrimonios_importar_confirmar(request: Request):
     except ValueError as e:
         tipos = _tipos_para_patrimonio()
         return render(request, "admin_patrimonios_importar.html", {
-            "erro": str(e), "previa": patrimonios_import_mod.previa(codigos, zeros),
+            "erro": str(e), "voltar_para": "/admin/patrimonios/importar",
+            "previa": patrimonios_import_mod.previa(codigos, zeros),
             "codigos_brutos": codigos, "arquivo": arquivo, "tipos": tipos, "sugestao": None})
-    return render(request, "admin_patrimonios_importar.html", {"resultado": resultado, "arquivo": arquivo})
+    return render(request, "admin_patrimonios_importar.html", {"resultado": resultado, "arquivo": arquivo,
+                                                                "voltar_para": "/admin/patrimonios/importar"})
 
 
 @app.post("/admin/items/clear")

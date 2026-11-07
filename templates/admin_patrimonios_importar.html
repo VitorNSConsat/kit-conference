@@ -3,7 +3,7 @@
 {% import "_ajuda.html" as aj %}
 {% block title %}Importar Patrimônios{% endblock %}
 {% block acoes_topo %}
-<a href="/admin/items?tab=patrimonios" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Patrimônios</a>
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
 {% endblock %}
 
 {% block content %}
@@ -17,7 +17,8 @@
   <h2 style="margin:0 0 6px;">{{ ic.svg('check-circulo', 18) }} Importação concluída</h2>
   <p style="margin:0 0 14px;color:var(--text-muted);font-size:13.5px;">
     {% if arquivo %}<strong>{{ arquivo }}</strong> — {% endif %}tipo <strong>{{ resultado.tipo_nome }}</strong>.
-    A bipagem já reconhece esses códigos sozinha.
+    A bipagem já reconhece esses códigos sozinha. Para conferir, use o menu
+    <strong>Relatórios → Patrimônios cadastrados</strong>.
   </p>
   <div class="ip-cartoes">
     <div class="ip-cartao ip-ok"><strong>{{ resultado.criados }}</strong><span>patrimônios cadastrados</span></div>
@@ -25,7 +26,6 @@
     {% if resultado.estoque %}<div class="ip-cartao ip-erro"><strong>{{ resultado.estoque | length }}</strong><span>códigos de estoque (não entraram)</span></div>{% endif %}
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
-    <a href="/reports/patrimonios?origem=importacao" class="btn btn-primary">{{ ic.svg('relatorios', 14) }} Ver no relatório de patrimônios</a>
     <a href="/admin/patrimonios/importar" class="btn btn-secondary">{{ ic.svg('importar', 14) }} Importar outra planilha</a>
   </div>
 </div>
