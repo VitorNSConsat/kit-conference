@@ -57,7 +57,8 @@
     últimos abrem a janela certa direto).</li>
   <li><strong>RMA</strong> — Ocorrências de RMA e Produtos de RMA.</li>
   <li><strong>Importações</strong> — importar veículos e RMAs (e os históricos de cada uma),
-    ajustar estoque por planilha, importar itens (BOM), criar kit pela BOM e importar pedido.</li>
+    ajustar estoque por planilha, importar itens (BOM), importar patrimônios, criar kit pela BOM e
+    importar pedido.</li>
   <li><strong>Downloads</strong> — as planilhas modelo (veículos, RMAs, ajuste de estoque), as
     exportações completas (estoque, todos os veículos, todas as RMAs, todos os kits finalizados,
     histórico da produção) e o certificado do celular.</li>
@@ -457,6 +458,27 @@
     filtros (veículo e situação) — é por ali que a tela começa. O cadastro manual e o
     “apagar todos” são exceção e ficam recolhidos em <span class="campo">Cadastrar um
     patrimônio à mão</span>, pra não ocupar a primeira tela de quem só veio procurar.
+  </p>
+  <h4>Importar patrimônios (planilha)</h4>
+  <p>
+    Botão <strong>Importar patrimônios</strong> na aba (ou menu → Importações). Serve a planilha de
+    controle do jeito que ela é — uma grade de números em várias colunas, com um título em cima
+    (“Controle de patrimônio Microfones”): o sistema pega toda célula com número e ignora o título.
+  </p>
+  <ul>
+    <li><strong>Completar com zeros</strong> (ligado por padrão): 5430 vira <code>005430</code>, o
+      formato dos patrimônios do sistema.</li>
+    <li><strong>Conferir antes de gravar</strong>: novos, já cadastrados (ficam como estão, com o
+      tipo que já têm), códigos de estoque (não entram) e repetidos na planilha. Você escolhe o
+      <strong>tipo de item</strong> — o sistema sugere pelo título — e confirma.</li>
+    <li>Depois de importados, a <strong>bipagem reconhece o patrimônio sozinha</strong>: não pergunta
+      mais qual é o item. Bipado com ou sem os zeros (5430 ou 005430), acha o mesmo patrimônio.</li>
+    <li>Na <strong>primeira bipagem</strong> de um patrimônio importado, o estoque do tipo é
+      descontado em 1 — o mesmo que acontece quando a bipagem cadastra um código novo.</li>
+  </ul>
+  <p>
+    Pra conferir tudo (origem, situação, veículo, Excel), use <strong>Relatórios → Patrimônios
+    cadastrados</strong>; esta aba continua sendo a de cadastrar, importar e corrigir.
   </p>
   <p>
     <strong>Clicar no código</strong> abre a <strong>janela do patrimônio</strong>: onde ele
@@ -1709,6 +1731,14 @@
       a lista de itens e quantidades daquele envio, com atalho pro pacote e a etiqueta. Envios de
       antes dos pacotes aparecem como <em>Avulso</em>. Busca por SOB, item, código ou cliente. O Excel
       sai com duas abas: <em>Envios</em> (um por linha) e <em>Itens</em> (cada item com o seu SOB).</li>
+    <li><strong>Patrimônios cadastrados</strong> — todos os patrimônios do sistema, um por linha:
+      tipo, <strong>origem</strong> (<em>Importação</em> com o nome do arquivo, <em>Bipagem</em>,
+      <em>Cadastro manual</em>, <em>Planilha BOM</em>, <em>Correção de código</em>), quando e por quem foi
+      cadastrado, <strong>situação</strong> (<em>Em veículo, Nunca bipado, Em bipagem, Kit sem veículo,
+      Kit excluído</em>), veículo e kit atuais e quantas vezes foi bipado. Cartões por situação, filtros
+      por tipo, origem, situação, cliente, período e busca, e Excel. Clicar no código abre a página do
+      patrimônio (onde ficam as correções). Patrimônios de antes desta versão: a origem é deduzida
+      (nasceu na bipagem se foi bipado logo ao ser cadastrado; senão, cadastro manual).</li>
     <li><strong>Mudanças de Patrimônio</strong> — tudo que aconteceu com uma peça depois da
       montagem do kit: <em>movida entre veículos</em> (de qual saiu → em qual entrou),
       <em>retirada do kit</em>, <em>reposição</em> (peça que entrou num kit já fechado) e

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% import "_icones.html" as ic %}
+{% import "_ajuda.html" as aj %}
+{% block title %}Importar Patrimônios{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/items?tab=patrimonios" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Patrimônios</a>
+{% endblock %}
+
+{% block content %}
+{#  Três estados na mesma página: enviar a planilha → conferir (nada gravado)
+    → resultado. A prévia carrega os códigos lidos num campo oculto e o
+    servidor recalcula tudo ao confirmar. #}
+{% if erro %}<div class="alert alert-danger">{{ erro }}</div>{% endif %}
+
+{% if resultado %}
+<div class="card">
+  <h2 style="margin:0 0 6px;">{{ ic.svg('check-circulo', 18) }} Importação concluída</h2>
+  <p style="margin:0 0 14px;color:var(--text-muted);font-size:13.5px;">
+    {% if arquivo %}<strong>{{ arquivo }}</strong> — {% endif %}tipo <strong>{{ resultado.tipo_nome }}</strong>.
+    A bipagem já reconhece esses códigos sozinha.
+  </p>
+  <div class="ip-cartoes">
+    <div class="ip-cartao ip-ok"><strong>{{ resultado.criados }}</strong><span>patrimônios cadastrados</span></div>
+    <div class="ip-cartao"><strong>{{ resultado.cadastrados | length }}</strong><span>já existiam (ficaram como estavam)</span></div>
+    {% if resultado.estoque %}<div class="ip-cartao ip-erro"><strong>{{ resultado.estoque | length }}</strong><span>códigos de estoque (não entraram)</span></div>{% endif %}
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+    <a href="/reports/patrimonios?origem=importacao" class="btn btn-primary">{{ ic.svg('relatorios', 14) }} Ver no relatório de patrimônios</a>
+    <a href="/admin/patrimonios/importar" class="btn btn-secondary">{{ ic.svg('importar', 14) }} Importar outra planilha</a>
+  </div>
+</div>
+
+{% elif previa %}
+<div class="card">
+  <div class="ip-cab">
+    <div>
+      <h2 style="margin:0 0 4px;">Confira antes de importar</h2>
+      <p style="margin:0;color:var(--text-muted);font-size:13px;">
+        {% if arquivo %}<strong>{{ arquivo }}</strong>{% endif %}{% if titulo %} — “{{ titulo }}”{% endif %}.
+        <strong>Nada foi gravado ainda.</strong>
+      </p>
+    </div>
+  </div>
+
+  <div class="ip-cartoes">
+    <div class="ip-cartao ip-ok"><strong>{{ previa.novos | length }}</strong><span>novos — vão ser cadastrados</span></div>
+    <div class="ip-cartao"><strong>{{ previa.cadastrados | length }}</strong><span>já cadastrados — ficam como estão</span></div>
+    <div class="ip-cartao {{ 'ip-erro' if previa.estoque }}"><strong>{{ previa.estoque | length }}</strong><span>códigos de estoque — não entram</span></div>
+    <div class="ip-cartao"><strong>{{ previa.repetidos | length }}</strong><span>repetidos na planilha — entram uma vez</span></div>
+  </div>
+
+  <form method="post" action="/admin/patrimonios/importar/confirmar" class="ip-confirmar"
+        onsubmit="this.querySelector('button[type=submit]').disabled=true; return true;">
+    <textarea name="codigos" hidden>{{ codigos_brutos | join('\n') }}</textarea>
+    <input type="hidden" name="completar_zeros" value="{{ '1' if previa.completar_zeros else '' }}">
+    <input type="hidden" name="arquivo" value="{{ arquivo }}">
+    <div class="form-group" style="margin:0;min-width:280px;flex:1;max-width:460px;">
+      <label>Tipo de item destes patrimônios *</label>
+      <select name="item_tipo_id" required style="margin:0;">
+        <option value="">— selecione o tipo —</option>
+        {% for t in tipos %}
+        <option value="{{ t.id }}" {{ 'selected' if t.id == sugestao }}>{{ t.nome }}</option>
+        {% endfor %}
+      </select>
+      {% if sugestao %}<small class="ip-dica">Sugerido pelo título da planilha — confira.</small>{% endif %}
+    </div>
+    <a href="/admin/patrimonios/importar" class="btn btn-secondary">{{ ic.svg('fechar', 14) }} Cancelar</a>
+    <button type="submit" class="btn btn-success" {{ 'disabled' if not previa.novos }}
+            title="{{ 'Nenhum código novo nesta planilha' if not previa.novos }}">
+      {{ ic.svg('check', 14) }} Importar {{ previa.novos | length }} patrimônio{{ 's' if previa.novos | length != 1 }}
+    </button>
+  </form>
+</div>
+
+<div class="card">
+  {% if previa.novos %}
+  <details class="ip-lista" open>
+    <summary>Novos ({{ previa.novos | length }}){% if previa.completar_zeros %} <span class="ip-sub">— completados com zeros à esquerda (ex.: 5430 → 005430)</span>{% endif %}</summary>
+    <div class="ip-codigos">{% for c in previa.novos %}<span>{{ c }}</span>{% endfor %}</div>
+  </details>
+  {% endif %}
+  {% if previa.cadastrados %}
+  <details class="ip-lista">
+    <summary>Já cadastrados ({{ previa.cadastrados | length }}) <span class="ip-sub">— continuam com o tipo que já têm</span></summary>
+    <table class="ip-tabela">
+      <thead><tr><th>Código da planilha</th><th>No sistema</th><th>Tipo atual</th></tr></thead>
+      <tbody>
+      {% for c in previa.cadastrados %}
+      <tr><td>{{ c.codigo }}</td><td><a href="/admin/items/patrimonio/{{ c.no_sistema | urlencode }}">{{ c.no_sistema }}</a></td><td>{{ c.tipo }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+  {% if previa.estoque %}
+  <details class="ip-lista">
+    <summary>Códigos de estoque ({{ previa.estoque | length }}) <span class="ip-sub">— são o código de uma caixa de estoque, não viram patrimônio</span></summary>
+    <div class="ip-codigos">{% for c in previa.estoque %}<span>{{ c }}</span>{% endfor %}</div>
+  </details>
+  {% endif %}
+  {% if previa.repetidos %}
+  <details class="ip-lista">
+    <summary>Repetidos na planilha ({{ previa.repetidos | length }})</summary>
+    <div class="ip-codigos">{% for c in previa.repetidos %}<span>{{ c }}</span>{% endfor %}</div>
+  </details>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="card" style="max-width:760px;">
+  <h2 style="margin:0 0 6px;">{{ ic.svg('importar', 18) }} Importar patrimônios</h2>
+  <p style="margin:0 0 16px;color:var(--text-muted);font-size:13.5px;line-height:1.5;">
+    Envie a planilha de controle com os números de patrimônio. Depois de importados, a
+    <strong>bipagem reconhece o item sozinha</strong> — não pergunta mais qual é.
+    {% call aj.ajuda() %}Pode ser a planilha de controle do jeito que ela é: uma grade de números,
+    em várias colunas, com um título em cima (ex.: “Controle de patrimônio Microfones”). O sistema
+    pega toda célula com número e ignora o título. Antes de gravar você confere tudo e escolhe o
+    tipo de item (o sistema sugere pelo título). Código que já existe fica como está. Na primeira
+    bipagem de um patrimônio importado, o estoque do tipo é descontado, como acontece quando a
+    bipagem cadastra um código novo.{% endcall %}
+  </p>
+  <form method="post" action="/admin/patrimonios/importar" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>Planilha (.xlsx) *</label>
+      <input type="file" name="arquivo" accept=".xlsx" required style="margin:0;">
+    </div>
+    <label class="ip-check">
+      <input type="checkbox" name="completar_zeros" value="1" checked>
+      <span>Completar com zeros à esquerda até 6 dígitos <small>(5430 → 005430, o formato dos patrimônios do sistema)</small></span>
+    </label>
+    <button type="submit" class="btn btn-primary" style="margin-top:14px;">{{ ic.svg('busca', 14) }} Ler planilha e conferir</button>
+  </form>
+</div>
+{% endif %}
+
+<style>
+.ip-cab { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.ip-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.ip-cartao { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--surface); }
+.ip-cartao strong { display: block; font-size: 22px; color: var(--text); }
+.ip-cartao span { font-size: 12.5px; color: var(--text-muted); }
+.ip-cartao.ip-ok { border-color: var(--brand-border); background: var(--brand-soft); }
+.ip-cartao.ip-ok strong { color: var(--brand-ink); }
+.ip-cartao.ip-erro { border-color: var(--danger-text); background: var(--danger-bg); }
+.ip-cartao.ip-erro strong, .ip-cartao.ip-erro span { color: var(--danger-text); }
+.ip-confirmar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 16px;
+    padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.ip-dica { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.ip-lista { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+.ip-lista > summary { cursor: pointer; padding: 10px 14px; font-weight: 700; font-size: 14px; color: var(--text); }
+.ip-sub { font-weight: 400; font-size: 12.5px; color: var(--text-muted); }
+.ip-codigos { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 14px 14px; max-height: 340px; overflow-y: auto; }
+.ip-codigos span { font-family: var(--font-mono, monospace); font-size: 12.5px; background: var(--surface-alt);
+    border: 1px solid var(--border-subtle); border-radius: 6px; padding: 2px 7px; color: var(--text); }
+.ip-tabela { width: 100%; margin: 0 0 8px; }
+.ip-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; cursor: pointer; color: var(--text); }
+.ip-check input { width: auto; margin: 3px 0 0; }
+.ip-check small { color: var(--text-muted); }
+</style>
+{% endblock %}

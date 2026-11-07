@@ -24,6 +24,18 @@ def _descontar_estoque_por_patrimonio_novo(item_tipo_id: int, sessao_id: int, cr
         estoque_mod.registrar_saida(est["id"], 1, sessao_id, criado_por)
 
 
+def _primeira_bipagem_de_importado(item: dict) -> bool:
+    """Patrimônio que veio de IMPORTAÇÃO e nunca foi bipado. Na bipagem ele
+    já existe no catálogo, então o desconto de estoque "de patrimônio novo"
+    (feito quando a bipagem cria o código) não aconteceria — esta é a vez
+    dele. Avaliar ANTES de gravar a bipagem."""
+    if (item or {}).get("origem") != "importacao":
+        return False
+    with db() as conn:
+        return not conn.execute("SELECT 1 FROM scan_session_items WHERE codigo_barra = ? LIMIT 1",
+                                (item["codigo_barra"],)).fetchone()
+
+
 def _eh_quantidade_lote(template_item: dict | None) -> bool:
     """True quando um único código de patrimônio representa uma quantidade
     em lote (metro ou mais de 1 unidade) em vez de uma peça só — é o
@@ -253,9 +265,12 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operado
 
     tipo_id = pendente["item_tipo_id"]
 
-    item = items_mod.buscar_item(codigo_patrimonio)
+    item = items_mod.buscar_item_bipagem(codigo_patrimonio)
+    if item:
+        codigo_patrimonio = item["codigo_barra"]
+    descontar_importado = _primeira_bipagem_de_importado(item)
     if not item:
-        items_mod.criar_item(codigo_patrimonio, tipo_id, session["operador_id"])
+        items_mod.criar_item(codigo_patrimonio, tipo_id, session["operador_id"], origem="bipagem")
         item = items_mod.buscar_item(codigo_patrimonio)
         codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_patrimonio, tipo_id)
         _descontar_estoque_por_patrimonio_novo(tipo_id, sessao_id, session["operador_id"])
@@ -290,6 +305,9 @@ def registrar_patrimonio_de_fixo(sessao_id: int, codigo_patrimonio: str, operado
                 "mensagem": f"'{pendente['descricao']}': quantidade máxima ({exigido}) já atingida."}
 
     requer_serial = bool(template_item.get("requer_serial"))
+
+    if descontar_importado and not _eh_quantidade_lote(template_item):
+        _descontar_estoque_por_patrimonio_novo(tipo_id, sessao_id, session["operador_id"])
 
     with db() as conn:
         conn.execute(
@@ -708,8 +726,12 @@ def register_scan(sessao_id: int, codigo_barra: str,
         }
     # ────────────────────────────────────────────────────────────────────────────
 
-    item = items_mod.buscar_item(codigo_barra)
+    item = items_mod.buscar_item_bipagem(codigo_barra)
     item_recem_criado = False
+    if item:
+        # 5430 bipado acha o 005430 importado: dali em diante vale o código
+        # do catálogo (é o que fica na bipagem e volta pra tela).
+        codigo_barra = item["codigo_barra"]
 
     if not item:
         if item_tipo_id is None:
@@ -731,7 +753,7 @@ def register_scan(sessao_id: int, codigo_barra: str,
         if not template_item_novo:
             return {"resultado": "rejeitado",
                     "mensagem": "Tipo selecionado não pertence a este kit."}
-        items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"])
+        items_mod.criar_item(codigo_barra, item_tipo_id, session["operador_id"], origem="bipagem")
         item = items_mod.buscar_item(codigo_barra)
         item_recem_criado = True
         codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_barra, item_tipo_id)
@@ -792,6 +814,10 @@ def register_scan(sessao_id: int, codigo_barra: str,
     if not item_recem_criado and not item.get("reutilizavel") and _barcode_em_kit_ativo(codigo_barra):
         return {"resultado": "rejeitado",
                 "mensagem": f"Patrimônio '{codigo_barra}' já está em outro kit ativo."}
+
+    if (not item_recem_criado and _primeira_bipagem_de_importado(item)
+            and not _eh_quantidade_lote(template_item)):
+        _descontar_estoque_por_patrimonio_novo(item["item_tipo_id"], sessao_id, session["operador_id"])
 
     with db() as conn:
         conn.execute(

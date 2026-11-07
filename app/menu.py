@@ -70,6 +70,8 @@ _GRUPOS = [
         _a("Ajustar estoque por planilha", "importar", "/admin/items?tab=catalogo#importar-ajuste",
            ["ver_itens", "estoque_editar"]),
         _a("Importar itens (BOM)", "importar", "/admin/items?tab=novo#importar-bom", ["ver_itens"]),
+        _a("Importar patrimônios", "importar", "/admin/patrimonios/importar", ["ver_itens", "estoque_editar"],
+           ["/admin/patrimonios/importar"]),
         _a("Criar kit pela BOM", "importar", "/admin/templates?tab=kit#bom", ["ver_kits"]),
         _a("Importar pedido", "importar", "/admin/templates?tab=pedido#importar-pedido",
            ["ver_kits", "pedidos_criar_editar"]),
@@ -94,6 +96,7 @@ _GRUPOS = [
         _a("Kits por operador", "usuarios", "/reports/operadores", ["ver_relatorios"], ["/reports/operadores"]),
         _a("Verificações", "check-circulo", "/reports/validacoes", ["ver_relatorios"], ["/reports/validacoes"]),
         _a("Sobressalentes enviados", "caixa", "/reports/sobressalentes", ["ver_relatorios"], ["/reports/sobressalentes"]),
+        _a("Patrimônios cadastrados", "clipboard", "/reports/patrimonios", ["ver_relatorios"], ["/reports/patrimonios"]),
         _a("Mudanças de patrimônio", "historico", "/reports/patrimonio", ["ver_relatorios"], ["/reports/patrimonio"]),
         _a("Pré-check de kits", "clipboard", "/reports/pre-check", ["ver_relatorios"], ["/reports/pre-check"]),
         _a("Histórico da produção", "historico", "/admin/producao/historico", ["ver_producao"], ["/admin/producao/historico"]),
@@ -112,7 +115,7 @@ _GRUPOS = [
 # Aba que a tela abre quando o link não diz qual (pra acender o atalho certo).
 _ABA_PADRAO = {"/admin/items": "catalogo", "/admin/templates": "kit"}
 
-_RELATORIOS_PROPRIOS = ("operadores", "validacoes", "sobressalentes", "patrimonio", "pre-check")
+_RELATORIOS_PROPRIOS = ("operadores", "validacoes", "sobressalentes", "patrimonio", "patrimonios", "pre-check")
 
 
 def _casa(caminho: str, prefixo: str) -> bool:

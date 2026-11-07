@@ -653,8 +653,8 @@ def atribuir_patrimonio(codigo_barra: str, kit_id: str, item_tipo_id: int,
             "SELECT id FROM item_master WHERE codigo_barra = ?", (codigo_barra,)).fetchone()
         if not ja_cadastrado:
             conn.execute(
-                "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
-                "VALUES (?, ?, ?, ?)", (codigo_barra, item_tipo_id, user_id, carimbo))
+                "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em, origem) "
+                "VALUES (?, ?, ?, ?, 'bipagem')", (codigo_barra, item_tipo_id, user_id, carimbo))
         conn.execute(
             "INSERT INTO scan_session_items "
             "(sessao_id, codigo_barra, item_tipo_id, status, bipado_em, operador_id, "
@@ -753,8 +753,8 @@ def corrigir_patrimonio(codigo_atual: str, novo_codigo: str = "",
                 # volta a existir em Itens Cadastrados com o código certo, em
                 # vez de seguir invisível ali e presente no kit.
                 conn.execute(
-                    "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_em) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_em, origem) "
+                    "VALUES (?, ?, ?, 'correcao')",
                     (novo_codigo, na_bipagem["item_tipo_id"], now_brt()))
             conn.execute(
                 "UPDATE scan_session_items SET codigo_barra = ? WHERE codigo_barra = ?",
@@ -817,12 +817,30 @@ def buscar_item(codigo_barra: str) -> dict | None:
     return dict(row) if row else None
 
 
-def criar_item(codigo_barra: str, item_tipo_id: int, criado_por: int) -> int:
+def buscar_item_bipagem(codigo_barra: str) -> dict | None:
+    """buscar_item() com tolerância aos zeros à esquerda: o código numérico
+    bipado como 5430 acha o patrimônio 005430 (e vice-versa). Exato primeiro
+    — só tenta a outra forma quando o código como veio não existe. Quem
+    chama passa a usar o `codigo_barra` do patrimônio encontrado."""
+    item = buscar_item(codigo_barra)
+    if item or not (codigo_barra or "").isdigit():
+        return item
+    for alt in (codigo_barra.zfill(6), codigo_barra.lstrip("0") or "0"):
+        if alt != codigo_barra:
+            item = buscar_item(alt)
+            if item:
+                return item
+    return None
+
+
+def criar_item(codigo_barra: str, item_tipo_id: int, criado_por: int, origem: str | None = None) -> int:
+    """`origem`: bipagem, manual, importacao, bom, correcao — aparece no
+    relatório de patrimônios."""
     with db() as conn:
         cur = conn.execute(
-            "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
-            "VALUES (?, ?, ?, ?)",
-            (codigo_barra, item_tipo_id, criado_por, now_brt())
+            "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em, origem) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (codigo_barra, item_tipo_id, criado_por, now_brt(), origem)
         )
         return cur.lastrowid
 
@@ -944,8 +962,8 @@ def importar_bom_xlsx(conteudo: bytes, criado_por: int) -> dict:
                 ).fetchone()
                 if not exists:
                     conn.execute(
-                        "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em) "
-                        "VALUES (?, ?, ?, ?)",
+                        "INSERT INTO item_master (codigo_barra, item_tipo_id, criado_por, criado_em, origem) "
+                        "VALUES (?, ?, ?, ?, 'bom')",
                         (code, tipo_id, criado_por, now_brt())
                     )
                     itens_criados += 1

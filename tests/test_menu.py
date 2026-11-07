@@ -52,6 +52,9 @@ def test_tela_aberta_acende_um_atalho_so():
     assert _ativos("/reports") == ["Kits finalizados"]
     assert _ativos("/reports/patrimonio") == ["Mudanças de patrimônio"]
     assert _ativos("/admin/hardware/7") == ["Ocorrências de RMA"]
+    assert _ativos("/admin/patrimonios/importar") == ["Importar patrimônios"]
+    assert _ativos("/reports/patrimonios") == ["Patrimônios cadastrados"]
+    assert _ativos("/reports/patrimonio") == ["Mudanças de patrimônio"]
     grupos = menu.montar("/reports/validacoes", "", {"admin": True}, lambda k: True)
     assert [g["nome"] for g in grupos if g["ativo"]] == ["Relatórios"]
 

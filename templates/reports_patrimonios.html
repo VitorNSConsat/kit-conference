@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% import "_filtros.html" as f %}
+{% import "_paginacao.html" as pg %}
+{% import "_icones.html" as ic %}
+{% import "_ajuda.html" as aj %}
+{% block title %}Patrimônios Cadastrados{% endblock %}
+{% block acoes_topo %}
+<a href="{{ voltar_para }}" class="btn btn-secondary btn-sm">{{ ic.svg('voltar', 15) }} Voltar</a>
+{% endblock %}
+
+{% block content %}
+{% set cor_sit = {'ok': 'badge-success', 'nunca_bipado': 'badge-info', 'em_bipagem': 'badge-warning',
+                  'kit_sem_veiculo': 'badge-danger', 'kit_removido': 'badge-danger'} %}
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
+  Todos os patrimônios do sistema: de onde vieram e onde estão.
+  {% call aj.ajuda() %}<strong>Origem</strong>: <em>Importação</em> (planilha de patrimônios),
+  <em>Bipagem</em> (o código nasceu ao ser bipado num kit), <em>Cadastro manual</em>, <em>Planilha
+  BOM</em> ou <em>Correção de código</em>. <strong>Situação</strong>: <em>Em veículo</em> (num kit
+  finalizado com veículo), <em>Nunca bipado</em>, <em>Em bipagem</em> (num kit ainda em montagem),
+  <em>Kit sem veículo</em> ou <em>Kit excluído</em>. Para cadastrar, importar ou corrigir, use
+  Itens &amp; Estoque → Patrimônios; clicar no código abre a página do patrimônio.{% endcall %}
+</p>
+
+<div class="pat-resumo">
+  <a href="/reports/patrimonios?{{ qs_sem_situacao }}" class="pat-resumo-card {{ 'ativo' if not situacao }}">
+    <span class="rp-rot">Total</span><strong>{{ contagem_total }}</strong>
+  </a>
+  {% for chave, rotulo in situacoes %}
+  <a href="/reports/patrimonios?{{ qs_sem_situacao }}&situacao={{ chave }}"
+     class="pat-resumo-card {{ 'ativo' if situacao == [chave] }}">
+    <span class="badge {{ cor_sit[chave] }}">{{ rotulo }}</span><strong>{{ contagem[chave] }}</strong>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Filtros</h2>
+  <form method="get" class="rel-filtros rp-filtros">
+    <div class="form-group rel-busca"><label>Buscar</label>
+      <input type="search" name="busca" value="{{ busca }}" placeholder="Código, tipo, veículo, cliente, arquivo..." autocomplete="off">
+    </div>
+    <div class="form-group"><label>Tipo de item</label>{{ f.multi('tipo', 'Tipo', tipos_opcoes, tipo, 'todos') }}</div>
+    <div class="form-group"><label>Origem</label>{{ f.multi('origem', 'Origem', origens_opcoes, origem, 'todas') }}</div>
+    <div class="form-group"><label>Situação</label>{{ f.multi('situacao', 'Situação', situacoes, situacao, 'todas') }}</div>
+    <div class="form-group"><label>Cliente</label>{{ f.multi('cliente', 'Cliente', clientes | map(attribute='nome') | list, cliente, 'todos') }}</div>
+    <div class="form-group"><label>Cadastrado de</label><input type="date" name="data_ini" value="{{ data_ini }}"></div>
+    <div class="form-group"><label>até</label><input type="date" name="data_fim" value="{{ data_fim }}"></div>
+    <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
+    {% if qs_tem_filtro %}<a href="/reports/patrimonios" class="btn btn-secondary">Limpar</a>{% endif %}
+    <a href="/reports/patrimonios/export?{{ qs }}" class="btn btn-success">{{ ic.svg('baixar', 14) }} Exportar Excel</a>
+  </form>
+</div>
+
+<div class="card table-scroll">
+  {{ pg.contagem(pag, "patrimônios") }}
+  {% if itens %}
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Tipo</th>
+        <th>Origem</th>
+        <th>Cadastrado em</th>
+        <th>Situação</th>
+        <th>Veículo atual</th>
+        <th>Kit</th>
+        <th style="text-align:center;">Bipagens</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for i in itens %}
+    <tr>
+      <td><a href="/admin/items/patrimonio/{{ i.codigo_barra | urlencode }}" class="rp-codigo">{{ i.codigo_barra }}</a></td>
+      <td>{{ i.descricao }}</td>
+      <td>
+        <span class="rp-origem rp-o-{{ i.origem_chave }}">{{ i.origem_texto }}</span>
+        {% if i.origem_ref %}<small class="rp-sub" title="{{ i.origem_ref }}">{{ i.origem_ref }}</small>{% endif %}
+      </td>
+      <td class="rp-nowrap">
+        {% if i.criado_em %}{{ i.criado_em[8:10] }}/{{ i.criado_em[5:7] }}/{{ i.criado_em[:4] }} {{ i.criado_em[11:16] }}{% else %}—{% endif %}
+        {% if i.criado_por_nome %}<small class="rp-sub">{{ i.criado_por_nome }}</small>{% endif %}
+      </td>
+      <td><span class="badge {{ cor_sit[i.situacao] }}" title="{{ i.situacao_texto }}">{{ i.situacao_curta }}</span></td>
+      <td>
+        {% if i.veiculo_atual %}
+        <strong style="color:{{ cor_do_cliente(i.cliente_atual) }};" class="rp-nowrap">{{ i.veiculo_atual }}</strong>
+        {% if i.cliente_atual %}<small class="rp-sub">{{ i.cliente_atual }}{{ ' · ' ~ i.garagem_atual if i.garagem_atual }}</small>{% endif %}
+        {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+      </td>
+      <td>
+        {% if i.kit_id_atual %}<a href="/kit/{{ i.kit_id_atual }}" target="_blank" class="btn btn-sm btn-secondary">Abrir</a>
+        {% if i.bipado_em_atual %}<small class="rp-sub">{{ i.bipado_em_atual[8:10] }}/{{ i.bipado_em_atual[5:7] }}/{{ i.bipado_em_atual[:4] }}</small>{% endif %}
+        {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+      </td>
+      <td style="text-align:center;">{{ i.total_bipagens }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}<a href="/reports/patrimonios?{{ qs }}&pagina={{ p }}" class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p style="color:var(--text-muted);text-align:center;padding:24px;">Nenhum patrimônio para esses filtros.</p>
+  {% endif %}
+</div>
+
+<style>
+.pat-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.pat-resumo-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-decoration: none; color: var(--text); }
+.pat-resumo-card:hover { border-color: var(--brand-border); background: var(--brand-soft); }
+.pat-resumo-card.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.pat-resumo-card strong { font-size: 20px; color: var(--brand-ink); }
+.rp-rot { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.rp-codigo { font-family: var(--font-mono, monospace); font-weight: 700; white-space: nowrap; }
+.rp-sub { display: block; font-size: 12px; color: var(--text-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-nowrap { white-space: nowrap; }
+/* Muitos filtros: a busca ocupa a primeira linha inteira, o resto vem embaixo. */
+.rp-filtros .rel-busca { flex: 1 1 100%; }
+.rp-filtros .rel-busca input { max-width: 640px; }
+.rp-origem { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 99px; padding: 2px 9px;
+    background: var(--surface-alt); color: var(--text); border: 1px solid var(--border); white-space: nowrap; }
+.rp-o-importacao { background: var(--brand-soft); color: var(--brand-ink); border-color: var(--brand-border); }
+.rp-o-bipagem { background: var(--ok-bg, var(--surface-alt)); color: var(--ok-text, var(--text)); }
+</style>
+{% endblock %}

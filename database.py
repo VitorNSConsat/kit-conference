@@ -164,6 +164,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_scan_session_items = {r["name"] for r in conn.execute("PRAGMA table_info(scan_session_items)").fetchall()}
         colunas_estoque_movimentos = {r["name"] for r in conn.execute("PRAGMA table_info(estoque_movimentos)").fetchall()}
         colunas_remessa_kit = {r["name"] for r in conn.execute("PRAGMA table_info(remessa_kit)").fetchall()}
+        colunas_item_master = {r["name"] for r in conn.execute("PRAGMA table_info(item_master)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -208,6 +209,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "hardware_importacao" not in tabelas
         or "regiao" not in colunas_veiculos
         or "pre_conferencia" not in tabelas
+        or ("item_master" in tabelas and "origem" not in colunas_item_master)
     )
     if not pendente:
         return None
@@ -1030,6 +1032,11 @@ def init_db():
             # Região de operação do veículo (ex.: "T. BANDEIRAS") — onde ele
             # roda. Só informação, pra achar o veículo; vem da planilha.
             "ALTER TABLE veiculos ADD COLUMN regiao TEXT DEFAULT ''",
+            # De onde veio o patrimônio (importacao, bipagem, manual, bom,
+            # correcao) e, na importação, o arquivo. Os antigos ficam NULL e
+            # o relatório deduz (relatorio_patrimonios._origem).
+            "ALTER TABLE item_master ADD COLUMN origem TEXT",
+            "ALTER TABLE item_master ADD COLUMN origem_ref TEXT",
             "ALTER TABLE importacao_item ADD COLUMN regiao_antes TEXT",
             "ALTER TABLE importacao_item ADD COLUMN regiao_depois TEXT",
             # Observação livre de uma correção feita no kit já finalizado

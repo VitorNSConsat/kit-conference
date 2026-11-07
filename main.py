@@ -48,6 +48,8 @@ import app.inatividade as inatividade_mod
 import app.importacoes as importacoes_mod
 import app.remessas as remessas_mod
 import app.relatorio_patrimonio as relatorio_patrimonio_mod
+import app.relatorio_patrimonios as relatorio_patrimonios_mod
+import app.patrimonios_import as patrimonios_import_mod
 import app.menu as menu_mod
 import app.conferencia_manual as conferencia_manual_mod
 import app.hardware as hardware_mod
@@ -1993,13 +1995,67 @@ async def admin_items_post(request: Request,
     user = get_current_user(request)
     try:
         codigo_barra = codigo_barra.strip()
-        items_mod.criar_item(codigo_barra, item_tipo_id, user["id"])
+        items_mod.criar_item(codigo_barra, item_tipo_id, user["id"], origem="manual")
         codigos_gerados_mod.sincronizar_tipo_se_reciclavel(codigo_barra, item_tipo_id)
         return RedirectResponse("/admin/items?ok=1", status_code=302)
     except Exception as e:
         return render(request, "admin_items.html",
                       {**_admin_items_context(tab="patrimonios"),
                        "erro": _erro_usuario(e, "Não foi possível salvar o item.")})
+
+
+# ── Importar patrimônios por planilha ─────────────────────────────────────────
+
+def _tipos_para_patrimonio():
+    return [t for t in items_mod.listar_tipos() if t.get("ativo", 1)]
+
+
+@app.get("/admin/patrimonios/importar", response_class=HTMLResponse)
+@require_permission("estoque_editar")
+async def admin_patrimonios_importar(request: Request):
+    return render(request, "admin_patrimonios_importar.html", {})
+
+
+@app.post("/admin/patrimonios/importar", response_class=HTMLResponse)
+@require_permission("estoque_editar")
+async def admin_patrimonios_importar_previa(request: Request, arquivo: UploadFile = File(...),
+                                            completar_zeros: str = Form("")):
+    """Lê a planilha e mostra a prévia — nada é gravado aqui."""
+    try:
+        conteudo = await _ler_upload(request, arquivo)
+        lido = patrimonios_import_mod.ler_planilha(conteudo)
+    except ValueError as e:
+        return render(request, "admin_patrimonios_importar.html", {"erro": str(e)})
+    tipos = _tipos_para_patrimonio()
+    return render(request, "admin_patrimonios_importar.html", {
+        "previa": patrimonios_import_mod.previa(lido["codigos"], bool(completar_zeros)),
+        "codigos_brutos": lido["codigos"],
+        "titulo": lido["titulo"],
+        "arquivo": arquivo.filename or "",
+        "tipos": tipos,
+        "sugestao": patrimonios_import_mod.sugerir_tipo(lido["titulo"], tipos),
+    })
+
+
+@app.post("/admin/patrimonios/importar/confirmar", response_class=HTMLResponse)
+@require_permission("estoque_editar")
+async def admin_patrimonios_importar_confirmar(request: Request):
+    user = get_current_user(request)
+    form = await request.form()
+    codigos = [c.strip() for c in str(form.get("codigos", "")).splitlines() if c.strip()]
+    tipo_id = str(form.get("item_tipo_id", ""))
+    arquivo = str(form.get("arquivo", ""))
+    zeros = bool(form.get("completar_zeros"))
+    try:
+        if not tipo_id.isdigit():
+            raise ValueError("Escolha o tipo de item dos patrimônios.")
+        resultado = patrimonios_import_mod.importar(codigos, zeros, int(tipo_id), user["id"], arquivo)
+    except ValueError as e:
+        tipos = _tipos_para_patrimonio()
+        return render(request, "admin_patrimonios_importar.html", {
+            "erro": str(e), "previa": patrimonios_import_mod.previa(codigos, zeros),
+            "codigos_brutos": codigos, "arquivo": arquivo, "tipos": tipos, "sugestao": None})
+    return render(request, "admin_patrimonios_importar.html", {"resultado": resultado, "arquivo": arquivo})
 
 
 @app.post("/admin/items/clear")
@@ -4190,6 +4246,74 @@ async def reports_pre_check_export(request: Request, data_ini: str = "", data_fi
                      (l["validacao"] or {}).get("validado_por") or "", ", ".join(l["pendentes_conferencia"])]
                     for l in linhas], primeira=True)
     return _xlsx_resposta(wb, f"pre_check_{now_brt()[:10]}.xlsx")
+
+
+# ── Relatório de patrimônios (todos, origem e situação) ──────────────────────
+
+def _filtros_rel_patrimonios(data_ini, data_fim, busca, tipo, origem, situacao, cliente):
+    return urlencode([("data_ini", data_ini), ("data_fim", data_fim), ("busca", busca)]
+                     + [("tipo", t) for t in tipo] + [("origem", o) for o in origem]
+                     + [("situacao", x) for x in situacao] + [("cliente", c) for c in cliente])
+
+
+@app.get("/reports/patrimonios", response_class=HTMLResponse)
+@require_permission("ver_relatorios")
+async def reports_patrimonios(request: Request, data_ini: str = "", data_fim: str = "",
+                              busca: str = "", pagina: int = 1,
+                              tipo: list[str] = Query(default=[]),
+                              origem: list[str] = Query(default=[]),
+                              situacao: list[str] = Query(default=[]),
+                              cliente: list[str] = Query(default=[])):
+    """Todos os patrimônios: de onde vieram (importação, bipagem, manual...)
+    e onde estão. Os cartões contam por situação com os OUTROS filtros
+    aplicados, pra dar pra pular de uma situação pra outra."""
+    todos = relatorio_patrimonios_mod.listar()
+    base = relatorio_patrimonios_mod.filtrar(todos, data_ini, data_fim, tipo, origem, None, cliente, busca)
+    itens = relatorio_patrimonios_mod.filtrar(base, situacoes=situacao)
+    contagem = {k: 0 for k, _ in relatorio_patrimonios_mod.SITUACOES}
+    for i in base:
+        contagem[i["situacao"]] = contagem.get(i["situacao"], 0) + 1
+    tipos_usados = sorted({(str(i["item_tipo_id"]), i["descricao"]) for i in todos}, key=lambda t: t[1].lower())
+    pag = paginacao_mod.paginar(itens, pagina)
+    return render(request, "reports_patrimonios.html", {
+        "voltar_para": _voltar_para(request, "/reports"),
+        "itens": pag["itens"], "pag": pag,
+        "contagem": contagem, "contagem_total": len(base),
+        "situacoes": relatorio_patrimonios_mod.SITUACOES,
+        "origens_opcoes": relatorio_patrimonios_mod.ORIGENS,
+        "tipos_opcoes": tipos_usados,
+        "clientes": clientes_mod.listar(),
+        "data_ini": data_ini, "data_fim": data_fim, "busca": busca,
+        "tipo": tipo, "origem": origem, "situacao": situacao, "cliente": cliente,
+        "qs": _filtros_rel_patrimonios(data_ini, data_fim, busca, tipo, origem, situacao, cliente),
+        "qs_sem_situacao": _filtros_rel_patrimonios(data_ini, data_fim, busca, tipo, origem, [], cliente),
+        "qs_tem_filtro": bool(data_ini or data_fim or busca or tipo or origem or situacao or cliente),
+    })
+
+
+@app.get("/reports/patrimonios/export")
+@require_permission("ver_relatorios")
+async def reports_patrimonios_export(request: Request, data_ini: str = "", data_fim: str = "",
+                                     busca: str = "",
+                                     tipo: list[str] = Query(default=[]),
+                                     origem: list[str] = Query(default=[]),
+                                     situacao: list[str] = Query(default=[]),
+                                     cliente: list[str] = Query(default=[])):
+    import openpyxl
+    itens = relatorio_patrimonios_mod.filtrar(relatorio_patrimonios_mod.listar(), data_ini, data_fim,
+                                              tipo, origem, situacao, cliente, busca)
+    wb = openpyxl.Workbook()
+    _xlsx_planilha(wb, "Patrimônios",
+                   ["Código", "Tipo", "Origem", "Arquivo / referência", "Cadastrado em", "Cadastrado por",
+                    "Situação", "Veículo atual", "Cliente", "Garagem", "Kit", "Montado em", "Bipagens"],
+                   [16, 32, 18, 32, 17, 20, 18, 16, 18, 16, 38, 17, 10],
+                   [[i["codigo_barra"], i["descricao"], i["origem_texto"], i.get("origem_ref") or "",
+                     (i["criado_em"] or "")[:16], i["criado_por_nome"] or "", i["situacao_curta"],
+                     i["veiculo_atual"] or "", i["cliente_atual"] or "", i["garagem_atual"] or "",
+                     i["kit_id_atual"] or "", (i["bipado_em_atual"] or "")[:16], i["total_bipagens"]]
+                    for i in itens], primeira=True)
+    filtrado = bool(data_ini or data_fim or busca or tipo or origem or situacao or cliente)
+    return _xlsx_resposta(wb, f"patrimonios_{'filtrado_' if filtrado else 'todos_'}{now_brt()[:10]}.xlsx")
 
 
 @app.get("/reports/patrimonio", response_class=HTMLResponse)

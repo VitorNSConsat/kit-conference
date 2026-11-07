@@ -535,7 +535,7 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
 }
 
 input[type=text], input[type=password], input[type=date], input[type=number],
-input[type=email], select {
+input[type=email], input[type=search], select {
     height: 34px;
     width: 100%;
     padding: 0 12px;
