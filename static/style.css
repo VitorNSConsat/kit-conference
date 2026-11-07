@@ -172,6 +172,13 @@ body {
 .ds-nav.com-foco .foco-grupo.foco-sub > .ds-nav-itens > :not(.foco):hover { opacity: 1; }
 .ds-nav.com-foco .foco-grupo > .ds-nav-title { background: var(--brand-soft); }
 .ds-nav-sub.foco { background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border); }
+/* O mesmo destaque no primeiro nível: grupo aberto agora (sem submenu em
+   foco) vira um bloco na cor da marca, como o submenu. */
+.ds-nav-group { border-radius: 10px; transition: background .15s, box-shadow .15s; }
+.ds-nav.com-foco .foco-grupo:not(.foco-sub) {
+    background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+.ds-nav.com-foco .foco-grupo:not(.foco-sub) > .ds-nav-title { background: transparent; }
 .ds-nav-item {
     height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px;
     color: var(--text-muted); text-decoration: none; border-radius: 7px; margin: 1px 0;
