@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=69">
+    <link rel="stylesheet" href="/static/style.css?v=70">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -165,10 +165,32 @@ function _aplicarGrupoMenu(grupo, aberto) {
     const b = grupo.querySelector('.ds-nav-title');
     if (b) b.setAttribute('aria-expanded', aberto ? 'true' : 'false');
 }
+// Foco do menu: o grupo/submenu que a pessoa ACABOU de abrir fica em
+// evidência e o resto do menu esmaece (passar o mouse devolve a cor). Só
+// enquanto mexe: some ao fechar o que estava em foco, clicar fora do menu
+// ou apertar Esc — e não passa de uma tela pra outra.
+function _focarMenu(grupo, sub) {
+    const nav = document.querySelector('.ds-nav');
+    if (!nav) return;
+    nav.querySelectorAll('.foco-grupo, .foco-sub, .ds-nav-sub.foco').forEach(function (e) {
+        e.classList.remove('foco-grupo', 'foco-sub', 'foco');
+    });
+    nav.classList.toggle('com-foco', !!grupo);
+    if (!grupo) return;
+    grupo.classList.add('foco-grupo');
+    if (sub) { grupo.classList.add('foco-sub'); sub.classList.add('foco'); }
+}
+document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('#ds-sidebar')) _focarMenu(null);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _focarMenu(null); });
+
 function alternarGrupoMenu(botao) {
     const grupo = botao.closest('.ds-nav-group');
     const abrir = grupo.classList.contains('fechado');
     _aplicarGrupoMenu(grupo, abrir);
+    if (abrir) _focarMenu(grupo);
+    else if (grupo.classList.contains('foco-grupo')) _focarMenu(null);
     let fechados = _gruposFechados().filter(c => c !== grupo.dataset.grupo);
     if (!abrir) fechados.push(grupo.dataset.grupo);
     try { localStorage.setItem('menu_grupos_fechados', JSON.stringify(fechados)); } catch (e) {}
@@ -187,6 +209,9 @@ function alternarSubMenu(botao) {
     const sub = botao.closest('.ds-nav-sub');
     const abrir = !sub.classList.contains('aberto');
     _aplicarSubMenu(sub, abrir);
+    const grupo = sub.closest('.ds-nav-group');
+    if (abrir) _focarMenu(grupo, sub);
+    else if (sub.classList.contains('foco')) _focarMenu(grupo);
     const estado = _subMenus();
     estado[sub.dataset.sub] = abrir ? 1 : 0;
     try { localStorage.setItem('menu_subs', JSON.stringify(estado)); } catch (e) {}
