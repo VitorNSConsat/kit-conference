@@ -2,61 +2,49 @@
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
+{% import "_ajuda.html" as aj %}
 {% block title %}Auditoria{% endblock %}
 {% block acoes_topo %}
 {% if user and user.admin %}
-{# Leva os MESMOS filtros da tela: o que se exporta é o que se está vendo. #}
-<a class="btn btn-success btn-sm"
-   href="/admin/auditoria/exportar.xlsx?data_ini={{ data_ini|urlencode }}&data_fim={{ data_fim|urlencode }}&busca={{ busca|urlencode }}{% for u in filtro_user_id %}&user_id={{ u|urlencode }}{% endfor %}{% for a in filtro_acao %}&acao={{ a|urlencode }}{% endfor %}"
+{# Monta o link na hora do clique: os filtros aplicam sem recarregar a página,
+   e o que se exporta tem que ser o que se está vendo. #}
+<a class="btn btn-success btn-sm" href="/admin/auditoria/exportar.xlsx"
+   onclick="this.href='/admin/auditoria/exportar.xlsx?'+new URLSearchParams(new FormData(document.getElementById('form-auditoria'))).toString()"
    title="Excel com o log completo do filtro atual e abas de análise por dia, usuário, ação e hora">
   {{ ic.svg('baixar', 15) }} Exportar Excel
 </a>
 {% endif %}
-<a href="/admin/usuarios" class="btn btn-secondary btn-sm">{{ ic.svg('usuarios', 15) }} Usuários</a>
 {% endblock %}
 
 {% block content %}
 
-<p style="color:#666;font-size:13px;margin-bottom:16px;">
-  Toda ação que altera dados fica registrada aqui — de qualquer usuário, admin ou não.
-  Registros mais recentes que batem com o filtro.
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">
+  Toda ação que altera dados, de qualquer usuário. Clique numa linha para ver tudo o que foi registrado.
+  {% call aj.ajuda() %}A lista mostra o que foi feito em português. A janela de detalhes traz todos os
+  dados enviados, IP, resposta do sistema e o registro técnico original. Em pacotes de sobressalentes,
+  mostra os itens do pacote e a observação de cada um.{% endcall %}
 </p>
 
 <div class="card">
-  <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-    <div class="form-group" style="margin:0;">
-      <label>De</label>
-      <input type="date" name="data_ini" value="{{ data_ini }}">
+  {# Tudo num formulário só: busca ao vivo, datas e filtros trocam só a lista. #}
+  <form method="get" action="/admin/auditoria" id="form-auditoria" class="rel-filtros aud-filtros"
+        data-busca-viva="#bloco-auditoria" data-limpa-vazios>
+    <div class="form-group rel-busca"><label>Buscar</label>
+      <input type="text" name="busca" value="{{ busca }}" autocomplete="off"
+             placeholder="Detalhe, usuário, ação ou IP...">
     </div>
-    <div class="form-group" style="margin:0;">
-      <label>Até</label>
-      <input type="date" name="data_fim" value="{{ data_fim }}">
-    </div>
+    <div class="form-group"><label>De</label><input type="date" name="data_ini" value="{{ data_ini }}"></div>
+    <div class="form-group"><label>Até</label><input type="date" name="data_fim" value="{{ data_fim }}"></div>
     {# Múltipla escolha: dá pra olhar dois usuários, ou exclusão + login
        juntos, sem repetir a consulta uma vez pra cada. #}
-    {{ f.multi('user_id', 'Usuário', opcoes_usuarios, filtro_user_id, 'todos') }}
-    {{ f.multi('acao', 'Ação', acoes, filtro_acao, 'todas') }}
+    <div class="form-group"><label>Usuário</label>{{ f.multi('user_id', 'Usuário', opcoes_usuarios, filtro_user_id, 'todos') }}</div>
+    <div class="form-group"><label>Ação</label>{{ f.multi('acao', 'Ação', acoes, filtro_acao, 'todas') }}</div>
     <button type="submit" class="btn btn-primary">{{ ic.svg('busca', 14) }} Filtrar</button>
-    <a href="/admin/auditoria" class="btn btn-warning">{{ ic.svg('fechar', 14) }} Limpar</a>
+    <a href="/admin/auditoria" class="btn btn-secondary">{{ ic.svg('fechar', 14) }} Limpar</a>
   </form>
 </div>
 
 <div class="card">
-  {# Busca ao vivo: troca só o #bloco-auditoria (resumo + tabela + paginação). #}
-  <form method="get" action="/admin/auditoria" class="busca-form"
-        data-busca-viva="#bloco-auditoria">
-    {% if data_ini %}<input type="hidden" name="data_ini" value="{{ data_ini }}">{% endif %}
-    {% if data_fim %}<input type="hidden" name="data_fim" value="{{ data_fim }}">{% endif %}
-    {% for u in filtro_user_id %}<input type="hidden" name="user_id" value="{{ u }}">{% endfor %}
-    {% for a in filtro_acao %}<input type="hidden" name="acao" value="{{ a }}">{% endfor %}
-    <input type="text" name="busca" value="{{ busca }}"
-           placeholder="Buscar no detalhe, usuário, ação ou IP...">
-    <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-    {% if busca %}
-    <a href="/admin/auditoria?data_ini={{ data_ini }}&data_fim={{ data_fim }}{% for u in filtro_user_id %}&user_id={{ u|urlencode }}{% endfor %}{% for a in filtro_acao %}&acao={{ a|urlencode }}{% endfor %}"
-       class="btn btn-sm btn-secondary">{{ ic.svg('fechar', 13) }} Limpar</a>
-    {% endif %}
-  </form>
   <div id="bloco-auditoria">
   {% if busca %}
   <p class="busca-resultado">
@@ -65,32 +53,25 @@
   {% endif %}
   {{ pg.contagem(pag_registros, "registros") }}
   {% if pag_registros.itens %}
-  <div style="overflow-x:auto;">
+  <div class="table-scroll">
   <table id="tabela-auditoria">
     <thead>
-      <tr>
-        <th>Quando</th><th>Quem</th><th>Ação</th>
-        <th>Rota</th><th>Detalhe</th><th>IP</th><th>Resp.</th>
-      </tr>
+      <tr><th>Quando</th><th>Quem</th><th>Ação</th><th>O que foi feito</th><th></th></tr>
     </thead>
     <tbody>
     {% for r in pag_registros.itens %}
-    <tr class="filtro-item">
-      <td style="white-space:nowrap;font-size:12px;">{{ r.criado_em[:16] }}</td>
-      <td>{{ r.user_nome or '—' }}</td>
-      <td>
-        <span class="badge {{ 'badge-danger' if r.acao == 'EXCLUSAO' else 'badge-success' }}">
-          {{ r.acao }}
-        </span>
+    <tr class="aud-linha" onclick="abrirDetalheAuditoria({{ r.id }})">
+      <td class="aud-quando">{{ r.criado_em[8:10] }}/{{ r.criado_em[5:7] }}/{{ r.criado_em[:4] }} <span>{{ r.criado_em[11:16] }}</span></td>
+      <td class="aud-quem">{{ r.user_nome or '—' }}</td>
+      <td><span class="badge {{ r.acao_cor }}">{{ r.acao_texto }}</span></td>
+      <td class="aud-oque">
+        <strong>{{ r.titulo }}</strong>
+        {% if r.recusado %}<span class="aud-chip aud-chip-erro">Recusado</span>{% endif %}
+        {% if r.obs == 'com' %}<span class="aud-chip aud-chip-com">Com observação</span>
+        {% elif r.obs == 'sem' %}<span class="aud-chip">Sem observação</span>{% endif %}
+        {% if r.resumo %}<span class="aud-resumo" title="{{ r.resumo }}">{{ r.resumo }}</span>{% endif %}
       </td>
-      <td style="font-family:monospace;font-size:11px;">{{ r.metodo }} {{ r.caminho }}</td>
-      <td style="font-size:11px;color:#666;max-width:340px;word-break:break-word;">
-        {{ r.detalhe or '—' }}
-      </td>
-      <td style="font-family:monospace;font-size:11px;color:#888;">{{ r.ip or '—' }}</td>
-      <td style="font-size:12px;color:{{ 'var(--danger-text)' if r.status and r.status >= 400 else 'var(--ok-text)' }};">
-        {{ r.status or '—' }}
-      </td>
+      <td class="aud-acao"><button type="button" class="btn btn-sm btn-secondary">Detalhes</button></td>
     </tr>
     {% endfor %}
     </tbody>
@@ -122,4 +103,45 @@
   </div>{# /bloco-auditoria #}
 </div>
 
+<script>
+function abrirDetalheAuditoria(id) {
+    abrirJanelaPainel('/admin/auditoria/' + id + '/painel', 'Detalhes do registro', 'Registro nº ' + id);
+}
+</script>
+<style>
+.aud-filtros .rel-busca { flex: 1 1 100%; }
+.aud-filtros .rel-busca input { max-width: 640px; }
+.aud-linha { cursor: pointer; }
+.aud-linha:hover td { background: var(--surface-hover); }
+.aud-quando { white-space: nowrap; font-size: 13px; color: var(--text); }
+.aud-quando span { color: var(--text-muted); }
+.aud-quem { white-space: nowrap; font-size: 13px; }
+.aud-oque { min-width: 280px; font-size: 13.5px; color: var(--text); }
+.aud-resumo { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-muted); max-width: 720px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aud-chip { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 700;
+    white-space: nowrap; background: var(--surface-alt); color: var(--text-muted); border: 1px solid var(--border); }
+.aud-chip-com { background: var(--brand-soft); color: var(--brand-ink); border-color: var(--brand-border); }
+.aud-chip-erro { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-text); }
+.aud-acao { text-align: right; }
+.aud-neutro { background: var(--surface-alt); color: var(--text); border: 1px solid var(--border); }
+.aud-d-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 16px; color: var(--text); margin-bottom: 12px; }
+.aud-d-grade, .aud-d-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 16px; margin: 0; }
+.aud-d-grade { padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
+.aud-d dt { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 2px; }
+.aud-d dd { margin: 0; font-size: 13.5px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.aud-d-tit { font-size: 14px; color: var(--text); margin: 16px 0 8px; }
+.aud-d-texto { margin: 0; font-size: 13.5px; color: var(--text); line-height: 1.5; overflow-wrap: anywhere; }
+.aud-d-vazio { color: var(--text-muted); font-style: italic; }
+.aud-d-aviso { margin: 14px 0 0; padding: 9px 11px; border-radius: 8px; font-size: 13px; line-height: 1.45;
+    background: var(--warn-bg); color: var(--warn-text); }
+.aud-d-rolagem { overflow-x: auto; max-height: 340px; }
+.aud-d-tabela { width: 100%; font-size: 13px; }
+.aud-d-tabela td { white-space: pre-wrap; overflow-wrap: anywhere; }
+.aud-d-mono { font-family: Consolas, monospace; font-size: 12.5px; overflow-wrap: anywhere; color: var(--text); }
+.aud-d-cru { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+.aud-d-cru summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text-muted); }
+.aud-d-cru .aud-d-mono { margin-top: 6px; }
+.aud-d-bruto { max-height: 200px; overflow-y: auto; color: var(--text-muted); }
+</style>
 {% endblock %}

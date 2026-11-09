@@ -1040,8 +1040,9 @@ async def admin_auditoria(request: Request,
     total_paginas = max(1, -(-total // por_pagina))
     pagina = max(1, min(pagina, total_paginas))
     offset = (pagina - 1) * por_pagina
-    registros = auditoria_mod.listar(data_ini, data_fim, user_id, acao,
-                                     limite=por_pagina, offset=offset, busca=busca)
+    registros = auditoria_mod.interpretar(
+        auditoria_mod.listar(data_ini, data_fim, user_id, acao,
+                             limite=por_pagina, offset=offset, busca=busca))
     return render(request, "admin_auditoria.html", {
         "pag_registros": {
             "itens": registros, "pagina": pagina, "total_paginas": total_paginas,
@@ -1054,10 +1055,20 @@ async def admin_auditoria(request: Request,
         # Pares (valor, rótulo) pro filtro de múltipla escolha — montados aqui
         # porque o Jinja não tem zip.
         "opcoes_usuarios": [(str(u["id"]), u["nome"]) for u in usuarios_mod.listar()],
-        "acoes": auditoria_mod.acoes_distintas(),
+        "acoes": [(a, auditoria_mod.acao_texto(a)) for a in auditoria_mod.acoes_distintas()],
         "data_ini": data_ini, "data_fim": data_fim,
         "filtro_user_id": user_id, "filtro_acao": acao,
     })
+
+
+@app.get("/admin/auditoria/{registro_id}/painel", response_class=HTMLResponse)
+@require_admin
+async def admin_auditoria_painel(request: Request, registro_id: int):
+    """Tudo o que existe sobre um registro — conteúdo da janela de detalhes."""
+    r = auditoria_mod.buscar_detalhado(registro_id)
+    if not r:
+        return HTMLResponse("<p>Registro não encontrado.</p>", status_code=404)
+    return render(request, "_auditoria_detalhe.html", {"r": r})
 
 
 _DIAS_SEMANA = ("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")
