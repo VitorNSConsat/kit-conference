@@ -46,6 +46,9 @@ def test_tela_aberta_acende_um_atalho_so():
     assert _ativos("/admin/producao/remessas") == ["Remessas"]
     assert _ativos("/admin/items") == ["Estoque de itens"]
     assert _ativos("/admin/items", "tab=sobressalentes") == ["Sobressalentes"]
+    g = {x["nome"]: x for x in menu.montar("/admin/items", "tab=sobressalentes", {"admin": True}, lambda k: True)}
+    assert g["Kits e pedidos"]["ativo"] and not g["Estoque"]["ativo"]
+    assert "Sobressalentes" not in [i["rotulo"] for i in menu.atalhos(g["Estoque"])]
     assert _ativos("/admin/items", "tab=patrimonios") == ["Patrimônios"]
     assert _ativos("/admin/items/patrimonio/ABC") == ["Patrimônios"]
     assert _ativos("/admin/templates") == ["Kits"]

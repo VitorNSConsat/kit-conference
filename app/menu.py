@@ -53,7 +53,6 @@ _GRUPOS = [
             _a("Etiquetas e códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
         ]),
         _a("Patrimônios", "clipboard", "/admin/items?tab=patrimonios", ["ver_itens"], ["/admin/items"]),
-        _a("Sobressalentes", "caixa", "/admin/items?tab=sobressalentes", ["ver_itens"], ["/admin/items"]),
         _sub("Prateleira", "prateleira", [
             _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
             _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
@@ -63,6 +62,7 @@ _GRUPOS = [
         _a("Kits", "kits", "/admin/templates?tab=kit", ["ver_kits"], ["/admin/templates"]),
         _a("Pedidos", "arquivo", "/admin/templates?tab=pedido", ["ver_kits"], ["/admin/templates"]),
         _a("Conjuntos", "caixa", "/admin/templates?tab=conjuntos", ["ver_kits"], ["/admin/templates"]),
+        _a("Sobressalentes", "caixa", "/admin/items?tab=sobressalentes", ["ver_itens"], ["/admin/items"]),
     ]),
     ("Veículos e clientes", "veiculos", [
         _sub("Veículos", "veiculos", [
