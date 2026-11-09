@@ -167,6 +167,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_item_master = {r["name"] for r in conn.execute("PRAGMA table_info(item_master)").fetchall()}
         colunas_auditoria = {r["name"] for r in conn.execute("PRAGMA table_info(auditoria)").fetchall()}
         colunas_backup = {r["name"] for r in conn.execute("PRAGMA table_info(backup_registro)").fetchall()}
+        colunas_sob_evento = {r["name"] for r in conn.execute("PRAGMA table_info(sobressalente_pacote_evento)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -214,6 +215,7 @@ def _backup_antes_de_migrar() -> str | None:
         or ("item_master" in tabelas and "origem" not in colunas_item_master)
         or ("auditoria" in tabelas and "dados" not in colunas_auditoria)
         or ("backup_registro" in tabelas and "descricao" not in colunas_backup)
+        or ("sobressalente_pacote_evento" in tabelas and "estoque_id" not in colunas_sob_evento)
     )
     if not pendente:
         return None
@@ -1046,6 +1048,8 @@ def init_db():
             "ALTER TABLE auditoria ADD COLUMN dados TEXT",
             # Por que a cópia existe, em português: "Antes de: Importação ...".
             "ALTER TABLE backup_registro ADD COLUMN descricao TEXT",
+            # Observação adicionada depois: a qual item se refere (NULL = pacote inteiro).
+            "ALTER TABLE sobressalente_pacote_evento ADD COLUMN estoque_id INTEGER",
             "ALTER TABLE importacao_item ADD COLUMN regiao_antes TEXT",
             "ALTER TABLE importacao_item ADD COLUMN regiao_depois TEXT",
             # Observação livre de uma correção feita no kit já finalizado

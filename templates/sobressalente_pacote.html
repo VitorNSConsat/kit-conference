@@ -50,6 +50,30 @@
 </div>
 
 <div class="card">
+  <h2 style="margin:0 0 12px;">Observações adicionadas <span class="cont">{{ pacote.observacoes | length }}</span></h2>
+  {% if request.query_params.get('ok') == 'observacao' %}<div class="alert alert-success">Observação adicionada.</div>{% endif %}
+  {% if request.query_params.get('erro') %}<div class="alert alert-danger">{{ request.query_params.get('erro') }}</div>{% endif %}
+  {% for o in pacote.observacoes %}
+  <div class="sob-obs-linha">
+    <div style="white-space:pre-wrap;">{{ o.conteudo }}</div>
+    <small>{{ o.alvo_texto }} · {{ o.criado_em[8:10] }}/{{ o.criado_em[5:7] }}/{{ o.criado_em[:4] }} {{ o.criado_em[11:16] }} · {{ o.usuario_nome or '—' }}</small>
+  </div>
+  {% else %}
+  <p class="hw-vazio-sec">Nenhuma observação adicionada depois da criação.</p>
+  {% endfor %}
+  {% if pode('estoque_editar') %}
+  <form method="post" action="/sobressalente/{{ pacote.id }}/observacao" class="sob-obs-form">
+    <select name="estoque_id" aria-label="A que se refere">
+      <option value="">Pacote inteiro</option>
+      {% for i in pacote.itens %}<option value="{{ i.estoque_id }}">{{ i.tipo_nome }}</option>{% endfor %}
+    </select>
+    <textarea name="texto" rows="2" maxlength="1000" required placeholder="Nova observação..."></textarea>
+    <button type="submit" class="btn btn-sm btn-primary">Adicionar observação</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2 style="margin:0 0 14px;">{{ ic.svg('historico', 15) }} Histórico <span class="cont">{{ pacote.eventos | length }}</span></h2>
   <div class="hw-hist">
     {% for e in pacote.eventos %}
@@ -57,7 +81,7 @@
       <span class="hw-hist-marca"></span>
       <span class="hw-hist-data">{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }}<br>{{ e.criado_em[11:16] }}</span>
       <div class="hw-hist-corpo">
-        <strong>{{ e.tipo_texto }}</strong>
+        <strong>{{ e.tipo_texto }}</strong>{% if e.alvo_texto %} <small>({{ e.alvo_texto }})</small>{% endif %}
         {% if e.conteudo %}<span class="hw-hist-texto">{{ e.conteudo }}</span>{% endif %}
       </div>
       <span class="hw-hist-autor">{{ e.usuario_nome or '—' }}</span>

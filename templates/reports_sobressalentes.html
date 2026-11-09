@@ -78,6 +78,10 @@
           </tbody>
         </table>
         {% if e.observacao %}<p class="sob-obs">{{ ic.svg('info', 13) }} {{ e.observacao }}</p>{% endif %}
+        {% for o in e.adicionadas %}
+        <p class="sob-obs">{{ ic.svg('info', 13) }} {{ o.conteudo }}
+          <small style="display:block;color:var(--text-muted);">{{ o.alvo_texto }} · {{ o.criado_em[8:10] }}/{{ o.criado_em[5:7] }}/{{ o.criado_em[:4] }} {{ o.criado_em[11:16] }} · {{ o.usuario_nome or '—' }}</small></p>
+        {% endfor %}
         {% if e.pacote_id %}
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
           <a href="/sobressalente/{{ e.pacote_id }}" class="btn btn-sm btn-secondary">Ver pacote e histórico</a>

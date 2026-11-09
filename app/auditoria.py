@@ -311,6 +311,7 @@ _TITULOS = {
     "/admin/producao/remessas/{n}/reabrir": "Remessa reaberta",
     "/admin/producao/remessas/{n}/excluir": "Remessa excluída",
     "/admin/sobressalente": "Pacote de sobressalentes",
+    "/sobressalente/{n}/observacao": "Observação adicionada ao pacote",
     "/admin/estoque": "Estoque cadastrado", "/admin/estoque/alertas": "Avisos de estoque configurados",
     "/admin/estoque/reconciliar-producao": "Correção do estoque de produção",
     "/admin/estoque/{n}/corrigir": "Correção de quantidade do estoque",

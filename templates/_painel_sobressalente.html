@@ -23,6 +23,38 @@
     </div>
   </div>
 
+  <div class="pat-full">
+    <details class="pat-acao" open>
+      <summary>Observações adicionadas ({{ pacote.observacoes | length }})</summary>
+      {% if erro_obs %}<p class="sob-obs-erro">{{ erro_obs }}</p>{% endif %}
+      {% if pacote.observacoes %}
+      <div class="vp-itens">
+        {% for o in pacote.observacoes %}
+        <div class="vp-item">
+          <div>
+            <div class="vp-tipo" style="white-space:pre-wrap;font-weight:500;">{{ o.conteudo }}</div>
+            <div class="vp-codigo">{{ o.alvo_texto }} · {{ o.criado_em[8:10] }}/{{ o.criado_em[5:7] }}/{{ o.criado_em[:4] }} {{ o.criado_em[11:16] }} · {{ o.usuario_nome or '—' }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="pat-ajuda">Nenhuma observação adicionada depois da criação.</p>
+      {% endif %}
+      {% if pode('estoque_editar') %}
+      <form method="post" action="/sobressalente/{{ pacote.id }}/observacao" class="sob-obs-form"
+            onsubmit="event.preventDefault(); this.querySelector('button').disabled=true; fetch(this.action,{method:'POST',body:new FormData(this),headers:{'X-Requested-With':'fetch'}}).then(r=>r.text()).then(h=>{document.getElementById('janela-painel-corpo').innerHTML=h;});">
+        <select name="estoque_id" aria-label="A que se refere">
+          <option value="">Pacote inteiro</option>
+          {% for i in pacote.itens %}<option value="{{ i.estoque_id }}">{{ i.tipo_nome }}</option>{% endfor %}
+        </select>
+        <textarea name="texto" rows="2" maxlength="1000" required placeholder="Nova observação..."></textarea>
+        <button type="submit" class="btn btn-sm btn-primary">Adicionar observação</button>
+      </form>
+      {% endif %}
+    </details>
+  </div>
+
   <div class="pat-coluna">
     <details class="pat-acao" open>
       <summary>O que tem dentro ({{ pacote.itens | length }})</summary>
@@ -52,7 +84,7 @@
         <div class="vp-item">
           <div>
             <div class="vp-tipo">{{ e.tipo_texto }}</div>
-            <div class="vp-codigo">{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }} {{ e.criado_em[11:16] }} · {{ e.usuario_nome or '—' }}{% if e.conteudo %} · {{ e.conteudo }}{% endif %}</div>
+            <div class="vp-codigo">{{ e.criado_em[8:10] }}/{{ e.criado_em[5:7] }}/{{ e.criado_em[:4] }} {{ e.criado_em[11:16] }} · {{ e.usuario_nome or '—' }}{% if e.alvo_texto %} · {{ e.alvo_texto }}{% endif %}{% if e.conteudo %} · {{ e.conteudo }}{% endif %}</div>
           </div>
         </div>
         {% endfor %}

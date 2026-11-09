@@ -4228,10 +4228,12 @@ async def reports_sobressalentes_export(request: Request,
     wb = openpyxl.Workbook()
     _xlsx_planilha(wb, "Envios",
                    ["Envio", "Data", "Cliente", "Nome do pacote", "Enviado por", "Itens", "Unidades",
-                    "Conteúdo", "Observação"],
-                   [12, 17, 22, 24, 22, 8, 10, 60, 36],
+                    "Conteúdo", "Observação", "Observações adicionadas"],
+                   [12, 17, 22, 24, 22, 8, 10, 60, 36, 60],
                    [[e["rotulo"], e["criado_em"][:16], e["cliente"], e["nome"], e["operador_nome"],
-                     len(e["itens"]), e["total_unidades"], e["itens_texto"], e["observacao"]]
+                     len(e["itens"]), e["total_unidades"], e["itens_texto"], e["observacao"],
+                     "\n".join(f"{o['criado_em'][:16]} · {o['usuario_nome'] or '—'} · {o['alvo_texto']}: {o['conteudo']}"
+                               for o in e["adicionadas"])]
                     for e in envios], primeira=True)
     _xlsx_planilha(wb, "Itens",
                    ["Envio", "Data", "Cliente", "Item", "Código", "Quantidade", "Enviado por"],
@@ -5768,6 +5770,33 @@ async def sobressalente_pacote(request: Request, pacote_id: int):
             request, "/admin/items?tab=sobressalentes"),
         "ok": request.query_params.get("ok", ""),
     })
+
+
+@app.post("/sobressalente/{pacote_id:int}/observacao", response_class=HTMLResponse)
+@require_permission("estoque_editar")
+async def sobressalente_observacao(request: Request, pacote_id: int):
+    """Nova observação no pacote ou em um item. Da janela (fetch) devolve a
+    própria janela atualizada; da página do pacote, volta pra ela."""
+    user = get_current_user(request)
+    form = await request.form()
+    texto = str(form.get("texto", ""))
+    alvo_id = str(form.get("estoque_id", ""))
+    erro = ""
+    try:
+        alvo = sobressalentes_mod.adicionar_observacao(
+            pacote_id, texto, user["id"], int(alvo_id) if alvo_id.isdigit() else None)
+        request.state.auditoria_detalhe = (
+            f"{sobressalentes_mod.rotulo(pacote_id)} — observação adicionada ({alvo}): {texto.strip()}")
+    except ValueError as e:
+        erro = str(e)
+    if request.headers.get("x-requested-with") == "fetch":
+        pacote = sobressalentes_mod.buscar(pacote_id)
+        if not pacote:
+            return HTMLResponse("<p>Pacote não encontrado.</p>", status_code=404)
+        return render(request, "_painel_sobressalente.html", {"pacote": pacote, "erro_obs": erro})
+    if erro:
+        return RedirectResponse(f"/sobressalente/{pacote_id}?erro=" + quote(erro), status_code=302)
+    return RedirectResponse(f"/sobressalente/{pacote_id}?ok=observacao", status_code=302)
 
 
 @app.get("/admin/sobressalente/{pacote_id:int}/painel", response_class=HTMLResponse)
