@@ -36,6 +36,7 @@ import app.codigos_gerados as codigos_gerados_mod
 import app.prateleira as prateleira_mod
 import app.pedidos as pedidos_mod
 import app.consumo as consumo_mod
+from contextlib import asynccontextmanager
 import app.auditoria as auditoria_mod
 import app.usuarios as usuarios_mod
 import app.producao as producao_mod
@@ -560,7 +561,7 @@ def startup():
 # Um laço próprio, dentro do servidor, em vez de tarefa agendada do Windows:
 # o sistema já roda como serviço nesta máquina, e uma tarefa a mais seria
 # outra coisa pra configurar (e pra alguém desligar sem querer).
-_BACKUP_CHECAGEM_SEG = 600       # olha de 10 em 10 minutos
+_BACKUP_CHECAGEM_SEG = 60        # olha a cada minuto: a cópia sai na hora marcada
 _BACKUP_ESPERA_INICIAL_SEG = 60  # deixa o sistema subir antes da primeira
 
 
@@ -585,7 +586,25 @@ async def _laco_backup():
 @app.on_event("startup")
 async def startup_backup():
     import asyncio
-    app.state.tarefa_backup = asyncio.create_task(_laco_backup())
+    # O run.py sobe dois servidores (HTTP e HTTPS) sobre o mesmo app, e cada um
+    # dispara este startup. Dois laços faziam duas cópias a cada vez.
+    if getattr(app.state, "tarefa_backup", None) is None:
+        app.state.tarefa_backup = asyncio.create_task(_laco_backup())
+
+
+@asynccontextmanager
+async def _grande_mudanca(request: Request, tipo: str, quantidade: int, descricao: str):
+    """Cópia do banco antes e depois de uma mudança grande (`tipo`: importacao,
+    sobressalente ou lote). Abaixo do limite configurado, não faz nada. Se a
+    operação der erro, a cópia de antes fica e a de depois não sai."""
+    import asyncio
+    grande = backup_mod.eh_grande(tipo, quantidade)
+    uid = (get_current_user(request) or {}).get("id")
+    if grande:
+        await asyncio.to_thread(backup_mod.backup_de_grande_mudanca, "antes", tipo, quantidade, descricao, uid)
+    yield
+    if grande:
+        await asyncio.to_thread(backup_mod.backup_de_grande_mudanca, "depois", tipo, quantidade, descricao, uid)
 
 
 def _parse_itens_form(form) -> list[dict]:
@@ -984,9 +1003,8 @@ async def admin_backup(request: Request):
         "pasta_padrao": backup_mod.pasta_padrao(),
         "previsto": previsto.strftime("%d/%m/%Y %H:%M") if previsto else "",
         "atrasado": backup_mod.precisa_agora(),
-        "intervalo_min": backup_mod.INTERVALO_MIN,
-        "intervalo_max": backup_mod.INTERVALO_MAX,
         "manter_max": backup_mod.MANTER_MAX,
+        "protegidas": backup_mod.uso_protegidas(),
     })
 
 
@@ -997,7 +1015,10 @@ async def admin_backup_config(request: Request):
     try:
         backup_mod.salvar_config({
             "ativo": "1" if form.get("ativo") else "0",
-            "intervalo_horas": form.get("intervalo_horas", "24"),
+            "horario": form.get("horario", "23:00"),
+            "limite_importacao": form.get("limite_importacao", "50"),
+            "limite_sobressalente": form.get("limite_sobressalente", "100"),
+            "limite_lote": form.get("limite_lote", "20"),
             "manter": form.get("manter", "30"),
             "pasta_extra": form.get("pasta_extra", ""),
         })
@@ -1391,7 +1412,9 @@ async def admin_tipos_importar_bom(request: Request, arquivo: UploadFile = File(
     user = get_current_user(request)
     try:
         conteudo = await _ler_upload(request, arquivo)
-        resultado = items_mod.importar_bom_xlsx(conteudo, user["id"])
+        async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(conteudo),
+                                   f"Importação de itens (BOM): {arquivo.filename}"):
+            resultado = items_mod.importar_bom_xlsx(conteudo, user["id"])
         if "erro" in resultado:
             params = f"erro_import={quote(resultado['erro'])}"
         else:
@@ -2064,7 +2087,8 @@ async def admin_patrimonios_importar_confirmar(request: Request):
     try:
         if not tipo_id.isdigit():
             raise ValueError("Escolha o tipo de item dos patrimônios.")
-        resultado = patrimonios_import_mod.importar(codigos, zeros, int(tipo_id), user["id"], arquivo)
+        async with _grande_mudanca(request, "importacao", len(codigos), f"Importação de patrimônios: {arquivo}"):
+            resultado = patrimonios_import_mod.importar(codigos, zeros, int(tipo_id), user["id"], arquivo)
     except ValueError as e:
         tipos = _tipos_para_patrimonio()
         return render(request, "admin_patrimonios_importar.html", {
@@ -2166,9 +2190,11 @@ async def admin_templates_import_bom(request: Request,
         })
     try:
         conteudo = await _ler_upload(request, arquivo)
-        template_id, stats = templates_mod.criar_template_do_bom(
-            nome, cliente, user["id"], conteudo, tipo=tipo
-        )
+        async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(conteudo),
+                                   f"Kit pela BOM: {nome}"):
+            template_id, stats = templates_mod.criar_template_do_bom(
+                nome, cliente, user["id"], conteudo, tipo=tipo
+            )
         if stats["templates_criados"] > 1:
             # Vários clientes: não há "o" template pra editar, vai pra lista.
             return RedirectResponse(
@@ -2253,9 +2279,11 @@ async def admin_templates_import_pedido(request: Request,
         })
     try:
         conteudo = await _ler_upload(request, arquivo)
-        template_id, stats = pedidos_mod.importar_planilha(
-            cliente, numero_pedido, user["id"], conteudo
-        )
+        async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(conteudo),
+                                   f"Importação de pedido: {arquivo.filename}"):
+            template_id, stats = pedidos_mod.importar_planilha(
+                cliente, numero_pedido, user["id"], conteudo
+            )
         if stats["pedidos"] == 1:
             q = f"ok=pedido&unidades={stats['unidades']}&numero={quote(stats['numeros'][0])}"
             return RedirectResponse(f"/admin/templates/{template_id}/edit?{q}", status_code=302)
@@ -4876,8 +4904,9 @@ async def admin_remessa_adicionar(request: Request, remessa_id: int):
             _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(
                 "Digite o número de ao menos um veículo para acrescentar.")), status_code=302)
     try:
-        r = remessas_mod.adicionar_itens(remessa_id, refs,
-                                         (get_current_user(request) or {}).get("id"))
+        async with _grande_mudanca(request, "lote", len(refs), f"Veículos acrescentados à remessa {remessa_id}"):
+            r = remessas_mod.adicionar_itens(remessa_id, refs,
+                                             (get_current_user(request) or {}).get("id"))
     except ValueError as e:
         return RedirectResponse(
             _volta_remessa(remessa_id, (filtros + "&" if filtros else "") + "erro=" + quote(str(e))),
@@ -4930,9 +4959,10 @@ async def admin_remessa_selecionados(request: Request, remessa_id: int):
             "Marque ao menos um veículo.")), status_code=302)
     try:
         if acao == "transferir":
-            r = remessas_mod.transferir_varios(
-                refs, int(form.get("destino_id") or 0),
-                (get_current_user(request) or {}).get("id"))
+            async with _grande_mudanca(request, "lote", len(refs), f"Veículos transferidos da remessa {remessa_id}"):
+                r = remessas_mod.transferir_varios(
+                    refs, int(form.get("destino_id") or 0),
+                    (get_current_user(request) or {}).get("id"))
             destino = r["destino"]["id"] if r.get("destino") else remessa_id
             extra = f"ok=movidos&n={r['movidos']}"
             if r["recusados"]:
@@ -4941,7 +4971,8 @@ async def admin_remessa_selecionados(request: Request, remessa_id: int):
             request.state.auditoria_detalhe = (
                 f"{r['movidos']} veículo(s) movido(s) para a remessa \"{nome_destino}\"")
             return RedirectResponse(_volta_remessa(destino, extra), status_code=302)
-        r = remessas_mod.remover_varios(remessa_id, refs)
+        async with _grande_mudanca(request, "lote", len(refs), f"Veículos retirados da remessa {remessa_id}"):
+            r = remessas_mod.remover_varios(remessa_id, refs)
         extra = f"ok=tirados&n={r['tirados']}"
         if r["recusados"]:
             extra += "&recusados=" + quote(" · ".join(r["recusados"][:4]))
@@ -5118,8 +5149,10 @@ async def admin_remessa_excel(request: Request, remessa_id: int):
 async def admin_remessa_fechar(request: Request, remessa_id: int):
     form = await request.form()
     motivo = str(form.get("motivo", "")).strip() or "fechada à mão"
-    nome = (remessas_mod.listar_uma(remessa_id) or {}).get("nome", remessa_id)
-    remessas_mod.fechar(remessa_id, motivo=motivo)
+    remessa = remessas_mod.listar_uma(remessa_id) or {}
+    nome = remessa.get("nome", remessa_id)
+    async with _grande_mudanca(request, "lote", remessa.get("enviados") or 0, f"Remessa fechada: {nome}"):
+        remessas_mod.fechar(remessa_id, motivo=motivo)
     request.state.auditoria_detalhe = f"Remessa \"{nome}\" fechada ({motivo})"
     return RedirectResponse("/admin/producao/remessas?ok=fechada", status_code=302)
 
@@ -5147,7 +5180,8 @@ async def admin_producao_zerar_sequencia(request: Request):
 async def admin_producao_transito(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
-    n = producao_mod.marcar_transito(kit_ids)
+    async with _grande_mudanca(request, "lote", len(kit_ids), "Kits enviados para Em trânsito"):
+        n = producao_mod.marcar_transito(kit_ids)
     request.state.auditoria_detalhe = f"{n} kit(s) movido(s) para Em trânsito"
     return RedirectResponse(f"/admin/producao?ok=transito&n={n}", status_code=302)
 
@@ -5164,12 +5198,13 @@ async def admin_producao_nota_lote(request: Request):
     if not kit_ids:
         return RedirectResponse("/admin/producao?erro=nota_lote_vazio", status_code=302)
     nota = str(form.get("nota_fiscal", ""))
-    r = producao_mod.atribuir_nota_em_lote(
-        kit_ids,
-        nota,
-        str(form.get("nota_fiscal_data", "")),
-        str(form.get("motivo", "")),
-    )
+    async with _grande_mudanca(request, "lote", len(kit_ids), f"Nota fiscal em lote: {nota}"):
+        r = producao_mod.atribuir_nota_em_lote(
+            kit_ids,
+            nota,
+            str(form.get("nota_fiscal_data", "")),
+            str(form.get("motivo", "")),
+        )
     q = f"?ok=nota_lote&n={len(r['atualizados'])}"
     if r["bloqueados"]:
         q += f"&bloqueados={len(r['bloqueados'])}"
@@ -5192,7 +5227,8 @@ async def admin_producao_cliente_instalando(request: Request, kit_id: str):
 async def admin_producao_cliente_instalando_lote(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
-    n = producao_mod.marcar_cliente_instalando_lote(kit_ids)
+    async with _grande_mudanca(request, "lote", len(kit_ids), "Kits movidos para Cliente (instalação)"):
+        n = producao_mod.marcar_cliente_instalando_lote(kit_ids)
     request.state.auditoria_detalhe = f"{n} kit(s) movido(s) para Cliente (instalação)"
     return RedirectResponse(f"/admin/producao?ok=instalando_lote&n={n}", status_code=302)
 
@@ -5211,7 +5247,8 @@ async def admin_producao_cliente_concluido(request: Request, kit_id: str):
 async def admin_producao_cliente_concluido_lote(request: Request):
     form = await request.form()
     kit_ids = form.getlist("kit_ids")
-    n = producao_mod.marcar_cliente_concluido_lote(kit_ids)
+    async with _grande_mudanca(request, "lote", len(kit_ids), "Kits com instalação concluída"):
+        n = producao_mod.marcar_cliente_concluido_lote(kit_ids)
     request.state.auditoria_detalhe = f"{n} kit(s): instalação concluída"
     return RedirectResponse(f"/admin/producao?ok=concluido_lote&n={n}", status_code=302)
 
@@ -5425,7 +5462,9 @@ async def admin_estoque_importar_ajuste(request: Request):
             status_code=302)
     try:
         conteudo = await _ler_upload(request, arquivo)
-        r = estoque_mod.importar_ajustes_xlsx(conteudo, user["id"])
+        async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(conteudo),
+                                   f"Ajuste de estoque por planilha: {arquivo.filename}"):
+            r = estoque_mod.importar_ajustes_xlsx(conteudo, user["id"])
     except Exception as e:
         return RedirectResponse(
             "/admin/items?tab=catalogo&erro=" + quote(_erro_usuario(e, "Não foi possível ler a planilha.")),
@@ -5663,10 +5702,12 @@ async def admin_sobressalente_enviar(request: Request):
                "quantidade": qtds[i] if i < len(qtds) else 1,
                "observacao": obs[i] if i < len(obs) else ""}
               for i in range(len(ids))]
+    unidades = sum(int(q) for q in qtds if str(q).strip().isdigit())
     try:
-        pacote_id = sobressalentes_mod.criar(
-            linhas, cliente, user["id"], nome=str(form.get("nome", "")),
-            observacao=str(form.get("observacao_pacote", "")))
+        async with _grande_mudanca(request, "sobressalente", unidades, f"Pacote de sobressalentes para {cliente}"):
+            pacote_id = sobressalentes_mod.criar(
+                linhas, cliente, user["id"], nome=str(form.get("nome", "")),
+                observacao=str(form.get("observacao_pacote", "")))
     except ValueError as e:
         return RedirectResponse(
             destino + "&erro=" + quote(f"Erro ao registrar sobressalente: {e}"),
@@ -6296,8 +6337,9 @@ async def admin_veiculos_excluir_em_massa(request: Request):
     é o mesmo deletar() por baixo. Só admin, como toda exclusão."""
     form = await request.form()
     ids = [int(x) for x in form.getlist("veiculo_ids") if str(x).isdigit()]
-    for vid in ids:
-        veiculos_mod.deletar(vid)
+    async with _grande_mudanca(request, "lote", len(ids), "Exclusão de veículos em massa"):
+        for vid in ids:
+            veiculos_mod.deletar(vid)
     voltar = str(form.get("voltar", "")).strip()
     destino = "/admin/veiculos" + (f"?cliente={quote(voltar)}&" if voltar else "?")
     return RedirectResponse(destino + f"ok=excluidos&qtd={len(ids)}", status_code=302)
@@ -6532,7 +6574,9 @@ async def admin_veiculos_import_confirmar(request: Request, token: str):
             "erro": "Essa prévia não existe mais. Envie a planilha de novo."})
     conteudo, meta = pend
     importacoes_mod.descartar_pendente(token)   # antes de importar: clique duplo não importa duas vezes
-    resultado = veiculos_mod.importar_excel(conteudo)
+    async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(conteudo),
+                               f"Importação de veículos: {meta.get('arquivo', '')}"):
+        resultado = veiculos_mod.importar_excel(conteudo)
     # Grava a conferência e MANDA PRA ELA — o registro do que foi feito de verdade.
     imp_id = importacoes_mod.registrar(resultado, meta.get("arquivo", ""), request.state.user["id"])
     request.state.auditoria_detalhe = (
@@ -7670,7 +7714,9 @@ async def admin_hardware_importar_post(request: Request):
         return render(request, "admin_hardware_importar.html", {"erro": str(e)})
     user = request.state.user
     try:
-        resultado = hardware_mod.importar_excel(file_bytes, user["id"])
+        async with _grande_mudanca(request, "importacao", backup_mod.linhas_xlsx(file_bytes),
+                                   f"Importação de RMAs: {arquivo.filename}"):
+            resultado = hardware_mod.importar_excel(file_bytes, user["id"])
     except Exception as e:
         return render(request, "admin_hardware_importar.html",
                        {"erro": _erro_usuario(e, "Não foi possível ler esta planilha.")})
@@ -7787,8 +7833,9 @@ async def admin_hardware_excluir_em_massa(request: Request):
     definitivo (mesmo padrão de veiculos_mod.deletar()/excluir-em-massa)."""
     form = await request.form()
     ids = [int(x) for x in form.getlist("ocorrencia_ids") if str(x).isdigit()]
-    for oid in ids:
-        hardware_mod.excluir(oid)
+    async with _grande_mudanca(request, "lote", len(ids), "Exclusão de RMAs em massa"):
+        for oid in ids:
+            hardware_mod.excluir(oid)
     voltar = str(form.get("voltar", "")).strip()
     destino = "/admin/hardware" + (f"?cliente={quote(voltar)}&" if voltar else "?")
     return RedirectResponse(destino + f"ok=excluidas&qtd={len(ids)}", status_code=302)

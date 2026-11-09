@@ -166,6 +166,7 @@ def _backup_antes_de_migrar() -> str | None:
         colunas_remessa_kit = {r["name"] for r in conn.execute("PRAGMA table_info(remessa_kit)").fetchall()}
         colunas_item_master = {r["name"] for r in conn.execute("PRAGMA table_info(item_master)").fetchall()}
         colunas_auditoria = {r["name"] for r in conn.execute("PRAGMA table_info(auditoria)").fetchall()}
+        colunas_backup = {r["name"] for r in conn.execute("PRAGMA table_info(backup_registro)").fetchall()}
         tabelas = {
             r["name"] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -212,6 +213,7 @@ def _backup_antes_de_migrar() -> str | None:
         or "pre_conferencia" not in tabelas
         or ("item_master" in tabelas and "origem" not in colunas_item_master)
         or ("auditoria" in tabelas and "dados" not in colunas_auditoria)
+        or ("backup_registro" in tabelas and "descricao" not in colunas_backup)
     )
     if not pendente:
         return None
@@ -1042,6 +1044,8 @@ def init_db():
             # O que veio no formulário, quando a rota escreve um resumo próprio
             # em `detalhe` ("20 kit(s) movido(s)") — sem isto, QUAIS kits se perdia.
             "ALTER TABLE auditoria ADD COLUMN dados TEXT",
+            # Por que a cópia existe, em português: "Antes de: Importação ...".
+            "ALTER TABLE backup_registro ADD COLUMN descricao TEXT",
             "ALTER TABLE importacao_item ADD COLUMN regiao_antes TEXT",
             "ALTER TABLE importacao_item ADD COLUMN regiao_depois TEXT",
             # Observação livre de uma correção feita no kit já finalizado

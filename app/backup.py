@@ -6,8 +6,13 @@ quando sai uma versão que mexe em tabela. Entre uma migração e outra o banco
 podia passar meses sem uma cópia — e é justamente nesse meio que estão as
 bipagens do dia, os kits, o estoque e a auditoria.
 
-Aqui a cópia é por RELÓGIO: de X em X horas, enquanto o sistema estiver no ar.
-Não existe agendador do Windows no meio, nem nada pra alguém lembrar de rodar.
+Aqui a cópia é por RELÓGIO: todo dia no horário configurado (23:00 de padrão),
+enquanto o sistema estiver no ar. Se o servidor estava desligado na hora, a
+cópia sai assim que ele voltar. Não existe agendador do Windows no meio.
+
+Além da diária, toda GRANDE MUDANÇA (importação, sobressalente com muitas
+unidades, remessa ou lote grande) gera uma cópia antes e outra depois. Essas
+ficam fora do rodízio: nunca são apagadas sozinhas.
 
 Duas decisões que valem a explicação:
 
@@ -35,21 +40,31 @@ from database import db, now_brt, _get_db_path
 CONFIG_PADRAO = {
     # Liga/desliga só a rotina automática — o backup manual continua.
     "ativo": "1",
-    # De quantas em quantas horas. 24 = uma vez por dia.
-    "intervalo_horas": "24",
+    # Hora da cópia diária (hora do Brasil).
+    "horario": "23:00",
+    # A partir de quanto uma mudança é "grande" e ganha cópia antes e depois.
+    "limite_importacao": "50",      # linhas da planilha
+    "limite_sobressalente": "100",  # unidades no pacote
+    "limite_lote": "20",            # veículos/kits de uma vez
     # Quantas cópias ficam guardadas. As mais antigas somem sozinhas.
     "manter": "30",
     # Segunda pasta (opcional). Vazio = só a pasta padrão.
     "pasta_extra": "",
 }
 
-INTERVALO_MIN, INTERVALO_MAX = 1, 720      # de 1 hora a 30 dias
 MANTER_MIN, MANTER_MAX = 1, 999
+LIMITE_MIN, LIMITE_MAX = 1, 1000000
+
+# Motivos que o rodízio não apaga.
+MOTIVOS_PROTEGIDOS = ("migracao", "grande_antes", "grande_depois")
+_UNIDADES = {"importacao": "linhas", "sobressalente": "unidades", "lote": "itens"}
 
 MOTIVOS = {
     "automatico": "Automático",
     "manual": "Manual",
     "migracao": "Antes de migração",
+    "grande_antes": "Antes de grande mudança",
+    "grande_depois": "Depois de grande mudança",
 }
 
 
@@ -61,11 +76,20 @@ def get_config() -> dict:
             if r["chave"] in cfg:
                 cfg[r["chave"]] = r["valor"]
     cfg["ativo"] = 1 if str(cfg["ativo"]) == "1" else 0
-    cfg["intervalo_horas"] = _inteiro(cfg["intervalo_horas"], CONFIG_PADRAO["intervalo_horas"],
-                                      INTERVALO_MIN, INTERVALO_MAX)
+    cfg["horario"] = _horario(cfg["horario"]) or CONFIG_PADRAO["horario"]
+    for chave in ("limite_importacao", "limite_sobressalente", "limite_lote"):
+        cfg[chave] = _inteiro(cfg[chave], CONFIG_PADRAO[chave], LIMITE_MIN, LIMITE_MAX)
     cfg["manter"] = _inteiro(cfg["manter"], CONFIG_PADRAO["manter"], MANTER_MIN, MANTER_MAX)
     cfg["pasta_extra"] = (cfg["pasta_extra"] or "").strip()
     return cfg
+
+
+def _horario(texto) -> str:
+    """"23:00" válido, ou "" quando não é uma hora."""
+    try:
+        return datetime.strptime(str(texto or "").strip()[:5], "%H:%M").strftime("%H:%M")
+    except ValueError:
+        return ""
 
 
 def _inteiro(valor, padrao, minimo, maximo) -> int:
@@ -85,10 +109,13 @@ def salvar_config(valores: dict) -> None:
     limpos = {}
     if "ativo" in valores:
         limpos["ativo"] = "1" if str(valores["ativo"]) in ("1", "on", "true") else "0"
-    if "intervalo_horas" in valores:
-        limpos["intervalo_horas"] = str(_inteiro(
-            valores["intervalo_horas"], CONFIG_PADRAO["intervalo_horas"],
-            INTERVALO_MIN, INTERVALO_MAX))
+    if "horario" in valores:
+        limpos["horario"] = _horario(valores["horario"])
+        if not limpos["horario"]:
+            raise ValueError("Informe o horário do backup no formato 23:00.")
+    for chave in ("limite_importacao", "limite_sobressalente", "limite_lote"):
+        if chave in valores:
+            limpos[chave] = str(_inteiro(valores[chave], CONFIG_PADRAO[chave], LIMITE_MIN, LIMITE_MAX))
     if "manter" in valores:
         limpos["manter"] = str(_inteiro(valores["manter"], CONFIG_PADRAO["manter"],
                                         MANTER_MIN, MANTER_MAX))
@@ -133,7 +160,7 @@ def pasta_padrao() -> str:
 
 
 # ── Fazer a cópia ────────────────────────────────────────────────────────
-def criar_backup(motivo: str = "manual", user_id: int | None = None) -> dict:
+def criar_backup(motivo: str = "manual", user_id: int | None = None, descricao: str = "") -> dict:
     """Copia o banco pra pasta padrão (e pra extra, se houver), registra e
     limpa as cópias que passaram do limite.
 
@@ -149,6 +176,12 @@ def criar_backup(motivo: str = "manual", user_id: int | None = None) -> dict:
     os.makedirs(destino_dir, exist_ok=True)
     carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
     nome = f"{os.path.basename(origem)}.{carimbo}.bak"
+    # Duas cópias no mesmo segundo (antes e depois de um lote rápido) não
+    # podem cair no mesmo arquivo: a segunda apagaria a primeira.
+    n = 1
+    while os.path.exists(os.path.join(destino_dir, nome)):
+        n += 1
+        nome = f"{os.path.basename(origem)}.{carimbo}_{n}.bak"
     destino = os.path.join(destino_dir, nome)
 
     _copiar_consistente(origem, destino)
@@ -166,11 +199,11 @@ def criar_backup(motivo: str = "manual", user_id: int | None = None) -> dict:
     with db() as conn:
         rid = conn.execute(
             "INSERT INTO backup_registro (criado_em, arquivo, caminho, caminho_extra, "
-            "tamanho, motivo, erro, criado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (now_brt(), nome, destino, caminho_extra, tamanho, motivo, erro, user_id)
+            "tamanho, motivo, erro, criado_por, descricao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (now_brt(), nome, destino, caminho_extra, tamanho, motivo, erro, user_id, descricao or None)
         ).lastrowid
 
-    protegidas = _copias_de_migracao()
+    protegidas = _copias_protegidas()
     _limpar_antigos(destino_dir, cfg["manter"], protegidas)
     if cfg["pasta_extra"]:
         _limpar_antigos(cfg["pasta_extra"], cfg["manter"], protegidas)
@@ -179,16 +212,49 @@ def criar_backup(motivo: str = "manual", user_id: int | None = None) -> dict:
             "tamanho": tamanho, "motivo": motivo, "erro": erro}
 
 
-def _copias_de_migracao() -> set[str]:
-    """As cópias feitas antes de uma mudança de estrutura não entram no rodízio.
-
-    São raras (uma por versão que mexe em tabela) e marcam o "como estava antes
-    desta versão" — a única cópia que responde "o problema começou na
-    atualização?". Perder isso pro relógio, junto com as diárias, seria trocar
-    a mais informativa pela mais recente."""
+def _copias_protegidas() -> set[str]:
+    """Arquivos que o rodízio não toca: os de migração (respondem "o problema
+    começou na atualização?") e os de antes/depois de grande mudança."""
+    marcas = ",".join("?" * len(MOTIVOS_PROTEGIDOS))
     with db() as conn:
         return {r["arquivo"] for r in conn.execute(
-            "SELECT arquivo FROM backup_registro WHERE motivo = 'migracao'").fetchall()}
+            f"SELECT arquivo FROM backup_registro WHERE motivo IN ({marcas})", MOTIVOS_PROTEGIDOS).fetchall()}
+
+
+def eh_grande(tipo: str, quantidade: int) -> bool:
+    """`tipo`: importacao, sobressalente ou lote."""
+    return int(quantidade or 0) >= get_config()[f"limite_{tipo}"]
+
+
+def linhas_xlsx(conteudo: bytes) -> int:
+    """Linhas com dados na planilha (sem contar a primeira). 0 se não abrir."""
+    import io
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
+        total = sum(1 for ws in wb.worksheets for l in ws.iter_rows(values_only=True)
+                    if any(c not in (None, "") for c in l))
+        wb.close()
+        return max(0, total - 1)
+    except Exception:
+        return 0
+
+
+def backup_de_grande_mudanca(momento: str, tipo: str, quantidade: int, descricao: str,
+                             user_id: int | None) -> None:
+    """Cópia de `momento` ("antes" ou "depois"). Se falhar, NÃO impede a
+    operação: fica registrada com o erro, em vermelho, na tela de Backup."""
+    motivo = f"grande_{momento}"
+    texto = f"{descricao} — {quantidade} {_UNIDADES.get(tipo, 'itens')}"
+    try:
+        criar_backup(motivo, user_id, texto)
+    except Exception as e:
+        print(f"[KIT] Backup de grande mudanca ({momento}) falhou: {e}")
+        with db() as conn:
+            conn.execute(
+                "INSERT INTO backup_registro (criado_em, arquivo, caminho, caminho_extra, tamanho, "
+                "motivo, erro, criado_por, descricao) VALUES (?, '', '', '', 0, ?, ?, ?, ?)",
+                (now_brt(), motivo, f"A cópia falhou: {e}", user_id, texto))
 
 
 def _copiar_consistente(origem: str, destino: str) -> None:
@@ -229,7 +295,7 @@ def _limpar_antigos(pasta: str, manter: int, protegidas: set[str] | None = None)
 def ultimo() -> dict | None:
     with db() as conn:
         r = conn.execute(
-            "SELECT * FROM backup_registro ORDER BY id DESC LIMIT 1").fetchone()
+            "SELECT * FROM backup_registro WHERE arquivo <> '' ORDER BY id DESC LIMIT 1").fetchone()
     return dict(r) if r else None
 
 
@@ -245,6 +311,8 @@ def listar(limite: int = 60) -> list[dict]:
     for r in rows:
         d = dict(r)
         d["existe"] = os.path.exists(d["caminho"] or "")
+        d["existe_extra"] = os.path.exists(d["caminho_extra"] or "")
+        d["protegida"] = d["motivo"] in MOTIVOS_PROTEGIDOS
         d["motivo_texto"] = MOTIVOS.get(d["motivo"], d["motivo"] or "—")
         d["tamanho_mb"] = round((d["tamanho"] or 0) / (1024 * 1024), 2)
         saida.append(d)
@@ -258,26 +326,52 @@ def _para_datetime(texto: str | None) -> datetime | None:
         return None
 
 
+def uso_protegidas() -> dict:
+    """Quantas cópias que não se apagam existem e quanto ocupam, pra tela."""
+    marcas = ",".join("?" * len(MOTIVOS_PROTEGIDOS))
+    with db() as conn:
+        linhas = conn.execute(f"SELECT caminho, tamanho FROM backup_registro WHERE motivo IN ({marcas}) "
+                              "AND arquivo <> ''", MOTIVOS_PROTEGIDOS).fetchall()
+    presentes = [l for l in linhas if os.path.exists(l["caminho"] or "")]
+    return {"copias": len(presentes), "gb": round(sum(l["tamanho"] or 0 for l in presentes) / 1073741824, 2)}
+
+
+def _ultimo_automatico() -> datetime | None:
+    with db() as conn:
+        r = conn.execute("SELECT criado_em FROM backup_registro WHERE motivo = 'automatico' "
+                         "AND arquivo <> '' ORDER BY id DESC LIMIT 1").fetchone()
+    return _para_datetime(r["criado_em"]) if r else None
+
+
+def _horario_que_passou(agora: datetime, horario: str) -> datetime:
+    """O último horário de backup já alcançado: hoje, ou ontem se ainda não deu a hora."""
+    h, m = map(int, horario.split(":"))
+    hoje = agora.replace(hour=h, minute=m, second=0, microsecond=0)
+    return hoje if agora >= hoje else hoje - timedelta(days=1)
+
+
+def precisa_agora() -> bool:
+    """O laço automático pergunta isto a cada minuto.
+
+    Há backup pendente quando não existe cópia automática DEPOIS do último
+    horário que já passou. Assim sai às 23:00 e, com o servidor desligado na
+    hora, sai quando ele voltar. Cópia manual, de migração ou de grande
+    mudança não conta: a diária é uma rotina à parte."""
+    cfg = get_config()
+    if not cfg["ativo"]:
+        return False
+    ult = _ultimo_automatico()
+    return ult is None or ult < _horario_que_passou(_agora(), cfg["horario"])
+
+
 def proximo_previsto() -> datetime | None:
     """Quando o próximo backup automático deve sair. None = rotina desligada."""
     cfg = get_config()
     if not cfg["ativo"]:
         return None
-    ult = ultimo()
-    quando = _para_datetime(ult["criado_em"]) if ult else None
-    if quando is None:
-        return _agora()          # nunca houve backup: o próximo é já
-    return quando + timedelta(hours=cfg["intervalo_horas"])
-
-
-def precisa_agora() -> bool:
-    """O laço automático pergunta isto de tempos em tempos.
-
-    A conta é sempre "quanto tempo passou desde a última cópia", nunca "que
-    horas são" — assim um servidor que passou o fim de semana desligado faz o
-    backup assim que volta, em vez de pular a janela e esperar a próxima."""
-    previsto = proximo_previsto()
-    return previsto is not None and _agora() >= previsto
+    if precisa_agora():
+        return _agora()
+    return _horario_que_passou(_agora(), cfg["horario"]) + timedelta(days=1)
 
 
 def _agora() -> datetime:

@@ -6,7 +6,7 @@
 {% if pode('backup_configurar') %}
 <form method="post" action="/admin/backup/agora">
   <button type="submit" class="btn btn-primary btn-sm"
-          title="Faz a cópia agora, sem esperar o intervalo — é o teste de que a pasta extra grava mesmo">
+          title="Faz a cópia agora, sem esperar o horário — é o teste de que a pasta extra grava mesmo">
     {{ ic.svg('backup', 15) }} Fazer backup agora
   </button>
 </form>
@@ -34,17 +34,17 @@
   </p>
   {% else %}
   <p style="font-size:15px;margin:0 0 4px;color:var(--danger-text);">
-    <strong>Nenhuma cópia ainda.</strong> A primeira sai em até 10 minutos com a rotina
+    <strong>Nenhuma cópia ainda.</strong> A primeira sai em até 2 minutos com a rotina
     ligada — ou agora, no botão acima.
   </p>
   {% endif %}
   {% if cfg.ativo %}
   <p style="color:#666;font-size:13px;margin:0;">
-    Rotina <strong style="color:var(--ok-text);">ligada</strong>: uma cópia a cada
-    <strong>{{ cfg.intervalo_horas }}h</strong>, guardando as
+    Rotina <strong style="color:var(--ok-text);">ligada</strong>: uma cópia todo dia às
+    <strong>{{ cfg.horario }}</strong>, guardando as
     <strong>{{ cfg.manter }}</strong> mais recentes.
     {% if atrasado %}
-    <br>Já passou da hora — a próxima verificação (a cada 10 min) faz a cópia.
+    <br>Já passou da hora — a próxima verificação (a cada minuto) faz a cópia.
     {% elif previsto %}
     <br>Próxima prevista para <strong>{{ previsto }}</strong>.
     {% endif %}
@@ -54,6 +54,12 @@
     {{ ic.svg('alerta', 13) }} Rotina <strong>desligada</strong> — só sai cópia quando alguém clicar no botão.
   </p>
   {% endif %}
+
+  <p style="font-size:13px;margin:10px 0 0;color:var(--text-muted);">
+    Cópias de grandes mudanças e de migração (não se apagam):
+    <strong style="color:var(--text);">{{ protegidas.copias }}</strong>, ocupando
+    <strong style="color:var(--text);">{{ protegidas.gb }} GB</strong> em cada pasta.
+  </p>
 
   <div style="margin-top:12px;font-size:13px;color:#555;">
     <div><strong>Pasta padrão:</strong> <code>{{ pasta_padrao if user.admin else '(pasta local do servidor — visível só para administradores)' }}</code></div>
@@ -70,8 +76,8 @@
 <div class="card">
   <h2>Configuração</h2>
   <p style="color:#666;font-size:13px;margin-top:0;">A cópia roda com o sistema no ar. {% call aj.ajuda() %}A cópia acontece <strong>enquanto o sistema está no ar</strong> — não depende de tarefa
-    agendada do Windows. A conta é sempre “quanto tempo passou desde a última”, então um
-    servidor que ficou desligado faz o backup assim que volta, em vez de pular a vez.{% endcall %}</p>
+    agendada do Windows. Se o servidor estiver desligado no horário, faz o backup assim que
+    voltar, em vez de pular o dia.{% endcall %}</p>
   <form method="post" action="/admin/backup/config"
         style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
     <label style="display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:6px;">
@@ -80,12 +86,11 @@
       Backup automático ligado
     </label>
     <div class="form-group" style="margin:0;">
-      <label>A cada quantas horas</label>
-      <input type="number" name="intervalo_horas" min="{{ intervalo_min }}" max="{{ intervalo_max }}"
-             value="{{ cfg.intervalo_horas }}" style="width:130px;margin:0;">
+      <label>Horário da cópia diária</label>
+      <input type="time" name="horario" value="{{ cfg.horario }}" required style="width:130px;margin:0;">
     </div>
     <div class="form-group" style="margin:0;">
-      <label title="As mais antigas são apagadas sozinhas">Quantas cópias manter</label>
+      <label title="As mais antigas são apagadas sozinhas">Cópias diárias a manter</label>
       <input type="number" name="manter" min="1" max="{{ manter_max }}"
              value="{{ cfg.manter }}" style="width:130px;margin:0;">
     </div>
@@ -93,6 +98,22 @@
       <label>Segunda pasta (OneDrive, Drive, HD externo, pasta de rede)</label>
       <input type="text" name="pasta_extra" value="{{ cfg.pasta_extra }}" style="margin:0;"
              placeholder="ex: C:\Users\Vitor\OneDrive\Backups Kit">
+    </div>
+    <div style="flex:1 1 100%;">
+      <strong style="font-size:13.5px;">Grande mudança</strong>
+      <span style="font-size:13px;color:var(--text-muted);">— cópia antes e depois, que não se apaga, a partir de:</span>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Importação (linhas)</label>
+      <input type="number" name="limite_importacao" min="1" value="{{ cfg.limite_importacao }}" style="width:150px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Sobressalente (unidades)</label>
+      <input type="number" name="limite_sobressalente" min="1" value="{{ cfg.limite_sobressalente }}" style="width:170px;margin:0;">
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label>Remessa ou lote (veículos/kits)</label>
+      <input type="number" name="limite_lote" min="1" value="{{ cfg.limite_lote }}" style="width:210px;margin:0;">
     </div>
     <button type="submit" class="btn btn-success">{{ ic.svg('check', 14) }} Salvar</button>
   </form>
@@ -114,7 +135,7 @@
         <th>Arquivo</th>
         <th>Motivo</th>
         <th>Tamanho</th>
-        <th>Segunda pasta</th>
+        <th>Onde está</th>
       </tr>
     </thead>
     <tbody>
@@ -122,13 +143,12 @@
       <tr>
         <td style="white-space:nowrap;">{{ c.criado_em[:16] }}</td>
         <td>
-          <code style="font-size:12px;">{{ c.arquivo }}</code>
-          {% if not c.existe %}
-          <div style="font-size:11px;color:var(--danger-text);">{{ ic.svg('alerta', 11) }} não está mais na pasta</div>
-          {% endif %}
+          <code style="font-size:12px;">{{ c.arquivo or '—' }}</code>
+          {% if c.descricao %}<div style="font-size:12.5px;color:var(--text);margin-top:2px;">{{ c.descricao }}</div>{% endif %}
         </td>
         <td style="white-space:nowrap;">
           {{ c.motivo_texto }}
+          {% if c.protegida %}<span class="badge badge-info" style="font-size:11px;">Não se apaga</span>{% endif %}
           {% if c.criado_por_nome %}
           <div style="font-size:11px;color:#999;">{{ c.criado_por_nome }}</div>
           {% endif %}
@@ -136,8 +156,11 @@
         <td style="white-space:nowrap;">{{ c.tamanho_mb }} MB</td>
         <td>
           {% if c.erro %}<span style="color:var(--danger-text);font-size:12px;">{{ ic.svg('alerta', 11) }} {{ c.erro }}</span>
-          {% elif c.caminho_extra %}<span style="color:var(--ok-text);">{{ ic.svg('check', 13) }}</span>
-          {% else %}<span style="color:#bbb;">—</span>{% endif %}
+          {% elif not c.existe and not c.existe_extra %}<span style="color:var(--danger-text);font-size:12.5px;">Em nenhuma pasta deste computador</span>
+          {% else %}
+          <span style="font-size:12.5px;color:{{ 'var(--ok-text)' if c.existe else 'var(--text-muted)' }};">Principal {{ 'sim' if c.existe else 'não' }}</span>
+          <span style="font-size:12.5px;color:{{ 'var(--ok-text)' if c.existe_extra else 'var(--text-muted)' }};"> · Segunda {{ 'sim' if c.existe_extra else 'não' }}</span>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

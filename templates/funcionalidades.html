@@ -1890,27 +1890,31 @@
 
   <h3>Como funciona</h3>
   <ul>
-    <li>O <strong>próprio sistema</strong> faz a cópia de tempos em tempos, enquanto está
-      no ar. Não existe tarefa agendada do Windows no meio — nada pra configurar fora
-      daqui, nada pra alguém desligar sem querer.</li>
-    <li>A conta é <strong>“quanto tempo passou desde a última cópia”</strong>, nunca “que
-      horas são”. Um servidor que passou o fim de semana desligado faz o backup assim que
-      volta, em vez de pular a vez e esperar a próxima janela.</li>
+    <li>O <strong>próprio sistema</strong> faz uma cópia <strong>todo dia às 23:00</strong> (horário
+      configurável), enquanto está no ar. Se o servidor estiver desligado nessa hora, a cópia sai
+      assim que ele voltar.</li>
+    <li><strong>Toda grande mudança gera uma cópia antes e outra depois, que não se apagam
+      sozinhas</strong>: importações (veículos, RMAs, patrimônios, pedidos, BOM, ajuste de estoque),
+      pacotes de sobressalentes com muitas unidades, remessas e lotes grandes de kits e exclusões em
+      massa. Se a cópia falhar, a operação continua e o erro aparece na lista de cópias.</li>
     <li>A cópia vai pra <strong>duas pastas</strong>: a padrão, ao lado do banco, e a
       segunda que você configurar (OneDrive, Drive, HD externo, pasta de rede). Backup no
       mesmo disco do banco protege contra engano humano; contra disco queimado, não
       protege nada.</li>
-    <li>As mais antigas <strong>somem sozinhas</strong> quando passam do limite que você
-      escolheu — nas duas pastas.</li>
+    <li>As cópias diárias mais antigas <strong>somem sozinhas</strong> quando passam do limite que você
+      escolheu — nas duas pastas. As marcadas com <em>Não se apaga</em> ficam até alguém removê-las
+      à mão; a tela mostra quanto espaço elas ocupam.</li>
   </ul>
 
   <h3>O que você configura</h3>
   <ul>
     <li><span class="campo">Backup automático ligado</span> — desligado, só sai cópia no
       botão.</li>
-    <li><span class="campo">A cada quantas horas</span> — 24 é uma vez por dia.</li>
-    <li><span class="campo">Quantas cópias manter</span> — com backup diário, 30 dá um mês
-      de histórico.</li>
+    <li><span class="campo">Horário da cópia diária</span> — 23:00 de padrão.</li>
+    <li><span class="campo">Cópias diárias a manter</span> — 30 dá um mês de histórico.</li>
+    <li><span class="campo">Grande mudança</span> — a partir de quantas linhas de importação (50),
+      unidades de sobressalente (100) ou veículos/kits de uma vez (20) a mudança ganha as cópias de
+      antes e depois.</li>
     <li><span class="campo">Segunda pasta</span> — ao salvar, o sistema
       <strong>grava um arquivo de teste nela</strong> e recusa o caminho se não conseguir.
       Pasta de rede desconectada e caminho digitado errado são a causa mais comum de
