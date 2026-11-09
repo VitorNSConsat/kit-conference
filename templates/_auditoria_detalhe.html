@@ -1,4 +1,5 @@
 {# Conteúdo da janela de detalhes da Auditoria (carregado por fetch). #}
+{% macro vazio(texto='não informado') %}<span class="aud-vazio">{{ texto }}</span>{% endmacro %}
 <div class="aud-d">
   <div class="aud-d-cab">
     <strong>{{ r.titulo }}</strong>
@@ -6,75 +7,74 @@
     {% if r.recusado %}<span class="badge badge-danger">Recusado</span>{% endif %}
   </div>
 
-  <dl class="aud-d-grade">
-    <div><dt>Quando</dt><dd>{{ r.criado_em[8:10] }}/{{ r.criado_em[5:7] }}/{{ r.criado_em[:4] }} {{ r.criado_em[11:19] }}</dd></div>
-    <div><dt>Quem</dt><dd>{{ r.user_nome or '—' }}</dd></div>
-    <div><dt>IP</dt><dd>{{ r.ip or '—' }}</dd></div>
-    <div><dt>Resposta do sistema</dt>
-      <dd>{% if not r.status %}—{% elif r.status >= 400 %}{{ r.status }} — recusado{% elif r.status >= 300 %}{{ r.status }} — redirecionou para a tela seguinte{% else %}{{ r.status }} — respondeu direto{% endif %}</dd></div>
-  </dl>
-
-  {% if r.eh_sobressalente %}
+  <h3 class="aud-sec">Registro</h3>
+  <table class="aud-ficha">
+    <tr><th>Quando</th><td>{{ r.criado_em[8:10] }}/{{ r.criado_em[5:7] }}/{{ r.criado_em[:4] }} {{ r.criado_em[11:19] }}</td></tr>
+    <tr><th>Quem</th><td>{{ r.user_nome or vazio() }}</td></tr>
+    <tr><th>IP</th><td>{{ r.ip or vazio() }}</td></tr>
+    <tr><th>Resposta do sistema</th>
+      <td>{% if not r.status %}{{ vazio() }}{% elif r.status >= 400 %}{{ r.status }} — recusado{% elif r.status >= 300 %}{{ r.status }} — redirecionou para a tela seguinte{% else %}{{ r.status }} — respondeu direto{% endif %}</td></tr>
+    {% if r.texto_livre %}<tr><th>O que foi registrado</th><td>{{ r.texto_livre }}</td></tr>{% endif %}
     {% if r.pacote %}
-    <h3 class="aud-d-tit">Pacote {{ r.pacote.rotulo }}{% if r.pacote.nome %} — {{ r.pacote.nome }}{% endif %}</h3>
-    <table class="aud-d-tabela">
-      <thead><tr><th>Item</th><th>Código</th><th>Qtd.</th><th>Observação</th></tr></thead>
+    <tr><th>Pacote</th><td>{{ r.pacote.rotulo }}{% if r.pacote.nome %} — {{ r.pacote.nome }}{% endif %}</td></tr>
+    <tr><th>Total do pacote</th><td>{{ r.pacote.itens | length }} item(ns) · {{ r.pacote.total_unidades }} unidade(s)</td></tr>
+    {% endif %}
+  </table>
+
+  {% if r.campos %}
+  <h3 class="aud-sec">Dados enviados</h3>
+  <table class="aud-ficha">
+    {% for c in r.campos %}
+    <tr><th>{{ c.rotulo }}</th>
+      <td>{% if c.valor.strip() %}{{ c.valor }}{% else %}{{ vazio('não informada' if c.chave == 'observacao' else 'não informado') }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if r.eh_sobressalente and not r.pacote %}
+  <p class="aud-aviso">Não há pacote criado neste momento. O envio pode ter sido recusado (por falta de
+    estoque, por exemplo) ou ser anterior aos pacotes de sobressalentes.</p>
+  {% endif %}
+  {% if r.so_total %}
+  <p class="aud-aviso">Este registro é anterior ao detalhamento: o sistema guardou só o total, não quais foram.</p>
+  {% endif %}
+  {% if r.cortado %}
+  <p class="aud-aviso">Este registro antigo foi cortado em 2.000 caracteres ao ser gravado; o restante não existe mais.</p>
+  {% endif %}
+
+  {% if pag %}
+  <div class="aud-lista-cab">
+    <h3 class="aud-sec">{{ r.lista.titulo }}</h3>
+    <span class="aud-faixa">{{ pag.inicio }}–{{ pag.fim }} de {{ pag.total }}</span>
+  </div>
+  <div class="aud-lista">
+    <table>
+      <thead><tr>{% for c in r.lista.colunas %}<th>{{ c }}</th>{% endfor %}</tr></thead>
       <tbody>
-      {% for i in r.pacote.itens %}
-      <tr>
-        <td>{{ i.tipo_nome }}</td>
-        <td class="aud-d-mono">{{ i.codigo_barra }}</td>
-        <td>{{ i.quantidade }}</td>
-        <td>{% if i.observacao %}{{ i.observacao }}{% else %}<span class="aud-d-vazio">não informada</span>{% endif %}</td>
-      </tr>
+      {% for l in pag.itens %}
+      <tr>{% for v in l %}<td>{% if v.strip() %}{{ v }}{% else %}<span class="aud-vazio">—</span>{% endif %}</td>{% endfor %}</tr>
       {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <p class="aud-d-aviso">Não há pacote criado neste momento. O envio pode ter sido recusado (por falta de
-      estoque, por exemplo) ou ser anterior aos pacotes de sobressalentes.</p>
-    {% endif %}
-  {% endif %}
-
-  {% if r.texto_livre %}
-  <h3 class="aud-d-tit">O que foi registrado</h3>
-  <p class="aud-d-texto">{{ r.texto_livre }}</p>
-  {% endif %}
-
-  {% if r.campos %}
-  <h3 class="aud-d-tit">Dados enviados</h3>
-  <dl class="aud-d-campos">
-    {% for c in r.campos %}
-    <div><dt>{{ c.rotulo }}</dt>
-      <dd>{% if c.valor.strip() %}{{ c.valor }}{% else %}<span class="aud-d-vazio">{{ 'não informada' if c.chave == 'observacao' else 'não informado' }}</span>{% endif %}</dd></div>
+  </div>
+  {% if pag.total_paginas > 1 %}
+  <div class="paginacao aud-pags">
+    <span class="paginacao-info">página {{ pag.pagina }} de {{ pag.total_paginas }}</span>
+    {% for p in pag.paginas_visiveis %}
+      {% if p is none %}<span class="paginacao-ellipsis">…</span>
+      {% else %}<button type="button" onclick="paginaDetalheAuditoria({{ r.id }}, {{ p }})"
+              class="btn btn-sm {{ 'btn-primary' if p == pag.pagina else 'btn-secondary' }}">{{ p }}</button>{% endif %}
     {% endfor %}
-  </dl>
-  {% endif %}
-
-  {% if r.tabela %}
-  <h3 class="aud-d-tit">Itens enviados ({{ r.tabela.linhas | length }})</h3>
-  <div class="aud-d-rolagem">
-  <table class="aud-d-tabela">
-    <thead><tr>{% for c in r.tabela.colunas %}<th>{{ c }}</th>{% endfor %}</tr></thead>
-    <tbody>
-    {% for l in r.tabela.linhas %}
-    <tr>{% for v in l %}<td>{% if v.strip() %}{{ v }}{% else %}<span class="aud-d-vazio">—</span>{% endif %}</td>{% endfor %}</tr>
-    {% endfor %}
-    </tbody>
-  </table>
   </div>
   {% endif %}
-
-  {% if r.cortado %}
-  <p class="aud-d-aviso">Este registro antigo foi cortado em 2.000 caracteres ao ser gravado; o restante não existe mais.</p>
-  {% endif %}
-  {% if not r.detalhe %}
-  <p class="aud-d-vazio" style="margin:12px 0 0;">Esta ação não enviou nenhum dado além da própria rota.</p>
   {% endif %}
 
-  <details class="aud-d-cru">
+  <details class="aud-cru">
     <summary>Registro técnico</summary>
-    <div class="aud-d-mono">{{ r.metodo }} {{ r.caminho }}</div>
-    {% if r.detalhe %}<div class="aud-d-mono aud-d-bruto">{{ r.detalhe }}</div>{% endif %}
+    <table class="aud-ficha">
+      <tr><th>Rota</th><td class="aud-mono">{{ r.metodo }} {{ r.caminho }}</td></tr>
+      {% if r.detalhe %}<tr><th>Detalhe gravado</th><td class="aud-mono">{{ r.detalhe }}</td></tr>{% endif %}
+      {% if r.dados %}<tr><th>Formulário</th><td class="aud-mono">{{ r.dados }}</td></tr>{% endif %}
+    </table>
   </details>
 </div>

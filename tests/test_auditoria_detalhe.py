@@ -106,3 +106,44 @@ def test_tela_e_janela_mostram_o_pacote_com_a_observacao():
             conn.execute("DELETE FROM item_tipo WHERE id = ?", (tid,))
             conn.execute("DELETE FROM auditoria WHERE user_id = ?", (uid,))
             conn.execute("DELETE FROM users WHERE id = ?", (uid,))
+
+
+
+def test_importacao_grande_lista_tudo_em_paginas():
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    init_db()
+    s = uuid.uuid4().hex[:6]
+    nome = f"adm_imp_{s}"
+    usuarios.criar("Adm Imp", nome, "Teste#Import26", True)
+    agora = now_brt()
+    with db() as conn:
+        uid = conn.execute("SELECT id FROM users WHERE username = ?", (nome,)).fetchone()[0]
+        conn.execute("INSERT INTO importacao (arquivo, criada_em, criada_por, total, novos, iguais, alterados, erros, avisos) "
+                     "VALUES ('v.xlsx', ?, ?, 60, 60, 0, 0, 0, 0)", (agora, uid))
+        imp = conn.execute("SELECT id FROM importacao WHERE criada_por = ?", (uid,)).fetchone()[0]
+        conn.executemany("INSERT INTO importacao_item (importacao_id, linha, numero, situacao, cliente_depois) VALUES (?, ?, ?, 'novo', 'C')",
+                         [(imp, i, f"V{s}-{i:03d}") for i in range(1, 61)])
+    aud.registrar(uid, "Adm Imp", "IMPORTACAO", "POST", "/admin/veiculos/import/previa/abc/confirmar", "60 novos", "", 302)
+    aud.registrar(uid, "Adm Imp", "ALTERACAO", "POST", "/admin/producao/transito", "20 kit(s) movido(s) para Em trânsito", "", 302)
+    aud.registrar(uid, "Adm Imp", "ALTERACAO", "POST", "/admin/producao/nota-lote", "2 kit(s): nota 5", "", 302,
+                  dados="nota_fiscal=5 | kit_ids=aaa | kit_ids=bbb")
+    try:
+        with db() as conn:
+            r_imp, r_tot, r_lote = [x[0] for x in conn.execute("SELECT id FROM auditoria WHERE user_id = ? ORDER BY id", (uid,))]
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#Import26"})
+            p1 = c.get(f"/admin/auditoria/{r_imp}/painel").text
+            assert f"V{s}-001" in p1 and f"V{s}-026" not in p1 and "1–25 de 60" in p1 and "página 1 de 3" in p1
+            p3 = c.get(f"/admin/auditoria/{r_imp}/painel", params={"pagina": 3}).text
+            assert f"V{s}-060" in p3 and "51–60 de 60" in p3
+            assert "guardou só o total" in c.get(f"/admin/auditoria/{r_tot}/painel").text
+            l = c.get(f"/admin/auditoria/{r_lote}/painel").text
+            assert "aaa" in l and "bbb" in l and "Itens enviados" in l and "guardou só o total" not in l
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM importacao_item WHERE importacao_id = ?", (imp,))
+            conn.execute("DELETE FROM importacao WHERE id = ?", (imp,))
+            conn.execute("DELETE FROM auditoria WHERE user_id = ?", (uid,))
+            conn.execute("DELETE FROM users WHERE id = ?", (uid,))

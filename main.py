@@ -294,6 +294,7 @@ class _AuditoriaMiddleware(BaseHTTPMiddleware):
                 detalhe=detalhe_final,
                 ip=_ip_do_cliente(request),
                 status=resposta.status_code,
+                dados=detalhe if detalhe_final != detalhe else "",
             )
         except Exception as e:
             print(f"[AUDITORIA] falha ao gravar {request.method} {caminho}: {e}")
@@ -1063,12 +1064,14 @@ async def admin_auditoria(request: Request,
 
 @app.get("/admin/auditoria/{registro_id}/painel", response_class=HTMLResponse)
 @require_admin
-async def admin_auditoria_painel(request: Request, registro_id: int):
-    """Tudo o que existe sobre um registro — conteúdo da janela de detalhes."""
+async def admin_auditoria_painel(request: Request, registro_id: int, pagina: int = 1):
+    """Tudo o que existe sobre um registro — conteúdo da janela de detalhes.
+    A lista de itens vem em páginas: uma importação pode ter milhares."""
     r = auditoria_mod.buscar_detalhado(registro_id)
     if not r:
         return HTMLResponse("<p>Registro não encontrado.</p>", status_code=404)
-    return render(request, "_auditoria_detalhe.html", {"r": r})
+    pag = paginacao_mod.paginar(r["lista"]["linhas"], pagina, 25) if r["lista"] else None
+    return render(request, "_auditoria_detalhe.html", {"r": r, "pag": pag})
 
 
 _DIAS_SEMANA = ("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")

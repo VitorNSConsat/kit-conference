@@ -72,14 +72,14 @@ def _resumir_json(corpo: bytes) -> str:
 
 def registrar(user_id: int | None, user_nome: str | None, acao: str,
               metodo: str, caminho: str, detalhe: str = "",
-              ip: str = "", status: int | None = None) -> None:
+              ip: str = "", status: int | None = None, dados: str = "") -> None:
     with db() as conn:
         conn.execute(
             "INSERT INTO auditoria "
-            "(user_id, user_nome, acao, metodo, caminho, detalhe, ip, status, criado_em) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(user_id, user_nome, acao, metodo, caminho, detalhe, ip, status, criado_em, dados) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, user_nome, acao, metodo, caminho,
-             detalhe or None, ip or None, status, now_brt())
+             detalhe or None, ip or None, status, now_brt(), dados or None)
         )
 
 
@@ -154,7 +154,7 @@ def _filtros(data_ini: str, data_fim: str, user_id: str, acao: str,
     # mesma regra da busca das outras telas.
     for palavra in _sem_acento_py(busca).split():
         extra_sql, extra_params = _busca_pelo_que_a_tela_mostra(palavra)
-        where += (" AND (sem_acento(COALESCE(detalhe,'') || ' ' || COALESCE(user_nome,'')"
+        where += (" AND (sem_acento(COALESCE(detalhe,'') || ' ' || COALESCE(dados,'') || ' ' || COALESCE(user_nome,'')"
                   " || ' ' || COALESCE(acao,'') || ' ' || COALESCE(caminho,'')"
                   " || ' ' || COALESCE(ip,'')) LIKE ?" + extra_sql + ")")
         params.append(f"%{palavra}%")
@@ -360,7 +360,10 @@ _ROTULOS = {
     "obrigatorio": "Obrigatório", "requer_serial": "Requer serial", "veiculo_id": "Veículo", "veiculo": "Veículo",
     "garagem": "Garagem", "modelo": "Modelo", "username": "Usuário", "password": "Senha",
     "numero_pedido": "Número do pedido", "arquivo": "Arquivo", "regiao": "Região", "nota_fiscal": "Nota fiscal",
-    "kit_id": "Kit", "item_id": "Item", "codigos": "Códigos", "completar_zeros": "Completar com zeros",
+    "kit_id": "Veículo (kit)", "kit_ids": "Veículo (kit)", "veiculo_ids": "Veículo", "ref": "Veículo",
+    "ocorrencia_ids": "RMA", "numeros": "Números digitados", "destino_id": "Remessa de destino", "acao": "Ação",
+    "nota_fiscal_data": "Data da nota", "item_id": "Item", "codigos": "Códigos",
+    "completar_zeros": "Completar com zeros",
 }
 
 _SIM_NAO = {"obrigatorio", "requer_serial", "reutilizavel", "ativo", "completar_zeros"}
@@ -400,14 +403,33 @@ def _rotulo(chave: str) -> str:
     return _ROTULOS.get(chave, chave.replace("_", " ").capitalize())
 
 
+def _campos_do_registro(r: dict) -> list[tuple[str, str]] | None:
+    """Os pares chave=valor do registro: do `detalhe` ou, quando ele é uma
+    frase escrita pela rota, do formulário guardado em `dados`."""
+    return _pares(r.get("detalhe") or "") or _pares(r.get("dados") or "")
+
+
 def _mapas(registros: list[dict]) -> dict:
     """Nomes pros ids que aparecem nos registros, numa consulta por tabela."""
+    from app.remessas import _ler_ref
     ids = {"estoque_id": set(), "item_tipo_id": set(), "veiculo_id": set()}
+    kits, refs = set(), {}
     for r in registros:
-        for k, v in _pares(r.get("detalhe") or "") or []:
+        for k, v in _campos_do_registro(r) or []:
             base = (_INDICE.match(k).group(1) if _INDICE.match(k) else k)
-            if base in ids and v.isdigit():
+            if base in ("veiculo_ids",) and v.isdigit():
+                ids["veiculo_id"].add(int(v))
+            elif base in ids and v.isdigit():
                 ids[base].add(int(v))
+            elif base in ("kit_id", "kit_ids") and v:
+                kits.add(v)
+            elif base == "ref" and v:
+                kit, veic = _ler_ref(v)
+                refs[v] = (kit, veic)
+                if kit:
+                    kits.add(kit)
+                if veic:
+                    ids["veiculo_id"].add(int(veic))
 
     def consulta(conn, sql, valores):
         valores = sorted(valores)
@@ -416,15 +438,24 @@ def _mapas(registros: list[dict]) -> dict:
         return {str(a): b for a, b in conn.execute(sql.format(",".join("?" * len(valores))), valores).fetchall()}
 
     with db() as conn:
-        return {
+        mapas = {
             "estoque_id": consulta(conn, "SELECT e.id, it.nome || ' (' || e.codigo_barra || ')' FROM estoque e "
                                          "JOIN item_tipo it ON it.id = e.item_tipo_id WHERE e.id IN ({})", ids["estoque_id"]),
             "item_tipo_id": consulta(conn, "SELECT id, nome FROM item_tipo WHERE id IN ({})", ids["item_tipo_id"]),
             "veiculo_id": consulta(conn, "SELECT id, numero FROM veiculos WHERE id IN ({})", ids["veiculo_id"]),
+            "kit_id": consulta(conn, "SELECT kr.kit_id, COALESCE(v.numero, kr.veiculo, kr.kit_id) FROM kit_record kr "
+                                     "LEFT JOIN veiculos v ON v.id = kr.veiculo_id WHERE kr.kit_id IN ({})", kits),
         }
+    mapas["kit_ids"] = mapas["kit_id"]
+    mapas["veiculo_ids"] = mapas["veiculo_id"]
+    mapas["ref"] = {v: (mapas["kit_id"].get(k) if k else None) or mapas["veiculo_id"].get(str(ve)) or v
+                    for v, (k, ve) in refs.items()}
+    return mapas
 
 
 def _valor(base: str, v: str, mapas: dict) -> str:
+    if v.startswith("<arquivo:") and v.endswith(">"):
+        return v[len("<arquivo:"):-1]
     if base in mapas and v in mapas[base]:
         return mapas[base][v]
     if base in _SIM_NAO and v in ("1", "on", "true"):
@@ -445,10 +476,11 @@ def interpretar(registros: list[dict]) -> list[dict]:
         r["recusado"] = bool(r.get("status") and r["status"] >= 400)
         r["cortado"] = len(r.get("detalhe") or "") == _LIMITE_ANTIGO
         r.update(texto_livre=None, campos=[], tabela=None, obs=None, resumo="")
-        pares = _pares(r.get("detalhe") or "")
-        if pares is None:
+        if _pares(r.get("detalhe") or "") is None:
             r["texto_livre"] = r.get("detalhe") or None
             r["resumo"] = r["texto_livre"] or ""
+        pares = _campos_do_registro(r)
+        if pares is None:
             continue
         pares = [(k, v) for k, v in pares if k not in _OCULTOS]
         repetidas = {k for k in (p[0] for p in pares) if sum(1 for x in pares if x[0] == k) > 1}
@@ -477,14 +509,117 @@ def interpretar(registros: list[dict]) -> list[dict]:
         if r["tabela"]:
             n = len(r["tabela"]["linhas"])
             visiveis.append(f"{n} {'item' if n == 1 else 'itens'}")
-        r["resumo"] = " · ".join(visiveis[:4])
+        if not r["texto_livre"]:
+            r["resumo"] = " · ".join(visiveis[:4])
     return registros
 
 
+def _mudanca(antes, depois) -> str:
+    antes, depois = (antes or "").strip(), (depois or "").strip()
+    return f"{antes} → {depois}" if antes and antes != depois else (depois or antes)
+
+
+_JANELA_SEG = 180    # o registro nasce quando a rota termina; a importação, pouco antes
+
+
+def _perto(coluna: str, r: dict, janela: int = _JANELA_SEG) -> tuple[str, list]:
+    """Linhas gravadas por esta ação: até `janela` segundos ANTES do registro.
+    O "antes" importa: na importação em duas etapas, o envio da planilha é
+    auditado antes da confirmação e não pode herdar os itens dela."""
+    return (f"julianday({coluna}) <= julianday(?) + 1.0/86400 "
+            f"AND (julianday(?) - julianday({coluna})) * 86400 <= {int(janela)}",
+            [r["criado_em"], r["criado_em"]])
+
+
+def _lista(titulo: str, colunas: list[str], linhas: list[list]) -> dict | None:
+    if not linhas:
+        return None
+    return {"titulo": titulo, "colunas": colunas,
+            "linhas": [["" if v is None else str(v) for v in l] for l in linhas]}
+
+
+def _lista_relacionada(r: dict) -> dict | None:
+    """A lista COMPLETA do que a ação fez, buscada onde está guardada de
+    verdade — o registro da auditoria só tem o nome do arquivo."""
+    c, uid = r.get("caminho") or "", r.get("user_id")
+    with db() as conn:
+        if c == "/admin/veiculos/import" or (c.startswith("/admin/veiculos/import/previa/") and c.endswith("/confirmar")):
+            sql, p = _perto("criada_em", r)
+            imp = conn.execute(f"SELECT id FROM importacao WHERE criada_por IS ? AND {sql} ORDER BY id DESC LIMIT 1",
+                               [uid] + p).fetchone()
+            if not imp:
+                return None
+            from app.importacoes import TEXTO
+            return _lista("Veículos da importação", ["Linha", "Veículo", "Situação", "Cliente", "Garagem", "Modelo", "Chassi", "Região", "Erro"], [
+                [i["linha"], i["numero"], TEXTO.get(i["situacao"], i["situacao"]), _mudanca(i["cliente_antes"], i["cliente_depois"]),
+                 _mudanca(i["garagem_antes"], i["garagem_depois"]), _mudanca(i["modelo_antes"], i["modelo_depois"]),
+                 _mudanca(i["chassi_antes"], i["chassi_depois"]), _mudanca(i["regiao_antes"], i["regiao_depois"]), i["erro"]]
+                for i in conn.execute("SELECT * FROM importacao_item WHERE importacao_id = ? ORDER BY linha, id", (imp[0],)).fetchall()])
+        if c == "/admin/hardware/importar":
+            sql, p = _perto("criada_em", r)
+            imp = conn.execute(f"SELECT id FROM hardware_importacao WHERE criada_por IS ? AND {sql} ORDER BY id DESC LIMIT 1",
+                               [uid] + p).fetchone()
+            if not imp:
+                return None
+            from app.hardware_importacoes import TEXTO
+            return _lista("RMAs da importação", ["Linha", "RMA", "Situação", "Cliente", "Produto", "Status", "Erro"], [
+                [i["linha"], i["rotulo"], TEXTO.get(i["situacao"], i["situacao"]), _mudanca(i["cliente_antes"], i["cliente_depois"]),
+                 _mudanca(i["produto_antes"], i["produto_depois"]), _mudanca(i["status_antes"], i["status_depois"]), i["erro"]]
+                for i in conn.execute("SELECT * FROM hardware_importacao_item WHERE importacao_id = ? ORDER BY linha, id", (imp[0],)).fetchall()])
+        if c == "/admin/patrimonios/importar/confirmar":
+            sql, p = _perto("im.criado_em", r)
+            return _lista("Patrimônios importados", ["Código", "Tipo", "Arquivo"], [
+                [i[0], i[1], i[2]] for i in conn.execute(
+                    "SELECT im.codigo_barra, t.nome, im.origem_ref FROM item_master im JOIN item_tipo t ON t.id = im.item_tipo_id "
+                    f"WHERE im.origem = 'importacao' AND im.criado_por IS ? AND {sql} ORDER BY im.codigo_barra", [uid] + p).fetchall()])
+        if c == "/admin/tipos/importar-bom":
+            sql, p = _perto("im.criado_em", r)
+            return _lista("Patrimônios criados pela planilha", ["Código", "Tipo"], [
+                [i[0], i[1]] for i in conn.execute(
+                    "SELECT im.codigo_barra, t.nome FROM item_master im JOIN item_tipo t ON t.id = im.item_tipo_id "
+                    f"WHERE im.origem = 'bom' AND im.criado_por IS ? AND {sql} ORDER BY im.codigo_barra", [uid] + p).fetchall()])
+        if c == "/admin/templates/import-pedido":
+            sql, p = _perto("u.criado_em", r)
+            cliente = next((v for k, v in _campos_do_registro(r) or [] if k == "cliente"), "")
+            return _lista("Unidades do pedido", ["Pedido", "ICCID", "Telefone", "CDT", "ID Hardware"], [
+                list(i) for i in conn.execute(
+                    "SELECT t.nome, u.iccid, u.telefone, u.cdt, u.id_hardware FROM pedido_unidades u "
+                    f"JOIN kit_template t ON t.id = u.kit_template_id WHERE t.cliente = ? AND {sql} ORDER BY t.nome, u.id",
+                    [cliente] + p).fetchall()])
+        if c == "/admin/templates/import-bom":
+            sql, p = _perto("t.criado_em", r)
+            nome = next((v for k, v in _campos_do_registro(r) or [] if k == "nome"), "")
+            return _lista("Itens do kit criado", ["Kit", "Cliente", "Item", "Quantidade", "Conjunto"], [
+                list(i) for i in conn.execute(
+                    "SELECT t.nome, t.cliente, it.nome, ki.quantidade_exigida, ki.componente_codigo FROM kit_template t "
+                    "JOIN kit_template_items ki ON ki.kit_template_id = t.id JOIN item_tipo it ON it.id = ki.item_tipo_id "
+                    f"WHERE t.nome = ? AND t.criado_por IS ? AND {sql} ORDER BY t.cliente, ki.id", [nome, uid] + p).fetchall()])
+        if c == "/admin/estoque/importar-ajuste":
+            sql, p = _perto("m.criado_em", r)
+            return _lista("Ajustes aplicados", ["Item", "Movimento", "Quantidade", "Observação"], [
+                list(i) for i in conn.execute(
+                    "SELECT it.nome, m.tipo, m.quantidade, m.observacao FROM estoque_movimentos m "
+                    "JOIN estoque e ON e.id = m.estoque_id JOIN item_tipo it ON it.id = e.item_tipo_id "
+                    f"WHERE m.criado_por IS ? AND m.tipo NOT IN ('saida', 'sobressalente') AND {sql} ORDER BY it.nome",
+                    [uid] + p).fetchall()])
+        m = _re.match(r"^/admin/producao/remessas/(\d+)/adicionar$", c)
+        if m and not r["tabela"]:
+            sql, p = _perto("rk.entrou_em", r, 30)
+            return _lista("Veículos acrescentados", ["Veículo"], [
+                [i[0]] for i in conn.execute(
+                    "SELECT COALESCE(v.numero, kr.veiculo, rk.kit_id) FROM remessa_kit rk "
+                    "LEFT JOIN veiculos v ON v.id = rk.veiculo_id LEFT JOIN kit_record kr ON kr.kit_id = rk.kit_id "
+                    f"WHERE rk.remessa_id = ? AND rk.adicionado_por IS ? AND {sql} ORDER BY 1", [int(m.group(1)), uid] + p).fetchall()])
+    return None
+
+
+_ROTAS_DE_LOTE = _re.compile(r"(-lote$|/producao/transito$|/remessas/\d+/selecionados$)")
+
+
 def buscar_detalhado(registro_id: int) -> dict | None:
-    """Um registro, interpretado. Num pacote de sobressalentes, junta o pacote
-    criado naquele momento: registros antigos guardaram só o último item, mas
-    o pacote em si tem todos, com a observação de cada um."""
+    """Um registro, interpretado, com `lista`: tudo o que a ação fez, item a
+    item — a tela pagina. Em sobressalentes vem do pacote (registros antigos
+    guardaram só o último item, mas o pacote tem todos)."""
     with db() as conn:
         linha = conn.execute("SELECT * FROM auditoria WHERE id = ?", (registro_id,)).fetchone()
     if not linha:
@@ -492,6 +627,7 @@ def buscar_detalhado(registro_id: int) -> dict | None:
     r = interpretar([dict(linha)])[0]
     r["eh_sobressalente"] = r.get("caminho") == "/admin/sobressalente"
     r["pacote"] = None
+    r["lista"] = None
     if r["eh_sobressalente"]:
         import app.sobressalentes as sobressalentes_mod
         cliente = next((c["valor"] for c in r["campos"] if c["chave"] == "cliente"), "")
@@ -503,4 +639,12 @@ def buscar_detalhado(registro_id: int) -> dict | None:
                 (r.get("user_id"), cliente, r["criado_em"], r["criado_em"])).fetchone()
         if achado:
             r["pacote"] = sobressalentes_mod.buscar(achado[0])
+            r["lista"] = _lista(f"Itens do pacote {r['pacote']['rotulo']}", ["Item", "Código", "Quantidade", "Observação"],
+                                [[i["tipo_nome"], i["codigo_barra"], i["quantidade"], i["observacao"]] for i in r["pacote"]["itens"]])
+    else:
+        r["lista"] = _lista_relacionada(r)
+    if not r["lista"] and r["tabela"]:
+        r["lista"] = _lista("Itens enviados", r["tabela"]["colunas"], r["tabela"]["linhas"])
+    r["so_total"] = bool(not r["lista"] and not r.get("dados") and r["texto_livre"]
+                         and _ROTAS_DE_LOTE.search(r.get("caminho") or ""))
     return r
