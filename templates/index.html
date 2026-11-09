@@ -66,6 +66,9 @@
 {% if request.query_params.get('ok') == 'remessa' %}
 <div class="alert alert-success" style="max-width:500px;">{{ ic.svg('check-circulo', 14) }} Remessa escolhida.</div>
 {% endif %}
+{% if request.query_params.get('ok') == 'etiqueta_pausa' %}
+<div class="alert alert-success" style="max-width:500px;">{{ ic.svg('impressao', 14) }} Etiqueta "Em Andamento" adicionada à <a href="/print-queue">Fila de Impressão</a>. O kit ficou salvo.</div>
+{% endif %}
 {% if request.query_params.get('erro') %}
 <div class="alert alert-danger" style="max-width:500px;">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
 {% endif %}

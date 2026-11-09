@@ -466,6 +466,7 @@
         <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
             <button type="button" class="btn btn-secondary" onclick="fecharKitCompleto()">Continuar bipando</button>
             <form method="post" action="/session/{{ session.id }}/imprimir-pausa" style="margin:0;">
+                <input type="hidden" name="voltar" value="bipagem">
                 <button type="submit" class="btn btn-secondary">{{ ic.svg('impressao', 15) }} Etiqueta de Andamento</button>
             </form>
             <a href="/" class="btn btn-warning">{{ ic.svg('check', 15) }} Salvar e Sair</a>

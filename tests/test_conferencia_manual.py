@@ -237,6 +237,16 @@ def test_tela_de_bipagem_tem_janela_de_kit_completo_e_finaliza_sem_confirm(kit):
             assert 'id="form-finalizar"' in r.text and "confirm('Finalizar" not in r.text
             janela = r.text[r.text.index('id="modal-kit-completo"'):r.text.index('id="modal-fundo-kit-completo"')]
             assert f'/session/{kit["sid"]}/imprimir-pausa' in janela and "Salvar e Sair" in janela and 'href="/"' in janela
+            assert 'name="voltar" value="bipagem"' in janela
+            url = f"/session/{kit['sid']}/imprimir-pausa"
+            r = c.post(url, data={"voltar": "bipagem"}, follow_redirects=False)
+            assert r.status_code == 302 and r.headers["location"] == "/?ok=etiqueta_pausa"
+            assert "adicionada à" in c.get(r.headers["location"]).text
+            r = c.post(url, follow_redirects=False)     # botão do topo continua no kit
+            assert r.headers["location"] == f"/session/{kit['sid']}?ok=etiqueta_pausa"
+            with db() as conn:
+                assert conn.execute("SELECT COUNT(*) FROM print_queue_pausa WHERE sessao_id = ?", (kit["sid"],)).fetchone()[0] == 2
+                conn.execute("DELETE FROM print_queue_pausa WHERE sessao_id = ?", (kit["sid"],))
             r = c.get("/reports", params={"busca": "nao-existe-xyz"})
             assert r.status_code == 200 and 'name="busca"' in r.text and "nao-existe-xyz" in r.text
     finally:

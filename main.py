@@ -3041,6 +3041,10 @@ async def session_imprimir_pausa(request: Request, sessao_id: int):
         timestamp=datetime.now(tz=BRT),
     )
     pq_mod.adicionar_pausa(sessao_id, html_label, user["id"])
+    # Da janela "Todos os itens bipados": gera e já volta pra bipagem, sem
+    # outro clique. O botão do topo da tela segue ficando no kit.
+    if (await request.form()).get("voltar") == "bipagem":
+        return RedirectResponse("/?ok=etiqueta_pausa", status_code=302)
     return RedirectResponse(f"/session/{sessao_id}?ok=etiqueta_pausa", status_code=302)
 
 
