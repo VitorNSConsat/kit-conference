@@ -235,6 +235,8 @@ def test_tela_de_bipagem_tem_janela_de_kit_completo_e_finaliza_sem_confirm(kit):
             assert r.status_code == 200
             assert 'id="modal-kit-completo"' in r.text and "aoMudarKitCompleto" in r.text
             assert 'id="form-finalizar"' in r.text and "confirm('Finalizar" not in r.text
+            janela = r.text[r.text.index('id="modal-kit-completo"'):r.text.index('id="modal-fundo-kit-completo"')]
+            assert f'/session/{kit["sid"]}/imprimir-pausa' in janela and "Salvar e Sair" in janela and 'href="/"' in janela
             r = c.get("/reports", params={"busca": "nao-existe-xyz"})
             assert r.status_code == 200 and 'name="busca"' in r.text and "nao-existe-xyz" in r.text
     finally:
