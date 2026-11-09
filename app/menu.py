@@ -248,4 +248,5 @@ def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
             if i.get("sub"):
                 i["ativo"] = any(x["ativo"] for x in i["itens"])
         g["ativo"] = any(i["ativo"] for i in atalhos(g))
+        g["sub_ativo"] = any(i.get("sub") and i["ativo"] for i in g["itens"])
     return grupos

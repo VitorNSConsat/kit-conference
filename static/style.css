@@ -153,32 +153,18 @@ body {
 .ds-nav-sub-itens { display: none; margin: 0 0 4px 17px; padding-left: 6px; border-left: 1px solid var(--border); }
 .ds-nav-sub.aberto .ds-nav-sub-itens { display: block; }
 .ds-nav-sub-itens .ds-nav-item { height: 34px; font-size: 13px; }
-/* Submenu aberto vira um "cartão": fundo, título na cor da marca e o fio
-   da esquerda colorido — dá pra ver de longe onde ele começa e termina. */
-.ds-nav-sub { border-radius: 10px; transition: background .15s, box-shadow .15s; }
-.ds-nav-sub.aberto { background: var(--surface-alt); margin: 2px 0 6px; padding-bottom: 2px; }
+/* Sanfona: o que está aberto vira um bloco na cor da marca — o submenu,
+   quando há um aberto; senão, o grupo. Só um bloco destacado por vez. */
+.ds-nav-group, .ds-nav-sub { border-radius: 10px; transition: background .15s, box-shadow .15s; }
+.ds-nav-sub.aberto, .ds-nav-group:not(.fechado):not(.tem-sub) {
+    background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+.ds-nav-sub.aberto { margin: 2px 0 6px; padding-bottom: 2px; }
+.ds-nav-group:not(.fechado).tem-sub > .ds-nav-title { background: var(--brand-soft); }
+.ds-nav-group:not(.fechado):not(.tem-sub) > .ds-nav-title { background: transparent; }
 .ds-nav-sub.aberto > .ds-nav-sub-titulo,
 .ds-nav-sub.aberto > .ds-nav-sub-titulo .ds-nav-sub-ic { color: var(--brand-ink); }
 .ds-nav-sub.aberto .ds-nav-sub-itens { border-left: 2px solid var(--brand-border); }
-
-/* Foco (JS _focarMenu): o que acabou de ser aberto em evidência, o resto
-   esmaecido. Passar o mouse devolve a cor — esmaecer não trava nada. */
-.ds-nav > .ds-nav-item, .ds-nav-group, .ds-nav-group .ds-nav-itens > * { transition: opacity .15s; }
-.ds-nav.com-foco > .ds-nav-item,
-.ds-nav.com-foco > .ds-nav-group:not(.foco-grupo),
-.ds-nav.com-foco .foco-grupo.foco-sub > .ds-nav-itens > :not(.foco) { opacity: .38; }
-.ds-nav.com-foco > .ds-nav-item:hover,
-.ds-nav.com-foco > .ds-nav-group:not(.foco-grupo):hover,
-.ds-nav.com-foco .foco-grupo.foco-sub > .ds-nav-itens > :not(.foco):hover { opacity: 1; }
-.ds-nav.com-foco .foco-grupo > .ds-nav-title { background: var(--brand-soft); }
-.ds-nav-sub.foco { background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border); }
-/* O mesmo destaque no primeiro nível: grupo aberto agora (sem submenu em
-   foco) vira um bloco na cor da marca, como o submenu. */
-.ds-nav-group { border-radius: 10px; transition: background .15s, box-shadow .15s; }
-.ds-nav.com-foco .foco-grupo:not(.foco-sub) {
-    background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border);
-}
-.ds-nav.com-foco .foco-grupo:not(.foco-sub) > .ds-nav-title { background: transparent; }
 .ds-nav-item {
     height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px;
     color: var(--text-muted); text-decoration: none; border-radius: 7px; margin: 1px 0;

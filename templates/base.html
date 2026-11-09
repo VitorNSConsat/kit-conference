@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=71">
+    <link rel="stylesheet" href="/static/style.css?v=72">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -41,13 +41,12 @@
     <a href="http://{{ request.url.hostname }}:8001/" class="ds-nav-item" style="margin-bottom:10px" title="Voltar ao portal de aplicações">
       {{ ic.svg('portal') }}<span>Portal</span>
     </a>
-    {# Grupos que abrem e fecham (o título é o botão). Todos lembram como a
-       pessoa deixou (no navegador) — fechado fica fechado até ela reabrir, mesmo
-       o grupo da tela aberta (que continua com o título destacado).
-       Grupos e atalhos vêm de app/menu.py, já filtrados pela permissão. #}
+    {# Sanfona: um grupo aberto por vez e, dentro dele, um submenu. O servidor já
+       entrega aberto o caminho da tela atual, pra não piscar o menu inteiro ao
+       carregar. Grupos e atalhos vêm de app/menu.py, já filtrados pela permissão. #}
     {% for g in menu_grupos %}
-    <div class="ds-nav-group" data-grupo="{{ g.chave }}" data-ativo="{{ '1' if g.ativo }}">
-      <button type="button" class="ds-nav-title" aria-expanded="true" onclick="alternarGrupoMenu(this)">
+    <div class="ds-nav-group {{ 'fechado' if not g.ativo }} {{ 'tem-sub' if g.sub_ativo }}" data-grupo="{{ g.chave }}" data-ativo="{{ '1' if g.ativo }}">
+      <button type="button" class="ds-nav-title" aria-expanded="{{ 'true' if g.ativo else 'false' }}" onclick="alternarGrupoMenu(this)">
         <span class="ds-nav-title-ic">{{ ic.svg(g.icone, 14) }}</span>
         <span class="ds-nav-title-txt">{{ g.nome }}</span>
         <span class="ds-nav-title-seta">{{ ic.svg('seta-baixo', 14) }}</span>
@@ -56,8 +55,8 @@
         {# Atalho solto ou submenu (título que abre/fecha + os atalhos dele). #}
         {% for i in g.itens %}
         {% if i.sub %}
-        <div class="ds-nav-sub" data-sub="{{ i.chave }}" data-ativo="{{ '1' if i.ativo }}">
-          <button type="button" class="ds-nav-sub-titulo" aria-expanded="false" onclick="alternarSubMenu(this)">
+        <div class="ds-nav-sub {{ 'aberto' if i.ativo }}" data-sub="{{ i.chave }}" data-ativo="{{ '1' if i.ativo }}">
+          <button type="button" class="ds-nav-sub-titulo" aria-expanded="{{ 'true' if i.ativo else 'false' }}" onclick="alternarSubMenu(this)">
             <span class="ds-nav-sub-ic">{{ ic.svg(i.icone, 15) }}</span>
             <span class="ds-nav-sub-txt">{{ i.rotulo }}</span>
             <span class="ds-nav-sub-seta">{{ ic.svg('seta-baixo', 13) }}</span>
@@ -155,76 +154,75 @@
 </div>
 <div id="janela-painel-fundo" class="modal-fundo" onclick="fecharJanelaPainel()"></div>
 <script>
-// Grupos do menu lateral: fechados ficam guardados no navegador e continuam
-// fechados de uma tela pra outra até a pessoa reabrir.
-function _gruposFechados() {
-    try { return JSON.parse(localStorage.getItem('menu_grupos_fechados')) || []; } catch (e) { return []; }
-}
-function _aplicarGrupoMenu(grupo, aberto) {
-    grupo.classList.toggle('fechado', !aberto);
-    const b = grupo.querySelector('.ds-nav-title');
-    if (b) b.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-}
-// Foco do menu: o grupo/submenu que a pessoa ACABOU de abrir fica em
-// evidência e o resto do menu esmaece (passar o mouse devolve a cor). Só
-// enquanto mexe: some ao fechar o que estava em foco, clicar fora do menu
-// ou apertar Esc — e não passa de uma tela pra outra.
-function _focarMenu(grupo, sub) {
-    const nav = document.querySelector('.ds-nav');
-    if (!nav) return;
-    nav.querySelectorAll('.foco-grupo, .foco-sub, .ds-nav-sub.foco').forEach(function (e) {
-        e.classList.remove('foco-grupo', 'foco-sub', 'foco');
+// Menu em sanfona: só um grupo aberto e, dentro dele, só um submenu. Abrir
+// outro fecha o anterior, então nunca sobram vários caminhos abertos.
+function _abrirSomenteMenu(grupo, sub) {
+    document.querySelectorAll('.ds-nav-group[data-grupo]').forEach(function (g) {
+        const aberto = g === grupo;
+        g.classList.toggle('fechado', !aberto);
+        const b = g.querySelector('.ds-nav-title');
+        if (b) b.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+        let temSub = false;
+        g.querySelectorAll('.ds-nav-sub[data-sub]').forEach(function (s) {
+            const abertoSub = aberto && s === sub;
+            s.classList.toggle('aberto', abertoSub);
+            const t = s.querySelector('.ds-nav-sub-titulo');
+            if (t) t.setAttribute('aria-expanded', abertoSub ? 'true' : 'false');
+            temSub = temSub || abertoSub;
+        });
+        g.classList.toggle('tem-sub', temSub);
     });
-    nav.classList.toggle('com-foco', !!grupo);
-    if (!grupo) return;
-    grupo.classList.add('foco-grupo');
-    if (sub) { grupo.classList.add('foco-sub'); sub.classList.add('foco'); }
 }
-document.addEventListener('click', function (e) {
-    if (!e.target.closest || !e.target.closest('#ds-sidebar')) _focarMenu(null);
-});
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') _focarMenu(null); });
-
+// Fechar o bloco de cima encolhe o menu: mantém o título clicado parado sob
+// o mouse e, se o que abriu passar do fim da área visível, rola até caber
+// (sem nunca empurrar o título pra fora por cima).
+function _mexerNoMenu(botao, bloco, mudar) {
+    const nav = document.querySelector('.ds-nav');
+    const antes = botao.getBoundingClientRect().top;
+    mudar();
+    nav.scrollTop += botao.getBoundingClientRect().top - antes;
+    const b = botao.getBoundingClientRect(), r = bloco.getBoundingClientRect(), n = nav.getBoundingClientRect();
+    if (r.bottom > n.bottom) nav.scrollTop += Math.min(r.bottom - n.bottom, b.top - n.top);
+}
 function alternarGrupoMenu(botao) {
     const grupo = botao.closest('.ds-nav-group');
     const abrir = grupo.classList.contains('fechado');
-    _aplicarGrupoMenu(grupo, abrir);
-    if (abrir) _focarMenu(grupo);
-    else if (grupo.classList.contains('foco-grupo')) _focarMenu(null);
-    let fechados = _gruposFechados().filter(c => c !== grupo.dataset.grupo);
-    if (!abrir) fechados.push(grupo.dataset.grupo);
-    try { localStorage.setItem('menu_grupos_fechados', JSON.stringify(fechados)); } catch (e) {}
-}
-// Submenus: começam fechados, menos o da tela aberta; abrir/fechar à mão
-// fica guardado (e vale mais que o padrão) até a pessoa mudar de novo.
-function _subMenus() {
-    try { return JSON.parse(localStorage.getItem('menu_subs')) || {}; } catch (e) { return {}; }
-}
-function _aplicarSubMenu(sub, aberto) {
-    sub.classList.toggle('aberto', aberto);
-    const b = sub.querySelector('.ds-nav-sub-titulo');
-    if (b) b.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    _mexerNoMenu(botao, grupo, function () {
+        if (abrir) _abrirSomenteMenu(grupo, grupo.querySelector('.ds-nav-sub[data-ativo="1"]'));
+        else _abrirSomenteMenu(null, null);
+    });
 }
 function alternarSubMenu(botao) {
     const sub = botao.closest('.ds-nav-sub');
     const abrir = !sub.classList.contains('aberto');
-    _aplicarSubMenu(sub, abrir);
-    const grupo = sub.closest('.ds-nav-group');
-    if (abrir) _focarMenu(grupo, sub);
-    else if (sub.classList.contains('foco')) _focarMenu(grupo);
-    const estado = _subMenus();
-    estado[sub.dataset.sub] = abrir ? 1 : 0;
-    try { localStorage.setItem('menu_subs', JSON.stringify(estado)); } catch (e) {}
+    _mexerNoMenu(botao, sub, function () {
+        _abrirSomenteMenu(sub.closest('.ds-nav-group'), abrir ? sub : null);
+    });
 }
 (function () {
-    const fechados = _gruposFechados();
-    document.querySelectorAll('.ds-nav-group[data-grupo]').forEach(function (g) {
-        _aplicarGrupoMenu(g, !fechados.includes(g.dataset.grupo));
-    });
-    const subs = _subMenus();
-    document.querySelectorAll('.ds-nav-sub[data-sub]').forEach(function (sub) {
-        const k = sub.dataset.sub;
-        _aplicarSubMenu(sub, k in subs ? subs[k] === 1 : sub.dataset.ativo === '1');
+    // Sobras de quando cada grupo guardava o próprio estado.
+    try { localStorage.removeItem('menu_grupos_fechados'); localStorage.removeItem('menu_subs'); } catch (e) {}
+    // Atalho que abre trecho de outra tela (ex.: Importações → Importar itens
+    // leva a Itens & Estoque): o servidor abriria o grupo da tela de destino,
+    // e o menu pularia de lugar. Vale o caminho por onde a pessoa clicou.
+    const semHash = function (u) { return String(u).split('#')[0]; };
+    let clicado = null;
+    try { clicado = JSON.parse(sessionStorage.getItem('menu_clicado')); } catch (e) {}
+    if (clicado && semHash(clicado.href) === semHash(location.href)) {
+        const g = Array.from(document.querySelectorAll('.ds-nav-group[data-grupo]')).find(x => x.dataset.grupo === clicado.grupo);
+        const s = g && Array.from(g.querySelectorAll('.ds-nav-sub[data-sub]')).find(x => x.dataset.sub === clicado.sub);
+        if (g) _abrirSomenteMenu(g, s || null);
+    }
+    document.querySelectorAll('.ds-nav-group a.ds-nav-item').forEach(function (a) {
+        if (a.hasAttribute('download') || a.target === '_blank') return;
+        a.addEventListener('click', function () {
+            const sub = a.closest('.ds-nav-sub');
+            try {
+                sessionStorage.setItem('menu_clicado', JSON.stringify({
+                    href: a.href, grupo: a.closest('.ds-nav-group').dataset.grupo, sub: sub ? sub.dataset.sub : ''
+                }));
+            } catch (e) {}
+        });
     });
     // Rolagem do menu: clicar num atalho recarrega a página e o menu voltava
     // pro topo. Guarda onde estava (por aba do navegador) e volta pra lá; se o

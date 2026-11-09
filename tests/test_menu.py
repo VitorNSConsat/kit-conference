@@ -79,6 +79,9 @@ def test_submenus_agrupam_por_assunto_e_somem_com_um_item_so():
     assert [i["rotulo"] for i in subs["Patrimônio"]["itens"]] == ["Patrimônios cadastrados", "Mudanças de patrimônio"]
     assert subs["Patrimônio"]["ativo"] and not subs["Kits e produção"]["ativo"]
     assert subs["Patrimônio"]["chave"] == "relatórios/patrimônio"
+    # O servidor já entrega aberto só o caminho da tela atual (sanfona).
+    assert g["Relatórios"]["sub_ativo"] and not g["Estoque"]["sub_ativo"]
+    assert [x for x in g if g[x]["ativo"]] == ["Relatórios"]
     # Sem admin, em Sistema → Configurações sobram Rede e Backup (continua submenu);
     # só com "ver_rede", sobra um: vira atalho solto.
     so_rede = {x["nome"]: x for x in menu.montar("/", "", {"admin": False}, lambda k: k == "ver_rede")}
