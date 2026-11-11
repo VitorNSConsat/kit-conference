@@ -156,12 +156,12 @@ body {
 /* Sanfona: o que está aberto vira um bloco na cor da marca — o submenu,
    quando há um aberto; senão, o grupo. Só um bloco destacado por vez. */
 .ds-nav-group, .ds-nav-sub { border-radius: 10px; transition: background .15s, box-shadow .15s; }
-.ds-nav-sub.aberto, .ds-nav-group:not(.fechado):not(.tem-sub) {
+.ds-nav-sub.aberto, .ds-nav-group[data-grupo]:not(.fechado):not(.tem-sub) {
     background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border);
 }
 .ds-nav-sub.aberto { margin: 2px 0 6px; padding-bottom: 2px; }
-.ds-nav-group:not(.fechado).tem-sub > .ds-nav-title { background: var(--brand-soft); }
-.ds-nav-group:not(.fechado):not(.tem-sub) > .ds-nav-title { background: transparent; }
+.ds-nav-group[data-grupo]:not(.fechado).tem-sub > .ds-nav-title { background: var(--brand-soft); }
+.ds-nav-group[data-grupo]:not(.fechado):not(.tem-sub) > .ds-nav-title { background: transparent; }
 .ds-nav-sub.aberto > .ds-nav-sub-titulo,
 .ds-nav-sub.aberto > .ds-nav-sub-titulo .ds-nav-sub-ic { color: var(--brand-ink); }
 .ds-nav-sub.aberto .ds-nav-sub-itens { border-left: 2px solid var(--brand-border); }
@@ -1958,3 +1958,9 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
 @media (max-width: 1280px) {
     th, td { padding-left: 9px; padding-right: 9px; }
 }
+
+/* Entrada direta do menu (Bipagem, Acompanhamento, Remessas): cara de título
+   de grupo, mas é link. A da tela aberta fica destacada. */
+a.ds-nav-direto { text-decoration: none; }
+.ds-nav-direto .ds-nav-title-seta { transform: none; }
+.ds-nav-direto-grupo[data-ativo="1"] .ds-nav-direto { background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border); }

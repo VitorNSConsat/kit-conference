@@ -35,14 +35,16 @@ def _sub(rotulo, icone, itens):
 # Organizado por ASSUNTO, com o nome que o operador usa. Antes "Cadastros"
 # misturava veículo, peça, kit e RMA — agora cada assunto tem o seu grupo.
 _GRUPOS = [
+    # Entradas DIRETAS (no lugar da lista de atalhos vem um atalho só): as telas
+    # do dia a dia, que abrem num clique, no mesmo nível dos grupos.
+    ("Bipagem", "bipagem", _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"])),
+    ("Acompanhamento", "producao",
+     _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
+        ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"])),
+    ("Remessas", "caixa", _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"],
+                             ["/admin/producao/remessas"])),
     ("Produção", "producao", [
-        _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"]),
         _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
-        # Acompanhar produção é uma tela grande (etapas, remessa, nota, TV): fica
-        # solta, sem submenu por cima. Remessas e o Painel da TV, logo abaixo.
-        _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
-           ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
-        _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
         _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
     ]),
     ("Estoque", "itens", [
@@ -207,7 +209,8 @@ def _chave(texto: str) -> str:
 
 def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
     """[{nome, icone, chave, ativo, itens:[atalho | submenu]}] — só os grupos
-    com algum atalho que este usuário pode abrir. Atalho: {rotulo, icone,
+    com algum atalho que este usuário pode abrir. Entrada direta: o mesmo, com
+    `direto` e `href` (um atalho só, aberto num clique). Atalho: {rotulo, icone,
     href, ativo, tipo}; submenu: {sub, rotulo, icone, chave, ativo, itens}."""
     if not user:
         return []
@@ -222,6 +225,12 @@ def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
 
     grupos = []
     for nome, icone_grupo, entradas in _GRUPOS:
+        if isinstance(entradas, dict):              # entrada direta: um atalho só
+            if visivel(entradas):
+                it = saida(entradas)
+                grupos.append({"nome": nome, "icone": icone_grupo, "chave": _chave(nome), "direto": True,
+                               "href": it["href"], "itens": [it]})
+            continue
         linhas = []
         for e in entradas:
             if e.get("sub"):

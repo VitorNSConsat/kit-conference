@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=77">
+    <link rel="stylesheet" href="/static/style.css?v=78">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -45,6 +45,16 @@
        entrega aberto o caminho da tela atual, pra não piscar o menu inteiro ao
        carregar. Grupos e atalhos vêm de app/menu.py, já filtrados pela permissão. #}
     {% for g in menu_grupos %}
+    {% if g.direto %}
+    {# Entrada direta: mesma cara de grupo, mas é um link — abre a tela num clique. #}
+    <div class="ds-nav-group ds-nav-direto-grupo" data-ativo="{{ '1' if g.ativo }}">
+      <a href="{{ g.href }}" class="ds-nav-title ds-nav-direto">
+        <span class="ds-nav-title-ic">{{ ic.svg(g.icone, 14) }}</span>
+        <span class="ds-nav-title-txt">{{ g.nome }}</span>
+        <span class="ds-nav-title-seta">{{ ic.svg('seta-direita', 14) }}</span>
+      </a>
+    </div>
+    {% else %}
     <div class="ds-nav-group {{ 'fechado' if not g.ativo }} {{ 'tem-sub' if g.sub_ativo }}" data-grupo="{{ g.chave }}" data-ativo="{{ '1' if g.ativo }}">
       <button type="button" class="ds-nav-title" aria-expanded="{{ 'true' if g.ativo else 'false' }}" onclick="alternarGrupoMenu(this)">
         <span class="ds-nav-title-ic">{{ ic.svg(g.icone, 14) }}</span>
@@ -76,6 +86,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
     {% endfor %}
     {% if alertas_estoque and '/session/' not in request.url.path %}
     {# Independe de tela liberada ou de ser admin: é um aviso passivo, não uma

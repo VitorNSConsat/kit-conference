@@ -18,14 +18,15 @@ def _rotulos(user, pode):
 
 def test_grupos_por_assunto():
     assert [g["nome"] for g in menu.montar("/", "", {"admin": True}, lambda k: True)] == [
-        "Produção", "Estoque", "Kits e pedidos", "Veículos e clientes", "RMA",
+        "Bipagem", "Acompanhamento", "Remessas", "Produção", "Estoque", "Kits e pedidos", "Veículos e clientes", "RMA",
         "Importações", "Downloads", "Relatórios", "Sistema"]
 
 
 def test_permissoes():
     so_bipagem = menu.montar("/", "", {"admin": False}, lambda k: k == "ver_bipagem")
     # O certificado do celular não depende de tela: vai pra todo mundo.
-    assert [g["nome"] for g in so_bipagem] == ["Produção", "Downloads"]
+    assert [g["nome"] for g in so_bipagem] == ["Bipagem", "Downloads"]
+    assert so_bipagem[0]["direto"] and so_bipagem[0]["href"] == "/"
     assert [i["rotulo"] for i in so_bipagem[0]["itens"]] == ["Bipagem"]
     assert [i["rotulo"] for i in so_bipagem[1]["itens"]] == ["Certificado do celular"]
     # Ação que exige permissão própria: sem estoque_editar, some o atalho.
@@ -45,9 +46,10 @@ def test_tela_aberta_acende_um_atalho_so():
     assert _ativos("/admin/producao") == ["Acompanhar produção"]
     assert _ativos("/admin/producao/remessas") == ["Remessas"]
     prod = {g["nome"]: g for g in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}["Produção"]
-    assert [(i["rotulo"], bool(i.get("sub"))) for i in prod["itens"]] == [
-        ("Bipagem", False), ("Fila de impressão", False), ("Acompanhar produção", False),
-        ("Remessas", False), ("Painel da TV", False)]
+    assert [i["rotulo"] for i in prod["itens"]] == ["Fila de impressão", "Painel da TV"]
+    g = {x["nome"]: x for x in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}
+    assert g["Acompanhamento"]["direto"] and g["Acompanhamento"]["ativo"] and not g["Remessas"]["ativo"]
+    assert not g["Produção"]["ativo"]
     assert _ativos("/admin/items") == ["Estoque de itens"]
     assert _ativos("/admin/items", "tab=sobressalentes") == ["Sobressalentes"]
     g = {x["nome"]: x for x in menu.montar("/admin/items", "tab=sobressalentes", {"admin": True}, lambda k: True)}
