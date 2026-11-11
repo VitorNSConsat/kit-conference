@@ -44,6 +44,10 @@ def test_tela_aberta_acende_um_atalho_so():
     assert _ativos("/session/12") == ["Bipagem"]
     assert _ativos("/admin/producao") == ["Acompanhar produção"]
     assert _ativos("/admin/producao/remessas") == ["Remessas"]
+    prod = {g["nome"]: g for g in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}["Produção"]
+    assert [(i["rotulo"], bool(i.get("sub"))) for i in prod["itens"]] == [
+        ("Bipagem", False), ("Fila de impressão", False), ("Acompanhar produção", False),
+        ("Remessas", False), ("Painel da TV", False)]
     assert _ativos("/admin/items") == ["Estoque de itens"]
     assert _ativos("/admin/items", "tab=sobressalentes") == ["Sobressalentes"]
     g = {x["nome"]: x for x in menu.montar("/admin/items", "tab=sobressalentes", {"admin": True}, lambda k: True)}

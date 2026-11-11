@@ -38,12 +38,12 @@ _GRUPOS = [
     ("Produção", "producao", [
         _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"]),
         _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
-        _sub("Acompanhamento", "producao", [
-            _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
-               ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
-            _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
-            _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
-        ]),
+        # Acompanhar produção é uma tela grande (etapas, remessa, nota, TV): fica
+        # solta, sem submenu por cima. Remessas e o Painel da TV, logo abaixo.
+        _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
+           ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"]),
+        _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"], ["/admin/producao/remessas"]),
+        _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
     ]),
     ("Estoque", "itens", [
         _sub("Itens", "itens", [
