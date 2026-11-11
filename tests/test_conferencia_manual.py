@@ -252,3 +252,31 @@ def test_tela_de_bipagem_tem_janela_de_kit_completo_e_finaliza_sem_confirm(kit):
     finally:
         with db() as conn:
             conn.execute("DELETE FROM users WHERE username = ?", (nome,))
+
+
+def test_tela_inicial_da_bipagem_mostra_painel_com_progresso(kit):
+    """A sessão do fixture tem antena 1/1, cabo 2/4 e display 0/1 (obrigatórios):
+    3 de 6 unidades = 50%, faltando cabo e display."""
+    import app.bipagem_painel as painel
+    s = next(x for x in painel.sessoes() if x["id"] == kit["sid"])
+    assert (s["feito"], s["exigido"], s["pct"], s["pronto"]) == (3, 6, 50, False)
+    assert {f["item"].split()[0] for f in s["faltando"]} == {"Cabo", "Display"}
+    assert [e["item"].split()[0] for e in s["eventos"]] == ["Parafuso", "Cabo", "Antena"]
+    assert all(e["codigo"] for e in s["eventos"])
+    k = painel.indicadores(None)
+    assert set(k) == {"finalizados_hoje", "meus_hoje", "minutos_tipicos", "na_fila"}
+
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    nome = f"adm_ini_{kit['s']}"
+    usuarios.criar("Adm Ini", nome, "Teste#Inicio26", True)
+    try:
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#Inicio26"})
+            h = c.get("/").text
+            assert "Em andamento" in h and "Finalizados hoje" in h and 'id="form-iniciar"' in h
+            assert f'data-id="{kit["sid"]}"' in h and "3/6 (50%)" in h
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM users WHERE username = ?", (nome,))

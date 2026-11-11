@@ -1303,8 +1303,12 @@ async def ping():
 @require_login
 async def home(request: Request):
     templates_ativos = templates_mod.listar_templates_ativos()
-    sessoes_em_andamento = sessions_mod.listar_sessoes_em_andamento()
+    import app.bipagem_painel as bipagem_painel_mod
     return render(request, "index.html", {
+        # Painel: números do dia e as sessões em andamento com progresso,
+        # o que falta e as últimas bipagens (o detalhe abre ao clicar).
+        "kpi": bipagem_painel_mod.indicadores((get_current_user(request) or {}).get("id")),
+        "sessoes": bipagem_painel_mod.sessoes(),
         "templates_kit": [t for t in templates_ativos if t.get("tipo", "kit") == "kit"],
         "templates_pedido": [t for t in templates_ativos if t.get("tipo") == "pedido"],
         # Bipagem por cliente: a lista de clientes que têm ao menos um kit/pedido
@@ -1315,7 +1319,6 @@ async def home(request: Request):
             {"id": t["id"], "nome": t["nome"], "cliente": t["cliente"],
              "versao": t["versao"], "tipo": t.get("tipo", "kit")}
             for t in templates_ativos],
-        "sessoes_em_andamento": sessoes_em_andamento,
         # A remessa lembrada da última escolha — o operador só troca quando
         # precisa; do contrário segue no mesmo lote kit após kit.
         "remessa_atual": remessas_mod.listar_uma(_remessa_escolhida(request) or 0),

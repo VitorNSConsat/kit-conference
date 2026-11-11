@@ -279,16 +279,22 @@
   <h2>3. Bipagem</h2>
 
   <h3>Tela inicial</h3>
-  <p>
-    Mostra as <strong>sessões em andamento</strong> (pra retomar de onde parou) — uma lista que
-    <strong>abre e fecha</strong> clicando no título, com a contagem ao lado e uma busca por veículo,
-    kit, cliente ou operador; com mais de 15 sessões ela começa fechada, e a sua escolha fica
-    lembrada neste navegador — e a
-    abertura de uma <strong>nova sessão</strong>: <strong>primeiro o cliente</strong> (só aparecem
-    clientes que têm kit ou pedido ativo) e <strong>depois a lista dos kits e pedidos daquele
-    cliente</strong> — se ele tiver um só, já vem escolhido. O último cliente usado fica lembrado
-    neste navegador. Só entra kit ativo.
-  </p>
+  <ul>
+    <li><strong>Números do dia</strong> no topo: sessões em andamento (e quantas já estão prontas pra
+      finalizar), kits finalizados hoje (e quantos por você), o tempo típico por kit hoje (mediana, da
+      abertura à finalização) e as etiquetas aguardando na fila de impressão.</li>
+    <li><strong>Sessões em andamento</strong>: uma tabela com veículo, kit, operador, início e uma
+      <strong>barra de progresso</strong> (a mesma conta da tela da sessão — unidades dos itens
+      obrigatórios). Filtros por busca, cliente, operador (inclusive <em>Só as minhas</em>) e situação
+      (<em>Pronta pra finalizar</em> / <em>Faltando itens</em>), 10 por página. <em>Retomar</em> em cada linha.</li>
+    <li><strong>Clicar numa sessão</strong> mostra ao lado os detalhes: kit, cliente, operador, início,
+      garagem, remessa e última bipagem; o progresso em anel; <strong>o que falta</strong>, item a item; as
+      <strong>últimas bipagens</strong>; e os botões <em>Retomar bipagem</em> e <em>Cancelar sessão</em>. A
+      tela já abre mostrando a sua sessão mais recente.</li>
+    <li><strong>Nova sessão</strong>, à direita: a remessa do kit, <strong>primeiro o cliente</strong> (só
+      aparecem clientes com kit ou pedido ativo) e <strong>depois os kits e pedidos daquele cliente</strong> —
+      se ele tiver um só, já vem escolhido. O último cliente usado fica lembrado neste navegador.</li>
+  </ul>
 
   <h3>Destino — “pra onde vai esse kit?”</h3>
   <p>

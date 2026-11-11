@@ -1,180 +1,418 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
-{% block title %}Início — Conferência de Kits{% endblock %}
+{% import "_ajuda.html" as aj %}
+{% block title %}Bipagem{% endblock %}
 {% block content %}
-{% if sessoes_em_andamento %}
-{# Lista que abre e fecha (como as etapas da Produção): com centenas de kits em
-   bipagem, aberta ela empurrava "Nova Sessão" pra muito longe. O estado fica
-   guardado no navegador; sem escolha guardada, começa fechada quando passa de 15. #}
-{% set n_sessoes = sessoes_em_andamento | length %}
-<details class="card etapa" id="sessoes-andamento" data-padrao-aberto="{{ '1' if n_sessoes <= 15 else '0' }}">
-  <summary>
-    <h2>Sessões em Andamento
-      <span class="badge badge-warning">{{ n_sessoes }} sess{{ 'ão' if n_sessoes == 1 else 'ões' }}</span>
-    </h2>
-  </summary>
-  <p style="color:var(--text-muted); font-size:13px; margin:0 0 10px;">
-    Sessões salvas pela equipe. Retome onde parou ou cancele para descartar.
-  </p>
-  {% if n_sessoes > 5 %}
-  <input type="text" class="busca-box" placeholder="Procurar veículo, kit, cliente ou operador..."
-         oninput="filtrarLista(this)" data-filtro-alvo="#sessoes-andamento .sessao-linha" autocomplete="off">
-  {% endif %}
-  <div class="sessoes-lista">
-  {% for s in sessoes_em_andamento %}
-  <div class="sessao-linha">
-      <div style="flex:1; min-width:140px;">
-          <strong>{{ s.veiculo or s.kit_nome }}</strong>
-          <span style="color:var(--text-muted); font-size:13px;"> — {{ s.cliente }}</span>
-          <br>
-          <span style="font-size:12px; color:var(--text-muted-2);">
-              {{ s.kit_nome }}{% if s.garagem %} · {{ s.garagem }}{% endif %}
-              &nbsp;·&nbsp; Operador: <strong style="color:var(--text-muted);">{{ s.operador_nome }}</strong>
-              &nbsp;·&nbsp; Iniciado em {{ s.iniciado_em[:16] if s.iniciado_em else '—' }}
-          </span>
+
+{% if request.query_params.get('ok') == 'remessa' %}
+<div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Remessa escolhida.</div>
+{% endif %}
+{% if request.query_params.get('ok') == 'etiqueta_pausa' %}
+<div class="alert alert-success">{{ ic.svg('impressao', 14) }} Etiqueta "Em Andamento" adicionada à fila de impressão. O kit ficou salvo.</div>
+{% endif %}
+{% if request.query_params.get('erro') %}
+<div class="alert alert-danger">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
+{% endif %}
+
+{# ── Números do dia ─────────────────────────────────────────────────────── #}
+<section class="ds-kpis">
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Em andamento</p><p class="ds-kpi-value">{{ sessoes | length }}</p>
+      <p class="bp-kpi-sub">{{ sessoes | selectattr('pronto') | list | length }} pronta(s) pra finalizar</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('bipagem', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Finalizados hoje</p><p class="ds-kpi-value">{{ kpi.finalizados_hoje }}</p>
+      <p class="bp-kpi-sub">{{ kpi.meus_hoje }} por você</p></div>
+    <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Tempo por kit hoje {% call aj.ajuda() %}Tempo típico (mediana) entre o início
+      da bipagem e a finalização, nos kits finalizados hoje. Mediana, e não média, pra um kit salvo
+      ontem e terminado hoje não distorcer a conta.{% endcall %}</p>
+      <p class="ds-kpi-value">{{ (kpi.minutos_tipicos ~ ' min') if kpi.minutos_tipicos is not none else '—' }}</p>
+      <p class="bp-kpi-sub">da abertura à finalização</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('relogio', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Na fila de impressão</p><p class="ds-kpi-value">{{ kpi.na_fila }}</p>
+      <p class="bp-kpi-sub">etiquetas aguardando</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('impressao', 20) }}</span>
+  </div>
+</section>
+
+<div class="bp-grade">
+
+  {# ── Sessões em andamento ─────────────────────────────────────────────── #}
+  <section class="card bp-sessoes">
+    <div class="bp-cab">
+      <h2>{{ ic.svg('menu', 17) }} Sessões em andamento <span class="badge">{{ sessoes | length }}</span></h2>
+      <span class="bp-cab-sub">Clique numa sessão para ver os detalhes.</span>
+    </div>
+    {% if sessoes %}
+    <div class="bp-filtros">
+      <input type="text" id="bp-busca" placeholder="Buscar veículo, kit, cliente ou operador..." autocomplete="off">
+      <select id="bp-cliente" aria-label="Cliente">
+        <option value="">Cliente: todos</option>
+        {% for c in sessoes | map(attribute='cliente') | unique | sort %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+      <select id="bp-operador" aria-label="Operador">
+        <option value="">Operador: todos</option>
+        <option value="eu">Só as minhas</option>
+        {% for o in sessoes | map(attribute='operador') | unique | sort %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+      </select>
+      <select id="bp-situacao" aria-label="Situação">
+        <option value="">Situação: todas</option>
+        <option value="pronto">Pronta pra finalizar</option>
+        <option value="andamento">Faltando itens</option>
+      </select>
+    </div>
+    <div class="table-scroll">
+      <table class="bp-tabela">
+        <thead><tr><th>Veículo</th><th>Kit</th><th>Operador</th><th>Início</th><th>Progresso</th><th></th></tr></thead>
+        <tbody id="bp-linhas">
+        {% for s in sessoes %}
+        <tr class="bp-linha" data-id="{{ s.id }}" tabindex="0"
+            data-texto="{{ (s.veiculo ~ ' ' ~ s.kit ~ ' ' ~ s.cliente ~ ' ' ~ s.operador ~ ' ' ~ s.garagem) | lower }}"
+            data-cliente="{{ s.cliente }}" data-operador="{{ s.operador }}"
+            data-meu="{{ '1' if s.operador_id == user.id else '0' }}" data-pronto="{{ '1' if s.pronto else '0' }}">
+          <td><strong class="bp-veic" style="color:{{ cor_do_cliente(s.cliente) }};">{{ s.veiculo or '—' }}</strong>
+            <small>{{ s.cliente }}{{ ' · ' ~ s.garagem if s.garagem }}</small></td>
+          <td class="bp-kit">{{ s.kit }}</td>
+          <td class="bp-nowrap">{{ s.operador }}</td>
+          <td class="bp-nowrap">{{ s.iniciado_em[8:10] }}/{{ s.iniciado_em[5:7] }} {{ s.iniciado_em[11:16] }}</td>
+          <td class="bp-prog">
+            <span class="bp-prog-txt">{{ s.feito | round | int }}/{{ s.exigido | round | int }} ({{ s.pct }}%)
+              {% if s.pronto %}<span class="bp-pronto">pronta</span>{% endif %}</span>
+            <span class="bp-barra"><span style="width:{{ s.pct }}%" class="{{ 'ok' if s.pronto }}"></span></span>
+          </td>
+          <td class="bp-acao"><a href="/session/{{ s.id }}" class="btn btn-sm btn-primary" onclick="event.stopPropagation()">Retomar</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="bp-vazio" id="bp-nenhuma" hidden>Nenhuma sessão com esses filtros.</p>
+    <div class="bp-rodape">
+      <span id="bp-contagem"></span>
+      <div class="bp-paginas" id="bp-paginas"></div>
+    </div>
+    {% else %}
+    <p class="bp-vazio">Nenhuma sessão em andamento. Comece uma nova ao lado.</p>
+    {% endif %}
+  </section>
+
+  <aside class="bp-lateral">
+    {# ── Nova sessão ──────────────────────────────────────────────────────── #}
+    <section class="card bp-nova">
+      <h2>{{ ic.svg('mais', 17) }} Nova sessão</h2>
+      {# Escolher a remessa ANTES de bipar: é aqui que se decide em que lote o kit
+         vai entrar. A escolha fica lembrada, então no segundo kit basta seguir. #}
+      <div class="bp-remessa">
+        <div>
+          <div class="pat-rotulo">Remessa deste kit</div>
+          {% if remessa_atual %}
+          <div class="bp-remessa-nome">{{ ic.svg('caixa', 15) }} {{ remessa_atual.nome }} <span>{{ remessa_atual.rotulo }}</span></div>
+          <div class="bp-remessa-sub">
+            {% if remessa_atual.cliente %}<span style="color:{{ cor_do_cliente(remessa_atual.cliente) }};font-weight:700;">{{ remessa_atual.cliente }}</span>
+            {%- else %}todos os clientes{% endif %} · faltam {{ remessa_atual.faltam }}
+          </div>
+          {% else %}
+          <div class="bp-remessa-nome" style="color:var(--danger-text);">Nenhuma escolhida</div>
+          <div class="bp-remessa-sub">O kit vai ficar fora da contagem do lote.</div>
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-sm {{ 'btn-secondary' if remessa_atual else 'btn-primary' }}"
+                onclick="abrirJanelaPainel('/session/remessa', 'Remessa', 'escolha o lote deste kit')">
+          {% if remessa_atual %}{{ ic.svg('editar', 14) }} Trocar{% else %}{{ ic.svg('caixa', 14) }} Escolher{% endif %}
+        </button>
       </div>
-      <a href="/session/{{ s.id }}" class="btn btn-primary btn-sm">{{ ic.svg('seta-direita', 13) }} Retomar</a>
-      <form method="post" action="/session/{{ s.id }}/cancel"
-            onsubmit="return confirm('Cancelar esta sessão? Os itens bipados serão descartados.')">
-          <button type="submit" class="btn btn-sm btn-danger">Cancelar</button>
+
+      {% if templates_kit or templates_pedido %}
+      {# Cliente primeiro, depois só os kits/pedidos DELE: quem monta pra um
+         cliente não precisa varrer a lista de todos. #}
+      <form method="post" action="/session/start" id="form-iniciar">
+        <div class="form-group">
+          <label for="cliente_sel">Cliente</label>
+          <select id="cliente_sel" required>
+            <option value="">— escolha o cliente —</option>
+            {% for c in clientes_bipagem %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="kit_template_id">Kit ou Pedido</label>
+          <select name="kit_template_id" id="kit_template_id" required disabled>
+            <option value="">— escolha o cliente primeiro —</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary bp-iniciar">{{ ic.svg('bipagem', 16) }} Iniciar sessão</button>
       </form>
-  </div>
-  {% endfor %}
-  </div>
-</details>
-<style>
-.sessoes-lista { max-height: 60vh; overflow-y: auto; }
-.sessao-linha { display: flex; align-items: center; gap: 12px; padding: 10px 0;
-    border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
-</style>
+      <script>
+      (function () {
+          const TEMPLATES = {{ templates_bipagem | tojson }};
+          const selCliente = document.getElementById('cliente_sel');
+          const selTemplate = document.getElementById('kit_template_id');
+          const CHAVE = 'bipagem_ultimo_cliente';
+          function opcao(t) {
+              const o = document.createElement('option');
+              o.value = t.id;
+              o.textContent = t.nome + ' (v' + t.versao + ')';
+              return o;
+          }
+          function montar() {
+              const cliente = selCliente.value;
+              selTemplate.innerHTML = '';
+              if (!cliente) {
+                  selTemplate.disabled = true;
+                  selTemplate.innerHTML = '<option value="">— escolha o cliente primeiro —</option>';
+                  return;
+              }
+              const doCliente = TEMPLATES.filter(t => t.cliente === cliente);
+              selTemplate.disabled = false;
+              selTemplate.appendChild(new Option(doCliente.length ? '— escolha —' : 'Nenhum kit para este cliente', ''));
+              [['kit', 'Kits'], ['pedido', 'Pedidos']].forEach(([tipo, rotulo]) => {
+                  const lista = doCliente.filter(t => t.tipo === tipo);
+                  if (!lista.length) return;
+                  const grupo = document.createElement('optgroup');
+                  grupo.label = rotulo;
+                  lista.forEach(t => grupo.appendChild(opcao(t)));
+                  selTemplate.appendChild(grupo);
+              });
+              // Um só kit pro cliente: já deixa escolhido.
+              if (doCliente.length === 1) selTemplate.value = doCliente[0].id;
+          }
+          selCliente.addEventListener('change', function () {
+              try { localStorage.setItem(CHAVE, selCliente.value); } catch (e) {}
+              montar();
+          });
+          try {
+              const ultimo = localStorage.getItem(CHAVE);
+              if (ultimo && [...selCliente.options].some(o => o.value === ultimo)) selCliente.value = ultimo;
+          } catch (e) {}
+          montar();
+      })();
+      </script>
+      {% else %}
+      <div class="alert alert-danger" style="margin:0;">Nenhum kit ativo. Cadastre um em Kits e pedidos → Kits.</div>
+      {% endif %}
+    </section>
+
+    {# ── Detalhes da sessão clicada (montado pelo script abaixo) ───────────── #}
+    {% if sessoes %}
+    <section class="card bp-detalhe" id="bp-detalhe" aria-live="polite">
+      <p class="bp-vazio" style="margin:0;">Clique numa sessão da lista para ver o progresso, o que falta e as últimas bipagens.</p>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+
+{% if sessoes %}
 <script>
 (function () {
-    const d = document.getElementById('sessoes-andamento');
-    const CHAVE = 'bipagem_sessoes_aberta';
-    let salvo = null;
-    try { salvo = localStorage.getItem(CHAVE); } catch (e) {}
-    d.open = salvo === null ? d.dataset.padraoAberto === '1' : salvo === '1';
-    d.addEventListener('toggle', function () {
-        try { localStorage.setItem(CHAVE, d.open ? '1' : '0'); } catch (e) {}
+    const SESSOES = {{ sessoes | tojson }};
+    const POR_ID = Object.fromEntries(SESSOES.map(s => [String(s.id), s]));
+    const POR_PAGINA = 10;
+    const linhas = Array.from(document.querySelectorAll('#bp-linhas .bp-linha'));
+    const busca = document.getElementById('bp-busca'), cliente = document.getElementById('bp-cliente'),
+          operador = document.getElementById('bp-operador'), situacao = document.getElementById('bp-situacao');
+    let pagina = 1, selecionada = null;
+
+    function el(tag, cls, texto) {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (texto !== undefined && texto !== null) e.textContent = texto;
+        return e;
+    }
+    function dataBr(t) { return t ? t.slice(8, 10) + '/' + t.slice(5, 7) + '/' + t.slice(0, 4) + ' ' + t.slice(11, 16) : '—'; }
+    function num(n) { return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100); }
+
+    function filtradas() {
+        const t = busca.value.trim().toLowerCase();
+        return linhas.filter(l =>
+            (!t || l.dataset.texto.includes(t)) &&
+            (!cliente.value || l.dataset.cliente === cliente.value) &&
+            (!operador.value || (operador.value === 'eu' ? l.dataset.meu === '1' : l.dataset.operador === operador.value)) &&
+            (!situacao.value || (situacao.value === 'pronto') === (l.dataset.pronto === '1')));
+    }
+    function desenhar() {
+        const lista = filtradas();
+        const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+        pagina = Math.min(pagina, paginas);
+        const ini = (pagina - 1) * POR_PAGINA;
+        linhas.forEach(l => { l.hidden = true; });
+        lista.slice(ini, ini + POR_PAGINA).forEach(l => { l.hidden = false; });
+        document.getElementById('bp-nenhuma').hidden = lista.length > 0;
+        document.getElementById('bp-contagem').textContent = lista.length
+            ? 'Mostrando ' + (ini + 1) + '–' + Math.min(ini + POR_PAGINA, lista.length) + ' de ' + lista.length + ' sess' + (lista.length === 1 ? 'ão' : 'ões')
+            : '';
+        const nav = document.getElementById('bp-paginas');
+        nav.innerHTML = '';
+        if (paginas > 1) for (let p = 1; p <= paginas; p++) {
+            const b = el('button', 'btn btn-sm ' + (p === pagina ? 'btn-primary' : 'btn-secondary'), p);
+            b.type = 'button';
+            b.onclick = () => { pagina = p; desenhar(); };
+            nav.appendChild(b);
+        }
+    }
+    [busca, cliente, operador, situacao].forEach(c => c.addEventListener(c === busca ? 'input' : 'change', () => { pagina = 1; desenhar(); }));
+
+    function detalhe(s) {
+        const caixa = document.getElementById('bp-detalhe');
+        caixa.innerHTML = '';
+        const cab = el('div', 'bp-d-cab');
+        cab.append(el('h2', null, s.veiculo || s.kit), el('span', 'badge ' + (s.pronto ? 'badge-success' : 'badge-info'), s.pronto ? 'Pronta pra finalizar' : 'Em andamento'));
+        caixa.appendChild(cab);
+
+        const grade = el('dl', 'bp-d-grade');
+        [['Kit', s.kit], ['Cliente', s.cliente], ['Operador', s.operador], ['Início', dataBr(s.iniciado_em)],
+         ['Garagem', s.garagem || '—'], ['Remessa', s.remessa || 'nenhuma'], ['Última bipagem', s.ultima ? dataBr(s.ultima) : 'nenhuma ainda']]
+            .forEach(([r, v]) => { const d = el('div'); d.append(el('dt', null, r), el('dd', null, v)); grade.appendChild(d); });
+        caixa.appendChild(grade);
+
+        caixa.appendChild(el('h3', 'bp-d-tit', 'Progresso'));
+        const prog = el('div', 'bp-d-prog');
+        const anel = el('div', 'bp-anel' + (s.pronto ? ' ok' : ''));
+        anel.style.setProperty('--p', s.pct);
+        const meio = el('div', 'bp-anel-meio');
+        meio.append(el('strong', null, s.pct + '%'), el('span', null, num(s.feito) + ' / ' + num(s.exigido)));
+        anel.appendChild(meio);
+        const leg = el('ul', 'bp-legenda');
+        [['ok', 'Unidades bipadas', num(s.feito)], ['falta', 'Unidades faltando', num(Math.max(0, s.exigido - s.feito))],
+         ['itens', 'Itens completos', s.itens_completos + ' de ' + s.itens_total]]
+            .forEach(([c, r, v]) => { const li = el('li'); li.append(el('i', 'bp-ponto ' + c), el('span', null, r), el('strong', null, v)); leg.appendChild(li); });
+        prog.append(anel, leg);
+        caixa.appendChild(prog);
+
+        if (s.faltando.length) {
+            caixa.appendChild(el('h3', 'bp-d-tit', 'O que falta'));
+            const ul = el('ul', 'bp-faltando');
+            s.faltando.forEach(f => { const li = el('li'); li.append(el('span', null, f.item), el('strong', null, num(f.faltam) + (f.unidade === 'm' ? ' m' : ''))); ul.appendChild(li); });
+            if (s.faltando_mais) ul.appendChild(el('li', 'bp-mais', 'e mais ' + s.faltando_mais + ' item(ns)'));
+            caixa.appendChild(ul);
+        }
+
+        caixa.appendChild(el('h3', 'bp-d-tit', 'Últimas bipagens'));
+        if (s.eventos.length) {
+            const ol = el('ol', 'bp-eventos');
+            s.eventos.forEach(e => {
+                const li = el('li');
+                li.append(el('span', 'bp-ev-hora', e.hora), el('span', null, e.item + (e.qtd > 1 ? ' ×' + num(e.qtd) : '') + (e.codigo ? ' · ' + e.codigo : '')));
+                ol.appendChild(li);
+            });
+            caixa.appendChild(ol);
+        } else {
+            caixa.appendChild(el('p', 'bp-vazio', 'Nada bipado ainda.'));
+        }
+
+        const acoes = el('div', 'bp-d-acoes');
+        const cancelar = el('form');
+        cancelar.method = 'post';
+        cancelar.action = '/session/' + s.id + '/cancel';
+        cancelar.onsubmit = () => confirm('Cancelar esta sessão? Os itens bipados serão descartados.');
+        const bc = el('button', 'btn btn-danger', 'Cancelar sessão');
+        bc.type = 'submit';
+        cancelar.appendChild(bc);
+        const retomar = el('a', 'btn btn-primary', 'Retomar bipagem');
+        retomar.href = '/session/' + s.id;
+        acoes.append(cancelar, retomar);
+        caixa.appendChild(acoes);
+    }
+    function selecionar(linha) {
+        if (selecionada) selecionada.classList.remove('sel');
+        selecionada = linha;
+        linha.classList.add('sel');
+        detalhe(POR_ID[linha.dataset.id]);
+    }
+    linhas.forEach(l => {
+        l.addEventListener('click', () => selecionar(l));
+        l.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selecionar(l); } });
     });
+    desenhar();
+    // Abre já mostrando a sessão mais recente de quem está logado.
+    const minha = linhas.find(l => l.dataset.meu === '1');
+    if (minha) selecionar(minha);
 })();
 </script>
 {% endif %}
 
-<h1>Nova Sessão de Bipagem</h1>
-
-{% if request.query_params.get('ok') == 'remessa' %}
-<div class="alert alert-success" style="max-width:500px;">{{ ic.svg('check-circulo', 14) }} Remessa escolhida.</div>
-{% endif %}
-{% if request.query_params.get('ok') == 'etiqueta_pausa' %}
-<div class="alert alert-success" style="max-width:500px;">{{ ic.svg('impressao', 14) }} Etiqueta "Em Andamento" adicionada à <a href="/print-queue">Fila de Impressão</a>. O kit ficou salvo.</div>
-{% endif %}
-{% if request.query_params.get('erro') %}
-<div class="alert alert-danger" style="max-width:500px;">{{ ic.svg('alerta', 14) }} {{ request.query_params.get('erro') }}</div>
-{% endif %}
-
-{# Escolher a remessa ANTES de bipar: é aqui que se decide em que lote o kit
-   vai entrar. A escolha fica lembrada, então no segundo kit basta seguir. #}
-<div class="card" style="max-width:500px;border-left:4px solid var(--brand);">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div>
-      <div class="pat-rotulo">Remessa deste kit</div>
-      {% if remessa_atual %}
-      <div style="font-size:16px;font-weight:800;color:var(--brand);display:flex;align-items:center;gap:6px;">
-        {{ ic.svg('caixa', 16) }} {{ remessa_atual.nome }} <span style="font-size:14px;">{{ remessa_atual.rotulo }}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text-muted);">
-        {% if remessa_atual.cliente %}<span style="color:{{ cor_do_cliente(remessa_atual.cliente) }};font-weight:700;">{{ remessa_atual.cliente }}</span>
-        {%- else %}todos os clientes{% endif %}
-        · faltam {{ remessa_atual.faltam }}
-      </div>
-      {% else %}
-      <div style="font-size:14px;color:var(--danger-text);font-weight:700;">Nenhuma escolhida</div>
-      <div style="font-size:12px;color:var(--text-muted);">O kit vai ficar fora da contagem do lote.</div>
-      {% endif %}
-    </div>
-    <button type="button" class="btn btn-sm {{ 'btn-secondary' if remessa_atual else 'btn-primary' }}"
-            onclick="abrirJanelaPainel('/session/remessa', 'Remessa', 'escolha o lote deste kit')">
-      {% if remessa_atual %}{{ ic.svg('editar', 14) }} Trocar{% else %}{{ ic.svg('caixa', 14) }} Escolher remessa{% endif %}
-    </button>
-  </div>
-</div>
-
-<div class="card" style="max-width: 500px;">
-    {% if templates_kit or templates_pedido %}
-    {# Cliente primeiro, depois só os kits/pedidos DELE: quem monta pra um
-       cliente não precisa varrer a lista de todos. A lista abaixo é montada
-       em JS a partir dos mesmos dados do servidor. #}
-    <form method="post" action="/session/start" id="form-iniciar">
-        <div class="form-group">
-            <label for="cliente_sel">Cliente</label>
-            <select id="cliente_sel" required>
-                <option value="">— escolha o cliente —</option>
-                {% for c in clientes_bipagem %}
-                <option value="{{ c }}">{{ c }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="kit_template_id">Kit ou Pedido</label>
-            <select name="kit_template_id" id="kit_template_id" required disabled>
-                <option value="">— escolha o cliente primeiro —</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary">Iniciar Sessão</button>
-    </form>
-    <script>
-    (function () {
-        const TEMPLATES = {{ templates_bipagem | tojson }};
-        const selCliente = document.getElementById('cliente_sel');
-        const selTemplate = document.getElementById('kit_template_id');
-        const CHAVE = 'bipagem_ultimo_cliente';
-
-        function opcao(t) {
-            const o = document.createElement('option');
-            o.value = t.id;
-            o.textContent = t.nome + ' (v' + t.versao + ')';
-            return o;
-        }
-        function montar() {
-            const cliente = selCliente.value;
-            selTemplate.innerHTML = '';
-            if (!cliente) {
-                selTemplate.disabled = true;
-                selTemplate.innerHTML = '<option value="">— escolha o cliente primeiro —</option>';
-                return;
-            }
-            const doCliente = TEMPLATES.filter(t => t.cliente === cliente);
-            selTemplate.disabled = false;
-            selTemplate.appendChild(new Option(doCliente.length ? '— escolha —' : 'Nenhum kit para este cliente', ''));
-            [['kit', 'Kits'], ['pedido', 'Pedidos']].forEach(([tipo, rotulo]) => {
-                const lista = doCliente.filter(t => t.tipo === tipo);
-                if (!lista.length) return;
-                const grupo = document.createElement('optgroup');
-                grupo.label = rotulo;
-                lista.forEach(t => grupo.appendChild(opcao(t)));
-                selTemplate.appendChild(grupo);
-            });
-            // Um só kit pro cliente: já deixa escolhido.
-            if (doCliente.length === 1) selTemplate.value = doCliente[0].id;
-        }
-        selCliente.addEventListener('change', function () {
-            try { localStorage.setItem(CHAVE, selCliente.value); } catch (e) {}
-            montar();
-        });
-        try {
-            const ultimo = localStorage.getItem(CHAVE);
-            if (ultimo && [...selCliente.options].some(o => o.value === ultimo)) selCliente.value = ultimo;
-        } catch (e) {}
-        montar();
-    })();
-    </script>
-    {% else %}
-    <div class="alert alert-danger">Nenhum template ativo. Cadastre um em <a href="/admin/templates">Criar Kit</a>.</div>
-    {% endif %}
-</div>
-
-<div style="margin-top: 24px;">
-    <a href="/print-queue" class="btn btn-secondary">{{ ic.svg('impressao', 15) }} Fila de Impressão</a>
-</div>
+<style>
+.bp-kpi-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
+.bp-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 16px; align-items: start; }
+.bp-lateral { display: flex; flex-direction: column; gap: 16px; }
+.bp-lateral .card, .bp-sessoes { margin: 0; }
+.bp-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.bp-cab h2, .bp-nova h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.bp-cab-sub { font-size: 12.5px; color: var(--text-muted); }
+.bp-filtros { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.bp-filtros input, .bp-filtros select { margin: 0; }
+.bp-tabela { width: 100%; }
+.bp-linha { cursor: pointer; }
+.bp-linha[hidden] { display: none; }
+.bp-linha:hover td { background: var(--surface-hover); }
+.bp-linha.sel td { background: var(--brand-soft); }
+.bp-linha.sel td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+.bp-linha:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.bp-veic { display: block; white-space: nowrap; }
+.bp-linha small { display: block; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.bp-kit { font-size: 13px; color: var(--text); min-width: 160px; }
+.bp-nowrap { white-space: nowrap; font-size: 13px; }
+.bp-prog { min-width: 150px; }
+.bp-prog-txt { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 4px; white-space: nowrap; }
+.bp-pronto { margin-left: 4px; font-size: 11px; font-weight: 700; color: var(--ok-text); }
+.bp-barra { display: block; height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.bp-barra span { display: block; height: 100%; border-radius: 99px; background: var(--brand); }
+.bp-barra span.ok { background: var(--ok-text); }
+.bp-acao { text-align: right; }
+.bp-vazio { color: var(--text-muted); font-size: 13.5px; text-align: center; padding: 18px 8px; margin: 0; }
+.bp-rodape { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+    font-size: 13px; color: var(--text-muted); }
+.bp-paginas { display: flex; gap: 4px; flex-wrap: wrap; }
+.bp-nova h2 { margin-bottom: 12px; }
+.bp-remessa { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: 10px; background: var(--surface-alt); border-left: 3px solid var(--brand); margin-bottom: 14px; }
+.bp-remessa-nome { font-size: 15px; font-weight: 800; color: var(--brand-ink); display: flex; align-items: center; gap: 6px; }
+.bp-remessa-nome span { font-size: 13px; }
+.bp-remessa-sub { font-size: 12px; color: var(--text-muted); }
+.bp-iniciar { width: 100%; justify-content: center; }
+.bp-d-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.bp-d-cab h2 { margin: 0; }
+.bp-d-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
+.bp-d-grade dt { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.bp-d-grade dd { margin: 2px 0 0; font-size: 13.5px; color: var(--text); overflow-wrap: anywhere; }
+.bp-d-tit { font-size: 13.5px; margin: 14px 0 8px; color: var(--text); }
+.bp-d-prog { display: flex; align-items: center; gap: 18px; }
+.bp-anel { --p: 0; flex: 0 0 auto; width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--brand) calc(var(--p) * 1%), var(--border) 0); }
+.bp-anel.ok { background: conic-gradient(var(--ok-text) calc(var(--p) * 1%), var(--border) 0); }
+.bp-anel-meio { width: 84px; height: 84px; border-radius: 50%; background: var(--surface); display: grid; place-content: center; text-align: center; }
+.bp-anel-meio strong { font-size: 20px; color: var(--text); line-height: 1.1; }
+.bp-anel-meio span { font-size: 12px; color: var(--text-muted); }
+.bp-legenda { list-style: none; padding: 0; margin: 0; flex: 1; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.bp-legenda li { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.bp-legenda strong { margin-left: auto; }
+.bp-ponto { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.bp-ponto.ok { background: var(--brand); }
+.bp-ponto.falta { background: var(--border-strong, var(--text-muted)); }
+.bp-ponto.itens { background: var(--ok-text); }
+.bp-faltando { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.bp-faltando li { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--border-subtle); color: var(--text); }
+.bp-faltando li:first-child { border-top: 0; }
+.bp-faltando strong { color: var(--danger-text); white-space: nowrap; }
+.bp-faltando .bp-mais { color: var(--text-muted); justify-content: flex-start; }
+.bp-eventos { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--brand-border); font-size: 13px; }
+.bp-eventos li { position: relative; display: flex; gap: 10px; padding: 4px 0; color: var(--text); }
+.bp-eventos li::before { content: ""; position: absolute; left: -19px; top: 9px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.bp-ev-hora { color: var(--text-muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.bp-d-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.bp-d-acoes form { margin: 0; }
+@media (max-width: 1100px) {
+  .bp-grade { grid-template-columns: 1fr; }
+  .bp-lateral { order: -1; }
+}
+@media (max-width: 640px) {
+  .bp-filtros { grid-template-columns: 1fr; }
+  .bp-d-grade { grid-template-columns: 1fr; }
+}
+</style>
 {% endblock %}
