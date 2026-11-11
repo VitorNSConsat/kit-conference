@@ -102,3 +102,24 @@ def sessoes() -> list[dict]:
         })
     saida.sort(key=lambda x: x["iniciado_em"], reverse=True)
     return saida
+
+
+def finalizados_hoje(user_id: int | None) -> list[dict]:
+    """Kits finalizados hoje, do mais recente pro mais antigo — a lista que abre
+    ao clicar no número "Finalizados hoje"."""
+    hoje = now_brt()[:10]
+    with db() as conn:
+        linhas = conn.execute(
+            "SELECT kr.kit_id, kr.finalizado_em, COALESCE(v.numero, kr.veiculo, '') AS veiculo, "
+            "       COALESCE(kr.garagem, '') AS garagem, t.nome AS kit, t.cliente, "
+            "       COALESCE(u.nome, '—') AS operador, kr.operador_id "
+            "FROM kit_record kr JOIN kit_template t ON t.id = kr.kit_template_id "
+            "LEFT JOIN veiculos v ON v.id = kr.veiculo_id LEFT JOIN users u ON u.id = kr.operador_id "
+            "WHERE substr(kr.finalizado_em, 1, 10) = ? ORDER BY kr.finalizado_em DESC", (hoje,)).fetchall()
+    saida = []
+    for r in linhas:
+        d = dict(r)
+        d["hora"] = (d["finalizado_em"] or "")[11:16]
+        d["meu"] = d["operador_id"] == user_id
+        saida.append(d)
+    return saida

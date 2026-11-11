@@ -276,6 +276,8 @@ def test_tela_inicial_da_bipagem_mostra_painel_com_progresso(kit):
             c.post("/login", data={"username": nome, "password": "Teste#Inicio26"})
             h = c.get("/").text
             assert "Em andamento" in h and "Finalizados hoje" in h and 'id="form-iniciar"' in h
+            assert 'onclick="abrirFinalizadosHoje()"' in h and 'id="modal-finalizados"' in h
+            assert '<a href="/print-queue" class="ds-kpi"' in h
             assert f'data-id="{kit["sid"]}"' in h and "3/6 (50%)" in h
     finally:
         with db() as conn:
@@ -302,6 +304,8 @@ def test_tempo_de_bipagem_vai_da_primeira_a_ultima_bipagem(kit):
     try:
         k = painel.indicadores(None)
         assert (k["minutos_tipicos"], k["finalizados_hoje"]) == (8, 1)
+        lista = painel.finalizados_hoje(None)
+        assert [x["kit_id"] for x in lista] == [kit_id] and lista[0]["hora"] == "11:00"
         assert "minutos_espera" not in k
     finally:
         with db() as conn:

@@ -1308,6 +1308,7 @@ async def home(request: Request):
         # Painel: números do dia e as sessões em andamento com progresso,
         # o que falta e as últimas bipagens (o detalhe abre ao clicar).
         "kpi": bipagem_painel_mod.indicadores((get_current_user(request) or {}).get("id")),
+        "finalizados": bipagem_painel_mod.finalizados_hoje((get_current_user(request) or {}).get("id")),
         "sessoes": bipagem_painel_mod.sessoes(),
         "templates_kit": [t for t in templates_ativos if t.get("tipo", "kit") == "kit"],
         "templates_pedido": [t for t in templates_ativos if t.get("tipo") == "pedido"],

@@ -21,11 +21,11 @@
       <p class="bp-kpi-sub">{{ sessoes | selectattr('pronto') | list | length }} pronta(s) pra finalizar</p></div>
     <span class="ds-kpi-icon">{{ ic.svg('bipagem', 20) }}</span>
   </div>
-  <div class="ds-kpi">
+  <button type="button" class="ds-kpi" onclick="abrirFinalizadosHoje()" title="Ver quais kits foram finalizados hoje">
     <div><p class="ds-kpi-label">Finalizados hoje</p><p class="ds-kpi-value">{{ kpi.finalizados_hoje }}</p>
-      <p class="bp-kpi-sub">{{ kpi.meus_hoje }} por você</p></div>
+      <p class="bp-kpi-sub">{{ kpi.meus_hoje }} por você · ver lista</p></div>
     <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
-  </div>
+  </button>
   <div class="ds-kpi">
     <div><p class="ds-kpi-label">Tempo de bipagem hoje {% call aj.ajuda() %}Tempo típico (mediana) de cada kit
       finalizado hoje, da primeira à última bipagem.{% endcall %}</p>
@@ -33,12 +33,78 @@
       <p class="bp-kpi-sub">da primeira à última bipagem</p></div>
     <span class="ds-kpi-icon">{{ ic.svg('relogio', 20) }}</span>
   </div>
-  <div class="ds-kpi">
+  <a href="/print-queue" class="ds-kpi" title="Abrir a fila de impressão">
     <div><p class="ds-kpi-label">Na fila de impressão</p><p class="ds-kpi-value">{{ kpi.na_fila }}</p>
-      <p class="bp-kpi-sub">etiquetas aguardando</p></div>
+      <p class="bp-kpi-sub">etiquetas aguardando · abrir fila</p></div>
     <span class="ds-kpi-icon">{{ ic.svg('impressao', 20) }}</span>
-  </div>
+  </a>
 </section>
+
+{# ── Janela: kits finalizados hoje (abre pelo número) ──────────────────── #}
+<div id="modal-finalizados" class="modal-lista modal-largo" role="dialog" aria-modal="true" aria-labelledby="fh-titulo">
+  <div class="modal-cabecalho">
+    <div>
+      <strong id="fh-titulo">{{ ic.svg('check-circulo', 16) }} Kits finalizados hoje ({{ finalizados | length }})</strong>
+      <span class="modal-sub">{{ kpi.meus_hoje }} por você. Clique em Abrir para ver o kit.</span>
+    </div>
+    <button type="button" class="modal-fechar" onclick="fecharFinalizadosHoje()" title="Fechar (Esc)">{{ ic.svg('fechar', 18) }}</button>
+  </div>
+  <div class="modal-corpo">
+    {% if finalizados %}
+    <div class="fh-filtros">
+      <input type="text" id="fh-busca" placeholder="Buscar veículo, kit, cliente ou operador..." autocomplete="off"
+             oninput="filtrarFinalizados()">
+      <label class="fh-meus"><input type="checkbox" id="fh-meus" onchange="filtrarFinalizados()"> Só os meus</label>
+    </div>
+    <div class="table-scroll">
+      <table class="fh-tabela">
+        <thead><tr><th>Hora</th><th>Veículo</th><th>Kit</th><th>Operador</th><th></th></tr></thead>
+        <tbody>
+        {% for k in finalizados %}
+        <tr class="fh-linha" data-meu="{{ '1' if k.meu else '0' }}"
+            data-texto="{{ (k.veiculo ~ ' ' ~ k.kit ~ ' ' ~ k.cliente ~ ' ' ~ k.operador ~ ' ' ~ k.garagem) | lower }}">
+          <td class="fh-hora">{{ k.hora }}</td>
+          <td><strong style="color:{{ cor_do_cliente(k.cliente) }};white-space:nowrap;">{{ k.veiculo or '—' }}</strong>
+            <small class="fh-sub">{{ k.cliente }}{{ ' · ' ~ k.garagem if k.garagem }}</small></td>
+          <td>{{ k.kit }}</td>
+          <td style="white-space:nowrap;">{{ k.operador }}</td>
+          <td style="text-align:right;"><a href="/kit/{{ k.kit_id }}" class="btn btn-sm btn-secondary">Abrir</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="bp-vazio" id="fh-nenhum" hidden>Nenhum kit com esse filtro.</p>
+    {% else %}
+    <p class="bp-vazio">Nenhum kit finalizado hoje ainda.</p>
+    {% endif %}
+  </div>
+</div>
+<div id="modal-fundo-finalizados" class="modal-fundo" onclick="fecharFinalizadosHoje()"></div>
+<script>
+function abrirFinalizadosHoje() {
+    document.getElementById('modal-finalizados').classList.add('aberto');
+    document.getElementById('modal-fundo-finalizados').classList.add('aberto');
+    const b = document.getElementById('fh-busca');
+    if (b) setTimeout(() => b.focus(), 50);
+}
+function fecharFinalizadosHoje() {
+    document.getElementById('modal-finalizados').classList.remove('aberto');
+    document.getElementById('modal-fundo-finalizados').classList.remove('aberto');
+}
+function filtrarFinalizados() {
+    const t = document.getElementById('fh-busca').value.trim().toLowerCase();
+    const meus = document.getElementById('fh-meus').checked;
+    let n = 0;
+    document.querySelectorAll('.fh-linha').forEach(l => {
+        const ok = (!t || l.dataset.texto.includes(t)) && (!meus || l.dataset.meu === '1');
+        l.hidden = !ok;
+        if (ok) n++;
+    });
+    document.getElementById('fh-nenhum').hidden = n > 0;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharFinalizadosHoje(); });
+</script>
 
 <div class="bp-grade">
 
@@ -336,6 +402,14 @@
 
 <style>
 .bp-kpi-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
+.fh-filtros { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.fh-filtros input[type=text] { flex: 1 1 240px; margin: 0; }
+.fh-meus { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); white-space: nowrap; }
+.fh-meus input { width: auto; margin: 0; }
+.fh-tabela { width: 100%; }
+.fh-linha[hidden] { display: none; }
+.fh-hora { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-muted); }
+.fh-sub { display: block; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .bp-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 16px; align-items: start; }
 .bp-lateral { display: flex; flex-direction: column; gap: 16px; }
 .bp-lateral .card, .bp-sessoes { margin: 0; }
