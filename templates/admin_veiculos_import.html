@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
+{% import "_modelo_download.html" as md %}
 {% block title %}Importar Veículos{% endblock %}
 {% block acoes_topo %}
 <a href="/admin/veiculos/importacoes" class="btn btn-secondary btn-sm">{{ ic.svg('relogio', 15) }} Importações anteriores</a>
@@ -18,10 +19,10 @@
 
 <div class="card">
   <h2>Arquivo Excel</h2>
+  {{ md.bloco('/admin/veiculos/modelo.xlsx', '1. Baixe a planilha modelo', 'Já vem com as colunas certas e a lista dos kits na coluna Modelo. Preencha e envie abaixo.') }}
   <p style="color:#555;font-size:13px;margin-bottom:12px;">Colunas: Número do Veículo, Cliente, Garagem e Modelo (Kit). {% call aj.ajuda() %}A planilha deve ter as colunas <strong>Número do Veículo</strong>, <strong>Cliente</strong>,
     <strong>Garagem</strong> e <strong>Modelo (Kit)</strong>. Clientes e garagens que ainda não
-    existirem são cadastrados automaticamente.
-    <a href="/admin/veiculos/modelo.xlsx">Baixar modelo</a>{% endcall %}</p>
+    existirem são cadastrados automaticamente.{% endcall %}</p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">
     Colunas opcionais: <strong>Chassi</strong>, <strong>PG</strong>, <strong>Tipo</strong>
     (Elétrico ou Combustão) e <strong>Região de Operação</strong>. Célula vazia mantém o que já está cadastrado.

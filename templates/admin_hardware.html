@@ -628,7 +628,8 @@ function aplicarFiltroHw(nome, valor) {
 // Campos vazios não vão pra URL (busca=&responsavel=&...): a URL fica curta e
 // só mostra o que de fato está filtrado. A página nunca vai junto (não há campo
 // pag_hw no formulário), então mudar filtro volta pra página 1.
-document.getElementById('form-filtros-hw').addEventListener('submit', function () {
+// O painel por cliente não tem este formulário (só a lista de ocorrências).
+document.getElementById('form-filtros-hw')?.addEventListener('submit', function () {
     this.querySelectorAll('input, select').forEach(el => {
         if (!el.name || (el.type === 'hidden')) return;
         if ((el.type === 'checkbox' || el.type === 'radio') ? !el.checked : el.value === '') el.disabled = true;

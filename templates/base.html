@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=74">
+    <link rel="stylesheet" href="/static/style.css?v=77">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -241,6 +241,43 @@ function alternarSubMenu(botao) {
     const guardar = function () { try { sessionStorage.setItem('menu_rolagem', String(nav.scrollTop)); } catch (e) {} };
     nav.addEventListener('click', guardar);
     window.addEventListener('pagehide', guardar);
+})();
+
+// Tabela larga que rola dentro do cartão: marca o lado que ainda tem coluna
+// escondida (a borda esmaece) e põe um aviso "role para o lado" em cima dela.
+// Com zoom, sem isso parecia que a tabela tinha sido cortada.
+(function () {
+    if (location.pathname.startsWith('/kit/')) return;      // Consultar Kit fica como está
+    function marcar(caixa) {
+        const mais = caixa.scrollWidth - caixa.clientWidth > 4;
+        caixa.classList.toggle('rola-dir', mais && caixa.scrollLeft + caixa.clientWidth < caixa.scrollWidth - 4);
+        caixa.classList.toggle('rola-esq', mais && caixa.scrollLeft > 4);
+        if (caixa._aviso) caixa._aviso.classList.toggle('ativo', mais);
+    }
+    function preparar() {
+        document.querySelectorAll('table').forEach(function (t) {
+            let caixa = t.parentElement;
+            for (let i = 0; caixa && i < 3; i++, caixa = caixa.parentElement) {
+                if (/(auto|scroll)/.test(getComputedStyle(caixa).overflowX)) break;
+            }
+            if (!caixa || caixa._rolagem || !/(auto|scroll)/.test(getComputedStyle(caixa).overflowX)) return;
+            caixa._rolagem = true;
+            if (!caixa.closest('.modal-lista, .config-popup, #janela-painel')) {
+                const aviso = document.createElement('div');
+                aviso.className = 'aviso-rolar';
+                aviso.textContent = '↔ A tabela continua para o lado — role (ou Shift + rodinha do mouse) para ver todas as colunas.';
+                caixa.parentElement.insertBefore(aviso, caixa);
+                caixa._aviso = aviso;
+            }
+            caixa.addEventListener('scroll', function () { marcar(caixa); }, {passive: true});
+            if (window.ResizeObserver) new ResizeObserver(function () { marcar(caixa); }).observe(caixa);
+            marcar(caixa);
+        });
+    }
+    document.addEventListener('DOMContentLoaded', preparar);
+    // Listas que se redesenham sozinhas (busca ao vivo, abas) trazem tabela nova.
+    new MutationObserver(function () { clearTimeout(preparar._t); preparar._t = setTimeout(preparar, 150); })
+        .observe(document.documentElement, {childList: true, subtree: true});
 })();
 
 // Ajuda "?": perto da borda da tela o balão abre pro lado de dentro.

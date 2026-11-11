@@ -1,0 +1,10 @@
+{# Bloco "baixe a planilha modelo" — o primeiro passo das importações, à vista
+   no topo do formulário em vez de escondido dentro do balão "?". #}
+{% import "_icones.html" as ic %}
+{% macro bloco(href, titulo, texto, rotulo='Baixar planilha modelo') -%}
+<div class="modelo-dl">
+  <span class="modelo-dl-ic">{{ ic.svg('arquivo', 24) }}</span>
+  <div class="modelo-dl-txt"><strong>{{ titulo }}</strong>{{ texto }}</div>
+  <a href="{{ href }}" class="btn btn-primary" download>{{ ic.svg('baixar', 15) }} {{ rotulo }}</a>
+</div>
+{%- endmacro %}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_ajuda.html" as aj %}
 {% import "_icones.html" as ic %}
+{% import "_modelo_download.html" as md %}
 {% block title %}Importar Ocorrências{% endblock %}
 {% block acoes_topo %}
 <a href="/admin/hardware/importacoes" class="btn btn-secondary btn-sm">{{ ic.svg('relogio', 15) }} Importações anteriores</a>
@@ -15,9 +16,10 @@
 
 <div class="card">
   <h2>Arquivo Excel</h2>
+  {{ md.bloco('/admin/hardware/modelo.xlsx', '1. Baixe a planilha modelo', 'Já vem com as colunas que o sistema reconhece. Preencha e envie abaixo.') }}
   <p style="color:#555;font-size:13px;margin-bottom:12px;">Colunas mínimas: Cliente e Produto. {% call aj.ajuda() %}A planilha precisa ter ao menos as colunas <strong>Cliente</strong> e <strong>Produto</strong>.
     Categoria do defeito, produto e responsável que ainda não existirem no cadastro são
-    criados automaticamente. <a href="/admin/hardware/modelo.xlsx">Baixar planilha modelo</a>{% endcall %}</p>
+    criados automaticamente.{% endcall %}</p>
   <p style="color:#555;font-size:13px;margin-bottom:12px;">Aceita também a planilha antiga de controle de defeito. {% call aj.ajuda() %}O cabeçalho é reconhecido por <strong>palavra-chave</strong>, não por posição — então
     também aceita a planilha antiga de controle de defeito, sem precisar reorganizar
     coluna nenhuma. <strong>Status</strong> sem correspondência exata é reconhecido pelas

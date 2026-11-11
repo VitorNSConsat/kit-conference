@@ -3,6 +3,7 @@
 {% import "_filtros.html" as f %}
 {% import "_paginacao.html" as pg %}
 {% import "_icones.html" as ic %}
+{% import "_modelo_download.html" as md %}
 {% block title %}Itens & Estoque{% endblock %}
 {% block acoes_topo %}
 {% set aba_topo = tab_ativo or 'catalogo' %}
@@ -158,9 +159,10 @@
         {% if pode('estoque_editar') %}
         <div id="bloco-importar-ajuste" style="display:none;background:var(--surface-alt);
              border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:12px;">
-          <h3 style="font-size:15px;margin:0 0 6px;">Atualizar estoque pela planilha</h3>
+          <h3 style="font-size:15px;margin:0 0 10px;">Atualizar estoque pela planilha</h3>
+          {{ md.bloco('/admin/estoque/ajuste-modelo.xlsx', '1. Baixe a planilha de ajuste agora', 'Ela sai com os números deste momento. Altere e envie abaixo.', 'Baixar planilha de ajuste') }}
           <p style="color:var(--text-muted);font-size:13px;margin:0 0 10px;">Baixe a planilha de ajuste, altere e devolva aqui. {% call aj.ajuda() %}Baixe a planilha em <strong>Downloads → Planilha de ajuste de estoque</strong>
-            (<a href="/admin/estoque/ajuste-modelo.xlsx" download>baixar agora</a>), altere as colunas de quantidade, mínima
+            ou no botão acima, altere as colunas de quantidade, mínima
             e status de compra, e devolva o arquivo aqui. Célula em branco significa
             <strong>não mexer</strong> naquele campo — para zerar, escreva 0.
             Linha sem alteração não gera movimento, então reenviar a mesma planilha não
