@@ -342,6 +342,12 @@
   .val-when { font-size: 12px; color: #999; }
   .val-obs { font-size: 13px; color: #555; margin-top: 2px; }
   .val-check { font-size: 22px; flex-shrink: 0; }
+  .proximo-kit { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: 0 0 12px; padding: 12px 14px; border-radius: 10px; background: #e8f4f8; color: #1f5f75;
+    font-size: 14px; }
+  .proximo-kit[hidden] { display: none; }
+  .proximo-kit button { border: 1px solid #1f5f75; background: transparent; color: #1f5f75; border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; font-weight: 600; }
   .alert-success {
     background: #d4edda; color: #155724;
     border: 1px solid #c3e6cb; border-radius: 8px;
@@ -704,6 +710,35 @@
 
   {% if ok == 'validado' %}
   <div class="alert-success">{{ ic.svg('check-circulo', 14) }} Verificação registrada com sucesso.</div>
+  {# Só no celular: depois de verificar, volta sozinho pro leitor de kit com a
+     câmera aberta, pro próximo kit. Qualquer toque/rolagem cancela. #}
+  <div id="proximo-kit" class="proximo-kit" hidden>
+    <span>Abrindo a câmera para o próximo kit em <strong id="proximo-seg">5</strong>s</span>
+    <button type="button" onclick="pararProximoKit()">Ficar aqui</button>
+  </div>
+  <script>
+  (function () {
+      const celular = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+      if (!celular) return;
+      const caixa = document.getElementById('proximo-kit');
+      const seg = document.getElementById('proximo-seg');
+      let restam = 5;
+      caixa.hidden = false;
+      const t = setInterval(function () {
+          restam -= 1;
+          if (restam <= 0) { clearInterval(t); location.href = '/mobile?abrir=kit'; return; }
+          seg.textContent = restam;
+      }, 1000);
+      window.pararProximoKit = function () {
+          clearInterval(t);
+          caixa.hidden = true;
+          ['touchstart', 'pointerdown', 'keydown', 'wheel'].forEach(ev => removeEventListener(ev, mexeu, true));
+      };
+      // Mexeu na tela (tocou, rolou, digitou): fica onde está.
+      function mexeu(e) { if (!caixa.contains(e.target)) window.pararProximoKit(); }
+      ['touchstart', 'pointerdown', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, mexeu, true));
+  })();
+  </script>
   {% endif %}
 
   {% if erro == 'itens_pendentes' %}

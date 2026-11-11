@@ -641,6 +641,12 @@
         if (!codigo) return;
         window.location.href = _urlBusca(codigo);
     };
+    // Chegou aqui vindo de uma verificação (/mobile?abrir=kit): já abre o
+    // leitor de kit com a câmera, pro próximo kit.
+    if (new URLSearchParams(location.search).get('abrir') === 'kit') {
+        history.replaceState(null, '', location.pathname);
+        window.abrirConsultaKit();
+    }
 })();
 </script>
 </body>
