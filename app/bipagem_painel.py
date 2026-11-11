@@ -28,10 +28,14 @@ def indicadores(user_id: int | None) -> dict:
         finalizados = conn.execute(
             "SELECT COUNT(*) AS total, SUM(CASE WHEN operador_id = ? THEN 1 ELSE 0 END) AS meus "
             "FROM kit_record WHERE substr(finalizado_em, 1, 10) = ?", (user_id, hoje)).fetchone()
-        duracoes = [r[0] for r in conn.execute(
-            "SELECT (julianday(kr.finalizado_em) - julianday(s.iniciado_em)) * 1440 FROM kit_record kr "
-            "JOIN scan_session s ON s.id = kr.sessao_id "
-            "WHERE substr(kr.finalizado_em, 1, 10) = ? AND s.iniciado_em IS NOT NULL", (hoje,)).fetchall()
+        # Por kit finalizado hoje: da PRIMEIRA à ÚLTIMA bipagem — o tempo de
+        # bipar de fato. Fica de fora o tempo com a sessão aberta antes de
+        # começar e a espera depois (kit salvo pronto, aguardando finalizar).
+        trabalho = [r[0] for r in conn.execute(
+            "SELECT (julianday(b.ultima) - julianday(b.primeira)) * 1440 FROM kit_record kr "
+            "JOIN (SELECT sessao_id, MIN(bipado_em) AS primeira, MAX(bipado_em) AS ultima FROM scan_session_items "
+            "      WHERE status IS NULL OR status = 'completo' GROUP BY sessao_id) b ON b.sessao_id = kr.sessao_id "
+            "WHERE substr(kr.finalizado_em, 1, 10) = ?", (hoje,)).fetchall()
             if r[0] is not None and r[0] >= 0]
         fila = conn.execute(
             "SELECT (SELECT COUNT(*) FROM print_queue WHERE status = 'aguardando') "
@@ -39,9 +43,9 @@ def indicadores(user_id: int | None) -> dict:
     return {
         "finalizados_hoje": finalizados["total"] or 0,
         "meus_hoje": finalizados["meus"] or 0,
-        # Mediana, não média: um kit salvo ontem e terminado hoje viraria horas
-        # e puxaria a média pra cima sem dizer nada do ritmo do dia.
-        "minutos_tipicos": round(median(duracoes)) if duracoes else None,
+        # Mediana, não média: um kit bipado em dois dias viraria horas e
+        # puxaria a média pra cima sem dizer nada do ritmo do dia.
+        "minutos_tipicos": round(median(trabalho)) if trabalho else None,
         "na_fila": fila or 0,
     }
 

@@ -280,3 +280,29 @@ def test_tela_inicial_da_bipagem_mostra_painel_com_progresso(kit):
     finally:
         with db() as conn:
             conn.execute("DELETE FROM users WHERE username = ?", (nome,))
+
+
+
+def test_tempo_de_bipagem_vai_da_primeira_a_ultima_bipagem(kit):
+    """Sessão aberta 08:00, bipagens de 08:02 a 08:10, finalizada 11:00:
+    o tempo de bipagem é 8 min (nem a abertura nem a espera entram)."""
+    import app.bipagem_painel as painel
+    from database import now_brt
+    hoje = now_brt()[:10]
+    kit_id = f"KT-{kit['s']}"
+    with db() as conn:
+        conn.execute("UPDATE scan_session SET iniciado_em = ? WHERE id = ?", (f"{hoje} 08:00:00", kit["sid"]))
+        conn.execute("UPDATE scan_session_items SET bipado_em = ? WHERE sessao_id = ?", (f"{hoje} 08:10:00", kit["sid"]))
+        conn.execute("UPDATE scan_session_items SET bipado_em = ? WHERE id = (SELECT MIN(id) FROM scan_session_items WHERE sessao_id = ?)",
+                     (f"{hoje} 08:02:00", kit["sid"]))
+        conn.execute("DELETE FROM kit_record WHERE substr(finalizado_em, 1, 10) = ?", (hoje,))
+        conn.execute("INSERT INTO kit_record (kit_id, kit_template_id, kit_template_versao, sessao_id, operador_id, finalizado_em) "
+                     "SELECT ?, kit_template_id, kit_template_versao, id, operador_id, ? FROM scan_session WHERE id = ?",
+                     (kit_id, f"{hoje} 11:00:00", kit["sid"]))
+    try:
+        k = painel.indicadores(None)
+        assert (k["minutos_tipicos"], k["finalizados_hoje"]) == (8, 1)
+        assert "minutos_espera" not in k
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))

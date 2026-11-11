@@ -27,11 +27,10 @@
     <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
   </div>
   <div class="ds-kpi">
-    <div><p class="ds-kpi-label">Tempo por kit hoje {% call aj.ajuda() %}Tempo típico (mediana) entre o início
-      da bipagem e a finalização, nos kits finalizados hoje. Mediana, e não média, pra um kit salvo
-      ontem e terminado hoje não distorcer a conta.{% endcall %}</p>
+    <div><p class="ds-kpi-label">Tempo de bipagem hoje {% call aj.ajuda() %}Tempo típico (mediana) de cada kit
+      finalizado hoje, da primeira à última bipagem.{% endcall %}</p>
       <p class="ds-kpi-value">{{ (kpi.minutos_tipicos ~ ' min') if kpi.minutos_tipicos is not none else '—' }}</p>
-      <p class="bp-kpi-sub">da abertura à finalização</p></div>
+      <p class="bp-kpi-sub">da primeira à última bipagem</p></div>
     <span class="ds-kpi-icon">{{ ic.svg('relogio', 20) }}</span>
   </div>
   <div class="ds-kpi">
