@@ -38,14 +38,18 @@ _GRUPOS = [
     # Entradas DIRETAS (no lugar da lista de atalhos vem um atalho só): as telas
     # do dia a dia, que abrem num clique, no mesmo nível dos grupos.
     ("Bipagem", "bipagem", _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"])),
+    ("Fila de impressão", "impressao",
+     _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"])),
     ("Acompanhamento", "producao",
      _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
         ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"])),
     ("Remessas", "caixa", _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"],
                              ["/admin/producao/remessas"])),
-    ("Produção", "producao", [
-        _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"]),
-        _a("Painel da TV", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
+    # Telas pra deixar abertas numa TV/monitor e a prateleira.
+    ("Painéis", "monitor", [
+        _a("Painel da produção (TV)", "monitor", "/producao/tv", ["ver_producao"], tipo="tv"),
+        _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
+        _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
     ]),
     ("Estoque", "itens", [
         _sub("Itens", "itens", [
@@ -55,10 +59,6 @@ _GRUPOS = [
             _a("Etiquetas e códigos", "impressao", "/admin/items?tab=codigos", ["ver_itens"], ["/admin/items"]),
         ]),
         _a("Patrimônios", "clipboard", "/admin/items?tab=patrimonios", ["ver_itens"], ["/admin/items"]),
-        _sub("Prateleira", "prateleira", [
-            _a("Prateleira", "prateleira", "/admin/prateleira", ["ver_prateleira"], ["/admin/prateleira"]),
-            _a("Painel da prateleira", "monitor", "/prateleira/tv", ["ver_prateleira"], tipo="tv"),
-        ]),
     ]),
     ("Kits e pedidos", "kits", [
         _a("Kits", "kits", "/admin/templates?tab=kit", ["ver_kits"], ["/admin/templates"]),

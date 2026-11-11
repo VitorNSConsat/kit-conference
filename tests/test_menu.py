@@ -18,7 +18,8 @@ def _rotulos(user, pode):
 
 def test_grupos_por_assunto():
     assert [g["nome"] for g in menu.montar("/", "", {"admin": True}, lambda k: True)] == [
-        "Bipagem", "Acompanhamento", "Remessas", "Produção", "Estoque", "Kits e pedidos", "Veículos e clientes", "RMA",
+        "Bipagem", "Fila de impressão", "Acompanhamento", "Remessas", "Painéis", "Estoque", "Kits e pedidos",
+        "Veículos e clientes", "RMA",
         "Importações", "Downloads", "Relatórios", "Sistema"]
 
 
@@ -45,11 +46,12 @@ def test_tela_aberta_acende_um_atalho_so():
     assert _ativos("/session/12") == ["Bipagem"]
     assert _ativos("/admin/producao") == ["Acompanhar produção"]
     assert _ativos("/admin/producao/remessas") == ["Remessas"]
-    prod = {g["nome"]: g for g in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}["Produção"]
-    assert [i["rotulo"] for i in prod["itens"]] == ["Fila de impressão", "Painel da TV"]
+    pain = {g["nome"]: g for g in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}["Painéis"]
+    assert [i["rotulo"] for i in pain["itens"]] == ["Painel da produção (TV)", "Prateleira", "Painel da prateleira"]
+    assert _ativos("/print-queue") == ["Fila de impressão"] and _ativos("/admin/prateleira") == ["Prateleira"]
     g = {x["nome"]: x for x in menu.montar("/admin/producao", "", {"admin": True}, lambda k: True)}
     assert g["Acompanhamento"]["direto"] and g["Acompanhamento"]["ativo"] and not g["Remessas"]["ativo"]
-    assert not g["Produção"]["ativo"]
+    assert not g["Painéis"]["ativo"] and g["Fila de impressão"]["direto"]
     assert _ativos("/admin/items") == ["Estoque de itens"]
     assert _ativos("/admin/items", "tab=sobressalentes") == ["Sobressalentes"]
     g = {x["nome"]: x for x in menu.montar("/admin/items", "tab=sobressalentes", {"admin": True}, lambda k: True)}
