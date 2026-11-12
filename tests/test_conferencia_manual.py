@@ -310,3 +310,32 @@ def test_tempo_de_bipagem_vai_da_primeira_a_ultima_bipagem(kit):
     finally:
         with db() as conn:
             conn.execute("DELETE FROM kit_record WHERE kit_id = ?", (kit_id,))
+
+
+def test_fila_de_impressao_mostra_numeros_fila_e_impressas_hoje(kit):
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    nome = f"adm_pq_{kit['s']}"
+    with db() as conn:
+        conn.execute("UPDATE scan_session SET garagem = 'G' WHERE id = ?", (kit["sid"],))
+    usuarios.criar("Adm Pq", nome, "Teste#Fila2026", True)
+    try:
+        with TestClient(main.app) as c:
+            c.post("/login", data={"username": nome, "password": "Teste#Fila2026"})
+            c.post(f"/session/{kit['sid']}/imprimir-pausa")
+            with db() as conn:
+                pid = conn.execute("SELECT MAX(id) FROM print_queue_pausa WHERE sessao_id = ?", (kit["sid"],)).fetchone()[0]
+            h = c.get("/print-queue").text
+            assert "Aguardando" in h and "Impressas hoje" in h and "Em andamento" in h
+            assert f"/print-queue/pausa/{pid}/impresso" in h and f"/print-queue/pausa/{pid}/cancelar" in h
+            c.post(f"/print-queue/pausa/{pid}/impresso")
+            h = c.get("/print-queue").text
+            assert f"/print-queue/pausa/{pid}/impresso" not in h and "Nada aguardando impressão" in h
+            hoje = h[h.index("Impressas hoje"):]
+            assert "Kit " + kit["s"] in hoje
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM print_queue_pausa WHERE sessao_id = ?", (kit["sid"],))
+            conn.execute("DELETE FROM auditoria WHERE user_nome = 'Adm Pq'")
+            conn.execute("DELETE FROM users WHERE username = ?", (nome,))

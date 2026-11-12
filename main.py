@@ -2955,7 +2955,21 @@ async def session_complete(request: Request, sessao_id: int, kit_id: str):
 @require_login
 async def print_queue_page(request: Request):
     fila = pq_mod.listar_aguardando_tudo()
-    return render(request, "print_queue.html", {"fila": fila})
+    agora = datetime.strptime(now_brt(), "%Y-%m-%d %H:%M:%S")
+    for item in fila:
+        # Há quanto tempo espera: é o que diz se a fila está andando.
+        try:
+            pedido = datetime.strptime((item["solicitado_em"] or "")[:19], "%Y-%m-%d %H:%M:%S")
+            item["espera_min"] = max(0, int((agora - pedido).total_seconds() // 60))
+        except ValueError:
+            item["espera_min"] = None
+    impressas, total_impressas = pq_mod.impressas_hoje()
+    return render(request, "print_queue.html", {
+        "fila": fila, "impressas": impressas, "total_impressas": total_impressas,
+        "n_kits": sum(1 for i in fila if i["tipo"] == "kit"),
+        "n_pausas": sum(1 for i in fila if i["tipo"] == "pausa"),
+        "mais_antiga": max((i["espera_min"] or 0 for i in fila), default=0),
+    })
 
 
 @app.get("/print-queue/{pq_id}/zpl")

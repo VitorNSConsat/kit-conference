@@ -1,104 +1,225 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
+{% import "_ajuda.html" as aj %}
 {% block title %}Fila de Impressão{% endblock %}
+{% block acoes_topo %}
+<span class="pq-auto" title="A lista se atualiza sozinha">{{ ic.svg('reiniciar', 13) }} Atualiza sozinha a cada 10s</span>
+{% endblock %}
+
+{% macro espera(min) -%}
+{%- if min is none %}—{% elif min < 1 %}agora{% elif min < 60 %}há {{ min }} min{% else %}há {{ (min // 60) }} h {{ '%02d' | format(min % 60) }}{% endif -%}
+{%- endmacro %}
+
 {% block content %}
-<div class="pq-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-    <h1>Fila de Impressão</h1>
-    <span style="color:#888; font-size:13px;">Atualização automática a cada 10s</span>
-</div>
-
-{% if fila %}
-<div class="card table-scroll">
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Kit</th>
-                <th>Cliente</th>
-                <th>Solicitado por</th>
-                <th>Data</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for item in fila %}
-        <tr>
-            <td>{{ item.id }}</td>
-            {% if item.tipo == 'pausa' %}
-            <td>
-                <div style="font-weight:600;">{{ item.veiculo or item.kit_nome }}</div>
-                <div style="font-size:11px;color:#888;">{{ item.kit_nome }} · SEQ {{ '%04d' | format(item.sequencia) }} · <span class="badge badge-warning" style="font-size:9px;">Em andamento</span></div>
-            </td>
-            {% else %}
-            <td>
-                <div style="font-weight:600;">
-                  <a href="/kit/{{ item.kit_id }}" target="_blank" style="color:var(--brand-ink);"
-                     title="Conferir o kit antes de imprimir">{{ item.veiculo or item.kit_nome }}</a>
-                </div>
-                <div style="font-size:11px;color:#888;">{{ item.kit_nome }}</div>
-                <div style="font-family:monospace;font-size:10px;color:#aaa;">{{ item.kit_id[:12] }}…</div>
-            </td>
-            {% endif %}
-            <td>{{ item.cliente }}</td>
-            <td>{{ item.solicitado_por_nome }}</td>
-            <td style="white-space:nowrap;font-size:12px;">{{ item.solicitado_em }}</td>
-            <td>
-                <div style="display:flex; gap:4px; flex-wrap:wrap; align-items:flex-start;">
-
-                    <!-- Botão único: abre etiqueta e diálogo de impressão do SO -->
-                    <button class="btn btn-sm btn-success"
-                            onclick="imprimir({{ item.id }}, '{{ item.tipo }}')">
-                        {{ ic.svg('impressao', 14) }} Imprimir
-                    </button>
-
-                    <div class="menu-mais">
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">{{ ic.svg('mais-vertical', 15) }}</button>
-                        <div class="menu-mais-dropdown">
-                            {% if item.tipo == 'kit' %}
-                            <!-- Preview ZPL (validação visual) -->
-                            <a href="/print-queue/{{ item.id }}/preview" target="_blank"
-                               class="btn btn-sm" style="background:#6c5ce7;color:white;">
-                                {{ ic.svg('busca', 13) }} Preview
-                            </a>
-                            {% endif %}
-
-                            <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/impresso">
-                                <button class="btn btn-sm btn-primary">{{ ic.svg('check', 13) }} Marcado</button>
-                            </form>
-
-                            <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/cancelar"
-                                  onsubmit="return confirm('Cancelar este item da fila?')">
-                                <button class="btn btn-sm btn-danger">{{ ic.svg('fechar', 13) }} Cancelar</button>
-                            </form>
-
-                            {% if item.tipo == 'kit' %}
-                            <!-- ZPL avançado -->
-                            <a href="/print-queue/{{ item.id }}/zpl"
-                               download="etiqueta_{{ item.id }}.zpl"
-                               title="Baixar arquivo ZPL (avançado)">
-                                {{ ic.svg('baixar', 13) }} Baixar .zpl
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                </div>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<div class="card" style="text-align:center; color:#888; padding:40px;">
-    Nenhum item aguardando impressão.
-</div>
+{% if request.query_params.get('ok') == 'reimpresso' %}
+<div class="alert alert-success">{{ ic.svg('impressao', 14) }} Etiqueta colocada de novo na fila.</div>
 {% endif %}
+
+{# ── Números da fila ──────────────────────────────────────────────────────── #}
+<section class="ds-kpis">
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Aguardando</p><p class="ds-kpi-value">{{ fila | length }}</p>
+      <p class="pq-sub">{% if fila %}a mais antiga {{ espera(mais_antiga) }}{% else %}fila vazia{% endif %}</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('impressao', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Kits prontos</p><p class="ds-kpi-value">{{ n_kits }}</p>
+      <p class="pq-sub">etiqueta do kit finalizado</p></div>
+    <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Em andamento</p><p class="ds-kpi-value">{{ n_pausas }}</p>
+      <p class="pq-sub">etiqueta provisória (SEQ)</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('relogio', 20) }}</span>
+  </div>
+  <div class="ds-kpi">
+    <div><p class="ds-kpi-label">Impressas hoje</p><p class="ds-kpi-value">{{ total_impressas }}</p>
+      <p class="pq-sub">lista mais abaixo</p></div>
+    <span class="ds-kpi-icon">{{ ic.svg('historico', 20) }}</span>
+  </div>
+</section>
+
+{# ── A fila ───────────────────────────────────────────────────────────────── #}
+<section class="card">
+  <div class="pq-cab">
+    <h2>{{ ic.svg('impressao', 17) }} Aguardando impressão <span class="badge">{{ fila | length }}</span></h2>
+    <span class="pq-cab-sub">Na ordem em que foram pedidas. {% call aj.ajuda() %}<strong>Imprimir</strong> abre a
+      etiqueta numa aba nova com o diálogo de impressão do computador (escolha a Zebra, outra impressora ou
+      PDF) e marca como impressa em seguida. No <strong>⋮</strong>: <em>Preview</em> (como a Zebra vai
+      desenhar a etiqueta), <em>Marcar como impressa</em> (quando já saiu por outro caminho),
+      <em>Cancelar</em> e <em>Baixar .zpl</em> (envio direto à Zebra, uso avançado).{% endcall %}</span>
+  </div>
+  {% if fila %}
+  <div class="pq-filtros">
+    <input type="text" id="pq-busca" placeholder="Buscar veículo, kit, cliente ou quem pediu..." autocomplete="off">
+    <div class="pq-chips" role="group" aria-label="Tipo de etiqueta">
+      <button type="button" class="pq-chip ativo" data-tipo="">Todas ({{ fila | length }})</button>
+      <button type="button" class="pq-chip" data-tipo="kit">Kits prontos ({{ n_kits }})</button>
+      <button type="button" class="pq-chip" data-tipo="pausa">Em andamento ({{ n_pausas }})</button>
+    </div>
+  </div>
+  <div class="table-scroll">
+    <table class="pq-tabela">
+      <thead><tr><th>Etiqueta</th><th>Veículo e kit</th><th>Pedida por</th><th>Na fila</th><th></th></tr></thead>
+      <tbody>
+      {% for item in fila %}
+      <tr class="pq-linha" data-tipo="{{ item.tipo }}"
+          data-texto="{{ ((item.veiculo or '') ~ ' ' ~ (item.kit_nome or '') ~ ' ' ~ (item.cliente or '') ~ ' ' ~ (item.solicitado_por_nome or '') ~ ' ' ~ (item.garagem or '')) | lower }}">
+        <td class="pq-tipo">
+          {% if item.tipo == 'pausa' %}<span class="badge badge-warning">Em andamento</span>
+            <small>SEQ {{ '%04d' | format(item.sequencia or 0) }}</small>
+          {% else %}<span class="badge badge-success">Kit pronto</span>{% endif %}
+          <small>nº {{ item.id }}</small>
+        </td>
+        <td>
+          {% if item.tipo == 'kit' %}
+          <a href="/kit/{{ item.kit_id }}" target="_blank" class="pq-veic" style="color:{{ cor_do_cliente(item.cliente) }};"
+             title="Conferir o kit antes de imprimir">{{ item.veiculo or item.kit_nome }}</a>
+          {% else %}
+          <strong class="pq-veic" style="color:{{ cor_do_cliente(item.cliente) }};">{{ item.veiculo or item.kit_nome }}</strong>
+          {% endif %}
+          <small class="pq-sub">{{ item.kit_nome }} · {{ item.cliente }}{{ ' · ' ~ item.garagem if item.garagem }}</small>
+        </td>
+        <td class="pq-nowrap">{{ item.solicitado_por_nome or '—' }}</td>
+        <td class="pq-nowrap">
+          <span class="{{ 'pq-atraso' if item.espera_min and item.espera_min >= 30 }}">{{ espera(item.espera_min) }}</span>
+          <small class="pq-sub">{{ item.solicitado_em[8:10] }}/{{ item.solicitado_em[5:7] }} {{ item.solicitado_em[11:16] }}</small>
+        </td>
+        <td class="pq-acoes">
+          <button class="btn btn-sm btn-primary" onclick="imprimir({{ item.id }}, '{{ item.tipo }}')">{{ ic.svg('impressao', 14) }} Imprimir</button>
+          <div class="menu-mais">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)" title="Mais ações">{{ ic.svg('mais-vertical', 15) }}</button>
+            <div class="menu-mais-dropdown">
+              {% if item.tipo == 'kit' %}
+              <a href="/print-queue/{{ item.id }}/preview" target="_blank">{{ ic.svg('busca', 13) }} Preview</a>
+              {% endif %}
+              <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/impresso">
+                <button type="submit" class="btn btn-sm">{{ ic.svg('check', 13) }} Marcar como impressa</button>
+              </form>
+              <form method="post" action="/print-queue/{{ 'pausa/' if item.tipo == 'pausa' }}{{ item.id }}/cancelar"
+                    onsubmit="return confirm('Cancelar este item da fila?')">
+                <button type="submit" class="btn btn-sm pq-perigo">{{ ic.svg('fechar', 13) }} Cancelar</button>
+              </form>
+              {% if item.tipo == 'kit' %}
+              <a href="/print-queue/{{ item.id }}/zpl" download="etiqueta_{{ item.id }}.zpl" title="Arquivo ZPL (avançado)">{{ ic.svg('baixar', 13) }} Baixar .zpl</a>
+              {% endif %}
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="pq-vazio" id="pq-nenhuma" hidden>Nenhuma etiqueta com esse filtro.</p>
+  {% else %}
+  <div class="pq-vazio pq-vazio-grande">
+    <span>{{ ic.svg('check-circulo', 26) }}</span>
+    <strong>Nada aguardando impressão.</strong>
+    <span>Quando um kit for finalizado ou alguém pedir uma etiqueta de andamento, ela aparece aqui.</span>
+  </div>
+  {% endif %}
+</section>
+
+{# ── Impressas hoje ───────────────────────────────────────────────────────── #}
+<details class="card pq-hoje" {{ 'open' if not fila and impressas }}>
+  <summary><h2>{{ ic.svg('historico', 17) }} Impressas hoje <span class="badge">{{ total_impressas }}</span></h2></summary>
+  {% if impressas %}
+  <div class="table-scroll">
+    <table class="pq-tabela">
+      <thead><tr><th>Hora</th><th>Veículo e kit</th><th>Etiqueta</th><th>Pedida por</th><th></th></tr></thead>
+      <tbody>
+      {% for i in impressas %}
+      <tr>
+        <td class="pq-nowrap">{{ (i.impresso_em or '')[11:16] }}</td>
+        <td><strong class="pq-veic" style="color:{{ cor_do_cliente(i.cliente) }};">{{ i.veiculo or i.kit_nome }}</strong>
+          <small class="pq-sub">{{ i.kit_nome }} · {{ i.cliente }}</small></td>
+        <td>{% if i.tipo == 'pausa' %}<span class="badge badge-warning">Em andamento</span>{% else %}<span class="badge badge-success">Kit pronto</span>{% endif %}</td>
+        <td class="pq-nowrap">{{ i.solicitado_por_nome or '—' }}</td>
+        <td class="pq-acoes">
+          {% if i.tipo == 'kit' and pode('ver_relatorios') %}
+          <form method="post" action="/reports/reprint/{{ i.kit_id }}" style="margin:0;"
+                onsubmit="return confirm('Colocar esta etiqueta de novo na fila?')">
+            <button type="submit" class="btn btn-sm btn-secondary">{{ ic.svg('reiniciar', 13) }} Imprimir de novo</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if total_impressas > impressas | length %}<p class="pq-vazio">Mostrando as {{ impressas | length }} mais recentes de {{ total_impressas }}.</p>{% endif %}
+  {% else %}
+  <p class="pq-vazio">Nenhuma etiqueta impressa hoje ainda.</p>
+  {% endif %}
+</details>
+
+<style>
+.pq-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+.pq-sub { display: block; margin: 3px 0 0; font-size: 12px; color: var(--text-muted); }
+p.pq-sub { margin-top: 4px; }
+.pq-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.pq-cab h2, .pq-hoje summary h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.pq-cab-sub { font-size: 12.5px; color: var(--text-muted); }
+.pq-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.pq-filtros input { flex: 1 1 260px; margin: 0; }
+.pq-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.pq-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 99px;
+    padding: 5px 12px; font-size: 12.5px; cursor: pointer; }
+.pq-chip:hover { border-color: var(--brand-border); color: var(--text); }
+.pq-chip.ativo { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-ink); font-weight: 700; }
+.pq-tabela { width: 100%; }
+.pq-linha[hidden] { display: none; }
+.pq-tipo { white-space: nowrap; }
+.pq-tipo small { display: block; margin-top: 3px; font-size: 11.5px; color: var(--text-muted); }
+.pq-veic { font-weight: 700; white-space: nowrap; text-decoration: none; }
+a.pq-veic:hover { text-decoration: underline; }
+.pq-nowrap { white-space: nowrap; font-size: 13px; }
+.pq-atraso { color: var(--danger-text); font-weight: 700; }
+.pq-acoes { text-align: right; white-space: nowrap; }
+.pq-acoes > * { display: inline-flex; vertical-align: middle; }
+.pq-acoes .menu-mais { margin-left: 4px; }
+.pq-perigo { color: var(--danger-text); }
+.pq-vazio { color: var(--text-muted); font-size: 13px; text-align: center; padding: 14px 8px; margin: 0; }
+.pq-vazio-grande { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px 12px; }
+.pq-vazio-grande > span:first-child { color: var(--ok-text); }
+.pq-vazio-grande strong { color: var(--text); font-size: 14.5px; }
+.pq-hoje > summary { list-style: none; cursor: pointer; }
+.pq-hoje > summary::-webkit-details-marker { display: none; }
+.pq-hoje[open] > summary { margin-bottom: 12px; }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-setTimeout(() => location.reload(), 10000);
+// Atualiza sozinha a cada 10s — mas não no meio de uma busca, com um menu ⋮
+// aberto ou com a lista de impressas aberta pra conferir: aí espera.
+(function () {
+    const busca = document.getElementById('pq-busca');
+    const CHAVE = 'pq_filtro';
+    let tipo = '';
+    try { const f = JSON.parse(sessionStorage.getItem(CHAVE) || '{}'); tipo = f.tipo || ''; if (busca) busca.value = f.busca || ''; } catch (e) {}
+    function filtrar() {
+        const t = busca ? busca.value.trim().toLowerCase() : '';
+        let n = 0;
+        document.querySelectorAll('.pq-linha').forEach(l => {
+            const ok = (!tipo || l.dataset.tipo === tipo) && (!t || l.dataset.texto.includes(t));
+            l.hidden = !ok; if (ok) n++;
+        });
+        const nada = document.getElementById('pq-nenhuma');
+        if (nada) nada.hidden = n > 0 || !document.querySelectorAll('.pq-linha').length;
+        document.querySelectorAll('.pq-chip').forEach(c => c.classList.toggle('ativo', c.dataset.tipo === tipo));
+        try { sessionStorage.setItem(CHAVE, JSON.stringify({tipo: tipo, busca: busca ? busca.value : ''})); } catch (e) {}
+    }
+    document.querySelectorAll('.pq-chip').forEach(c => c.addEventListener('click', () => { tipo = c.dataset.tipo; filtrar(); }));
+    if (busca) busca.addEventListener('input', filtrar);
+    filtrar();
+    setInterval(function () {
+        const ocupado = document.activeElement === busca || document.querySelector('.menu-mais-dropdown.open');
+        if (!ocupado) location.reload();
+    }, 10000);
+})();
 
 function imprimir(pqId, tipo) {
     // Abre a etiqueta em nova aba — ela auto-dispara o diálogo de impressão do SO

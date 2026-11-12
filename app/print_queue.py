@@ -106,3 +106,25 @@ def listar_aguardando_tudo() -> list:
     for item in pausas:
         item["tipo"] = "pausa"
     return sorted(kits + pausas, key=lambda i: i["solicitado_em"])
+
+
+def impressas_hoje(limite: int = 30) -> list[dict]:
+    """Etiquetas impressas hoje (de kit pronto e "Em Andamento"), da mais recente
+    pra mais antiga — pra conferir o que já saiu sem procurar em relatório."""
+    hoje = now_brt()[:10]
+    with db() as conn:
+        kits = [dict(r, tipo="kit") for r in conn.execute(
+            "SELECT pq.id, pq.kit_id, pq.impresso_em, COALESCE(v.numero, kr.veiculo, '') AS veiculo, "
+            "       kt.nome AS kit_nome, kt.cliente, u.nome AS solicitado_por_nome "
+            "FROM print_queue pq JOIN kit_record kr ON kr.kit_id = pq.kit_id "
+            "JOIN kit_template kt ON kt.id = kr.kit_template_id "
+            "LEFT JOIN veiculos v ON v.id = kr.veiculo_id LEFT JOIN users u ON u.id = pq.solicitado_por "
+            "WHERE pq.status = 'impresso' AND substr(pq.impresso_em, 1, 10) = ?", (hoje,)).fetchall()]
+        pausas = [dict(r, tipo="pausa") for r in conn.execute(
+            "SELECT pqp.id, NULL AS kit_id, pqp.impresso_em, COALESCE(s.veiculo, '') AS veiculo, "
+            "       kt.nome AS kit_nome, kt.cliente, u.nome AS solicitado_por_nome "
+            "FROM print_queue_pausa pqp JOIN scan_session s ON s.id = pqp.sessao_id "
+            "JOIN kit_template kt ON kt.id = s.kit_template_id LEFT JOIN users u ON u.id = pqp.solicitado_por "
+            "WHERE pqp.status = 'impresso' AND substr(pqp.impresso_em, 1, 10) = ?", (hoje,)).fetchall()]
+    todas = sorted(kits + pausas, key=lambda i: i["impresso_em"] or "", reverse=True)
+    return todas[:limite], len(todas)
