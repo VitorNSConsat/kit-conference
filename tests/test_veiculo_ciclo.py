@@ -126,3 +126,43 @@ def test_tela_de_veiculos_filtra_por_remessa(cenario):
     assert (str(rid), f"R-{c['sufixo']}") in ctx["remessa_opcoes"]
     assert ctx["col_ativa"]["remessa"] and any(ch["rotulo"] == f"Remessa: R-{c['sufixo']}"
                                                for ch in ctx["chips_veiculos"])
+
+
+def test_depois_da_nota_pergunta_se_coloca_em_transito(cenario):
+    """Nota atribuída a kit em Produzido: a tela pergunta se já é pra pôr Em
+    Trânsito (com o kit na janela). Kit já em trânsito não gera a pergunta."""
+    from fastapi.testclient import TestClient
+    import main
+    from app import usuarios
+    c = cenario
+    login = f"nf-{c['sufixo']}"
+    usuarios.criar("Adm NF", login, "Teste#Nota26", True)
+    with db() as conn:
+        conn.execute("INSERT INTO scan_session (kit_template_id, kit_template_versao, operador_id, iniciado_em, veiculo_id) "
+                     "VALUES (?, 1, ?, '2026-09-03 07:00:00', ?)", (c["tid"], c["uid"], c["vid"]))
+        sid = conn.execute("SELECT id FROM scan_session WHERE veiculo_id = ?", (c["vid"],)).fetchone()["id"]
+        for k, etapa in ((f"K-{c['sufixo']}a", "produzido"), (f"K-{c['sufixo']}b", "transito")):
+            conn.execute(
+                "INSERT INTO kit_record (kit_id, sessao_id, kit_template_id, kit_template_versao, operador_id, veiculo_id, "
+                "veiculo, finalizado_em, status_producao) VALUES (?, ?, ?, 1, ?, ?, ?, '2026-09-03 10:30:00', ?)",
+                (k, sid, c["tid"], c["uid"], c["vid"], k, etapa))
+    try:
+        with TestClient(main.app) as cli:
+            cli.post("/login", data={"username": login, "password": "Teste#Nota26"})
+            r = cli.post(f"/admin/producao/K-{c['sufixo']}a/nota-fiscal",
+                         data={"nota_fiscal": "777", "nota_fiscal_data": "2026-09-04"}, follow_redirects=False)
+            assert r.headers["location"].endswith(f"ok=nota_fiscal&transitar=K-{c['sufixo']}a")
+            r = cli.post("/admin/producao/nota-lote", follow_redirects=False,
+                         data={"kit_ids": [f"K-{c['sufixo']}a", f"K-{c['sufixo']}b"], "nota_fiscal": "778",
+                               "nota_fiscal_data": "2026-09-04", "motivo": "teste"})
+            assert f"transitar=K-{c['sufixo']}a" in r.headers["location"]
+            assert f"K-{c['sufixo']}b" not in r.headers["location"]
+            h = cli.get(f"/admin/producao?ok=nota_lote&n=2&transitar=K-{c['sufixo']}a,K-{c['sufixo']}b").text
+            assert 'id="popup-oferta-transito"' in h and "Colocar em trânsito?" in h
+            assert f'name="kit_ids" value="K-{c["sufixo"]}a"' in h
+            assert f'name="kit_ids" value="K-{c["sufixo"]}b"' not in h.split('id="popup-oferta-transito"')[1].split("</form>")[0]
+            assert 'id="popup-oferta-transito"' not in cli.get("/admin/producao?ok=nota_fiscal").text
+    finally:
+        with db() as conn:
+            conn.execute("DELETE FROM users WHERE username = ?", (login,))
+            conn.execute("DELETE FROM kit_record WHERE kit_id LIKE ?", (f"K-{c['sufixo']}%",))

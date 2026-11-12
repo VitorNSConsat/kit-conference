@@ -4745,7 +4745,13 @@ async def admin_producao(request: Request):
                        + [("cli_cliente", c) for c in cli_cliente]
                        + [("cli_sit", cli_sit)] * bool(cli_sit))
 
+    # Pergunta "colocar em trânsito?" depois da nota: só os que continuam em
+    # Produzido (a lista inteira, não só a página aberta).
+    pedidos_transito = {x for x in (request.query_params.get("transitar") or "").split(",") if x}
+    oferta_transito = [k for k in lista_pr if str(k["kit_id"]) in pedidos_transito]
+
     return render(request, "admin_producao.html", {
+        "oferta_transito": oferta_transito,
         "a_produzir": paginacao_mod.paginar(lista_ap, pag_ap),
         "em_producao": _com_remessa(_com_autonomia(producao_mod.listar_em_producao())),
         "produzido": paginacao_mod.paginar(lista_pr, pag_pr),
@@ -5234,6 +5240,7 @@ async def admin_producao_nota_lote(request: Request):
     q = f"?ok=nota_lote&n={len(r['atualizados'])}"
     if r["bloqueados"]:
         q += f"&bloqueados={len(r['bloqueados'])}"
+    q += _oferta_transito_qs(r["atualizados"])
     request.state.auditoria_detalhe = (
         f"{len(r['atualizados'])} kit(s): nota fiscal definida para {nota}")
     return RedirectResponse("/admin/producao" + q, status_code=302)
@@ -5303,7 +5310,17 @@ async def admin_producao_nota_fiscal(request: Request, kit_id: str):
         return RedirectResponse("/admin/producao?erro=nf_motivo", status_code=302)
     veiculo = _veiculo_do_kit(kit_id)
     request.state.auditoria_detalhe = f"Veículo {veiculo}: nota fiscal definida para {nota}"
-    return RedirectResponse("/admin/producao?ok=nota_fiscal", status_code=302)
+    return RedirectResponse("/admin/producao?ok=nota_fiscal" + _oferta_transito_qs([kit_id]),
+                            status_code=302)
+
+
+def _oferta_transito_qs(kit_ids) -> str:
+    """Depois de atribuir a nota: os kits que ainda estão em Produzido vão na
+    URL, e a tela pergunta se já é pra colocá-los Em Trânsito. Nota dada a
+    quem já está em trânsito (ou adiante) não pergunta nada."""
+    em_produzido = {str(k["kit_id"]) for k in producao_mod.listar_produzido()}
+    ids = [str(k) for k in kit_ids if str(k) in em_produzido]
+    return ("&transitar=" + ",".join(ids)) if ids else ""
 
 
 @app.get("/admin/producao/historico", response_class=HTMLResponse)

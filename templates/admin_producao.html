@@ -222,6 +222,11 @@
 .rem-num { font-size: 26px; font-weight: 800; color: var(--brand); line-height: 1; }
 .rem-acoes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 1200px) { .rem-linha { grid-template-columns: 1fr auto; } .rem-barra-bloco, .rem-acoes { grid-column: 1 / -1; justify-content: flex-start; } }
+details.etapa tbody tr:has(input.chk-produzido, input.chk-transito, input.chk-cliente) { cursor: pointer; }
+details.etapa tbody tr.linha-sel td { background: var(--brand-soft); }
+details.etapa tbody tr.linha-sel:hover td { background: color-mix(in srgb, var(--brand-soft) 70%, var(--brand-border)); }
+details.etapa kbd { font: 600 11px/1 inherit; font-family: inherit; border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 4px; background: var(--surface); color: var(--text); }
 .esteira {
     display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 8px;
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
@@ -588,12 +593,64 @@
       {{ ic.svg('kits', 14) }} Atribuir nota aos selecionados (<span class="qtd-sel-produzido">0</span>)
     </button>
     {% endif %}
-    <span style="font-size:12px;color:#888;">As duas ações valem só pros marcados.</span>
+    <span style="font-size:12px;color:#888;">As duas ações valem só pros marcados.
+      Dica: clique na linha para marcar; <kbd>Shift</kbd> + clique marca um intervalo e <kbd>Ctrl</kbd> + clique soma/tira um.</span>
   </div>
   {% else %}
   <p style="color:#888;text-align:center;padding:16px;">Nada esperando envio no momento.</p>
   {% endif %}
 </details>
+
+{% if oferta_transito and pode('producao_mover_estagio') %}
+{# Logo depois de atribuir a nota: pergunta se esses kits já saem pra Em
+   Trânsito. "Agora não" só fecha — eles continuam em Produzido. #}
+<div id="popup-oferta-transito" class="config-popup" role="dialog" aria-modal="true"
+     aria-labelledby="oferta-transito-titulo" style="width:min(560px, calc(100vw - 32px));">
+  <div class="config-cabecalho">
+    <div>
+      <strong id="oferta-transito-titulo">Colocar em trânsito?</strong>
+      <span class="config-sub">A nota foi atribuída. {{ oferta_transito | length }} veículo(s) ainda estão em Produzido.</span>
+    </div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <form method="post" action="/admin/producao/transito" class="ot-form">
+    <div class="ot-corpo">
+      <p>Deseja marcar {{ 'este kit' if oferta_transito | length == 1 else 'estes kits' }} como
+        <strong>Em Trânsito</strong> agora? Eles entram na remessa aberta, como no botão de sempre.</p>
+      <div class="ot-lista">
+        {% for k in oferta_transito %}
+        <input type="hidden" name="kit_ids" value="{{ k.kit_id }}">
+        <span class="ot-veic" style="--cor:{{ cor_do_cliente(k.cliente) }};">{{ k.veiculo or k.kit_nome }}
+          {% if k.nota_fiscal %}<small>NF {{ k.nota_fiscal }}</small>{% endif %}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="ot-pe">
+      <button type="button" class="btn btn-ghost" onclick="fecharPopup()">Agora não</button>
+      <button type="submit" class="btn btn-primary" id="ot-sim">{{ ic.svg('producao', 15) }} Sim, colocar em trânsito</button>
+    </div>
+  </form>
+</div>
+<style>
+.ot-corpo { padding: 16px 22px; overflow-y: auto; }
+.ot-corpo p { margin: 0 0 12px; font-size: 14px; color: var(--text); }
+.ot-lista { display: flex; flex-wrap: wrap; gap: 6px; max-height: 220px; overflow-y: auto; }
+.ot-veic { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px;
+    background: var(--surface-alt); border: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--cor); }
+.ot-veic small { font-weight: 500; color: var(--text-muted); }
+.ot-pe { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface-alt); }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    abrirPopup({stopPropagation() {}}, 'oferta-transito');
+    setTimeout(function () { const b = document.getElementById('ot-sim'); if (b) b.focus(); }, 60);
+    // Recarregar a página não pergunta de novo.
+    const url = new URL(location.href);
+    url.searchParams.delete('transitar');
+    history.replaceState(null, '', url);
+});
+</script>
+{% endif %}
 
 <!-- Modal da nota em lote — a mesma nota/data pros veículos marcados.
      Registro manual: não consulta nem importa nota fiscal de lugar nenhum. -->
@@ -937,12 +994,53 @@ function atualizarSelecao(etapa) {
     document.querySelectorAll('[data-lote="' + etapa + '"]').forEach(b => {
         b.disabled = sel.length === 0;
     });
+    // Linha marcada fica destacada (dá pra ver a seleção sem olhar a caixinha).
+    document.querySelectorAll('.chk-' + etapa).forEach(c => {
+        const tr = c.closest('tr');
+        if (tr) tr.classList.toggle('linha-sel', c.checked);
+    });
     const todos = document.getElementById('chk-todos-' + etapa);
     if (todos) {
         const total = document.querySelectorAll('.chk-' + etapa).length;
         todos.checked = sel.length > 0 && sel.length === total;
     }
 }
+
+// ── Seleção estilo Excel (Produzido, Em Trânsito e Cliente) ───────────────
+// Clique na linha marca/desmarca (Ctrl + clique faz o mesmo, somando à
+// seleção). Shift + clique marca o intervalo desde a última linha clicada,
+// com o mesmo estado dela. Clique em link, botão ou campo da linha segue
+// fazendo o que já fazia.
+const _ancoraSel = {};
+const _ETAPAS_SEL = ['produzido', 'transito', 'cliente'];
+function _chkDaLinha(tr) {
+    return tr.querySelector(_ETAPAS_SEL.map(e => 'input.chk-' + e).join(', '));
+}
+document.addEventListener('mousedown', function (e) {
+    // Shift + clique selecionaria o texto da tabela inteira.
+    if (e.shiftKey && e.target.closest && e.target.closest('details.etapa tbody tr')) e.preventDefault();
+});
+document.addEventListener('click', function (e) {
+    const tr = e.target.closest && e.target.closest('details.etapa tbody tr');
+    if (!tr) return;
+    const chk = _chkDaLinha(tr);
+    if (!chk || chk.disabled) return;
+    const noChk = e.target === chk;
+    if (!noChk && e.target.closest('a, button, input, select, textarea, label, form, .menu-mais')) return;
+    const etapa = _ETAPAS_SEL.find(x => chk.classList.contains('chk-' + x));
+    const todos = [...document.querySelectorAll('.chk-' + etapa)];
+    const ancora = _ancoraSel[etapa];
+    if (e.shiftKey && ancora && ancora !== chk && todos.includes(ancora)) {
+        const a = todos.indexOf(ancora), b = todos.indexOf(chk);
+        todos.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(c => { if (!c.disabled) c.checked = ancora.checked; });
+        const s = window.getSelection && window.getSelection();
+        if (s) s.removeAllRanges();
+    } else {
+        if (!noChk) chk.checked = !chk.checked;
+        _ancoraSel[etapa] = chk;
+    }
+    atualizarSelecao(etapa);
+});
 
 function marcarTodos(chefe, etapa) {
     document.querySelectorAll('.chk-' + etapa).forEach(c => { c.checked = chefe.checked; });
