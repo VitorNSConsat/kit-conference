@@ -101,7 +101,7 @@ body {
     border-bottom: 1px solid var(--border);
 }
 .ds-topo-in {
-    max-width: 1600px; margin: 0 auto; height: var(--topbar-altura);
+    margin: 0 auto; height: var(--topbar-altura);
     padding: 0 20px; display: flex; align-items: center; gap: 14px;
 }
 .ds-topo-marca {
@@ -114,7 +114,10 @@ body {
 .ds-topo-marca .ds-brand-logo { width: 112px; height: 18px; max-width: none; object-fit: cover; object-position: center; }
 .ds-topo-marca-sub { font-size: 10.5px; line-height: 1.15; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 
-.ds-topo-nav { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: stretch; justify-content: center; gap: 2px; }
+/* Margens automáticas centralizam o menu; com o aviso de estoque ao lado, ele
+   ocupa o espaço que sobra até a lupa e o menu encosta na marca. */
+.ds-topo-nav { flex: 0 1 auto; margin: 0 auto; min-width: 0; height: 100%; display: flex; align-items: stretch; justify-content: center; gap: 2px; }
+.ds-topo-nav:has(+ .ds-alerta) { margin: 0; }
 .ds-tn-sep { width: 1px; background: var(--border); margin: 20px 4px; flex: 0 0 auto; }
 .ds-tn-grupo { position: static; display: flex; }
 .ds-tn {
@@ -176,7 +179,12 @@ body {
     width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
     border: 1px solid transparent; background: none; color: var(--text-muted); cursor: pointer;
 }
-.ds-topo-busca { border-color: var(--border); background: var(--surface-alt); }
+.ds-topo-busca, .ds-topo-portal { border-color: var(--border); background: var(--surface-alt); }
+/* A lupa fica do tamanho do aviso de estoque ao lado, pra nunca sumir atrás dele. */
+.ds-topo-busca { width: 40px; height: 40px; color: var(--text); }
+.ds-topo-busca .ic { width: 19px; height: 19px; }
+.ds-topo-portal { flex: 0 0 auto; text-decoration: none; }
+.ds-topo-portal:hover { text-decoration: none; }
 .ds-topo-btn:hover { background: var(--surface-hover); color: var(--text); }
 .ds-topo-btn .ic, .ds-topo-btn svg { width: 18px; height: 18px; }
 .ds-topo-btn .ds-theme-icon { display: grid; place-items: center; }
@@ -246,15 +254,38 @@ button.ds-hamburguer {
     border-radius: 12px; font-size: 12px; color: var(--alerta-cor);
     box-sizing: border-box; overflow-wrap: anywhere;
 }
-.ds-alerta { --alerta-cor: var(--warn-text); }
+.ds-alerta { --alerta-cor: var(--warn-text); flex: 1 1 0; min-width: 64px; display: flex; }
 .ds-alerta-btn {
-    height: 36px; padding: 0 10px 0 9px; border-radius: 10px; display: flex; align-items: center; gap: 5px;
+    width: 100%; min-width: 0; height: 40px; padding: 0 12px; border-radius: 11px; display: flex; align-items: center; gap: 8px;
     border: 1px solid color-mix(in srgb, var(--alerta-cor) 35%, var(--surface));
     background: color-mix(in srgb, var(--alerta-cor) 9%, var(--surface));
-    color: var(--alerta-cor); font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer;
+    color: var(--alerta-cor); font: 600 13px/1.2 inherit; font-family: inherit; cursor: pointer; text-align: left;
+}
+.ds-alerta-btn > .ic { flex: 0 0 auto; }
+/* O aviso se ajusta ao espaço que sobrou na barra: com pouco espaço some o
+   texto (melhor que "Est…") e, com menos ainda, a setinha. */
+.ds-alerta { container-type: inline-size; }
+.ds-alerta-btn { overflow: hidden; }
+@container (max-width: 170px) { .ds-alerta-txt { display: none; } .ds-alerta-btn { justify-content: center; } }
+@container (max-width: 96px) { .ds-alerta-btn > .ic:last-child { display: none; } }
+.ds-alerta-txt { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-alerta-txt strong { font-weight: 700; }
+.ds-alerta-item { font-weight: 500; }
+.ds-alerta-num {
+    flex: 0 0 auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; display: grid; place-items: center;
+    background: var(--alerta-cor); color: #fff; font-size: 12px; font-weight: 700;
+}
+.ds-alerta .ds-conta-menu { left: 0; right: auto; }
+@media (max-width: 640px) {
+    .ds-alerta-txt, .ds-alerta-btn > .ic:last-child { display: none; }
+    .ds-alerta { flex: 0 0 auto; min-width: 0; }
+    .ds-alerta-btn { padding: 0 8px; gap: 5px; }
+    .ds-topo-portal { display: none; }          /* no celular o Portal fica na gaveta (☰) */
+    .ds-topo-in { gap: 8px; }
+    .ds-topo-marca .ds-brand-logo { width: 96px; }
 }
 .ds-alerta-btn:hover { background: color-mix(in srgb, var(--alerta-cor) 15%, var(--surface)); }
-.ds-alerta-num { font-variant-numeric: tabular-nums; }
+
 .ds-alerta-menu { width: 290px; padding: 0; border: 0; background: none; }
 .ds-conta-menu.ds-alerta-menu a.ds-sidebar-alerta-link {
     display: inline-block; padding: 0; color: var(--alerta-cor); font-size: 12px; font-weight: 700;
@@ -428,6 +459,11 @@ button.ds-hamburguer {
 @media (max-width: 1480px) {
     .ds-topo-marca-sub { display: none; }
     .ds-topo-in { gap: 10px; padding: 0 14px; }
+}
+@media (max-width: 1520px) {
+    .ds-tn { padding: 0 4px; }
+    .ds-tn-ic { width: 31px; }
+    .ds-tn-sep { margin: 20px 3px; }
 }
 @media (max-width: 1340px) {
     .ds-tn { padding: 0 3px; font-size: 11px; }
@@ -1499,6 +1535,12 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     box-shadow: var(--shadow-pop);
 }
 .config-popup.aberto { display: flex; animation: popIn .12s ease; }
+/* Com o menu na barra do topo (que fica por cima do conteúdo), a janela se
+   centraliza no espaço ABAIXO da barra e nunca fica mais alta que ele. */
+.ds-main .config-popup {
+    top: calc(50% + var(--topbar-altura) / 2);
+    max-height: min(92vh, calc(100vh - var(--topbar-altura) - 28px));
+}
 @keyframes popIn {
     from { opacity: 0; transform: var(--cfg-centro) scale(.97); }
     to   { opacity: 1; transform: var(--cfg-centro) scale(1);   }

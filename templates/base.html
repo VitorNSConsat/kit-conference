@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=80">
+    <link rel="stylesheet" href="/static/style.css?v=85">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -112,6 +112,10 @@
 <header class="ds-topbar" id="ds-topo">
   <div class="ds-topo-in">
     <button type="button" class="ds-hamburguer" onclick="toggleNav()" aria-label="Abrir o menu">{{ ic.svg('menu', 20) }}</button>
+    {# Volta ao portal de aplicações (porta 8001, HTTP): o host vem do endereço
+       em que o usuário já está, então funciona pelo IP e por um domínio futuro. #}
+    <a href="http://{{ request.url.hostname }}:8001/" class="ds-topo-btn ds-topo-portal"
+       title="Voltar ao Portal de aplicações" aria-label="Portal de aplicações">{{ ic.svg('portal', 18) }}</a>
     <a href="/" class="ds-topo-marca" title="Início">
       <img src="/static/logo.png" alt="Consat" class="ds-brand-logo">
       <span class="ds-topo-marca-sub">Conferência<br>de Kits</span>
@@ -147,35 +151,39 @@
       {% endif %}
       {% endfor %}
     </nav>
-    <div class="ds-topo-dir">
-      {% if alertas_estoque and '/session/' not in request.url.path %}
-      {# Aviso de estoque baixo. Independe de tela liberada ou de ser admin: é
-         um aviso passivo, não uma ação — quem só bipa e não enxerga Itens &
-         Estoque também precisa saber que tem item no fim. O que aparece (quais
-         itens, quantos, a cor e por quanto tempo) vem da configuração em Itens
-         & Estoque; aqui só se desenha o que chega. Na barra do topo fica um
-         sinal com a contagem, e a lista abre ao clicar — não cobre a tela. #}
-      <div class="ds-conta ds-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}"
-           style="--alerta-cor:{{ alerta_cfg.alerta_cor_critico }};">
-        <button type="button" class="ds-alerta-btn" onclick="alternarConta(this)" aria-haspopup="true" aria-expanded="false"
-                title="Estoque baixo: {{ alertas_total }} item(ns)">
-          {{ ic.svg('alerta', 17) }}<span class="ds-alerta-num">{{ alertas_total }}</span>
-        </button>
-        <div class="ds-conta-menu ds-alerta-menu" role="status">
-          <div class="ds-sidebar-alerta">
-            <div class="ds-sidebar-alerta-cab">
-              {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
-              <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
-                      class="ds-sidebar-alerta-fechar" aria-label="Esconder o aviso" title="Esconder o aviso">{{ ic.svg('fechar', 11) }}</button>
-            </div>
-            <div class="ds-sidebar-alerta-lista">
-              {% for a in alertas_estoque %}
-              <span class="ds-sidebar-alerta-chip">{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
-              {% endfor %}
-              {% if alertas_total > alertas_estoque | length %}
-              <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
-              {% endif %}
-            </div>
+    {% if alertas_estoque and '/session/' not in request.url.path %}
+    {# Aviso de estoque baixo. Independe de tela liberada ou de ser admin: é
+       um aviso passivo, não uma ação — quem só bipa e não enxerga Itens &
+       Estoque também precisa saber que tem item no fim. O que aparece (quais
+       itens, quantos, a cor e por quanto tempo) vem da configuração em Itens
+       & Estoque; aqui só se desenha o que chega. Na barra do topo fica um
+       sinal com a contagem, e a lista abre ao clicar — não cobre a tela. #}
+    <div class="ds-conta ds-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}"
+         style="--alerta-cor:{{ alerta_cfg.alerta_cor_critico }};">
+      <button type="button" class="ds-alerta-btn" onclick="alternarConta(this)" aria-haspopup="true" aria-expanded="false"
+              title="Estoque baixo: {{ alertas_total }} item(ns) — clique para ver a lista">
+        {{ ic.svg('alerta', 17) }}
+        <span class="ds-alerta-txt"><strong>Estoque baixo</strong>
+          {%- for a in alertas_estoque[:3] %}<span class="ds-alerta-item"> · {{ a.tipo_nome }} {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>{% endfor -%}
+        </span>
+        <span class="ds-alerta-num">{{ alertas_total }}</span>
+        {{ ic.svg('seta-baixo', 14) }}
+      </button>
+      <div class="ds-conta-menu ds-alerta-menu" role="status">
+        <div class="ds-sidebar-alerta">
+          <div class="ds-sidebar-alerta-cab">
+            {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
+            <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
+                    class="ds-sidebar-alerta-fechar" aria-label="Esconder o aviso" title="Esconder o aviso">{{ ic.svg('fechar', 11) }}</button>
+          </div>
+          <div class="ds-sidebar-alerta-lista">
+            {% for a in alertas_estoque %}
+            <span class="ds-sidebar-alerta-chip">{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
+            {% endfor %}
+            {% if alertas_total > alertas_estoque | length %}
+            <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
+            {% endif %}
+          </div>
             {% if pode('ver_itens') %}
             <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="ds-sidebar-alerta-link">Ver Estoque</a>
             {% endif %}
@@ -188,8 +196,9 @@
             if (seg > 0) setTimeout(function () { sinal.style.display = 'none'; }, seg * 1000);
         })();
         </script>
-      </div>
-      {% endif %}
+    </div>
+    {% endif %}
+    <div class="ds-topo-dir">
       <button type="button" class="ds-topo-btn ds-topo-busca" onclick="abrirIrPara()" title="Ir para uma tela (Ctrl K)" aria-label="Ir para uma tela">{{ ic.svg('busca', 18) }}</button>
       <button type="button" class="ds-topo-btn" onclick="alternarTemaGlobal()" title="Alternar modo claro/escuro" aria-label="Alternar modo claro/escuro">
         <span class="ds-theme-icon">{{ ic.svg('lua', 18) }}</span>

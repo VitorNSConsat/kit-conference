@@ -75,11 +75,13 @@
   aberto por vez e, dentro dele, um submenu; ao entrar numa tela, abre sozinho o caminho dela.
 </p>
 <p>
-  <strong>Conta e aviso de estoque:</strong> a bolinha com as suas iniciais, no canto direito da barra,
-  mostra seu nome e tem <em>Portal de aplicações</em> e <em>Sair</em>. Quando há item com estoque
-  baixo, aparece ao lado um sinal na cor do aviso com a quantidade de itens; clicar abre a lista
-  (com <em>Ver Estoque</em>). Quais itens, a cor e por quanto tempo o sinal fica vêm da configuração
-  de avisos em Itens &amp; Estoque.
+  <strong>Portal, conta e aviso de estoque:</strong> o botão de quadradinhos à <strong>esquerda do logo
+  Consat</strong> volta ao <em>Portal de aplicações</em> (no celular, o Portal fica no menu ☰). A bolinha
+  com as suas iniciais, no canto direito, mostra seu nome e tem <em>Portal de aplicações</em> e
+  <em>Sair</em>. Quando há item com estoque baixo, o aviso ocupa o espaço entre o último grupo do menu
+  (Sistema) e a lupa, na cor do aviso: com espaço, mostra <em>Estoque baixo</em> e os primeiros itens;
+  com pouco espaço, só o sinal e a quantidade. Clicar abre a lista (com <em>Ver Estoque</em>). Quais
+  itens, a cor e por quanto tempo o aviso fica vêm da configuração de avisos em Itens &amp; Estoque.
 </p>
 <ul>
   <li><strong>Bipagem</strong>, <strong>Fila de impressão</strong>, <strong>Acompanhamento</strong>
@@ -880,17 +882,29 @@
   </ul>
   <h3>Criar um kit novo</h3>
   <p>
-    Na aba <strong>Kit</strong>, o card <strong>Novo Kit</strong> fica no topo e vai aparecendo
-    conforme você preenche: o <strong>nome</strong>; com o nome, os <strong>cliente(s)</strong>; com um
-    cliente marcado, a escolha entre <em>Montar manualmente</em> (escolhe no catálogo, com quantidade e
-    conjunto) ou <em>Importar planilha (BOM)</em> (.xlsx com Description e Quantity). Aparece só o que
-    vale para a escolha — o catálogo ou o envio do arquivo. A lista de kits cadastrados vem logo abaixo.
+    Na aba <strong>Kit</strong>, o botão <strong>+ Novo Kit</strong> (no topo da lista de kits) abre uma
+    <strong>janela</strong> com tudo numa tela só: em cima o <strong>nome</strong>, o jeito de montar
+    (<em>Escolher os itens</em> ou <em>Importar planilha (BOM)</em> — .xlsx com Description e Quantity) e os
+    <strong>cliente(s)</strong> — um kit por cliente marcado. Embaixo, o <strong>catálogo à esquerda</strong>
+    e os <strong>itens do kit à direita</strong>, cada lado com a sua rolagem:
   </p>
+  <ul>
+    <li>Clicar num item do catálogo põe no kit; <strong>clicar de novo soma 1</strong> na quantidade (não
+      repete a linha). O item que já está no kit mostra a quantidade (× 2) no catálogo.</li>
+    <li>A <strong>busca</strong> do catálogo ignora acento; <strong>Enter</strong> põe o primeiro item
+      encontrado e limpa a busca — dá pra montar o kit só no teclado. Esc limpa a busca.</li>
+    <li>Em cada item do kit: quantidade, código do conjunto e obrigatório, como antes.</li>
+    <li>O botão do rodapé diz quantos itens vão (<em>Criar Kit (5 itens)</em>) e fica desligado até ter
+      nome, cliente e itens — ao lado aparece o que ainda falta.</li>
+    <li>Fechar a janela (X, Esc, Cancelar ou clique fora) não apaga o que foi preenchido: reabrir volta
+      com tudo.</li>
+  </ul>
   <p>
-    Na aba <strong>Pedido</strong>, o card <strong>Novo Pedido</strong> segue o mesmo jeito:
-    <strong>cliente(s)</strong>; com um cliente marcado, <em>Montar manualmente</em> (nome do pedido e
-    itens do catálogo) ou <em>Importar planilha do pedido</em> (ICCID, Número de Telefone, CDT e ID
-    Hardware; número do pedido opcional). A importação vai para <strong>um cliente só</strong>.
+    Na aba <strong>Pedido</strong>, <strong>+ Novo Pedido</strong> abre a mesma janela: <em>Escolher os
+    itens</em> (nome do pedido e itens do catálogo) ou <em>Importar planilha do pedido</em> (ICCID, Número
+    de Telefone, CDT e ID Hardware; número do pedido opcional). A importação vai para <strong>um cliente
+    só</strong>. Os atalhos do menu <em>Importações → Criar kit pela BOM</em> e <em>Importar pedido</em>
+    abrem a janela já no caminho da planilha.
   </p>
   <h3>Tela de edição do kit</h3>
   <ul>

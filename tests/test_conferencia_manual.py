@@ -287,6 +287,12 @@ def test_tela_inicial_da_bipagem_mostra_painel_com_progresso(kit):
             assert '<header class="ds-topbar" id="ds-topo">' in h
             h2 = c.get("/reports/pre-check").text
             assert '<p class="ds-trilha"><span>Relatórios</span>' in h2
+            assert 'class="ds-topo-btn ds-topo-portal"' in h      # Portal à esquerda do logo
+            # Criar kit/pedido: janela (pop-up) com o mesmo formulário de sempre.
+            h3 = c.get("/admin/templates?tab=kit").text
+            assert 'id="popup-novo-kit" class="config-popup ck-pop"' in h3
+            assert 'id="form-template-kit"' in h3 and 'id="itens-container-kit"' in h3
+            assert "onclick=\"abrirCriacao(event, 'kit')\"" in h3
     finally:
         with db() as conn:
             conn.execute("DELETE FROM users WHERE username = ?", (nome,))
