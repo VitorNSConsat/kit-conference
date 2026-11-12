@@ -471,12 +471,26 @@ button.ds-hamburguer {
     .ds-tn-sep { margin: 20px 2px; }
     .ds-topo-dir { padding-left: 8px; gap: 4px; }
 }
+@media (max-width: 1400px) {
+    .ds-topo-in { gap: 8px; padding: 0 10px; }
+    .ds-topo-marca { padding-right: 10px; }
+    .ds-topo-marca .ds-brand-logo { width: 100px; }
+    .ds-tn { padding: 0 2px; }
+    .ds-tn-ic { width: 28px; }
+}
+/* Sem espaço pro menu: só o ☰ (gaveta). Vale pela largura e também quando o
+   script da barra mede que os grupos deste usuário não cabem (.ds-topo-compacto)
+   — a quantidade de grupos muda com as permissões, e o zoom muda a largura. */
 @media (max-width: 1220px) {
     .ds-topo-nav { display: none; }
     button.ds-hamburguer { display: grid; }
     .ds-topo-marca { border-right: 0; padding-right: 0; }
     .ds-topo-dir { margin-left: auto; border-left: 0; padding-left: 0; }
 }
+.ds-topo-compacto .ds-topo-nav { display: none; }
+.ds-topo-compacto button.ds-hamburguer { display: grid; }
+.ds-topo-compacto .ds-topo-marca { border-right: 0; padding-right: 0; }
+.ds-topo-compacto .ds-topo-dir { margin-left: auto; border-left: 0; padding-left: 0; }
 @media (max-width: 640px) {
     :root { --topbar-altura: 60px; }
     .ds-topo-in { padding: 0 12px; }

@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=86">
+    <link rel="stylesheet" href="/static/style.css?v=88">
 </head>
 <body>
 {% import "_icones.html" as ic %}
@@ -486,6 +486,36 @@ window.addEventListener('resize', function () {
     const g = document.querySelector('.ds-tn-grupo.aberto');
     if (g) _posicionarMega(g);
 });
+
+// Os grupos cabem na barra? Mede com o menu à mostra: se não couber (zoom,
+// tela estreita, usuário com mais grupos), a barra vira só o ☰ — em vez de os
+// ícones passarem por cima do logo ou do aviso de estoque.
+function _ajustarBarraTopo() {
+    const topo = document.getElementById('ds-topo');
+    const nav = topo && topo.querySelector('.ds-topo-nav');
+    if (!nav) return;
+    topo.classList.remove('ds-topo-compacto');
+    if (getComputedStyle(nav).display === 'none') return;      // a largura já decidiu
+    const itens = nav.querySelectorAll(':scope > .ds-tn, :scope > .ds-tn-grupo, :scope > .ds-tn-sep');
+    let largura = 0;
+    itens.forEach(function (i) {
+        const e = getComputedStyle(i);
+        largura += i.getBoundingClientRect().width + parseFloat(e.marginLeft) + parseFloat(e.marginRight);
+    });
+    largura += Math.max(0, itens.length - 1) * (parseFloat(getComputedStyle(nav).columnGap) || 0);
+    if (largura > nav.getBoundingClientRect().width + 1) {
+        _fecharPaineisTopo(null);
+        topo.classList.add('ds-topo-compacto');
+    }
+}
+let _quadroBarra = 0;
+window.addEventListener('resize', function () {
+    cancelAnimationFrame(_quadroBarra);
+    _quadroBarra = requestAnimationFrame(_ajustarBarraTopo);
+});
+_ajustarBarraTopo();
+document.addEventListener('DOMContentLoaded', _ajustarBarraTopo);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(_ajustarBarraTopo);
 
 // ── Ir para… (Ctrl K) ─────────────────────────────────────────────────────
 // Busca sem acento e sem maiúscula, pelo nome da tela e pelo lugar no menu.
