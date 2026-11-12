@@ -421,14 +421,51 @@ function _posicionarMega(grupo) {
     painel.style.left = esquerda + 'px';
     painel.style.top = (topo.bottom - 4) + 'px';
 }
+// Mouse (computador): o painel abre só de passar o mouse no grupo e fecha ao
+// sair dele. Os atrasos curtos evitam abrir quando o mouse só cruza a barra e
+// fechar enquanto se desce na diagonal até o painel. Toque e teclado seguem
+// pelo clique (abre/fecha).
+const _comMouse = window.matchMedia('(hover: hover) and (pointer: fine)');
+let _timerAbrirMega = null, _timerFecharMega = null;
+function _abrirMega(grupo) {
+    _fecharPaineisTopo(grupo);
+    grupo.classList.add('aberto');
+    grupo.querySelector('.ds-tn').setAttribute('aria-expanded', 'true');
+    _posicionarMega(grupo);
+}
+function _fecharMega(grupo) {
+    grupo.classList.remove('aberto');
+    grupo.querySelector('.ds-tn').setAttribute('aria-expanded', 'false');
+}
 function alternarMega(botao) {
     const grupo = botao.closest('.ds-tn-grupo');
-    const abrir = !grupo.classList.contains('aberto');
-    _fecharPaineisTopo(grupo);
-    grupo.classList.toggle('aberto', abrir);
-    botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
-    if (abrir) _posicionarMega(grupo);
+    clearTimeout(_timerAbrirMega);
+    // Com mouse o painel já abriu ao passar por cima: o clique só garante que
+    // fique aberto (antes, clicar num painel aberto o fechava de volta).
+    if (_comMouse.matches && grupo.classList.contains('aberto')) return;
+    if (grupo.classList.contains('aberto')) _fecharMega(grupo);
+    else _abrirMega(grupo);
 }
+document.querySelectorAll('.ds-tn-grupo').forEach(function (grupo) {
+    grupo.addEventListener('pointerenter', function (e) {
+        if (e.pointerType !== 'mouse' || !_comMouse.matches) return;
+        clearTimeout(_timerFecharMega);
+        clearTimeout(_timerAbrirMega);
+        if (grupo.classList.contains('aberto')) return;
+        // Já tem um painel aberto: troca rápido, mas não na hora — descendo na
+        // diagonal até o painel aberto o mouse cruza os grupos vizinhos, e
+        // entrar no painel cancela a troca.
+        const outroAberto = !!document.querySelector('.ds-tn-grupo.aberto');
+        _timerAbrirMega = setTimeout(function () { _abrirMega(grupo); }, outroAberto ? 140 : 110);
+    });
+    grupo.addEventListener('pointerleave', function (e) {
+        if (e.pointerType !== 'mouse' || !_comMouse.matches) return;
+        clearTimeout(_timerAbrirMega);
+        _timerFecharMega = setTimeout(function () {
+            if (!grupo.matches(':hover')) _fecharMega(grupo);
+        }, 220);
+    });
+});
 function alternarConta(botao) {
     const conta = botao.closest('.ds-conta');
     const abrir = !conta.classList.contains('aberto');
@@ -436,11 +473,6 @@ function alternarConta(botao) {
     conta.classList.toggle('aberto', abrir);
     botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
 }
-document.addEventListener('mouseover', function (e) {
-    const botao = e.target.closest && e.target.closest('.ds-tn-grupo > .ds-tn');
-    if (!botao || !document.querySelector('.ds-tn-grupo.aberto')) return;
-    if (!botao.closest('.ds-tn-grupo').classList.contains('aberto')) alternarMega(botao);
-});
 document.addEventListener('click', function (e) {
     if (!e.target.closest('.ds-tn-grupo, .ds-conta')) _fecharPaineisTopo(null);
 });
