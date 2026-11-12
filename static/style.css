@@ -112,7 +112,7 @@ body {
 .ds-topo-marca:hover { color: var(--text); text-decoration: none; }
 /* O PNG do logo tem muita margem branca: recorta no meio pra letra ficar legível. */
 .ds-topo-marca .ds-brand-logo { width: 112px; height: 18px; max-width: none; object-fit: cover; object-position: center; }
-.ds-topo-marca-sub { font-size: 10.5px; line-height: 1.15; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.ds-topo-marca-sub { font-size: 10.5px; line-height: 1.3; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 
 /* Margens automáticas centralizam o menu; com o aviso de estoque ao lado, ele
    ocupa o espaço que sobra até a lupa e o menu encosta na marca. */
