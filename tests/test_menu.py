@@ -97,3 +97,29 @@ def test_submenus_agrupam_por_assunto_e_somem_com_um_item_so():
     # só com "ver_rede", sobra um: vira atalho solto.
     so_rede = {x["nome"]: x for x in menu.montar("/", "", {"admin": False}, lambda k: k == "ver_rede")}
     assert [(i["rotulo"], bool(i.get("sub"))) for i in so_rede["Sistema"]["itens"]] == [("Rede e acesso", False)]
+
+
+def test_barra_do_topo_colunas_caminho_e_ir_para():
+    g = {x["nome"]: x for x in menu.montar("/reports/pre-check", "", {"admin": True}, lambda k: True)}
+    # Nome curto só onde 13 entradas dividem a barra; o nome inteiro segue no grupo.
+    assert g["Fila de impressão"]["curto"] == "Impressão" and g["Veículos e clientes"]["curto"] == "Veículos"
+    assert g["Relatórios"]["curto"] == "Relatórios"
+    # Submenu vira coluna com título; atalhos soltos ao lado ganham o nome do grupo.
+    cols = g["Relatórios"]["colunas"]
+    assert [c["titulo"] for c in cols] == ["Kits e produção", "Patrimônio", "Relatórios"]
+    assert [i["rotulo"] for i in cols[2]["itens"]] == ["Sobressalentes enviados", "Auditoria"]
+    # Grupo sem submenu: uma coluna sem título. Entrada direta: nenhuma.
+    assert [c["titulo"] for c in g["Kits e pedidos"]["colunas"]] == [""]
+    assert g["Bipagem"]["colunas"] == []
+    # Caminho acima do título: grupo › submenu da tela aberta; entrada direta não tem.
+    assert menu.trilha(list(g.values())) == ["Relatórios", "Kits e produção"]
+    assert menu.trilha(menu.montar("/", "", {"admin": True}, lambda k: True)) == []
+    assert menu.trilha(menu.montar("/admin/hardware", "", {"admin": True}, lambda k: True)) == ["RMA"]
+    # Ir para: todas as telas que o usuário pode abrir, com o lugar no menu.
+    todos = menu.ir_para(list(g.values()))
+    por_nome = {i["rotulo"]: i for i in todos}
+    assert por_nome["Pré-check de kits"]["onde"] == "Relatórios › Kits e produção"
+    assert por_nome["Bipagem"]["onde"] == "" and por_nome["Estoque completo"]["tipo"] == "download"
+    assert len(todos) == sum(1 for x in g.values() for _ in menu.atalhos(x))
+    so_bip = menu.ir_para(menu.montar("/", "", {"admin": False}, lambda k: k == "ver_bipagem"))
+    assert [i["rotulo"] for i in so_bip] == ["Bipagem", "Certificado do celular"]

@@ -9,41 +9,41 @@ a[href^="tel:"], a[href^="sms:"] {
 }
 
 :root {
-    /* Paleta do Design System — os valores exatos vêm do protótipo de
-       referência (kit-conference-cn.vercel.app), pra ficar o mais idêntico
-       possível. Os NOMES das variáveis foram mantidos iguais aos de antes
-       de propósito: todo componente que já usava var(--brand), var(--border)
-       etc. herda a paleta nova sozinho, sem precisar trocar classe por classe. */
-    --bg:          #f6f8f9;
+    /* Paleta do sistema. Os NOMES das variáveis são os de sempre de
+       propósito: todo componente que já usava var(--brand), var(--border)
+       etc. herda a paleta nova sozinho, sem trocar classe por classe.
+       Azul Consat sobre fundo cinza-azulado claro, cartões brancos. */
+    --bg:          #f2f5fa;
+    --bg-brilho:   #dfe8fb;
     --surface:     #ffffff;
-    --surface-alt: #fafbfc;
-    --surface-hover: #f2f5f6;
-    --text:        #16191d;
-    --text-muted:  #6b7480;
-    --text-muted-2:#99a1ab;
-    --border:      #e3e7ea;
-    --border-strong: #cdd4d9;
-    --border-subtle: #eef1f3;
+    --surface-alt: #f7f9fc;
+    --surface-hover: #f1f5fb;
+    --text:        #0f1b2d;
+    --text-muted:  #5f6d82;
+    --text-muted-2:#68758a;
+    --border:      #e3e8f0;
+    --border-strong: #cfd7e3;
+    --border-subtle: #edf1f6;
 
-    --brand:       #246b84;
-    --brand-dark:  #1c5568;
-    --brand-soft:  #e8f1f4;
-    --brand-border: #bcd5dd;
-    --brand-ink:   #12333e;
+    --brand:       #2a5fd8;
+    --brand-dark:  #1f4bb3;
+    --brand-soft:  #eaf0fe;
+    --brand-border: #c3d3f7;
+    --brand-ink:   #173a8a;
 
-    --ok-bg:      #e9f7ef; --ok-text:      #15803d; --ok-border: #bfe3cd;
-    --warn-bg:    #fef6e7; --warn-text:    #b45309; --warn-border: #f2ddb4;
-    --danger-bg:  #fdecea; --danger-text:  #b42318; --danger-border: #f4c9c4;
+    --ok-bg:      #e6f6ec; --ok-text:      #15803d; --ok-border: #bfe3cd;
+    --warn-bg:    #fdf2e2; --warn-text:    #9c5106; --warn-border: #f2d9b0;
+    --danger-bg:  #fdecea; --danger-text:  #c0352b; --danger-border: #f4c9c4;
 
-    --radius-card:  12px;
-    --radius-btn:   8px;
-    --radius-input: 8px;
-    --radius-badge: 999px;
+    --radius-card:  14px;
+    --radius-btn:   10px;
+    --radius-input: 10px;
+    --radius-badge: 7px;
 
-    --sidebar-largura: 224px;
-    --topbar-altura: 56px;
+    --topbar-altura: 72px;
 
-    --shadow-card: 0 1px 2px rgba(16,24,40,.04);
+    --shadow-card: 0 1px 2px rgba(15,27,45,.04), 0 6px 18px -10px rgba(15,27,45,.14);
+    --shadow-pop:  0 14px 36px -10px rgba(15,27,45,.28), 0 2px 6px rgba(15,27,45,.06);
 }
 
 /* Modo escuro — mesmos nomes de variável, valores trocados. Todo componente
@@ -51,65 +51,261 @@ a[href^="tel:"], a[href^="sms:"] {
    precisar de uma regra por componente. */
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg:            #15181b;
-    --surface:       #1d2126;
-    --surface-alt:   #22262c;
-    --surface-hover: #282d33;
-    --text:          #edf0f2;
-    --text-muted:    #a7afb9;
-    --text-muted-2:  #767e88;
-    --border:        #2d3238;
-    --border-strong: #3b4148;
-    --border-subtle: #24282e;
+    --bg:            #0f141b;
+    --bg-brilho:     #172238;
+    --surface:       #161c25;
+    --surface-alt:   #1b222d;
+    --surface-hover: #212a37;
+    --text:          #e8edf4;
+    --text-muted:    #a3aebd;
+    --text-muted-2:  #737f90;
+    --border:        #263041;
+    --border-strong: #354155;
+    --border-subtle: #1e2632;
 
-    --brand-soft:   #1b333d;
-    --brand-border: #2f5867;
-    --brand-ink:    #cdeaf3;
+    --brand:        #5584ef;
+    --brand-dark:   #4471dc;
+    --brand-soft:   #1a2746;
+    --brand-border: #2c4170;
+    --brand-ink:    #c8d7ff;
 
     --ok-bg:      #12301d; --ok-text:      #3ecf5e; --ok-border: #1e5631;
     --warn-bg:    #3a2a0c; --warn-text:    #fab219; --warn-border: #5a3f10;
     --danger-bg:  #3a1613; --danger-text:  #f2867a; --danger-border: #5c231d;
 
-    --shadow-card: 0 1px 3px rgba(0,0,0,.5);
+    --shadow-card: 0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.6);
+    --shadow-pop:  0 18px 40px -10px rgba(0,0,0,.7), 0 2px 6px rgba(0,0,0,.4);
 }
 
+::selection { background: color-mix(in srgb, var(--brand) 24%, transparent); }
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    background: var(--bg);
+    font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    background: radial-gradient(1200px 480px at 85% -8%, var(--bg-brilho) 0%, transparent 60%) no-repeat, var(--bg);
     color: var(--text);
     font-size: 14px;
 }
 
-/* ── Sidebar + topbar ──────────────────────────────────────────────────────
-   Casca global do sistema logado: uma coluna fixa à esquerda com a navegação
-   agrupada, e o conteúdo de cada tela correndo ao lado. Substitui a barra
-   colorida de cima — mesma navegação, mesmas permissões, aparência de SaaS. */
+/* ── Casca: barra do topo + gaveta ─────────────────────────────────────────
+   No computador o menu mora numa barra no topo: as entradas diretas (as
+   telas do dia a dia) abrem num clique; cada grupo abre um painel com os
+   atalhos em colunas. Em tela estreita a barra mostra só o ☰ e o menu volta
+   a ser a gaveta lateral de sempre (mesma lista, mesma sanfona). */
+.ds-topbar {
+    position: sticky; top: 0;
+    /* 260: acima do .container (201, ver comentário lá embaixo), senão o
+       conteúdo rolando passa POR CIMA da barra. */
+    z-index: 260;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--border);
+}
+.ds-topo-in {
+    max-width: 1600px; margin: 0 auto; height: var(--topbar-altura);
+    padding: 0 20px; display: flex; align-items: center; gap: 14px;
+}
+.ds-topo-marca {
+    display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
+    padding-right: 14px; border-right: 1px solid var(--border); height: 36px;
+    color: var(--text); text-decoration: none;
+}
+.ds-topo-marca:hover { color: var(--text); text-decoration: none; }
+/* O PNG do logo tem muita margem branca: recorta no meio pra letra ficar legível. */
+.ds-topo-marca .ds-brand-logo { width: 112px; height: 18px; max-width: none; object-fit: cover; object-position: center; }
+.ds-topo-marca-sub { font-size: 10.5px; line-height: 1.15; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+
+.ds-topo-nav { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: stretch; justify-content: center; gap: 2px; }
+.ds-tn-sep { width: 1px; background: var(--border); margin: 20px 4px; flex: 0 0 auto; }
+.ds-tn-grupo { position: static; display: flex; }
+.ds-tn {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    padding: 0 6px; height: 100%; border: 0; background: none; cursor: pointer;
+    color: var(--text-muted); font-family: inherit; font-size: 11.5px; font-weight: 600; line-height: 1;
+    text-decoration: none; white-space: nowrap;
+}
+.ds-tn:hover { color: var(--text); text-decoration: none; }
+.ds-tn-ic {
+    width: 34px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+    transition: background .15s, color .15s;
+}
+.ds-tn-ic .ic { width: 19px; height: 19px; }
+.ds-tn:hover .ds-tn-ic, .ds-tn-grupo.aberto > .ds-tn .ds-tn-ic { background: var(--surface-hover); color: var(--text); }
+.ds-tn-grupo.aberto > .ds-tn { color: var(--text); }
+.ds-tn-rot { display: flex; align-items: center; gap: 2px; }
+.ds-tn-rot .ic { width: 11px; height: 11px; opacity: .65; transition: transform .15s; }
+.ds-tn-grupo.aberto > .ds-tn .ds-tn-rot .ic { transform: rotate(180deg); }
+.ds-tn.ativo, .ds-tn.ativo:hover { color: var(--brand); }
+.ds-tn.ativo .ds-tn-ic { background: var(--brand-soft); color: var(--brand); }
+.ds-tn.ativo::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+    border-radius: 2px; background: var(--brand);
+}
+.ds-tn:focus-visible { outline: none; }
+.ds-tn:focus-visible .ds-tn-ic { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+/* Painel do grupo: colunas = submenus (com título) e atalhos soltos. */
+.ds-mega {
+    display: none; position: fixed; z-index: 270;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow-pop); padding: 14px;
+    grid-auto-flow: column; grid-auto-columns: minmax(200px, auto); gap: 4px 18px;
+    max-width: calc(100vw - 24px); max-height: calc(100vh - var(--topbar-altura) - 24px); overflow: auto;
+}
+.ds-tn-grupo.aberto > .ds-mega { display: grid; animation: megaIn .14s ease-out; }
+@keyframes megaIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.ds-mega-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ds-mega-titulo {
+    display: flex; align-items: center; gap: 6px; margin: 2px 10px 6px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--text-muted-2);
+}
+.ds-mega-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px;
+    color: var(--text); text-decoration: none; font-size: 13.5px; font-weight: 500; white-space: nowrap;
+}
+.ds-mega-item .ic { color: var(--text-muted); flex: 0 0 auto; }
+.ds-mega-item small { margin-left: auto; padding-left: 12px; font-size: 11px; color: var(--text-muted-2); font-weight: 600; }
+.ds-mega-item:hover, .ds-mega-item:focus-visible { background: var(--surface-hover); color: var(--text); text-decoration: none; outline: none; }
+.ds-mega-item.ativo { background: var(--brand-soft); color: var(--brand-ink); font-weight: 600; }
+.ds-mega-item.ativo .ic { color: var(--brand); }
+
+.ds-topo-dir {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 6px;
+    padding-left: 12px; border-left: 1px solid var(--border); height: 36px;
+}
+.ds-topo-btn {
+    width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+    border: 1px solid transparent; background: none; color: var(--text-muted); cursor: pointer;
+}
+.ds-topo-busca { border-color: var(--border); background: var(--surface-alt); }
+.ds-topo-btn:hover { background: var(--surface-hover); color: var(--text); }
+.ds-topo-btn .ic, .ds-topo-btn svg { width: 18px; height: 18px; }
+.ds-topo-btn .ds-theme-icon { display: grid; place-items: center; }
+.ds-conta { position: relative; }
+.ds-conta-btn { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 50%; display: block; }
+.ds-conta-btn .ds-avatar { width: 36px; height: 36px; background: #1d3f8f; color: #fff; font-size: 12.5px; letter-spacing: .02em; }
+.ds-conta-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ds-conta-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 12px); min-width: 240px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow-pop); padding: 6px; z-index: 270;
+}
+.ds-conta.aberto .ds-conta-menu { display: block; animation: megaIn .14s ease-out; }
+.ds-conta-cab { display: flex; align-items: center; gap: 10px; padding: 8px 8px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--border-subtle); }
+.ds-conta-cab strong { display: block; font-size: 13.5px; color: var(--text); }
+.ds-conta-cab small { display: block; font-size: 12px; color: var(--text-muted); }
+.ds-conta-menu a {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px;
+    color: var(--text); text-decoration: none; font-size: 13.5px; font-weight: 500;
+}
+.ds-conta-menu a .ic { color: var(--text-muted); }
+.ds-conta-menu a:hover { background: var(--surface-hover); text-decoration: none; }
+.ds-conta-menu a.ds-conta-sair:hover, .ds-conta-menu a.ds-conta-sair:hover .ic { color: var(--danger-text); }
+
+button.ds-hamburguer {
+    display: none; width: 38px; height: 38px; border-radius: 10px; place-items: center;
+    background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer; flex: 0 0 auto;
+}
+
+/* Ir para… (Ctrl K) */
+.ds-irpara-fundo { display: none; position: fixed; inset: 0; z-index: 1100; background: rgba(15, 27, 45, .32); }
+.ds-irpara-fundo.aberto { display: block; }
+.ds-irpara {
+    display: none; position: fixed; z-index: 1101; top: 12vh; left: 50%; transform: translateX(-50%);
+    width: min(580px, calc(100vw - 24px)); max-height: 70vh; flex-direction: column; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-pop);
+}
+.ds-irpara.aberto { display: flex; animation: megaIn .14s ease-out; }
+.ds-irpara-busca { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+.ds-irpara-busca input[type=text] { border: 0; margin: 0; height: 32px; padding: 0; font-size: 15px; background: none; box-shadow: none; }
+.ds-irpara-busca input[type=text]:focus { box-shadow: none; }
+.ds-irpara kbd {
+    font: 600 10.5px/1 inherit; font-family: inherit; color: var(--text-muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 5px; padding: 3px 5px; margin-right: 3px;
+}
+.ds-irpara-lista { overflow-y: auto; padding: 6px; }
+.ds-irpara-item {
+    display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px;
+    color: var(--text); text-decoration: none; font-size: 13.5px;
+}
+.ds-irpara-item small { margin-left: auto; color: var(--text-muted-2); font-size: 12px; text-align: right; }
+.ds-irpara-item.sel { background: var(--brand-soft); color: var(--brand-ink); text-decoration: none; }
+.ds-irpara-vazio { padding: 18px 12px; color: var(--text-muted); font-size: 13px; text-align: center; margin: 0; }
+.ds-irpara-pe {
+    display: flex; gap: 16px; flex-wrap: wrap; padding: 9px 16px; border-top: 1px solid var(--border);
+    background: var(--surface-alt); font-size: 11.5px; color: var(--text-muted);
+}
+
+/* Aviso de estoque baixo — cartão no canto da tela. --alerta-cor vem inline
+   (cor configurada em Itens & Estoque), e color-mix() deriva o fundo e a
+   borda dela: o cartão inteiro muda de cor, não só um traço. */
+.ds-sidebar-alerta {
+    --alerta-cor: var(--warn-text);
+    padding: 11px 12px 10px;
+    background: color-mix(in srgb, var(--alerta-cor) 9%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--alerta-cor) 35%, var(--surface));
+    border-radius: 12px; font-size: 12px; color: var(--alerta-cor);
+    box-sizing: border-box; overflow-wrap: anywhere;
+}
+.ds-alerta { --alerta-cor: var(--warn-text); }
+.ds-alerta-btn {
+    height: 36px; padding: 0 10px 0 9px; border-radius: 10px; display: flex; align-items: center; gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--alerta-cor) 35%, var(--surface));
+    background: color-mix(in srgb, var(--alerta-cor) 9%, var(--surface));
+    color: var(--alerta-cor); font: 700 12.5px/1 inherit; font-family: inherit; cursor: pointer;
+}
+.ds-alerta-btn:hover { background: color-mix(in srgb, var(--alerta-cor) 15%, var(--surface)); }
+.ds-alerta-num { font-variant-numeric: tabular-nums; }
+.ds-alerta-menu { width: 290px; padding: 0; border: 0; background: none; }
+.ds-conta-menu.ds-alerta-menu a.ds-sidebar-alerta-link {
+    display: inline-block; padding: 0; color: var(--alerta-cor); font-size: 12px; font-weight: 700;
+    text-decoration: underline; text-underline-offset: 2px;
+}
+.ds-conta-menu.ds-alerta-menu a.ds-sidebar-alerta-link:hover { background: none; }
+.ds-alerta-menu .ds-sidebar-alerta { box-shadow: var(--shadow-pop); background: color-mix(in srgb, var(--alerta-cor) 6%, var(--surface)); }
+.ds-sidebar-alerta-cab { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
+.ds-sidebar-alerta-cab strong { flex: 1; font-weight: 700; min-width: 0; }
+.ds-sidebar-alerta-fechar {
+    background: none; border: none; cursor: pointer; color: var(--alerta-cor);
+    padding: 2px; line-height: 0; opacity: .7; flex: 0 0 auto;
+}
+.ds-sidebar-alerta-fechar:hover { opacity: 1; }
+.ds-sidebar-alerta-lista {
+    display: flex; flex-direction: column; gap: 3px; margin: 7px 0;
+    max-height: 160px; overflow-y: auto;
+}
+.ds-sidebar-alerta-chip {
+    display: block; font-size: 11.5px; line-height: 1.3;
+    padding-left: 7px; border-left: 2px solid var(--alerta-cor);
+    overflow-wrap: anywhere;
+}
+.ds-sidebar-alerta-link {
+    display: block; font-size: 12px; font-weight: 600; color: var(--alerta-cor);
+    text-decoration: underline; text-underline-offset: 2px;
+}
+
+/* Gaveta (tela estreita): a mesma navegação em sanfona de antes. */
 .ds-sidebar {
-    width: var(--sidebar-largura);
+    width: 272px; max-width: 86vw;
     background: var(--surface);
     border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 200;
+    display: flex; flex-direction: column;
+    position: fixed; inset: 0 auto 0 0;
+    /* Por cima de tudo da página (o .container é 201 e a barra do topo 260). */
+    z-index: 300;
+    transform: translateX(-105%); visibility: hidden;
+    transition: transform .18s ease, visibility 0s linear .18s;
 }
+.ds-sidebar.aberta { transform: translateX(0); visibility: visible; transition: transform .18s ease; box-shadow: 8px 0 24px rgba(0,0,0,.15); }
+.ds-sidebar-fundo { display: none; position: fixed; inset: 0; background: rgba(16,28,42,.35); z-index: 299; }
+.ds-sidebar-fundo.aberta { display: block; }
 .ds-brand {
-    height: var(--topbar-altura);
-    padding: 0 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 3px;
-    border-bottom: 1px solid var(--border-subtle);
-    color: var(--text);
-    text-decoration: none;
-    flex: 0 0 auto;
+    height: 64px; padding: 0 20px;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px;
+    border-bottom: 1px solid var(--border-subtle); color: var(--text); text-decoration: none; flex: 0 0 auto;
 }
 .ds-brand:hover { color: var(--text); }
 .ds-brand-logo {
-    height: 20px; width: auto; max-width: 160px; object-fit: contain; display: block;
+    width: 124px; height: 20px; max-width: none; object-fit: cover; object-position: center; display: block;
 }
 :root[data-theme="dark"] .ds-brand-logo { filter: invert(1); }
 .ds-brand-sub { font-size: 11px; font-weight: 600; color: var(--text-muted); line-height: 1; }
@@ -210,79 +406,45 @@ body {
 }
 .ds-theme-toggle:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 
-.ds-main { margin-left: var(--sidebar-largura); min-width: 0; flex: 1; }
-.ds-topbar {
-    min-height: var(--topbar-altura); background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; padding: 10px 26px; gap: 14px;
-    flex-wrap: wrap;
-    /* 250, não 150: .ds-topbar e .container são irmãos dentro de .ds-main
-       (que não cria contexto de empilhamento própria), então concorrem no
-       MESMO nível que .container (201, ver comentário lá embaixo) -- sem
-       isso, rolar a página fazia o conteúdo do card passar POR CIMA do
-       título fixo no topo, já que 201 > 150. */
-    position: sticky; top: 0; z-index: 250;
+.ds-main { min-width: 0; }
+
+/* Título da tela (com o caminho no menu em cima) e as ações dela. */
+.ds-pagina-cab {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 16px;
+    flex-wrap: wrap; margin: 0 0 20px;
 }
-.ds-topbar h1 { font-size: 19px; margin: 0; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+.ds-pagina-tit { min-width: 0; }
+.ds-trilha {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin: 0 0 4px; font-size: 12px; color: var(--text-muted-2);
+}
+.ds-trilha-sep { color: var(--border-strong); }
+.ds-pagina-cab h1 { font-size: 24px; line-height: 1.2; margin: 0; font-weight: 700; letter-spacing: -.015em; }
 .ds-topbar-acoes { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .ds-topbar-acoes:empty { display: none; }
-button.ds-hamburguer {
-    display: none; background: transparent; border: 1px solid var(--border);
-    color: var(--text); padding: 6px; border-radius: 8px; cursor: pointer;
-    line-height: 0;
-}
 
-/* Menu vira gaveta no celular — mesma navegação, escondida até tocar no ☰. */
-@media (max-width: 900px) {
-    /* No celular o menu é gaveta POR CIMA da tela: precisa passar do
-       .container (201) e da barra do topo (250) — com o 200 do desktop,
-       os cartões da página apareciam por cima do menu aberto. */
-    .ds-sidebar {
-        z-index: 300;
-        transform: translateX(-100%);
-        transition: transform .18s ease;
-        box-shadow: 0 0 0 transparent;
-    }
-    .ds-sidebar.aberta { transform: translateX(0); box-shadow: 8px 0 24px rgba(0,0,0,.15); }
-    .ds-main { margin-left: 0; }
-    button.ds-hamburguer { display: inline-flex; align-items: center; }
-    .ds-sidebar-fundo {
-        display: none; position: fixed; inset: 0; background: rgba(16,28,42,.35); z-index: 299;
-    }
-    .ds-sidebar-fundo.aberta { display: block; }
+/* Larguras: a barra encolhe em degraus e, quando os 13 grupos não cabem
+   mais, vira só o ☰ (gaveta). */
+@media (max-width: 1480px) {
+    .ds-topo-marca-sub { display: none; }
+    .ds-topo-in { gap: 10px; padding: 0 14px; }
 }
-
-/* Aviso de estoque baixo — quadro discreto no rodapé do menu, não mais uma
-   faixa no topo de toda tela. --alerta-cor vem inline (cor configurada em
-   Itens & Estoque pra "no mínimo"/"perto"), e color-mix() deriva um fundo e
-   uma borda suaves dela — o cartão inteiro muda de cor, não só um traço. */
-.ds-sidebar-alerta {
-    --alerta-cor: var(--warn-text);
-    margin: 6px 10px 4px; padding: 10px 10px 9px;
-    background: color-mix(in srgb, var(--alerta-cor) 10%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--alerta-cor) 35%, var(--surface));
-    border-radius: 10px; font-size: 12px; color: var(--alerta-cor);
-    max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere;
+@media (max-width: 1340px) {
+    .ds-tn { padding: 0 3px; font-size: 11px; }
+    .ds-tn-ic { width: 30px; }
+    .ds-tn-sep { margin: 20px 2px; }
+    .ds-topo-dir { padding-left: 8px; gap: 4px; }
 }
-.ds-sidebar-alerta-cab { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
-.ds-sidebar-alerta-cab strong { flex: 1; font-weight: 600; min-width: 0; }
-.ds-sidebar-alerta-fechar {
-    background: none; border: none; cursor: pointer; color: var(--alerta-cor);
-    padding: 2px; line-height: 0; opacity: .7; flex: 0 0 auto;
+@media (max-width: 1220px) {
+    .ds-topo-nav { display: none; }
+    button.ds-hamburguer { display: grid; }
+    .ds-topo-marca { border-right: 0; padding-right: 0; }
+    .ds-topo-dir { margin-left: auto; border-left: 0; padding-left: 0; }
 }
-.ds-sidebar-alerta-fechar:hover { opacity: 1; }
-.ds-sidebar-alerta-lista {
-    display: flex; flex-direction: column; gap: 3px; margin: 7px 0;
-    max-height: 160px; overflow-y: auto;
-}
-.ds-sidebar-alerta-chip {
-    display: block; font-size: 11.5px; line-height: 1.3;
-    padding-left: 7px; border-left: 3px solid var(--alerta-cor);
-    overflow-wrap: anywhere;
-}
-.ds-sidebar-alerta-link {
-    display: block; font-size: 12px; font-weight: 600; color: var(--alerta-cor);
-    text-decoration: underline; text-underline-offset: 2px;
+@media (max-width: 640px) {
+    :root { --topbar-altura: 60px; }
+    .ds-topo-in { padding: 0 12px; }
+    .ds-pagina-cab h1 { font-size: 20px; }
 }
 
 /* z-index 201 (não 1): .container é "position: relative", então vira
@@ -296,7 +458,8 @@ button.ds-hamburguer {
    modal/popup em si -- e .ds-topbar (irmão de .container dentro de
    .ds-main) precisou subir pra 250 por causa disso, senão o conteúdo
    rolando por baixo passava por CIMA do título fixo no topo. */
-.container { max-width: 1500px; margin: 0 auto; padding: 26px 30px 42px; position: relative; z-index: 201; }
+.container { max-width: 1600px; margin: 0 auto; padding: 24px 24px 44px; position: relative; z-index: 201; }
+@media (max-width: 640px) { .container { padding: 16px 12px 32px; } }
 
 .card {
     background: var(--surface);
@@ -307,8 +470,8 @@ button.ds-hamburguer {
     margin-bottom: 18px;
 }
 
-h1 { font-size: 20px; margin-bottom: 18px; color: var(--text); font-weight: 600; letter-spacing: -.01em; }
-h2 { font-size: 16px; margin-bottom: 14px; color: var(--text); font-weight: 600; }
+h1 { font-size: 20px; margin-bottom: 18px; color: var(--text); font-weight: 700; letter-spacing: -.015em; }
+h2 { font-size: 16px; margin-bottom: 14px; color: var(--text); font-weight: 700; letter-spacing: -.005em; }
 
 /* ── Cabeçalho de página (título + ações) ─────────────────────────────────
    Mesmo desenho em toda tela: título à esquerda, ações à direita. */
@@ -327,21 +490,24 @@ h2 { font-size: 16px; margin-bottom: 14px; color: var(--text); font-weight: 600;
 .ds-kpi {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-card); box-shadow: var(--shadow-card);
-    padding: 16px 18px; display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; display: flex; flex-direction: row-reverse; align-items: center;
+    justify-content: flex-end; gap: 14px;
 }
-.ds-kpi-label { margin: 0 0 5px; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-.ds-kpi-value { margin: 0; font-size: 23px; font-weight: 600; color: var(--text); }
+.ds-kpi > div { display: flex; flex-direction: column; min-width: 0; }
+.ds-kpi-label { order: 1; margin: 5px 0 0; color: var(--text); font-size: 13px; font-weight: 600; }
+.ds-kpi-value { order: 0; margin: 0; font-size: 26px; line-height: 1.05; font-weight: 700; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.ds-kpi > div > :not(.ds-kpi-label):not(.ds-kpi-value) { order: 2; }
 .ds-kpi-icon {
-    width: 36px; height: 36px; border-radius: 8px; background: var(--surface-alt);
+    width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft);
     color: var(--brand); display: grid; place-items: center; flex: 0 0 auto;
 }
 .ds-kpi-icon.success { background: var(--ok-bg); color: var(--ok-text); }
 button.ds-kpi, a.ds-kpi {
     width: 100%; font: inherit; text-align: left; cursor: pointer;
-    transition: border-color .12s ease, box-shadow .12s ease;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 a.ds-kpi { text-decoration: none; color: inherit; }
-button.ds-kpi:hover, a.ds-kpi:hover { border-color: var(--brand-border); box-shadow: 0 2px 8px rgba(16,24,40,.08); }
+button.ds-kpi:hover, a.ds-kpi:hover { border-color: var(--brand-border); transform: translateY(-1px); }
 a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft) inset; }
 
 /* ── Gestão de Hardware ───────────────────────────────────────────────────
@@ -432,10 +598,10 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    height: 34px;
+    height: 36px;
     padding: 0 14px;
     border-radius: var(--radius-btn);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     background: var(--surface);
     color: var(--text);
     cursor: pointer;
@@ -445,13 +611,14 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
     line-height: 1;
     vertical-align: middle;
     text-decoration: none;
-    box-shadow: var(--shadow-card);
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(15,27,45,.05);
     transition: background .12s, border-color .12s, opacity .12s;
 }
 .btn:hover { background: var(--surface-hover); border-color: var(--border-strong); text-decoration: none; opacity: 1; }
 .btn:active { transform: scale(.98); }
 .btn .ic { flex: 0 0 auto; }
-.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: none; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 1px 2px color-mix(in srgb, var(--brand) 40%, transparent); }
 .btn-primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
 .btn-success { background: var(--surface); border-color: var(--ok-border); color: var(--ok-text); }
 .btn-success:hover { background: var(--ok-bg); }
@@ -468,9 +635,9 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
 .btn-voltar:hover { background: var(--danger-bg); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--brand); box-shadow: none; }
 .btn-ghost:hover { background: var(--surface-alt); }
-.btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
-.btn.icon, .btn-icon { width: 34px; padding: 0; justify-content: center; }
-.btn-sm.icon { width: 28px; }
+.btn-sm { height: 30px; padding: 0 11px; font-size: 12.5px; border-radius: 8px; }
+.btn.icon, .btn-icon { width: 36px; padding: 0; justify-content: center; }
+.btn-sm.icon { width: 30px; }
 
 /* ── Grade de tipos + itens selecionados ───────────────────────────────────
    Componente único usado em Criar Kit/Pedido e em Editar Template — os dois
@@ -542,8 +709,8 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
 }
 .tab-btn:hover { color: var(--brand-ink); }
 .tab-btn.active {
-    color: var(--brand-ink);
-    border-bottom-color: var(--brand-ink);
+    color: var(--brand);
+    border-bottom-color: var(--brand);
 }
 
 /* Paginação — controle numerado reutilizável (itens cadastrados, kits...) */
@@ -569,7 +736,7 @@ a.ds-kpi.ativo { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-s
 
 input[type=text], input[type=password], input[type=date], input[type=number],
 input[type=email], input[type=search], input[type=time], select {
-    height: 34px;
+    height: 38px;
     width: 100%;
     padding: 0 12px;
     border: 1px solid var(--border);
@@ -589,7 +756,7 @@ textarea {
     background: var(--surface);
     color: var(--text);
 }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent); }
 
 label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); }
 
@@ -673,16 +840,17 @@ label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; c
 .alert-info { background: var(--brand-soft); color: var(--brand-ink); border: 1px solid var(--brand-border); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { background: var(--surface-alt); padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; }
-td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
-tr:hover td { background: var(--surface-alt); }
+th { background: var(--surface-alt); padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); color: var(--text-muted-2); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: var(--surface-hover); }
 
 .badge {
     display: inline-block;
-    padding: 3px 11px;
+    padding: 3px 8px;
     border-radius: var(--radius-badge);
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.3;
 }
 .badge         { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-muted); }
 .badge-success { background: var(--ok-bg); color: var(--ok-text); }
@@ -700,8 +868,8 @@ tr:hover td { background: var(--surface-alt); }
     position: fixed;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-card);
+    border-radius: 12px;
+    box-shadow: var(--shadow-pop);
     padding: 6px;
     min-width: 180px;
     z-index: 50;
@@ -718,7 +886,7 @@ tr:hover td { background: var(--surface-alt); }
     box-sizing: border-box;
 }
 .menu-mais-dropdown a:not(.btn) { color: var(--text-muted); text-decoration: none; font-weight: 500; }
-.menu-mais-dropdown a:not(.btn):hover { background: var(--surface-alt); }
+.menu-mais-dropdown a:not(.btn):hover { background: var(--surface-hover); }
 
 /* Session scan screen */
 .scan-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -1186,11 +1354,11 @@ a.marca-cliente:hover { text-decoration: underline; }
     --cfg-centro: translate(-50%, -50%);
     transform: var(--cfg-centro);
     z-index: 1001;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     width: min(720px, calc(100vw - 32px));
     max-height: min(88vh, 780px);
     flex-direction: column; overflow: hidden;
-    box-shadow: 0 18px 48px rgba(0,0,0,.28);
+    box-shadow: var(--shadow-pop);
 }
 .modal-lista.aberto { display: flex; animation: popIn .12s ease; }
 /* A janela do veículo mostra duas colunas (item em foco | kit) e precisa de
@@ -1198,7 +1366,7 @@ a.marca-cliente:hover { text-decoration: underline; }
 .modal-lista.modal-largo { width: min(1080px, calc(100vw - 32px)); }
 .modal-fundo {
     display: none; position: fixed; inset: 0; z-index: 1000;
-    background: rgba(16, 28, 42, .45);
+    background: rgba(15, 27, 45, .36);
 }
 .modal-fundo.aberto { display: block; }
 .modal-cabecalho {
@@ -1323,12 +1491,12 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     z-index: 1001;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
     width: min(900px, calc(100vw - 32px));
     max-height: min(88vh, 780px);
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 18px 48px rgba(0,0,0,.28);
+    box-shadow: var(--shadow-pop);
 }
 .config-popup.aberto { display: flex; animation: popIn .12s ease; }
 @keyframes popIn {
@@ -1340,7 +1508,7 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(16, 28, 42, .45);
+    background: rgba(15, 27, 45, .36);
 }
 #popup-overlay.aberto { display: block; }
 

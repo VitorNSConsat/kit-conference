@@ -279,6 +279,14 @@ def test_tela_inicial_da_bipagem_mostra_painel_com_progresso(kit):
             assert 'onclick="abrirFinalizadosHoje()"' in h and 'id="modal-finalizados"' in h
             assert '<a href="/print-queue" class="ds-kpi"' in h
             assert f'data-id="{kit["sid"]}"' in h and "3/6 (50%)" in h
+            # Menu na barra do topo (a gaveta lateral continua pro celular) e o Ir para.
+            assert 'class="ds-topo-nav"' in h and 'class="ds-sidebar"' in h
+            assert 'aria-current="page"' in h and 'class="ds-mega"' in h
+            assert 'id="ds-irpara-dados"' in h and '"href": "/reports/pre-check"' in h
+            # A barra de progresso da sessão mede a altura de .ds-topbar (static/app.js).
+            assert '<header class="ds-topbar" id="ds-topo">' in h
+            h2 = c.get("/reports/pre-check").text
+            assert '<p class="ds-trilha"><span>Relatórios</span>' in h2
     finally:
         with db() as conn:
             conn.execute("DELETE FROM users WHERE username = ?", (nome,))

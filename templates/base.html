@@ -19,18 +19,22 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=78">
+    <link rel="stylesheet" href="/static/style.css?v=80">
 </head>
 <body>
 {% import "_icones.html" as ic %}
 {% if user %}
-{# ── Menu lateral ───────────────────────────────────────────────────────
+{# ── Menu ────────────────────────────────────────────────────────────────
    Sai do mesmo cadastro de telas que o porteiro das rotas usa
    (app/permissoes.py): esconder o link e barrar a rota não podem discordar.
-   Agrupado só visualmente aqui — a permissão continua sendo uma por tela. #}
+   No computador ele mora na barra do topo (cada grupo abre um painel com os
+   submenus em colunas); em tela estreita vira a gaveta lateral de sempre,
+   aberta pelo ☰. As duas saem da MESMA lista (menu_grupos). #}
 {% set p = request.url.path %}
+{% set _nomes = (user.nome or '?').split() %}
+{% set iniciais = ((_nomes[0][0] if _nomes else '?') ~ (_nomes[-1][0] if _nomes | length > 1 else '')) | upper %}
 <div class="ds-sidebar-fundo" id="ds-sidebar-fundo" onclick="toggleNav()"></div>
-<aside class="ds-sidebar" id="ds-sidebar">
+<aside class="ds-sidebar" id="ds-sidebar" aria-label="Menu">
   <a href="/" class="ds-brand">
     <img src="/static/logo.png" alt="Consat" class="ds-brand-logo">
     <span class="ds-brand-sub">Conferência de Kits</span>
@@ -87,51 +91,13 @@
     </div>
     {% endif %}
     {% endfor %}
-    {% if alertas_estoque and '/session/' not in request.url.path %}
-    {# Independe de tela liberada ou de ser admin: é um aviso passivo, não uma
-       ação — quem só bipa e não enxerga Itens & Estoque também precisa saber
-       que tem item no fim. O que aparece aqui (quais itens, quantos, a cor e
-       por quanto tempo) vem da configuração em Itens & Estoque ("Itens na
-       faixa" já limita alertas_estoque lá na origem) — o quadro só desenha o
-       que chega, não decide nada sozinho. Uma cor só (alerta_cor_critico):
-       duas cores por severidade fazia a segunda nunca aparecer na prática,
-       porque a mais grave sempre vencia. #}
-    <div class="ds-sidebar-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}"
-         style="--alerta-cor:{{ alerta_cfg.alerta_cor_critico }};">
-      <div class="ds-sidebar-alerta-cab">
-        {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
-        <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
-                class="ds-sidebar-alerta-fechar" aria-label="Fechar">{{ ic.svg('fechar', 11) }}</button>
-      </div>
-      <div class="ds-sidebar-alerta-lista">
-        {% for a in alertas_estoque %}
-        <span class="ds-sidebar-alerta-chip">
-          {{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}
-        </span>
-        {% endfor %}
-        {% if alertas_total > alertas_estoque | length %}
-        <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
-        {% endif %}
-      </div>
-      {% if pode('ver_itens') %}
-      <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="ds-sidebar-alerta-link">Ver Estoque</a>
-      {% endif %}
-    </div>
-    <script>
-    (function () {
-        const faixa = document.getElementById('stock-alert-box');
-        const seg = parseInt(faixa.dataset.segundos || '0', 10);
-        if (seg > 0) setTimeout(function () { faixa.style.display = 'none'; }, seg * 1000);
-    })();
-    </script>
-    {% endif %}
   </nav>
   <div class="ds-user">
-    <button type="button" class="ds-theme-toggle" id="ds-theme-toggle" onclick="alternarTemaGlobal()">
-      <span id="ds-theme-icon">{{ ic.svg('lua', 13) }}</span><span id="ds-theme-label">Modo escuro</span>
+    <button type="button" class="ds-theme-toggle" onclick="alternarTemaGlobal()">
+      <span class="ds-theme-icon">{{ ic.svg('lua', 13) }}</span><span class="ds-theme-label">Modo escuro</span>
     </button>
     <div class="ds-user-btn">
-      <span class="ds-avatar">{{ (user.nome or '?')[0] | upper }}</span>
+      <span class="ds-avatar">{{ iniciais }}</span>
       <span>
         <span class="ds-user-nome">{{ user.nome }}</span><br>
         <a href="/logout" class="ds-user-sair">{{ ic.svg('sair', 13) }} Sair</a>
@@ -139,14 +105,130 @@
     </div>
   </div>
 </aside>
+
+{# ── Barra do topo ─────────────────────────────────────────────────────────
+   Classe ds-topbar de propósito: a tela de bipagem (static/app.js) mede a
+   altura dela pra grudar a barra de progresso logo embaixo. #}
+<header class="ds-topbar" id="ds-topo">
+  <div class="ds-topo-in">
+    <button type="button" class="ds-hamburguer" onclick="toggleNav()" aria-label="Abrir o menu">{{ ic.svg('menu', 20) }}</button>
+    <a href="/" class="ds-topo-marca" title="Início">
+      <img src="/static/logo.png" alt="Consat" class="ds-brand-logo">
+      <span class="ds-topo-marca-sub">Conferência<br>de Kits</span>
+    </a>
+    <nav class="ds-topo-nav" aria-label="Menu principal">
+      {% for g in menu_grupos %}
+      {% if g.direto %}
+      <a href="{{ g.href }}" class="ds-tn {{ 'ativo' if g.ativo }}" title="{{ g.nome }}"{% if g.ativo %} aria-current="page"{% endif %}>
+        <span class="ds-tn-ic">{{ ic.svg(g.icone, 19) }}</span><span class="ds-tn-rot">{{ g.curto }}</span>
+      </a>
+      {% if not loop.last and not loop.nextitem.direto %}<span class="ds-tn-sep" aria-hidden="true"></span>{% endif %}
+      {% else %}
+      <div class="ds-tn-grupo">
+        <button type="button" class="ds-tn {{ 'ativo' if g.ativo }}" title="{{ g.nome }}"
+                aria-haspopup="true" aria-expanded="false" onclick="alternarMega(this)">
+          <span class="ds-tn-ic">{{ ic.svg(g.icone, 19) }}</span><span class="ds-tn-rot">{{ g.curto }}{{ ic.svg('seta-baixo', 11) }}</span>
+        </button>
+        <div class="ds-mega" role="menu" aria-label="{{ g.nome }}">
+          {% for c in g.colunas %}
+          <div class="ds-mega-col">
+            {% if c.titulo %}<p class="ds-mega-titulo">{{ ic.svg(c.icone, 13) }}<span>{{ c.titulo }}</span></p>{% endif %}
+            {% for s in c.itens %}
+            <a href="{{ s.href }}" role="menuitem" class="ds-mega-item {{ 'ativo' if s.ativo }}"
+               {%- if s.tipo == 'download' %} download{% elif s.tipo == 'tv' %} target="_blank" rel="noopener"{% endif %}>
+              {{ ic.svg(s.icone, 16) }}<span>{{ s.rotulo }}</span>
+              {%- if s.tipo == 'download' %}<small>baixar</small>{% elif s.tipo == 'tv' %}<small>aba nova</small>{% endif %}
+            </a>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </nav>
+    <div class="ds-topo-dir">
+      {% if alertas_estoque and '/session/' not in request.url.path %}
+      {# Aviso de estoque baixo. Independe de tela liberada ou de ser admin: é
+         um aviso passivo, não uma ação — quem só bipa e não enxerga Itens &
+         Estoque também precisa saber que tem item no fim. O que aparece (quais
+         itens, quantos, a cor e por quanto tempo) vem da configuração em Itens
+         & Estoque; aqui só se desenha o que chega. Na barra do topo fica um
+         sinal com a contagem, e a lista abre ao clicar — não cobre a tela. #}
+      <div class="ds-conta ds-alerta" id="stock-alert-box" data-segundos="{{ alerta_cfg.alerta_segundos }}"
+           style="--alerta-cor:{{ alerta_cfg.alerta_cor_critico }};">
+        <button type="button" class="ds-alerta-btn" onclick="alternarConta(this)" aria-haspopup="true" aria-expanded="false"
+                title="Estoque baixo: {{ alertas_total }} item(ns)">
+          {{ ic.svg('alerta', 17) }}<span class="ds-alerta-num">{{ alertas_total }}</span>
+        </button>
+        <div class="ds-conta-menu ds-alerta-menu" role="status">
+          <div class="ds-sidebar-alerta">
+            <div class="ds-sidebar-alerta-cab">
+              {{ ic.svg('alerta', 13) }}<strong>Estoque baixo</strong>
+              <button type="button" onclick="document.getElementById('stock-alert-box').style.display='none'"
+                      class="ds-sidebar-alerta-fechar" aria-label="Esconder o aviso" title="Esconder o aviso">{{ ic.svg('fechar', 11) }}</button>
+            </div>
+            <div class="ds-sidebar-alerta-lista">
+              {% for a in alertas_estoque %}
+              <span class="ds-sidebar-alerta-chip">{{ a.tipo_nome }} — {{ a.quantidade_atual }}/{{ a.quantidade_minima }}</span>
+              {% endfor %}
+              {% if alertas_total > alertas_estoque | length %}
+              <span class="ds-sidebar-alerta-chip">e mais {{ alertas_total - (alertas_estoque | length) }}</span>
+              {% endif %}
+            </div>
+            {% if pode('ver_itens') %}
+            <a href="/admin/items?tab=catalogo&q_situacao=alerta" class="ds-sidebar-alerta-link">Ver Estoque</a>
+            {% endif %}
+          </div>
+        </div>
+        <script>
+        (function () {
+            const sinal = document.getElementById('stock-alert-box');
+            const seg = parseInt(sinal.dataset.segundos || '0', 10);
+            if (seg > 0) setTimeout(function () { sinal.style.display = 'none'; }, seg * 1000);
+        })();
+        </script>
+      </div>
+      {% endif %}
+      <button type="button" class="ds-topo-btn ds-topo-busca" onclick="abrirIrPara()" title="Ir para uma tela (Ctrl K)" aria-label="Ir para uma tela">{{ ic.svg('busca', 18) }}</button>
+      <button type="button" class="ds-topo-btn" onclick="alternarTemaGlobal()" title="Alternar modo claro/escuro" aria-label="Alternar modo claro/escuro">
+        <span class="ds-theme-icon">{{ ic.svg('lua', 18) }}</span>
+      </button>
+      <div class="ds-conta">
+        <button type="button" class="ds-conta-btn" onclick="alternarConta(this)" aria-haspopup="true" aria-expanded="false" title="{{ user.nome }}">
+          <span class="ds-avatar">{{ iniciais }}</span>
+        </button>
+        <div class="ds-conta-menu" role="menu">
+          <div class="ds-conta-cab">
+            <span class="ds-avatar">{{ iniciais }}</span>
+            <span><strong>{{ user.nome }}</strong><small>{{ 'Administrador' if user.admin else 'Usuário' }}</small></span>
+          </div>
+          <a href="http://{{ request.url.hostname }}:8001/" role="menuitem">{{ ic.svg('portal', 16) }} Portal de aplicações</a>
+          <a href="/logout" role="menuitem" class="ds-conta-sair">{{ ic.svg('sair', 16) }} Sair</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+{# ── Ir para… (Ctrl K) ─────────────────────────────────────────────────────
+   Acha qualquer tela pelo nome e diz onde ela fica no menu. A lista é a do
+   próprio menu (menu_ir_para), então só aparece o que o usuário pode abrir. #}
+<div class="ds-irpara-fundo" id="ds-irpara-fundo" onclick="fecharIrPara()"></div>
+<div class="ds-irpara" id="ds-irpara" role="dialog" aria-modal="true" aria-label="Ir para uma tela">
+  <div class="ds-irpara-busca">
+    {{ ic.svg('busca', 18) }}
+    <input type="text" id="ds-irpara-campo" placeholder="Ir para… digite o nome de uma tela" autocomplete="off" spellcheck="false">
+    <kbd>Esc</kbd>
+  </div>
+  <div class="ds-irpara-lista" id="ds-irpara-lista" role="listbox"></div>
+  <div class="ds-irpara-pe"><span><kbd>↑</kbd><kbd>↓</kbd> escolher</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Ctrl</kbd><kbd>K</kbd> abre de qualquer tela</span></div>
+</div>
+<script id="ds-irpara-dados" type="application/json">{{ menu_ir_para | tojson }}</script>
+
 {% endif %}
 <div class="{{ 'ds-main' if user else '' }}">
 {% if user %}
-<header class="ds-topbar">
-  <button class="ds-hamburguer btn icon" onclick="toggleNav()" aria-label="Menu">{{ ic.svg('menu', 20) }}</button>
-  <h1>{{ self.title() }}</h1>
-  <div class="ds-topbar-acoes">{% block acoes_topo %}{% endblock %}</div>
-</header>
 {# Janela única do sistema pra abrir um "painel" vindo do servidor (patrimônio,
    veículo). Fica no base porque a mesma janela serve várias telas — e porque
    uma janela por linha de lista encheria a página de HTML escondido. #}
@@ -306,6 +388,162 @@ function toggleNav() {
     document.getElementById('ds-sidebar-fundo').classList.toggle('aberta');
 }
 
+// ── Barra do topo ─────────────────────────────────────────────────────────
+// Cada grupo abre um painel com os atalhos em colunas (os submenus viram
+// colunas com título). Um painel por vez; clique fora ou Esc fecha. Com um
+// painel aberto, passar o mouse em outro grupo troca direto (como num menu de
+// programa), sem precisar clicar de novo.
+function _fecharPaineisTopo(exceto) {
+    document.querySelectorAll('.ds-tn-grupo.aberto, .ds-conta.aberto').forEach(function (g) {
+        if (g === exceto) return;
+        g.classList.remove('aberto');
+        const b = g.querySelector('[aria-expanded]');
+        if (b) b.setAttribute('aria-expanded', 'false');
+    });
+}
+function _posicionarMega(grupo) {
+    const painel = grupo.querySelector('.ds-mega');
+    const botao = grupo.querySelector('.ds-tn');
+    const topo = document.getElementById('ds-topo').getBoundingClientRect();
+    painel.style.left = '0px';
+    const larg = painel.offsetWidth, tela = document.documentElement.clientWidth;
+    const r = botao.getBoundingClientRect();
+    const esquerda = Math.max(12, Math.min(r.left + r.width / 2 - larg / 2, tela - larg - 12));
+    painel.style.left = esquerda + 'px';
+    painel.style.top = (topo.bottom - 4) + 'px';
+}
+function alternarMega(botao) {
+    const grupo = botao.closest('.ds-tn-grupo');
+    const abrir = !grupo.classList.contains('aberto');
+    _fecharPaineisTopo(grupo);
+    grupo.classList.toggle('aberto', abrir);
+    botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+    if (abrir) _posicionarMega(grupo);
+}
+function alternarConta(botao) {
+    const conta = botao.closest('.ds-conta');
+    const abrir = !conta.classList.contains('aberto');
+    _fecharPaineisTopo(conta);
+    conta.classList.toggle('aberto', abrir);
+    botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+}
+document.addEventListener('mouseover', function (e) {
+    const botao = e.target.closest && e.target.closest('.ds-tn-grupo > .ds-tn');
+    if (!botao || !document.querySelector('.ds-tn-grupo.aberto')) return;
+    if (!botao.closest('.ds-tn-grupo').classList.contains('aberto')) alternarMega(botao);
+});
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.ds-tn-grupo, .ds-conta')) _fecharPaineisTopo(null);
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    const aberto = document.querySelector('.ds-tn-grupo.aberto > .ds-tn, .ds-conta.aberto > button');
+    _fecharPaineisTopo(null);
+    if (aberto) aberto.focus();
+});
+window.addEventListener('resize', function () {
+    const g = document.querySelector('.ds-tn-grupo.aberto');
+    if (g) _posicionarMega(g);
+});
+
+// ── Ir para… (Ctrl K) ─────────────────────────────────────────────────────
+// Busca sem acento e sem maiúscula, pelo nome da tela e pelo lugar no menu.
+const _irPara = {itens: null, sel: 0, vis: []};
+function _semAcento(t) {
+    return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function _desenharIrPara() {
+    const termo = _semAcento(document.getElementById('ds-irpara-campo').value.trim());
+    const lista = document.getElementById('ds-irpara-lista');
+    const partes = termo.split(/\s+/).filter(Boolean);
+    _irPara.vis = _irPara.itens.filter(function (i) {
+        const alvo = _semAcento(i.rotulo + ' ' + i.onde);
+        return partes.every(function (p) { return alvo.includes(p); });
+    });
+    // Quem começa com o que foi digitado vem primeiro.
+    if (termo) _irPara.vis.sort(function (a, b) {
+        return (_semAcento(b.rotulo).startsWith(termo) ? 1 : 0) - (_semAcento(a.rotulo).startsWith(termo) ? 1 : 0);
+    });
+    _irPara.sel = Math.min(_irPara.sel, Math.max(0, _irPara.vis.length - 1));
+    lista.innerHTML = '';
+    if (!_irPara.vis.length) {
+        const vazio = document.createElement('p');
+        vazio.className = 'ds-irpara-vazio';
+        vazio.textContent = 'Nenhuma tela com esse nome.';
+        lista.appendChild(vazio);
+        return;
+    }
+    _irPara.vis.forEach(function (i, n) {
+        const a = document.createElement('a');
+        a.href = i.href;
+        a.className = 'ds-irpara-item' + (n === _irPara.sel ? ' sel' : '');
+        a.setAttribute('role', 'option');
+        if (i.tipo === 'download') a.setAttribute('download', '');
+        if (i.tipo === 'tv') { a.target = '_blank'; a.rel = 'noopener'; }
+        const nome = document.createElement('span');
+        nome.textContent = i.rotulo;
+        const onde = document.createElement('small');
+        onde.textContent = i.onde || (i.tipo === 'download' ? 'baixar' : '');
+        a.append(nome, onde);
+        a.addEventListener('mousemove', function () {
+            if (_irPara.sel !== n) { _irPara.sel = n; _marcarIrPara(); }
+        });
+        lista.appendChild(a);
+    });
+}
+function _marcarIrPara() {
+    const itens = document.querySelectorAll('.ds-irpara-item');
+    itens.forEach(function (a, n) { a.classList.toggle('sel', n === _irPara.sel); });
+    if (itens[_irPara.sel]) itens[_irPara.sel].scrollIntoView({block: 'nearest'});
+}
+function abrirIrPara() {
+    if (_irPara.itens === null) {
+        try { _irPara.itens = JSON.parse(document.getElementById('ds-irpara-dados').textContent); }
+        catch (e) { _irPara.itens = []; }
+    }
+    _fecharPaineisTopo(null);
+    const campo = document.getElementById('ds-irpara-campo');
+    campo.value = '';
+    _irPara.sel = 0;
+    _desenharIrPara();
+    document.getElementById('ds-irpara').classList.add('aberto');
+    document.getElementById('ds-irpara-fundo').classList.add('aberto');
+    setTimeout(function () { campo.focus(); }, 20);
+}
+function fecharIrPara() {
+    document.getElementById('ds-irpara').classList.remove('aberto');
+    document.getElementById('ds-irpara-fundo').classList.remove('aberto');
+}
+document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+        if (!document.getElementById('ds-irpara')) return;
+        e.preventDefault();
+        if (document.getElementById('ds-irpara').classList.contains('aberto')) fecharIrPara();
+        else abrirIrPara();
+    }
+});
+document.addEventListener('DOMContentLoaded', function () {
+    const campo = document.getElementById('ds-irpara-campo');
+    if (!campo) return;
+    campo.addEventListener('input', function () { _irPara.sel = 0; _desenharIrPara(); });
+    campo.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const n = _irPara.vis.length;
+            if (!n) return;
+            _irPara.sel = (_irPara.sel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+            _marcarIrPara();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const a = document.querySelectorAll('.ds-irpara-item')[_irPara.sel];
+            if (a) { fecharIrPara(); a.click(); }
+        } else if (e.key === 'Escape') {
+            e.stopPropagation();
+            fecharIrPara();
+        }
+    });
+});
+
 // ── Claro/escuro (mesmo mecanismo dos painéis de TV, agora pro sistema
 // inteiro) — localStorage guarda a escolha, o <script> no <head> aplica
 // antes do primeiro paint pra não piscar claro numa sessão escura.
@@ -313,10 +551,13 @@ const ICONE_SOL = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13
 const ICONE_LUA = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
 function aplicarTemaGlobal(tema) {
     document.documentElement.setAttribute('data-theme', tema);
-    const icone = document.getElementById('ds-theme-icon');
-    const rotulo = document.getElementById('ds-theme-label');
-    if (icone) icone.innerHTML = tema === 'dark' ? ICONE_SOL : ICONE_LUA;
-    if (rotulo) rotulo.textContent = tema === 'dark' ? 'Modo claro' : 'Modo escuro';
+    // Dois botões (barra do topo e gaveta do celular) mostram o mesmo estado.
+    document.querySelectorAll('.ds-theme-icon').forEach(function (i) {
+        i.innerHTML = tema === 'dark' ? ICONE_SOL : ICONE_LUA;
+    });
+    document.querySelectorAll('.ds-theme-label').forEach(function (r) {
+        r.textContent = tema === 'dark' ? 'Modo claro' : 'Modo escuro';
+    });
 }
 function alternarTemaGlobal() {
     const atual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
@@ -645,6 +886,17 @@ if (!window.location.pathname.startsWith('/session/')) {
        próprio), um overlay FORA dele fica noutro contexto e o z-index deixa
        de valer contra o que está dentro -- o popup nunca ganhava do fundo. #}
     <div id="popup-overlay" onclick="fecharPopup()"></div>
+    {% if user %}
+    {# Título da tela e as ações dela. O caminho em cima ("Relatórios ›
+       Kits e produção") diz onde a tela mora no menu do topo. #}
+    <div class="ds-pagina-cab">
+      <div class="ds-pagina-tit">
+        {% if menu_trilha %}<p class="ds-trilha">{% for t in menu_trilha %}<span>{{ t }}</span>{% if not loop.last %}<span class="ds-trilha-sep">›</span>{% endif %}{% endfor %}</p>{% endif %}
+        <h1>{{ self.title() }}</h1>
+      </div>
+      <div class="ds-topbar-acoes">{% block acoes_topo %}{% endblock %}</div>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
 </div>
 </div>

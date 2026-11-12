@@ -222,9 +222,53 @@
 .rem-num { font-size: 26px; font-weight: 800; color: var(--brand); line-height: 1; }
 .rem-acoes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 1200px) { .rem-linha { grid-template-columns: 1fr auto; } .rem-barra-bloco, .rem-acoes { grid-column: 1 / -1; justify-content: flex-start; } }
+.esteira {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card); overflow: hidden;
+}
+.esteira-etapa {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;
+    padding: 15px 18px 15px 24px; border: 0; border-right: 1px solid var(--border); background: var(--surface);
+    font-family: inherit; text-align: left; cursor: pointer; color: var(--text);
+}
+.esteira-etapa:last-child { border-right: 0; }
+/* a setinha entre uma etapa e a próxima */
+.esteira-etapa:not(:last-child)::after {
+    content: ""; position: absolute; right: -8px; top: 50%; width: 14px; height: 14px; z-index: 1;
+    background: inherit; border-top: 1px solid var(--border); border-right: 1px solid var(--border);
+    transform: translateY(-50%) rotate(45deg);
+}
+.esteira-etapa:hover { background: var(--surface-hover); }
+.esteira-etapa.aberta { background: var(--brand-soft); box-shadow: inset 0 -3px 0 var(--brand); }
+.esteira-nome { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.esteira-ponto { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.esteira-num { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.esteira-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 900px) {
+    .esteira { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .esteira-etapa { border-bottom: 1px solid var(--border); }
+    .esteira-etapa::after { display: none; }
+}
 </style>
 
-<p style="color:#666;font-size:13px;margin-bottom:16px;">Kits a Produzir → Em Produção → Produzido → Em Trânsito → Cliente. {% call aj.ajuda() %}Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
+{# Esteira: os cinco números lado a lado, na ordem do caminho do kit. Clicar
+   numa etapa abre a lista dela logo abaixo (as mesmas listas de sempre). #}
+<nav class="esteira" aria-label="Etapas da produção">
+  {% for chave, nome, sub, cor, n in [
+      ('a_produzir', 'A produzir', 'prontos, sem bipagem', 'var(--text-muted-2)', resumo.a_produzir),
+      ('em_producao', 'Em produção', 'bipagem em andamento', 'var(--warn-text)', resumo.em_producao),
+      ('produzido', 'Produzido', 'aguardando saída', 'var(--ok-text)', resumo.produzido),
+      ('transito', 'Em trânsito', 'a caminho do cliente', 'var(--brand)', resumo.transito),
+      ('cliente', 'Cliente', 'entregues no total', '#7a4fc4', resumo.cliente)] %}
+  <button type="button" class="esteira-etapa" data-alvo="{{ chave }}" onclick="abrirEtapaEsteira('{{ chave }}')">
+    <span class="esteira-nome"><span class="esteira-ponto" style="background:{{ cor }}"></span>{{ nome }}</span>
+    <span class="esteira-num">{{ n }}</span>
+    <span class="esteira-sub">{{ sub }}</span>
+  </button>
+  {% endfor %}
+</nav>
+<p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Clique numa etapa para abrir a lista dela. {% call aj.ajuda() %}Esteira de acompanhamento: <strong>Kits a Produzir → Em Produção → Produzido →
   Em Trânsito → Cliente (Em Produção → Produzido)</strong>. As três primeiras etapas
   seguem a bipagem sozinhas — o resto é marcado manualmente aqui.{% endcall %}</p>
 
@@ -955,6 +999,21 @@ if (formClienteConcluidoLote) {
     });
 }
 
+// Esteira do topo: abre a etapa clicada e rola até ela.
+function abrirEtapaEsteira(chave) {
+    const d = document.querySelector('details.etapa[data-etapa="' + chave + '"]');
+    if (!d) return;
+    d.open = true;
+    d.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+function _marcarEsteira() {
+    document.querySelectorAll('.esteira-etapa').forEach(function (b) {
+        const d = document.querySelector('details.etapa[data-etapa="' + b.dataset.alvo + '"]');
+        b.classList.toggle('aberta', !!(d && d.open));
+    });
+}
+document.querySelectorAll('details.etapa').forEach(function (d) { d.addEventListener('toggle', _marcarEsteira); });
+
 // ── Etapas abertas/fechadas ───────────────────────────────────────────────
 // Nascem fechadas (a tela abre mostrando só os números da esteira), mas o
 // que a pessoa abriu fica guardado no navegador: quem trabalha o dia todo
@@ -972,6 +1031,7 @@ if (formClienteConcluidoLote) {
             try { localStorage.setItem(CHAVE, JSON.stringify(atuais)); } catch (e) {}
         });
     });
+    _marcarEsteira();
 })();
 </script>
 {% endblock %}

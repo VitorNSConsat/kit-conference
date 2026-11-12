@@ -676,6 +676,7 @@ def render(request: Request, template: str, ctx: dict = {}):
     pode = (lambda chave: permissoes_mod.tem_permissao(user, chave)) if user else (lambda chave: False)
     # O menu é montado a partir do mesmo cadastro de telas que o porteiro usa:
     # esconder o link e barrar a rota não podem discordar.
+    grupos_menu = menu_mod.montar(request.url.path, request.url.query, user, pode)
     return jinja.TemplateResponse(template, {"request": request, "user": user,
                                              "alertas_estoque": alertas_estoque,
                                              "alertas_total": banner["total"],
@@ -688,10 +689,11 @@ def render(request: Request, template: str, ctx: dict = {}):
                                              # Regiões de operação já usadas — sugestões
                                              # ao digitar a região (só consulta se chamada).
                                              "regioes_veiculo": veiculos_mod.regioes_disponiveis,
-                                             # Menu lateral montado num lugar só (app/menu.py):
-                                             # grupos, atalhos e qual está aberto agora.
-                                             "menu_grupos": menu_mod.montar(
-                                                 request.url.path, request.url.query, user, pode),
+                                             # Menu montado num lugar só (app/menu.py): grupos,
+                                             # atalhos, qual está aberto agora e o caminho dele.
+                                             "menu_grupos": grupos_menu,
+                                             "menu_trilha": menu_mod.trilha(grupos_menu),
+                                             "menu_ir_para": menu_mod.ir_para(grupos_menu),
                                              **ctx})
 
 

@@ -35,10 +35,10 @@
   no ponto que interessa.
 </p>
 <p class="nota">
-  <strong>Modo claro/escuro:</strong> o botão no rodapé do menu lateral ("Modo
-  escuro"/"Modo claro") vale pro sistema inteiro, não só pra um painel. A escolha
-  fica salva no navegador — cada usuário/aparelho guarda a sua. O logo da Consat no
-  topo do menu inverte de cor sozinho conforme o tema.
+  <strong>Modo claro/escuro:</strong> o botão da lua/sol na barra do topo (no celular, no
+  rodapé do menu ☰) vale pro sistema inteiro, não só pra um painel. A escolha
+  fica salva no navegador — cada usuário/aparelho guarda a sua. O logo da Consat
+  inverte de cor sozinho conforme o tema.
 </p>
 <p>
   <strong>Zoom e telas menores:</strong> as telas se reorganizam em vez de passar da borda (os números
@@ -52,20 +52,39 @@
   formulário, como primeiro passo. Elas também continuam no menu, em Downloads.
 </p>
 <p class="nota">
-  <strong>Menu lateral:</strong> tudo fica centralizado nele, organizado por assunto. Os grupos
-  funcionam como <strong>sanfona</strong>: só um grupo fica aberto por vez e, dentro dele, um
-  submenu (ex.: Relatórios → Patrimônio → Patrimônios cadastrados / Mudanças de patrimônio). Abrir
-  outro fecha o anterior. Ao entrar numa tela, abre sozinho o caminho dela; o que está aberto aparece
-  como um bloco destacado e, com o grupo fechado, o título dele continua marcando onde você está.
-  Submenu em que, pelas suas permissões, sobraria um atalho só vira atalho solto. Ao clicar num
-  atalho, o menu <strong>fica na
-  mesma altura</strong> em vez de voltar pro topo. Cada atalho só aparece pra quem tem acesso à tela
-  de destino.
+  <strong>Menu (barra do topo):</strong> tudo fica centralizado nele, organizado por assunto, numa
+  barra no alto da tela com um ícone por grupo. As entradas diretas (Bipagem, Impressão,
+  Acompanhamento, Remessas) abrem a tela num clique. Os outros grupos têm uma setinha: clicar abre um
+  painel com os atalhos, e cada <strong>submenu vira uma coluna</strong> com título (ex.: Relatórios →
+  colunas <em>Kits e produção</em>, <em>Patrimônio</em> e <em>Relatórios</em>). Com um painel aberto,
+  passar o mouse em outro grupo troca direto; clicar fora ou Esc fecha. O grupo da tela aberta fica
+  azul e sublinhado, e acima do título de cada tela aparece o caminho dela no menu
+  (ex.: <em>Relatórios › Kits e produção</em>). Na barra, "Fila de impressão" aparece como
+  <em>Impressão</em> e "Veículos e clientes" como <em>Veículos</em> (nome curto pra caber; o nome
+  inteiro aparece ao parar o mouse). Submenu em que, pelas suas permissões, sobraria um atalho só vira
+  atalho solto. Cada atalho só aparece pra quem tem acesso à tela de destino.
+</p>
+<p>
+  <strong>Ir para… (Ctrl K):</strong> a lupa na barra do topo (ou <em>Ctrl + K</em> em qualquer tela)
+  abre uma busca de telas: digite parte do nome (sem precisar de acento) e ela mostra a tela e onde ela
+  fica no menu; ↑/↓ escolhe e Enter abre. Só aparecem as telas que o seu usuário pode abrir.
+</p>
+<p>
+  <strong>Tela estreita e celular:</strong> quando os grupos não cabem na barra, ela mostra o botão
+  <strong>☰</strong>, que abre o menu como gaveta lateral, em <strong>sanfona</strong>: só um grupo
+  aberto por vez e, dentro dele, um submenu; ao entrar numa tela, abre sozinho o caminho dela.
+</p>
+<p>
+  <strong>Conta e aviso de estoque:</strong> a bolinha com as suas iniciais, no canto direito da barra,
+  mostra seu nome e tem <em>Portal de aplicações</em> e <em>Sair</em>. Quando há item com estoque
+  baixo, aparece ao lado um sinal na cor do aviso com a quantidade de itens; clicar abre a lista
+  (com <em>Ver Estoque</em>). Quais itens, a cor e por quanto tempo o sinal fica vêm da configuração
+  de avisos em Itens &amp; Estoque.
 </p>
 <ul>
   <li><strong>Bipagem</strong>, <strong>Fila de impressão</strong>, <strong>Acompanhamento</strong>
-    (Acompanhar produção) e <strong>Remessas</strong> — entradas próprias no topo do menu: abrem a tela
-    num clique.</li>
+    (Acompanhar produção) e <strong>Remessas</strong> — entradas diretas, as primeiras da barra: abrem a
+    tela num clique.</li>
   <li><strong>Painéis</strong> — Painel da produção (TV), Prateleira e Painel da prateleira (os painéis
     abrem numa aba nova, pra deixar numa TV ou monitor).</li>
   <li><strong>Estoque</strong> — <em>Itens</em> (Estoque de itens, Cadastrar item, Etiquetas e
@@ -501,7 +520,7 @@
   </p>
   <h4>Importar patrimônios (planilha)</h4>
   <p>
-    Menu lateral → <strong>Importações → Importar patrimônios</strong>. Serve a planilha de
+    Menu → <strong>Importações → Importar patrimônios</strong>. Serve a planilha de
     controle do jeito que ela é — uma grade de números em várias colunas, com um título em cima
     (“Controle de patrimônio Microfones”): o sistema pega toda célula com número e ignora o título.
   </p>
@@ -517,7 +536,7 @@
       descontado em 1 — o mesmo que acontece quando a bipagem cadastra um código novo.</li>
   </ul>
   <p>
-    Pra conferir tudo (origem, situação, veículo, Excel), use o menu lateral → <strong>Relatórios →
+    Pra conferir tudo (origem, situação, veículo, Excel), use o menu → <strong>Relatórios →
     Patrimônios cadastrados</strong>; esta aba continua sendo a de cadastrar e corrigir.
   </p>
   <p>
@@ -1162,6 +1181,12 @@
 <!-- 9 ─────────────────────────────────────────────────────────────────── -->
 <div class="card" id="producao">
   <h2>9. Produção</h2>
+  <p>
+    <strong>Esteira no topo de Acompanhar produção:</strong> as cinco etapas lado a lado, na ordem do
+    caminho do kit — <em>A produzir</em>, <em>Em produção</em>, <em>Produzido</em>, <em>Em trânsito</em>
+    e <em>Cliente</em> — com a quantidade de kits de cada uma. Clicar numa etapa abre a lista dela logo
+    abaixo (as mesmas listas de sempre) e rola até ela; a etapa com a lista aberta fica destacada.
+  </p>
 
   <h3>Remessa — o lote de envio (“mandar 90”)</h3>
   <p>
@@ -1423,7 +1448,7 @@
   </ul>
   <p>A <strong>barra de cima</strong> da Produção tem <em>Exibição da TV</em> (só admin — abre uma
     janela com quantos kits cabem em cada coluna da TV) e <em>Zerar sequência</em>. O Histórico de
-    Alterações fica no menu lateral, em <em>Relatórios → Histórico da produção</em>, e o painel em
+    Alterações fica no menu, em <em>Relatórios → Histórico da produção</em>, e o painel em
     <em>Painéis → Painel da produção (TV)</em> (abre numa aba nova).</p>
   <p>O <strong>painel de TV</strong> mostra os mesmos números em tela cheia, incluindo “Kits a
     produzir”, com limites configuráveis por estágio.</p>
@@ -1497,7 +1522,7 @@
     derivado do id — nunca precisa digitar nem escolher.
   </p>
   <p>
-    <strong>Produto é um cadastro à parte</strong> (no menu lateral, <em>RMA → Produtos de RMA</em>), separado do catálogo de peças de Itens &amp; Estoque de propósito — equipamento
+    <strong>Produto é um cadastro à parte</strong> (no menu, <em>RMA → Produtos de RMA</em>), separado do catálogo de peças de Itens &amp; Estoque de propósito — equipamento
     completo com defeito e peça de reposição são coisas diferentes, e misturar os dois faria a
     busca de produto de uma ocorrência aparecer cheia de parafuso e cabo. <strong>Serial ou
     patrimônio</strong> é texto livre, mas quando bate com um patrimônio já cadastrado no
@@ -1683,7 +1708,7 @@
 
   <h3>Importar e exportar por planilha</h3>
   <p>
-    A importação fica no menu lateral, em <em>Importações → Importar RMAs</em>, e a planilha
+    A importação fica no menu, em <em>Importações → Importar RMAs</em>, e a planilha
     modelo em <em>Downloads → Modelo de RMAs</em>: baixe, preencha e devolva ao sistema. O
     cabeçalho é reconhecido por <strong>palavra-chave</strong>, não por posição de coluna — então
     também aceita a planilha antiga de controle de defeito (com "Ação Corretiva 🇧🇷"/🇸🇪, "ID do

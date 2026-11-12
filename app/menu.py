@@ -1,4 +1,5 @@
-"""Menu lateral: os grupos e os atalhos de cada um.
+"""Menu do sistema (barra do topo; no celular, a gaveta lateral): os grupos e
+os atalhos de cada um.
 
 O menu é o lugar central do sistema: além das telas principais, leva direto
 ao que antes só se achava por dentro de outras telas (importações, downloads,
@@ -40,10 +41,10 @@ _GRUPOS = [
     ("Bipagem", "bipagem", _a("Bipagem", "bipagem", "/", ["ver_bipagem"], ["/", "/session"])),
     ("Fila de impressão", "impressao",
      _a("Fila de impressão", "impressao", "/print-queue", ["ver_impressao"], ["/print-queue"])),
-    ("Acompanhamento", "producao",
-     _a("Acompanhar produção", "producao", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
+    ("Acompanhamento", "atividade",
+     _a("Acompanhar produção", "atividade", "/admin/producao", ["ver_producao"], ["/admin/producao", "/producao"],
         ["/admin/producao/remessas", "/admin/producao/historico", "/producao/tv"])),
-    ("Remessas", "caixa", _a("Remessas", "caixa", "/admin/producao/remessas", ["ver_producao"],
+    ("Remessas", "producao", _a("Remessas", "producao", "/admin/producao/remessas", ["ver_producao"],
                              ["/admin/producao/remessas"])),
     # Telas pra deixar abertas numa TV/monitor e a prateleira.
     ("Painéis", "monitor", [
@@ -150,6 +151,10 @@ _GRUPOS = [
         ]),
     ]),
 ]
+
+# Nome curto na barra do topo, onde 13 entradas dividem uma linha só. O nome
+# inteiro continua na dica do mouse, na gaveta do celular e no "Ir para".
+_CURTO = {"Fila de impressão": "Impressão", "Veículos e clientes": "Veículos"}
 
 # Aba que a tela abre quando o link não diz qual (pra acender o atalho certo).
 _ABA_PADRAO = {"/admin/items": "catalogo", "/admin/templates": "kit"}
@@ -258,4 +263,60 @@ def montar(caminho: str, query: str, user: dict | None, pode) -> list[dict]:
                 i["ativo"] = any(x["ativo"] for x in i["itens"])
         g["ativo"] = any(i["ativo"] for i in atalhos(g))
         g["sub_ativo"] = any(i.get("sub") and i["ativo"] for i in g["itens"])
+        g["curto"] = _CURTO.get(g["nome"], g["nome"])
+        g["colunas"] = _colunas(g)
     return grupos
+
+
+def _colunas(grupo: dict) -> list[dict]:
+    """Colunas do painel que abre na barra do topo: cada submenu vira uma
+    coluna com título; atalhos soltos seguidos ficam juntos numa coluna (com o
+    nome do grupo como título quando há submenus do lado, pra não ficar órfã)."""
+    if grupo.get("direto"):
+        return []
+    cols, soltos = [], []
+    for i in grupo["itens"]:
+        if i.get("sub"):
+            if soltos:
+                cols.append({"titulo": "", "icone": "", "itens": soltos})
+                soltos = []
+            cols.append({"titulo": i["rotulo"], "icone": i["icone"], "itens": i["itens"]})
+        else:
+            soltos.append(i)
+    if soltos:
+        cols.append({"titulo": "", "icone": "", "itens": soltos})
+    if len(cols) > 1:
+        for c in cols:
+            if not c["titulo"]:
+                c["titulo"], c["icone"] = grupo["nome"], grupo["icone"]
+    return cols
+
+
+def trilha(grupos: list[dict]) -> list[str]:
+    """Onde a tela aberta mora no menu, pro caminho acima do título
+    (ex.: ["Relatórios", "Kits e produção"]). Entrada direta não tem caminho."""
+    for g in grupos:
+        if not g["ativo"] or g.get("direto"):
+            continue
+        for i in g["itens"]:
+            if i.get("sub") and i["ativo"]:
+                return [g["nome"], i["rotulo"]]
+        return [g["nome"]]
+    return []
+
+
+def ir_para(grupos: list[dict]) -> list[dict]:
+    """Todas as telas que o usuário pode abrir, pra busca "Ir para…" (Ctrl K):
+    rótulo, destino, tipo e onde fica no menu."""
+    saida = []
+    for g in grupos:
+        for i in g["itens"]:
+            filhos = i["itens"] if i.get("sub") else [i]
+            if g.get("direto"):
+                onde = ""
+            else:
+                onde = " › ".join([g["nome"]] + ([i["rotulo"]] if i.get("sub") else []))
+            for f in filhos:
+                saida.append({"rotulo": f["rotulo"], "href": f["href"], "tipo": f["tipo"],
+                              "icone": f["icone"], "onde": onde})
+    return saida
