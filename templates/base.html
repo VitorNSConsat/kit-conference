@@ -19,9 +19,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=88">
+    <link rel="stylesheet" href="/static/style.css?v=89">
 </head>
 <body>
+{# Pacote do front-end (Sistema → Padrão visual → Baixar): o que fica entre
+   kit:especifico e kit:fim é só deste sistema e sai do base.html
+   genérico que vai no .zip. São comentários do Jinja: não aparecem na tela. #}
 {% import "_icones.html" as ic %}
 {% if user %}
 {# ── Menu ────────────────────────────────────────────────────────────────
@@ -151,7 +154,7 @@
       {% endif %}
       {% endfor %}
     </nav>
-    {% if alertas_estoque and '/session/' not in request.url.path %}
+{# kit:especifico #}    {% if alertas_estoque and '/session/' not in request.url.path %}
     {# Aviso de estoque baixo. Independe de tela liberada ou de ser admin: é
        um aviso passivo, não uma ação — quem só bipa e não enxerga Itens &
        Estoque também precisa saber que tem item no fim. O que aparece (quais
@@ -198,7 +201,7 @@
         </script>
     </div>
     {% endif %}
-    <div class="ds-topo-dir">
+{# kit:fim #}    <div class="ds-topo-dir">
       <button type="button" class="ds-topo-btn ds-topo-busca" onclick="abrirIrPara()" title="Ir para uma tela (Ctrl K)" aria-label="Ir para uma tela">{{ ic.svg('busca', 18) }}</button>
       <button type="button" class="ds-topo-btn" onclick="alternarTemaGlobal()" title="Alternar modo claro/escuro" aria-label="Alternar modo claro/escuro">
         <span class="ds-theme-icon">{{ ic.svg('lua', 18) }}</span>
@@ -413,6 +416,7 @@ function _fecharPaineisTopo(exceto) {
 function _posicionarMega(grupo) {
     const painel = grupo.querySelector('.ds-mega');
     const botao = grupo.querySelector('.ds-tn');
+    if (!painel || !botao) return;
     const topo = document.getElementById('ds-topo').getBoundingClientRect();
     painel.style.left = '0px';
     const larg = painel.offsetWidth, tela = document.documentElement.clientWidth;
@@ -703,7 +707,7 @@ function abrirPopup(event, id) {
     _popupAberto = id;
 }
 
-// Região de operação do veículo, editada direto na janela do veículo.
+{# kit:especifico #}// Região de operação do veículo, editada direto na janela do veículo.
 function editarRegiaoVeiculo(btn) {
     const form = btn.closest('form');
     form.querySelector('.pat-regiao-edicao').hidden = false;
@@ -729,7 +733,7 @@ function salvarRegiaoVeiculo(form) {
         .finally(() => { botao.disabled = false; });
     return false;
 }
-
+{# kit:fim #}
 function fecharPopup() {
     if (_popupAberto !== null) {
         const el = document.getElementById('popup-' + _popupAberto);
@@ -748,7 +752,7 @@ function fecharPopup() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharPopup(); });
-function abrirPainelPatrimonio(codigo) {
+{# kit:especifico #}function abrirPainelPatrimonio(codigo) {
     abrirJanelaPainel('/admin/items/patrimonio/' + encodeURIComponent(codigo)
                       + '/painel?voltar=' + _voltaAtual(), 'Patrimônio', codigo);
 }
@@ -765,7 +769,7 @@ function abrirPainelSobressalente(id, rotulo) {
 function abrirPainelPedido(id, nome) {
     abrirJanelaPainel('/admin/templates/' + id + '/painel', 'Pedido', nome || '', true);
 }
-// Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
+{# kit:fim #}// Prévia (mover, adicionar): troca só o conteúdo da janela — quem está
 // conferindo origem e destino não pode perder a lista de trás.
 document.addEventListener('submit', function (e) {
     const form = e.target;
@@ -934,7 +938,7 @@ document.addEventListener('scroll', function() {
     document.querySelectorAll('.menu-mais-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
 }, true);
 
-// Leitores de código de barras enviam Enter após o código.
+{# kit:especifico #}// Leitores de código de barras enviam Enter após o código.
 // Nas páginas admin isso submetia formulários involuntariamente.
 // Na tela de bipagem (/session/) o Enter é necessário — não bloqueia.
 if (!window.location.pathname.startsWith('/session/')) {
@@ -948,7 +952,7 @@ if (!window.location.pathname.startsWith('/session/')) {
         }
     });
 }
-</script>
+{# kit:fim #}</script>
 {% endif %}
 <div class="container">
     {# Fundo único pra qualquer .config-popup da página (ver abrirPopup/

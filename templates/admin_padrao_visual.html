@@ -1,84 +1,197 @@
 {% extends "base.html" %}
 {% import "_icones.html" as ic %}
 {% block title %}Padrão Visual{% endblock %}
+{% block acoes_topo %}
+<a href="/admin/padrao-visual/pacote-frontend.zip" class="btn btn-primary" download
+   title="Baixa um .zip com o CSS, a casca (barra do topo, menus, janelas), os ícones, o montador de menu e um exemplo">
+  {{ ic.svg('baixar', 15) }} Baixar pacote do front-end
+</a>
+{% endblock %}
 {% block content %}
 <style>
-.pv-secao { margin-bottom: 20px; }
+.pv-secao { margin-bottom: 18px; }
 .pv-secao h2 { display: flex; align-items: center; gap: 8px; }
-.pv-desc { color: var(--text-muted); font-size: 13px; margin: -8px 0 16px; }
-.pv-swatches {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 10px;
-}
-.pv-swatch {
-    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-    background: var(--surface);
-}
+.pv-desc { color: var(--text-muted); font-size: 13px; margin: -6px 0 16px; max-width: 900px; }
+.pv-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.pv-swatch { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
 .pv-swatch-cor { height: 44px; border-bottom: 1px solid var(--border); }
 .pv-swatch-info { padding: 8px 10px; }
-.pv-swatch-token { font-family: monospace; font-size: 11.5px; color: var(--text); display: block; }
-.pv-swatch-hex { font-family: monospace; font-size: 11px; color: var(--text-muted); }
-.pv-swatch-uso { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.pv-swatch-token { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--text); display: block; }
+.pv-swatch-hex { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--text-muted); }
+.pv-swatch-uso { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 .pv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.pv-tipo-linha {
-    display: flex; align-items: baseline; gap: 12px; padding: 7px 0;
-    border-bottom: 1px solid var(--border-subtle);
-}
+.pv-grade2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 18px; }
+.pv-lista { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text); }
+.pv-lista li { margin: 4px 0; }
+.pv-lista code, .pv-desc code, .pv-nota code { font-size: 12px; background: var(--surface-alt); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 0 4px; }
+.pv-nota { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+.pv-passos { counter-reset: passo; list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pv-passos li { counter-increment: passo; display: grid; grid-template-columns: 28px 1fr; gap: 10px; font-size: 13px; align-items: start; }
+.pv-passos li::before { content: counter(passo); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--brand-soft); color: var(--brand-ink); font-weight: 700; font-size: 12.5px; }
+/* réplica da barra do topo (estática, só pra ver) */
+.pv-barra { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.pv-barra .ds-topbar { position: static; }
+.pv-barra .ds-topo-in { justify-content: flex-start; }
+.pv-barra .ds-topo-nav { flex: 0 0 auto; margin: 0; }
+.pv-barra .ds-alerta { flex: 1 1 auto; }
+.pv-tn-aberto { display: flex; }
+.pv-tn-aberto .ds-tn { color: var(--text); }
+.pv-tn-aberto .ds-tn-ic { background: var(--surface-hover); color: var(--text); }
+.pv-tn-aberto .ds-tn-rot .ic { transform: rotate(180deg); }
+.pv-mega { display: grid; position: static; box-shadow: var(--shadow-card); max-width: 640px; animation: none; margin-top: 12px; }
+.pv-icones { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.pv-icone { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--border);
+    border-radius: 10px; font-size: 12px; color: var(--text-muted); font-family: "Cascadia Mono", Consolas, monospace; }
+.pv-icone .ic { color: var(--text); }
+.pv-tipo-linha { display: flex; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border-subtle); }
 .pv-tipo-linha:last-child { border-bottom: none; }
-.pv-tipo-px { width: 56px; flex: 0 0 auto; font-size: 11px; color: var(--text-muted); font-family: monospace; }
-.pv-tipo-nome { font-size: 11.5px; color: var(--text-muted); }
+.pv-tipo-px { width: 78px; flex: 0 0 auto; font-size: 12px; color: var(--text-muted); font-family: "Cascadia Mono", Consolas, monospace; }
+.pv-tipo-nome { font-size: 12px; color: var(--text-muted); }
+.pv-linha-sel td { background: var(--brand-soft); }
 </style>
 
 <p class="pv-desc" style="margin-top:-4px;">
-  Referência viva do sistema: os tokens e componentes abaixo são os mesmos usados em toda tela —
-  mudar um valor aqui em <code>static/style.css</code> muda o sistema inteiro, não só esta página.
+  Referência viva do sistema: os tokens e componentes abaixo são os mesmos usados em todas as telas.
+  Mudar um valor em <code>static/style.css</code> muda o sistema inteiro, não só esta página. As cores
+  mostradas são lidas da tela na hora — troque o modo claro/escuro (lua, na barra do topo) e elas mudam junto.
 </p>
 
+{# ── Replicar ─────────────────────────────────────────────────────────── #}
+<div class="card pv-secao">
+  <h2>{{ ic.svg('baixar', 17) }} Replicar o front-end em outra aplicação</h2>
+  <p class="pv-desc">O botão <strong>Baixar pacote do front-end</strong> (no alto da tela) entrega um <code>.zip</code>
+    montado na hora a partir do que está no ar. Ele leva a cara do sistema e nenhuma regra dele: cada aplicação
+    continua com as próprias telas, rotas e permissões.</p>
+  <div class="pv-grade2">
+    <div>
+      <strong style="font-size:13.5px;">O que vem no pacote</strong>
+      <ul class="pv-lista" style="margin-top:8px;">
+        <li><code>static/style.css</code> — todo o visual: cores (claro e escuro), casca e componentes.</li>
+        <li><code>templates/base.html</code> — barra do topo, painéis dos grupos, gaveta do celular, Ir para,
+          título da tela e janelas. Sai <em>sem</em> o que é só deste sistema (aviso de estoque, janelas de
+          veículo e patrimônio, Enter dos leitores de código de barras).</li>
+        <li><code>templates/_icones.html</code> — os {{ icones | length }} ícones.</li>
+        <li><code>app/menu.py</code> — o montador do menu, com uma lista de exemplo no lugar dos grupos daqui.</li>
+        <li><code>tokens.json</code> — as cores em JSON; <code>exemplo/</code> — uma aplicação mínima funcionando.</li>
+        <li><code>README.md</code> — como usar e as regras do padrão.</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="font-size:13.5px;">Como usar</strong>
+      <ol class="pv-passos" style="margin-top:8px;">
+        <li><span>Copie <code>static/</code>, <code>templates/base.html</code>, <code>templates/_icones.html</code> e <code>app/menu.py</code> pra aplicação.</span></li>
+        <li><span>Em <code>app/menu.py</code>, troque a lista <code>_GRUPOS</code> pelas telas da aplicação (entradas diretas, grupos e submenus).</span></li>
+        <li><span>Em cada resposta, entregue ao template <code>user</code>, <code>pode()</code>, <code>menu_grupos</code>, <code>menu_trilha</code> e <code>menu_ir_para</code> (veja <code>exemplo/app.py</code>).</span></li>
+        <li><span>Cada tela faz <code>{% raw %}{% extends "base.html" %}{% endraw %}</code> e preenche <code>title</code>, <code>acoes_topo</code> e <code>content</code>.</span></li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+{# ── Cores ────────────────────────────────────────────────────────────── #}
 <div class="card pv-secao">
   <h2>{{ ic.svg('paleta', 17) }} Paleta</h2>
-  <p class="pv-desc">Base branca, marca <code>#246B84</code>. Poucas cores por tela: branco + cinzas + marca + no máximo uma semântica em destaque.</p>
+  <p class="pv-desc">Fundo cinza-azulado, cartões brancos e o azul Consat como marca. Poucas cores por tela: neutros +
+    marca + no máximo uma cor de situação em destaque. Nenhum hex nos templates — sempre o token <code>var(--…)</code>.</p>
   <div class="pv-swatches">
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand</span><span class="pv-swatch-hex">#246b84</span><div class="pv-swatch-uso">Primário, item ativo, link, foco</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-dark);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-dark</span><span class="pv-swatch-hex">#1c5568</span><div class="pv-swatch-uso">Hover do primário</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-soft);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-soft</span><span class="pv-swatch-hex">#e8f1f4</span><div class="pv-swatch-uso">Fundo do item ativo, linha selecionada</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand-border);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand-border</span><span class="pv-swatch-hex">#bcd5dd</span><div class="pv-swatch-uso">Borda de elementos soft</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--surface);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--surface</span><span class="pv-swatch-hex">#ffffff</span><div class="pv-swatch-uso">Cards, tabelas, topbar</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--bg);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--bg</span><span class="pv-swatch-hex">#f6f8f9</span><div class="pv-swatch-uso">Fundo da página</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--surface-alt);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--surface-alt</span><span class="pv-swatch-hex">#fafbfc</span><div class="pv-swatch-uso">Header de tabela, hover</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--border);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--border</span><span class="pv-swatch-hex">#e3e7ea</span><div class="pv-swatch-uso">Borda padrão</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--text</span><span class="pv-swatch-hex">#16191d</span><div class="pv-swatch-uso">Texto principal</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text-muted);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--text-muted</span><span class="pv-swatch-hex">#6b7480</span><div class="pv-swatch-uso">Labels, metadados</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--text-muted-2);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--text-muted-2</span><span class="pv-swatch-hex">#99a1ab</span><div class="pv-swatch-uso">Desabilitado</div></div></div>
+    {% for token, uso in [
+        ('--brand', 'Primário, menu ativo, link, foco'), ('--brand-dark', 'Hover do primário'),
+        ('--brand-soft', 'Fundo do ativo, linha marcada'), ('--brand-border', 'Borda de elementos suaves'),
+        ('--brand-ink', 'Texto sobre fundo suave da marca'), ('--bg', 'Fundo da página'),
+        ('--bg-brilho', 'Brilho suave no alto da página'), ('--surface', 'Cartões, tabelas, barra do topo'),
+        ('--surface-alt', 'Cabeçalho de tabela, rodapé de janela'), ('--surface-hover', 'Hover de linha e item'),
+        ('--border', 'Borda padrão'), ('--border-strong', 'Borda de botão e campo'),
+        ('--text', 'Texto principal'), ('--text-muted', 'Rótulos e metadados'), ('--text-muted-2', 'Cabeçalho de tabela, dicas')] %}
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var({{ token }});"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">{{ token }}</span><span class="pv-swatch-hex" data-token="{{ token }}"></span>
+        <div class="pv-swatch-uso">{{ uso }}</div></div></div>
+    {% endfor %}
   </div>
-  <p style="font-size:11.5px;color:var(--text-muted);margin-top:10px;">Nenhum hex é escrito nos templates — sempre o token <code>var(--…)</code>.</p>
 </div>
 
 <div class="card pv-secao">
-  <h2>{{ ic.svg('alerta', 17) }} Cores semânticas</h2>
-  <p class="pv-desc">Sempre em par: fundo suave + texto na mesma cor, nunca cor sólida com texto branco.</p>
+  <h2>{{ ic.svg('alerta', 17) }} Cores de situação</h2>
+  <p class="pv-desc">Sempre em par: fundo suave + texto da mesma cor (nunca cor cheia com texto branco).</p>
   <div class="pv-swatches">
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--ok-text);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--ok-text / --ok-bg</span><span class="pv-swatch-hex">#15803d / #e9f7ef</span><div class="pv-swatch-uso">Confirmado, produzido, kit enviado</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--warn-text);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--warn-text / --warn-bg</span><span class="pv-swatch-hex">#b45309 / #fef6e7</span><div class="pv-swatch-uso">Estoque baixo, em produção</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--danger-text);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--danger-text / --danger-bg</span><span class="pv-swatch-hex">#b42318 / #fdecea</span><div class="pv-swatch-uso">Falha, cancelar, excluir</div></div></div>
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--brand);"></div>
-      <div class="pv-swatch-info"><span class="pv-swatch-token">--brand / --brand-soft</span><span class="pv-swatch-hex">#246b84 / #e8f1f4</span><div class="pv-swatch-uso">Em trânsito, dica, informação</div></div></div>
+    {% for nome, uso in [('ok', 'Confirmado, produzido, concluído'), ('warn', 'Estoque baixo, em produção, atenção'),
+                         ('danger', 'Falha, cancelar, excluir')] %}
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--{{ nome }}-bg);border-bottom:4px solid var(--{{ nome }}-text);"></div>
+      <div class="pv-swatch-info"><span class="pv-swatch-token">--{{ nome }}-text / -bg / -border</span>
+        <span class="pv-swatch-hex" data-token="--{{ nome }}-text"></span>
+        <div class="pv-swatch-uso">{{ uso }}</div></div></div>
+    {% endfor %}
   </div>
 </div>
 
+{# ── Barra do topo ────────────────────────────────────────────────────── #}
+<div class="card pv-secao">
+  <h2>{{ ic.svg('menu', 17) }} Barra do topo e menus</h2>
+  <p class="pv-desc">O menu mora numa barra no topo. Entradas diretas abrem a tela num clique; grupos com setinha abrem
+    um painel em que cada submenu é uma coluna com título. A mesma lista (<code>app/menu.py</code>) monta a barra, a gaveta
+    do celular e o Ir para.</p>
+  <div class="pv-barra" aria-hidden="true">
+    <div class="ds-topbar"><div class="ds-topo-in">
+      <span class="ds-topo-btn ds-topo-portal">{{ ic.svg('portal', 18) }}</span>
+      <span class="ds-topo-marca"><img src="/static/logo.png" alt="" class="ds-brand-logo"></span>
+      <div class="ds-topo-nav">
+        <span class="ds-tn ativo"><span class="ds-tn-ic">{{ ic.svg('bipagem', 19) }}</span><span class="ds-tn-rot">Direta (ativa)</span></span>
+        <span class="ds-tn"><span class="ds-tn-ic">{{ ic.svg('impressao', 19) }}</span><span class="ds-tn-rot">Direta</span></span>
+        <span class="ds-tn-sep"></span>
+        <div class="pv-tn-aberto"><span class="ds-tn"><span class="ds-tn-ic">{{ ic.svg('relatorios', 19) }}</span><span class="ds-tn-rot">Grupo aberto{{ ic.svg('seta-baixo', 11) }}</span></span></div>
+        <span class="ds-tn"><span class="ds-tn-ic">{{ ic.svg('funcionalidades', 19) }}</span><span class="ds-tn-rot">Grupo{{ ic.svg('seta-baixo', 11) }}</span></span>
+      </div>
+      <div class="ds-alerta" style="--alerta-cor:var(--danger-text);"><span class="ds-alerta-btn">{{ ic.svg('alerta', 17) }}
+        <span class="ds-alerta-txt"><strong>Aviso</strong><span class="ds-alerta-item"> · ocupa o espaço até a lupa</span></span>
+        <span class="ds-alerta-num">7</span>{{ ic.svg('seta-baixo', 14) }}</span></div>
+      <div class="ds-topo-dir">
+        <span class="ds-topo-btn ds-topo-busca">{{ ic.svg('busca', 18) }}</span>
+        <span class="ds-topo-btn">{{ ic.svg('lua', 18) }}</span>
+        <span class="ds-conta-btn"><span class="ds-avatar">VN</span></span>
+      </div>
+    </div></div>
+  </div>
+  <div class="ds-mega pv-mega" aria-hidden="true">
+    <div class="ds-mega-col">
+      <p class="ds-mega-titulo">{{ ic.svg('kits', 13) }}<span>Submenu (coluna)</span></p>
+      <span class="ds-mega-item">{{ ic.svg('relatorios', 16) }}<span>Atalho</span></span>
+      <span class="ds-mega-item ativo">{{ ic.svg('clipboard', 16) }}<span>Tela aberta agora</span></span>
+      <span class="ds-mega-item">{{ ic.svg('historico', 16) }}<span>Outro atalho</span></span>
+    </div>
+    <div class="ds-mega-col">
+      <p class="ds-mega-titulo">{{ ic.svg('baixar', 13) }}<span>Outra coluna</span></p>
+      <span class="ds-mega-item">{{ ic.svg('baixar', 16) }}<span>Baixa um arquivo</span><small>baixar</small></span>
+      <span class="ds-mega-item">{{ ic.svg('monitor', 16) }}<span>Painel de TV</span><small>aba nova</small></span>
+    </div>
+  </div>
+  <ul class="pv-lista" style="margin-top:14px;">
+    <li><strong>Passar o mouse</strong> num grupo abre o painel (atraso curto pra não abrir de passagem); parar em outro grupo troca;
+      descer na diagonal até o painel não troca no caminho. Clicar também abre (toque e teclado). Esc, clique fora ou sair com o mouse fecham.</li>
+    <li>À esquerda: botão do <strong>Portal</strong> e o logo. À direita: <strong>aviso</strong> (ocupa o espaço que sobra até a lupa;
+      com pouco espaço mostra só o sinal e a quantidade), <strong>Ir para</strong> (lupa), modo claro/escuro e a conta (iniciais).</li>
+    <li>Até 1400px a barra fica mais compacta; quando os grupos não cabem (tela estreita, <strong>zoom</strong> ou usuário com mais
+      grupos), vira o <strong>☰</strong> com a gaveta lateral em sanfona. Nada passa por cima do logo nem do aviso.</li>
+    <li>Nome comprido demais pra barra ganha um nome curto (<code>_CURTO</code> em <code>app/menu.py</code>); o inteiro fica na dica do mouse.</li>
+  </ul>
+</div>
+
+<div class="pv-grade2">
+  <div class="card pv-secao">
+    <h2>{{ ic.svg('busca', 17) }} Ir para (Ctrl K)</h2>
+    <p class="pv-desc">Busca de telas: digite parte do nome (sem acento) e ela mostra onde a tela fica no menu. Só aparecem as telas que o usuário pode abrir.</p>
+    <button type="button" class="btn btn-secondary" onclick="abrirIrPara()">{{ ic.svg('busca', 15) }} Abrir o Ir para</button>
+  </div>
+  <div class="card pv-secao">
+    <h2>{{ ic.svg('arquivo', 17) }} Título da tela</h2>
+    <p class="pv-desc">O título sai do bloco <code>title</code>; em cima, o caminho no menu; à direita, as ações da tela (bloco <code>acoes_topo</code>).</p>
+    <div class="ds-pagina-cab" style="margin:0;">
+      <div class="ds-pagina-tit"><p class="ds-trilha"><span>Grupo</span><span class="ds-trilha-sep">›</span><span>Submenu</span></p><h1>Nome da tela</h1></div>
+      <div class="ds-topbar-acoes"><button type="button" class="btn btn-secondary">Secundária</button><button type="button" class="btn btn-primary">{{ ic.svg('mais', 15) }} Ação</button></div>
+    </div>
+  </div>
+</div>
+
+{# ── Ações e controles ────────────────────────────────────────────────── #}
 <div class="card pv-secao">
   <h2>{{ ic.svg('mais', 17) }} Hierarquia de ação</h2>
   <p class="pv-desc">Um único botão primário por tela. Verde só confirma, vermelho só destrói — o resto é secundário ou fantasma.</p>
@@ -87,105 +200,168 @@
     <button type="button" class="btn btn-secondary">Secundário</button>
     <button type="button" class="btn btn-ghost">Fantasma</button>
     <button type="button" class="btn btn-success">Confirmar</button>
+    <button type="button" class="btn btn-warning">Atenção</button>
     <button type="button" class="btn btn-danger">Excluir</button>
   </div>
   <div class="pv-row" style="margin-top:12px;">
-    <button type="button" class="btn btn-sm btn-primary">Pequeno</button>
-    <button type="button" class="btn btn-primary">Padrão</button>
+    <button type="button" class="btn btn-sm btn-primary">Pequeno (30px)</button>
+    <button type="button" class="btn btn-primary">Padrão (36px)</button>
     <button type="button" class="btn btn-primary" disabled>Desabilitado</button>
-    <button type="button" class="btn btn-secondary icon" title="Ícone">{{ ic.svg('filtro', 16) }}</button>
+    <button type="button" class="btn btn-secondary icon" title="Só ícone">{{ ic.svg('filtro', 16) }}</button>
+    <div class="menu-mais"><button type="button" class="btn btn-sm btn-secondary" onclick="toggleMenu(this)">{{ ic.svg('mais-vertical', 15) }}</button>
+      <div class="menu-mais-dropdown"><a href="#" onclick="return false;">Ação secundária</a><a href="#" onclick="return false;">Outra ação</a></div></div>
+    <span class="pv-nota" style="margin:0;">← menu “⋯” de ações secundárias</span>
   </div>
 </div>
 
 <div class="card pv-secao">
-  <h2>{{ ic.svg('filtro', 17) }} Controles</h2>
-  <p class="pv-desc">Campos, selects e filtros seguem a mesma altura e borda discreta do botão.</p>
+  <h2>{{ ic.svg('filtro', 17) }} Campos e seletores</h2>
+  <p class="pv-desc">Campos com 38px de altura e anel azul no foco. Escolha entre poucas opções vira um seletor segmentado.</p>
   <div class="pv-row" style="align-items:flex-start;">
-    <div class="form-group" style="margin:0;min-width:200px;">
-      <label>Número do veículo</label>
-      <input type="text" placeholder="ex: VH-042">
-    </div>
-    <div class="form-group" style="margin:0;min-width:200px;">
-      <label>Garagem</label>
-      <select><option>— selecione —</option><option>MB</option><option>HP CENTRAL</option></select>
-    </div>
-    <div class="form-group" style="margin:0;min-width:200px;">
-      <label>Campo com erro</label>
+    <div class="form-group" style="margin:0;min-width:220px;"><label>Campo de texto</label><input type="text" placeholder="ex: VH-042"></div>
+    <div class="form-group" style="margin:0;min-width:220px;"><label>Lista</label><select><option>— selecione —</option><option>Opção A</option></select></div>
+    <div class="form-group" style="margin:0;min-width:220px;"><label>Campo com erro</label>
       <input type="text" value="VH-042" style="border-color:var(--danger-border);">
-      <span style="font-size:11.5px;color:var(--danger-text);">Número já cadastrado.</span>
+      <span style="font-size:12px;color:var(--danger-text);">Número já cadastrado.</span></div>
+    <div class="form-group" style="margin:0;"><label>Seletor segmentado</label>
+      <div class="ck-modos"><label class="ck-modo ativo"><input type="radio" name="pv-seg" checked>{{ ic.svg('clipboard', 16) }} Uma opção</label>
+        <label class="ck-modo"><input type="radio" name="pv-seg">{{ ic.svg('importar', 16) }} Outra opção</label></div></div>
+  </div>
+</div>
+
+<div class="pv-grade2">
+  <div class="card pv-secao">
+    <h2>{{ ic.svg('check-circulo', 17) }} Etiquetas de situação</h2>
+    <div class="pv-row">
+      <span class="badge">Neutro</span><span class="badge badge-info">Marca</span><span class="badge badge-success">Produzido</span>
+      <span class="badge badge-warning">Em produção</span><span class="badge badge-danger">Cancelado</span>
+    </div>
+    <p class="pv-nota">Cor de cliente é um ponto de identificação (nome ou marcador), nunca um fundo grande de tela.</p>
+  </div>
+  <div class="card pv-secao">
+    <h2>{{ ic.svg('alerta', 17) }} Avisos na tela</h2>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div class="alert alert-info" style="margin:0;">{{ ic.svg('info', 14) }} Informação ou dica.</div>
+      <div class="alert alert-success" style="margin:0;">{{ ic.svg('check-circulo', 14) }} Importação concluída: 279 veículos.</div>
+      <div class="alert alert-danger" style="margin:0;">{{ ic.svg('alerta', 14) }} 17 itens abaixo do mínimo.</div>
     </div>
   </div>
 </div>
 
+{# ── Números, tabelas, esteira ────────────────────────────────────────── #}
 <div class="card pv-secao">
-  <h2>{{ ic.svg('check-circulo', 17) }} Badges, tags e status</h2>
-  <div class="pv-row">
-    <span class="badge">Neutro</span>
-    <span class="badge badge-info">Marca</span>
-    <span class="badge badge-success">Produzido</span>
-    <span class="badge badge-warning">Em produção</span>
-    <span class="badge badge-info">Em trânsito</span>
-    <span class="badge badge-danger">Cancelado</span>
-  </div>
-  <p style="font-size:11.5px;color:var(--text-muted);margin-top:12px;">
-    Cor de cliente/garagem é um ponto de identificação (nome, borda fina), nunca um fundo grande de tela.
-  </p>
-</div>
-
-<div class="card pv-secao">
-  <h2>{{ ic.svg('alerta', 17) }} Alertas</h2>
-  <div style="display:flex;flex-direction:column;gap:8px;">
-    <div class="alert alert-info">{{ ic.svg('alerta', 14) }} A esteira segue a bipagem nas três primeiras etapas.</div>
-    <div class="alert alert-success">{{ ic.svg('check-circulo', 14) }} Importação concluída: 279 veículos.</div>
-    <div class="alert alert-danger">{{ ic.svg('alerta', 14) }} 17 itens abaixo do mínimo.</div>
-  </div>
-</div>
-
-<div class="card pv-secao">
-  <h2>{{ ic.svg('veiculos', 17) }} Cards e KPIs</h2>
+  <h2>{{ ic.svg('relatorios', 17) }} Números do topo da tela</h2>
+  <p class="pv-desc">Ícone em quadradinho à esquerda, número grande, rótulo embaixo e uma linha extra opcional
+    (<code>.ds-kpi-sub</code>). Quando abre algo, o cartão vira <code>&lt;a&gt;</code> ou <code>&lt;button&gt;</code> e sobe um pouco no hover.</p>
   <section class="ds-kpis" style="margin-bottom:0;">
-    <div class="ds-kpi">
-      <div><p class="ds-kpi-label">Veículos cadastrados</p><p class="ds-kpi-value">1.284</p></div>
-      <span class="ds-kpi-icon">{{ ic.svg('veiculos', 20) }}</span>
-    </div>
-    <div class="ds-kpi">
-      <div><p class="ds-kpi-label">Produzidos hoje</p><p class="ds-kpi-value">36</p></div>
-      <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span>
-    </div>
+    <div class="ds-kpi"><div><p class="ds-kpi-label">Em andamento</p><p class="ds-kpi-value">12</p><p class="ds-kpi-sub">3 prontos pra finalizar</p></div>
+      <span class="ds-kpi-icon">{{ ic.svg('bipagem', 20) }}</span></div>
+    <div class="ds-kpi"><div><p class="ds-kpi-label">Finalizados hoje</p><p class="ds-kpi-value">48</p><p class="ds-kpi-sub">situação boa</p></div>
+      <span class="ds-kpi-icon success">{{ ic.svg('check-circulo', 20) }}</span></div>
+    <a href="#" class="ds-kpi" onclick="return false;"><div><p class="ds-kpi-label">Clicável</p><p class="ds-kpi-value">5</p><p class="ds-kpi-sub">abre uma lista</p></div>
+      <span class="ds-kpi-icon">{{ ic.svg('impressao', 20) }}</span></a>
   </section>
 </div>
 
 <div class="card pv-secao">
-  <h2>{{ ic.svg('relatorios', 17) }} Tabelas</h2>
+  <h2>{{ ic.svg('arquivo', 17) }} Tabelas e seleção</h2>
+  <p class="pv-desc">Cabeçalho em texto normal (sem caixa alta), linhas com hover e alinhadas ao meio. Tabela larga rola dentro do
+    cartão com o aviso “a tabela continua para o lado”. Nas listas com ação em lote, a seleção funciona como no Excel:
+    clique na linha marca, <kbd>Shift</kbd> + clique marca o intervalo, <kbd>Ctrl</kbd> + clique soma; linha marcada fica azul-clara.</p>
   <div class="table-scroll">
     <table>
-      <thead><tr><th>Número</th><th>Cliente</th><th>Situação</th><th></th></tr></thead>
+      <thead><tr><th style="width:32px;"><input type="checkbox" style="width:auto;margin:0;"></th><th>Veículo</th><th>Cliente</th><th>Situação</th><th></th></tr></thead>
       <tbody>
-        <tr><td>VH-042</td><td>Exemplo Transportes</td><td><span class="badge badge-success">Produzido</span></td><td><a href="#" class="btn btn-sm btn-secondary">Ver</a></td></tr>
-        <tr><td>VH-043</td><td>Exemplo Transportes</td><td><span class="badge badge-warning">Em produção</span></td><td><a href="#" class="btn btn-sm btn-secondary">Ver</a></td></tr>
+        <tr class="pv-linha-sel"><td><input type="checkbox" checked style="width:auto;margin:0;"></td><td><strong>VH-042</strong></td><td>Exemplo Transportes</td>
+          <td><span class="badge badge-success">Produzido</span></td><td><button type="button" class="btn btn-sm btn-secondary">Ver</button></td></tr>
+        <tr><td><input type="checkbox" style="width:auto;margin:0;"></td><td><strong>VH-043</strong></td><td>Exemplo Transportes</td>
+          <td><span class="badge badge-warning">Em produção</span></td><td><button type="button" class="btn btn-sm btn-secondary">Ver</button></td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
 <div class="card pv-secao">
-  <h2>{{ ic.svg('menu', 17) }} Navegação</h2>
-  <p class="pv-desc">Sidebar fixa à esquerda, agrupada por contexto (Operação, Cadastros, Gestão). O item ativo ganha fundo suave da marca, nunca cor cheia.</p>
-  <div style="max-width:220px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-    <a class="ds-nav-item ativo" style="margin:6px;">{{ ic.svg('veiculos', 17) }}<span>Item ativo</span></a>
-    <a class="ds-nav-item" style="margin:6px;">{{ ic.svg('itens', 17) }}<span>Item comum</span></a>
+  <h2>{{ ic.svg('atividade', 17) }} Esteira de etapas</h2>
+  <p class="pv-desc">As etapas de um processo lado a lado, na ordem do caminho, com a quantidade de cada uma. Cada etapa é um botão
+    que abre a lista dela; a aberta fica destacada (<code>.esteira-etapa.aberta</code>).</p>
+  <nav class="esteira" aria-label="Exemplo de esteira">
+    {% for nome, sub, cor, n, aberta in [('A fazer', 'aguardando início', 'var(--text-muted-2)', 190, False),
+                                         ('Fazendo', 'em andamento', 'var(--warn-text)', 7, True),
+                                         ('Feito', 'aguardando saída', 'var(--ok-text)', 114, False),
+                                         ('Saindo', 'a caminho', 'var(--brand)', 12, False),
+                                         ('Entregue', 'no total', '#7a4fc4', 493, False)] %}
+    <button type="button" class="esteira-etapa {{ 'aberta' if aberta }}">
+      <span class="esteira-nome"><span class="esteira-ponto" style="background:{{ cor }}"></span>{{ nome }}</span>
+      <span class="esteira-num">{{ n }}</span><span class="esteira-sub">{{ sub }}</span>
+    </button>
+    {% endfor %}
+  </nav>
+</div>
+
+{# ── Janelas ──────────────────────────────────────────────────────────── #}
+<div class="card pv-secao">
+  <h2>{{ ic.svg('clipboard', 17) }} Janelas (pop-ups)</h2>
+  <p class="pv-desc">Janela no meio da tela, abaixo da barra do topo: título e subtítulo no cabeçalho, conteúdo que rola sozinho e
+    rodapé com <em>Cancelar</em> + a ação. Esc, X e clique fora fecham; uma janela aberta de dentro de outra empilha e o Esc volta pra anterior.</p>
+  <div class="pv-row">
+    <button type="button" class="btn btn-secondary" onclick="abrirPopup(event, 'pv-exemplo')">{{ ic.svg('clipboard', 15) }} Abrir janela de exemplo</button>
+  </div>
+  <ul class="pv-lista" style="margin-top:12px;">
+    <li><strong>Janela de criação</strong> (<code>.config-popup.ck-pop</code>): dados em cima, catálogo à esquerda e itens à direita, botão do
+      rodapé que diz o que falta — como em <em>Kits e pedidos → Novo Kit</em>.</li>
+    <li><strong>Pergunta depois de uma ação</strong>: quando uma ação costuma puxar outra, a tela pergunta logo em seguida
+      (ex.: depois da nota fiscal, “Colocar em trânsito?”), com <em>Agora não</em> pra seguir sem fazer.</li>
+    <li><strong>Conteúdo vindo do servidor</strong>: <code>abrirJanelaPainel(url, título, subtítulo, largo)</code>.</li>
+  </ul>
+</div>
+<div id="popup-pv-exemplo" class="config-popup" role="dialog" aria-modal="true" style="width:min(520px, calc(100vw - 32px));">
+  <div class="config-cabecalho">
+    <div><strong>Janela de exemplo</strong><span class="config-sub">Cabeçalho, conteúdo e rodapé no padrão.</span></div>
+    <button type="button" class="config-fechar" onclick="fecharPopup()" title="Fechar (Esc)">&times;</button>
+  </div>
+  <div style="padding:16px 22px;">
+    <div class="form-group"><label>Nome</label><input type="text" placeholder="ex: Registro novo"></div>
+    <p class="pv-nota" style="margin:0;">Nada aqui é salvo — é só a demonstração do componente.</p>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 22px;border-top:1px solid var(--border);background:var(--surface-alt);">
+    <button type="button" class="btn btn-ghost" onclick="fecharPopup()">Cancelar</button>
+    <button type="button" class="btn btn-primary" onclick="fecharPopup()">{{ ic.svg('check', 15) }} Salvar</button>
+  </div>
+</div>
+
+{# ── Ícones e tipografia ──────────────────────────────────────────────── #}
+<div class="card pv-secao">
+  <h2>{{ ic.svg('paleta', 17) }} Ícones</h2>
+  <p class="pv-desc">Traço único (estilo Lucide), herdam a cor do texto. Uso: <code>{% raw %}{{ ic.svg('nome', 18) }}{% endraw %}</code>. Nunca emoji no lugar de ícone.</p>
+  <div class="pv-icones">
+    {% for nome in icones %}<div class="pv-icone">{{ ic.svg(nome, 20) }}<span>{{ nome }}</span></div>{% endfor %}
   </div>
 </div>
 
 <div class="card pv-secao" style="margin-bottom:0;">
   <h2>Aa Tipografia</h2>
-  <p class="pv-desc">Inter/sistema, pesos 400/500/600. Nunca 700 — negrito demais compete com o dado, não destaca ele.</p>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">28px</span><span style="font-size:28px;font-weight:600;">Valor de KPI</span><span class="pv-tipo-nome">— .ds-kpi-value</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">20px</span><span style="font-size:20px;font-weight:600;">Título de página</span><span class="pv-tipo-nome">— h1</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">16px</span><span style="font-size:16px;font-weight:600;">Título de card</span><span class="pv-tipo-nome">— h2</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">14px</span><span style="font-size:14px;">Corpo padrão e navegação</span><span class="pv-tipo-nome">— body</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">13px</span><span style="font-size:13px;">Tabela, botões, inputs</span><span class="pv-tipo-nome">— .btn, table</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">12px</span><span style="font-size:12px;color:var(--text-muted);">Metadados e hint</span><span class="pv-tipo-nome">— .ds-kpi-label</span></div>
-  <div class="pv-tipo-linha"><span class="pv-tipo-px">11px</span><span style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted-2);">Overline / header de tabela</span><span class="pv-tipo-nome">— .ds-nav-title</span></div>
+  <p class="pv-desc">Fonte do sistema (Segoe UI no Windows). Pesos 400/500/600/700: 700 só em título e número de destaque.
+    Números de tabela e contagem com algarismos de largura igual (<code>font-variant-numeric: tabular-nums</code>).</p>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">26px/700</span><span style="font-size:26px;font-weight:700;letter-spacing:-.02em;">1.284</span><span class="pv-tipo-nome">— número do topo (.ds-kpi-value)</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">24px/700</span><span style="font-size:24px;font-weight:700;letter-spacing:-.015em;">Título da tela</span><span class="pv-tipo-nome">— .ds-pagina-cab h1</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">16px/700</span><span style="font-size:16px;font-weight:700;">Título de cartão</span><span class="pv-tipo-nome">— h2</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">14px</span><span style="font-size:14px;">Texto padrão</span><span class="pv-tipo-nome">— body</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">13px/600</span><span style="font-size:13px;font-weight:600;">Botão, rótulo de campo</span><span class="pv-tipo-nome">— .btn, label</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">12px/700</span><span style="font-size:12px;font-weight:700;color:var(--text-muted-2);">Cabeçalho de tabela</span><span class="pv-tipo-nome">— th</span></div>
+  <div class="pv-tipo-linha"><span class="pv-tipo-px">11.5px/600</span><span style="font-size:11.5px;font-weight:600;color:var(--text-muted);">Rótulo do menu na barra</span><span class="pv-tipo-nome">— .ds-tn</span></div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+// As cores mostradas são lidas da tela na hora (modo claro ou escuro).
+function pvMostrarCores() {
+    const raiz = getComputedStyle(document.documentElement);
+    document.querySelectorAll('.pv-swatch-hex[data-token]').forEach(function (el) {
+        el.textContent = raiz.getPropertyValue(el.dataset.token).trim();
+    });
+}
+pvMostrarCores();
+new MutationObserver(pvMostrarCores).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+</script>
 {% endblock %}

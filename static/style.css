@@ -547,6 +547,7 @@ h2 { font-size: 16px; margin-bottom: 14px; color: var(--text); font-weight: 700;
 .ds-kpi-label { order: 1; margin: 5px 0 0; color: var(--text); font-size: 13px; font-weight: 600; }
 .ds-kpi-value { order: 0; margin: 0; font-size: 26px; line-height: 1.05; font-weight: 700; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; }
 .ds-kpi > div > :not(.ds-kpi-label):not(.ds-kpi-value) { order: 2; }
+.ds-kpi-sub { margin: 4px 0 0; font-size: 12px; color: var(--text-muted); }
 .ds-kpi-icon {
     width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft);
     color: var(--brand); display: grid; place-items: center; flex: 0 0 auto;
@@ -2187,3 +2188,110 @@ tr.conf-erro     { background: color-mix(in srgb, var(--danger-text) 10%, var(--
    de grupo, mas é link. A da tela aberta fica destacada. */
 a.ds-nav-direto { text-decoration: none; }
 .ds-nav-direto-grupo[data-ativo="1"] .ds-nav-direto { background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-border); }
+
+/* ══ Componentes reutilizáveis ═════════════════════════════════════════════
+   Vieram das telas que os criaram e moram aqui pra valer em qualquer tela (e
+   irem juntos no pacote do front-end, em Sistema → Padrão visual). */
+
+/* ── Esteira de etapas (Acompanhar produção): os números de cada etapa lado
+   a lado, na ordem do caminho, com a setinha entre uma e outra. Botões que
+   abrem a lista da etapa; .aberta = a lista dela está à vista. */
+.esteira {
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card); overflow: hidden;
+}
+.esteira-etapa {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;
+    padding: 15px 18px 15px 24px; border: 0; border-right: 1px solid var(--border); background: var(--surface);
+    font-family: inherit; text-align: left; cursor: pointer; color: var(--text);
+}
+.esteira-etapa:last-child { border-right: 0; }
+/* a setinha entre uma etapa e a próxima */
+.esteira-etapa:not(:last-child)::after {
+    content: ""; position: absolute; right: -8px; top: 50%; width: 14px; height: 14px; z-index: 1;
+    background: inherit; border-top: 1px solid var(--border); border-right: 1px solid var(--border);
+    transform: translateY(-50%) rotate(45deg);
+}
+.esteira-etapa:hover { background: var(--surface-hover); }
+.esteira-etapa.aberta { background: var(--brand-soft); box-shadow: inset 0 -3px 0 var(--brand); }
+.esteira-nome { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.esteira-ponto { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.esteira-num { font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.esteira-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 900px) {
+    .esteira { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .esteira-etapa { border-bottom: 1px solid var(--border); }
+    .esteira-etapa::after { display: none; }
+}
+
+/* ── Janela de criação (Novo Kit / Novo Pedido): .config-popup.ck-pop com os
+   dados em cima, catálogo à esquerda e itens à direita (cada lado rola
+   sozinho) e o rodapé com o botão que diz o que falta. */
+/* Janela de criação (Novo Kit / Novo Pedido) */
+.config-popup.ck-pop { width: min(1180px, calc(100vw - 32px)); }
+.ck-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; margin: 0; }
+.ck-corpo { padding: 16px 22px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.ck-dados { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-bottom: 16px; }
+.ck-dados input[type=text] { margin-bottom: 0; }
+.ck-rot { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.ck-rot-espaco { margin-top: 14px; }
+.ck-modos { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; flex-wrap: wrap; }
+.ck-modo { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; margin: 0; border-radius: 8px;
+    font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+.ck-modo input { position: absolute; opacity: 0; pointer-events: none; }
+.ck-modo:hover { color: var(--text); }
+.ck-modo.ativo { background: var(--surface); color: var(--brand-ink); box-shadow: 0 1px 2px rgba(15,27,45,.12); }
+.ck-modo.ativo .ic { color: var(--brand); }
+.ck-modo:focus-within { outline: 2px solid var(--brand); outline-offset: 1px; }
+.sel-clientes-lista { max-height: 132px; overflow-y: auto; }
+.ck-etapa[hidden] { display: none; }
+.ck-planilha { display: flex; gap: 14px; align-items: flex-start; padding: 18px; border: 1px dashed var(--border-strong);
+    border-radius: 12px; background: var(--surface-alt); color: var(--brand); }
+.ck-planilha strong { color: var(--text); font-size: 14px; }
+.ck-planilha p { margin: 4px 0 10px; font-size: 13px; color: var(--text-muted); }
+.ck-planilha input[type=file] { margin: 0; }
+.cp-aviso { margin: 8px 0 0; font-size: 13px; color: var(--warn-text); background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; }
+.cp-aviso[hidden] { display: none; }
+
+/* Catálogo à esquerda, itens do kit à direita; cada lado rola sozinho. */
+.ck-montagem { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; height: min(54vh, 520px); min-height: 300px; }
+.ck-cat, .ck-sel { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.ck-cat-topo { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
+.ck-busca { position: relative; flex: 1; }
+.ck-busca .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted-2); pointer-events: none; }
+.ck-busca input[type=text] { margin: 0; padding-left: 34px; }
+.ck-cat-lista { overflow-y: auto; padding: 6px; flex: 1; min-height: 0; }
+.ck-cat-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 8px;
+    background: none; font-family: inherit; font-size: 13.5px; color: var(--text); text-align: left; cursor: pointer; }
+.ck-cat-item:hover, .ck-cat-item.primeiro { background: var(--surface-hover); }
+.ck-cat-item[hidden] { display: none; }
+.ck-cat-nome { flex: 1; min-width: 0; }
+.ck-tag { font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--surface-alt); color: var(--text-muted); white-space: nowrap; }
+.ck-tag-m { background: var(--brand-soft); color: var(--brand-ink); }
+.ck-cat-qtd { font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--brand); color: #fff; font-variant-numeric: tabular-nums; }
+.ck-cat-qtd[hidden] { display: none; }
+.ck-cat-mais { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; color: var(--brand); flex: 0 0 auto; }
+.ck-cat-item:hover .ck-cat-mais { background: var(--brand-soft); }
+.ck-cat-item.no-kit .ck-cat-nome { font-weight: 600; }
+.ck-cat-vazio { margin: 0; padding: 18px 10px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.ck-cat-vazio[hidden] { display: none; }
+.ck-sel-topo { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.ck-sel-conta { color: var(--text-muted); font-size: 12.5px; }
+.ck-sel-topo .ajuda { margin-left: auto; }
+.ck-sel-lista { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+.ck-sel-lista:empty { display: none; }
+.ck-sel-vazio { margin: auto; padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; max-width: 340px; }
+.ck-sel-lista .item-sel { padding: 8px 10px; }
+.ck-sel-lista .item-sel input { margin: 0; height: 32px; }
+.ck-sel-lista .item-sel.pulsou { animation: ckPulso .5s ease; }
+@keyframes ckPulso { 0% { background: var(--brand-soft); border-color: var(--brand); } 100% { background: var(--surface-alt); } }
+.ck-pe { display: flex; align-items: center; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface-alt); flex: 0 0 auto; }
+.ck-falta { margin-right: auto; font-size: 13px; color: var(--text-muted); }
+.ck-pe .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.ck-sel-vazio kbd, .ck-busca kbd { font: 600 11px/1 inherit; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; background: var(--surface); }
+@media (max-width: 860px) {
+    .ck-dados { grid-template-columns: 1fr; }
+    .ck-montagem { grid-template-columns: 1fr; height: auto; }
+    .ck-cat-lista, .ck-sel-lista { max-height: 300px; }
+}

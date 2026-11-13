@@ -111,6 +111,17 @@
     administrador: usuários, permissões e tempo de inatividade —, Rede e acesso, Backup e Padrão
     visual).</li>
 </ul>
+<p class="nota">
+  <strong>Padrão visual</strong> (Sistema → Configurações, só administrador): a referência viva da cara do
+  sistema — cores (lidas da tela, no modo claro ou escuro), barra do topo e menus, Ir para, título da tela,
+  botões, campos, etiquetas, números do topo, tabelas e seleção, esteira de etapas, janelas e todos os
+  ícones. O botão <strong>Baixar pacote do front-end</strong> entrega um <em>.zip</em> pra replicar esse
+  visual em outra aplicação: o <code>style.css</code>, a casca (<code>base.html</code> sem as partes que
+  são só deste sistema, como o aviso de estoque e as janelas de veículo e patrimônio), os ícones, o
+  montador de menu com uma lista de exemplo, as cores em <code>tokens.json</code>, uma aplicação de exemplo
+  e um <code>README</code> com o passo a passo. O pacote é montado na hora a partir do que está no ar, e cada
+  aplicação continua com as próprias telas, rotas e permissões.
+</p>
 <p>
   As telas não repetem esses botões no topo; continuam nelas só as ações da própria tela e o
   <em>Exportar Excel</em> que leva os <strong>filtros aplicados</strong> (Veículos, RMAs,

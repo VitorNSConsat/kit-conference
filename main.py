@@ -23,6 +23,7 @@ from database import init_db, db, now_brt
 from app.auth import (hash_password, verify_password, get_current_user,
                       require_login, require_admin, require_permission, is_admin)
 import app.items as items_mod
+import app.kit_frontend as kit_frontend_mod
 import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
 import app.zpl as zpl_mod
@@ -860,7 +861,17 @@ async def admin_usuarios(request: Request, pagina: int = 1, busca: str = ""):
 @app.get("/admin/padrao-visual", response_class=HTMLResponse)
 @require_admin
 async def admin_padrao_visual(request: Request):
-    return render(request, "admin_padrao_visual.html", {})
+    return render(request, "admin_padrao_visual.html", {"icones": kit_frontend_mod.icones()})
+
+
+@app.get("/admin/padrao-visual/pacote-frontend.zip")
+@require_admin
+async def admin_padrao_visual_pacote(request: Request):
+    """Pacote do front-end pra replicar a cara do sistema em outra aplicação.
+    Montado na hora a partir dos arquivos que estão no ar (app/kit_frontend.py)."""
+    from fastapi.responses import Response
+    return Response(kit_frontend_mod.montar_zip(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="frontend-consat.zip"'})
 
 
 @app.post("/admin/usuarios/inatividade")

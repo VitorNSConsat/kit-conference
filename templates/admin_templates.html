@@ -418,76 +418,10 @@
 {% endblock %}
 {% block scripts %}
 <style>
-/* Janela de criação (Novo Kit / Novo Pedido) */
+/* A janela de criação (.ck-*) mora em static/style.css (componente reutilizável). */
 .ck-lista-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .ck-lista-cab h2 { margin: 0; }
 .ck-sem-permissao { font-size: 13px; color: var(--warn-text); }
-.config-popup.ck-pop { width: min(1180px, calc(100vw - 32px)); }
-.ck-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; margin: 0; }
-.ck-corpo { padding: 16px 22px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
-.ck-dados { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-bottom: 16px; }
-.ck-dados input[type=text] { margin-bottom: 0; }
-.ck-rot { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.ck-rot-espaco { margin-top: 14px; }
-.ck-modos { display: inline-flex; padding: 3px; gap: 2px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; flex-wrap: wrap; }
-.ck-modo { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; margin: 0; border-radius: 8px;
-    font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; white-space: nowrap; }
-.ck-modo input { position: absolute; opacity: 0; pointer-events: none; }
-.ck-modo:hover { color: var(--text); }
-.ck-modo.ativo { background: var(--surface); color: var(--brand-ink); box-shadow: 0 1px 2px rgba(15,27,45,.12); }
-.ck-modo.ativo .ic { color: var(--brand); }
-.ck-modo:focus-within { outline: 2px solid var(--brand); outline-offset: 1px; }
-.sel-clientes-lista { max-height: 132px; overflow-y: auto; }
-.ck-etapa[hidden] { display: none; }
-.ck-planilha { display: flex; gap: 14px; align-items: flex-start; padding: 18px; border: 1px dashed var(--border-strong);
-    border-radius: 12px; background: var(--surface-alt); color: var(--brand); }
-.ck-planilha strong { color: var(--text); font-size: 14px; }
-.ck-planilha p { margin: 4px 0 10px; font-size: 13px; color: var(--text-muted); }
-.ck-planilha input[type=file] { margin: 0; }
-.cp-aviso { margin: 8px 0 0; font-size: 13px; color: var(--warn-text); background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; }
-.cp-aviso[hidden] { display: none; }
-
-/* Catálogo à esquerda, itens do kit à direita; cada lado rola sozinho. */
-.ck-montagem { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 16px; height: min(54vh, 520px); min-height: 300px; }
-.ck-cat, .ck-sel { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.ck-cat-topo { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
-.ck-busca { position: relative; flex: 1; }
-.ck-busca .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted-2); pointer-events: none; }
-.ck-busca input[type=text] { margin: 0; padding-left: 34px; }
-.ck-cat-lista { overflow-y: auto; padding: 6px; flex: 1; min-height: 0; }
-.ck-cat-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 8px;
-    background: none; font-family: inherit; font-size: 13.5px; color: var(--text); text-align: left; cursor: pointer; }
-.ck-cat-item:hover, .ck-cat-item.primeiro { background: var(--surface-hover); }
-.ck-cat-item[hidden] { display: none; }
-.ck-cat-nome { flex: 1; min-width: 0; }
-.ck-tag { font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--surface-alt); color: var(--text-muted); white-space: nowrap; }
-.ck-tag-m { background: var(--brand-soft); color: var(--brand-ink); }
-.ck-cat-qtd { font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--brand); color: #fff; font-variant-numeric: tabular-nums; }
-.ck-cat-qtd[hidden] { display: none; }
-.ck-cat-mais { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; color: var(--brand); flex: 0 0 auto; }
-.ck-cat-item:hover .ck-cat-mais { background: var(--brand-soft); }
-.ck-cat-item.no-kit .ck-cat-nome { font-weight: 600; }
-.ck-cat-vazio { margin: 0; padding: 18px 10px; text-align: center; color: var(--text-muted); font-size: 13px; }
-.ck-cat-vazio[hidden] { display: none; }
-.ck-sel-topo { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-.ck-sel-conta { color: var(--text-muted); font-size: 12.5px; }
-.ck-sel-topo .ajuda { margin-left: auto; }
-.ck-sel-lista { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
-.ck-sel-lista:empty { display: none; }
-.ck-sel-vazio { margin: auto; padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; max-width: 340px; }
-.ck-sel-lista .item-sel { padding: 8px 10px; }
-.ck-sel-lista .item-sel input { margin: 0; height: 32px; }
-.ck-sel-lista .item-sel.pulsou { animation: ckPulso .5s ease; }
-@keyframes ckPulso { 0% { background: var(--brand-soft); border-color: var(--brand); } 100% { background: var(--surface-alt); } }
-.ck-pe { display: flex; align-items: center; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--border); background: var(--surface-alt); flex: 0 0 auto; }
-.ck-falta { margin-right: auto; font-size: 13px; color: var(--text-muted); }
-.ck-pe .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-.ck-sel-vazio kbd, .ck-busca kbd { font: 600 11px/1 inherit; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; background: var(--surface); }
-@media (max-width: 860px) {
-    .ck-dados { grid-template-columns: 1fr; }
-    .ck-montagem { grid-template-columns: 1fr; height: auto; }
-    .ck-cat-lista, .ck-sel-lista { max-height: 300px; }
-}
 
 .conjunto-template-details {
     border: 1px solid var(--border);
