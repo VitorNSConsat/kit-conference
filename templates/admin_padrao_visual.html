@@ -23,7 +23,7 @@
 .pv-grade2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 18px; }
 .pv-lista { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text); }
 .pv-lista li { margin: 4px 0; }
-.pv-lista code, .pv-desc code, .pv-nota code { font-size: 12px; background: var(--surface-alt); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 0 4px; }
+.pv-lista code, .pv-desc code, .pv-nota code { font-size: 12px; background: var(--surface-alt); border: 1px solid var(--border-subtle); border-radius: 5px; padding: 1px 6px; }
 .pv-nota { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
 .pv-passos { counter-reset: passo; list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .pv-passos li { counter-increment: passo; display: grid; grid-template-columns: 28px 1fr; gap: 10px; font-size: 13px; align-items: start; }
@@ -116,7 +116,7 @@
   <div class="pv-swatches">
     {% for nome, uso in [('ok', 'Confirmado, produzido, concluído'), ('warn', 'Estoque baixo, em produção, atenção'),
                          ('danger', 'Falha, cancelar, excluir')] %}
-    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:var(--{{ nome }}-bg);border-bottom:4px solid var(--{{ nome }}-text);"></div>
+    <div class="pv-swatch"><div class="pv-swatch-cor" style="background:linear-gradient(90deg, var(--{{ nome }}-bg) 0 62%, var(--{{ nome }}-text) 62% 100%);"></div>
       <div class="pv-swatch-info"><span class="pv-swatch-token">--{{ nome }}-text / -bg / -border</span>
         <span class="pv-swatch-hex" data-token="--{{ nome }}-text"></span>
         <div class="pv-swatch-uso">{{ uso }}</div></div></div>
