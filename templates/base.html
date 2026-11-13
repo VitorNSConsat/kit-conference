@@ -19,7 +19,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Kit Conf">
     <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <link rel="stylesheet" href="/static/style.css?v=90">
+    <link rel="stylesheet" href="/static/style.css?v=91">
 </head>
 <body>
 {# Pacote do front-end (Sistema → Padrão visual → Baixar): o que fica entre
@@ -975,6 +975,185 @@ if (!window.location.pathname.startsWith('/session/')) {
     {% block content %}{% endblock %}
 </div>
 </div>
+<script>
+// ── Janela de downloads ───────────────────────────────────────────────────
+// Todo link de planilha/arquivo (e formulário de exportação) baixa por aqui:
+// uma janelinha no canto mostra o que está acontecendo — o servidor montando
+// o arquivo (com as etapas, quando a rota conta: GET /downloads/progresso/<id>),
+// o arquivo chegando (barra pelo tamanho) e onde terminou. Antes, um download
+// grande não dava sinal nenhum: parecia travado e a pessoa clicava de novo.
+(function () {
+    // Abre direto no navegador: o certificado do celular precisa ser aberto
+    // pelo próprio navegador pra o aparelho oferecer a instalação.
+    const DIRETO = ['/cert'];
+    const EXT = /\.(xlsx|xls|csv|zip|pdf)$/i;
+
+    function ehDownload(url, el) {
+        if (url.origin !== location.origin || DIRETO.indexOf(url.pathname) >= 0) return false;
+        if (el && (el.hasAttribute('data-download-direto') || el.target === '_blank')) return false;
+        if (el && el.hasAttribute('download')) return true;
+        return EXT.test(url.pathname) || /\/export$/.test(url.pathname);
+    }
+    function nomeDoLink(el) {
+        const c = el.cloneNode(true);
+        c.querySelectorAll('small, svg').forEach(function (x) { x.remove(); });
+        return (el.dataset.nome || el.title || c.textContent || '').replace(/\s+/g, ' ').trim()
+            .replace(/^Baixar o arquivo$/, '') || 'Download';
+    }
+    function mb(n) { return (n / 1048576).toLocaleString('pt-BR', {maximumFractionDigits: 1, minimumFractionDigits: 1}) + ' MB'; }
+    function seg(ms) { const s = Math.round(ms / 1000); return s < 60 ? s + 's' : Math.floor(s / 60) + 'min ' + (s % 60) + 's'; }
+    function nomeDoArquivo(res, url) {
+        const cd = res.headers.get('content-disposition') || '';
+        let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+        if (m) { try { return decodeURIComponent(m[1]); } catch (e) {} }
+        m = cd.match(/filename="?([^";]+)"?/i);
+        return m ? m[1] : (url.pathname.split('/').pop() || 'arquivo');
+    }
+    function painel() {
+        let p = document.getElementById('ds-downloads');
+        if (!p) {
+            p = document.createElement('div');
+            p.id = 'ds-downloads';
+            p.className = 'ds-downloads';
+            p.setAttribute('aria-live', 'polite');
+            document.body.appendChild(p);
+        }
+        return p;
+    }
+
+    window.baixarComProgresso = function (href, nome) {
+        const url = new URL(href, location.href);
+        const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^\w-]/g, '');
+        const ctrl = new AbortController();
+        const inicio = Date.now();
+        const card = document.createElement('div');
+        card.className = 'ds-dl';
+        card.innerHTML = '<div class="ds-dl-cab"><strong class="ds-dl-nome"></strong>'
+            + '<button type="button" class="ds-dl-x" title="Cancelar">&times;</button></div>'
+            + '<div class="ds-dl-barra ds-dl-indef"><span></span></div>'
+            + '<div class="ds-dl-info"><span class="ds-dl-etapa"></span><span class="ds-dl-tempo">0s</span></div>'
+            + '<ol class="ds-dl-log"></ol>';
+        card.querySelector('.ds-dl-nome').textContent = nome || 'Download';
+        painel().prepend(card);
+        const barra = card.querySelector('.ds-dl-barra'), fill = barra.querySelector('span');
+        const etapaEl = card.querySelector('.ds-dl-etapa'), tempoEl = card.querySelector('.ds-dl-tempo');
+        const logEl = card.querySelector('.ds-dl-log'), xBtn = card.querySelector('.ds-dl-x');
+        let fase = 'servidor', vistos = 0;
+
+        function log(texto) {
+            const li = document.createElement('li');
+            const t = document.createElement('span');
+            t.textContent = seg(Date.now() - inicio);
+            li.appendChild(t);
+            li.appendChild(document.createTextNode(' ' + texto));
+            logEl.appendChild(li);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        function etapa(texto) { etapaEl.textContent = texto; }
+        function progresso(frac) {
+            if (frac == null) { barra.classList.add('ds-dl-indef'); return; }
+            barra.classList.remove('ds-dl-indef');
+            fill.style.width = Math.max(2, Math.min(100, frac * 100)) + '%';
+        }
+        function terminar(tipo, texto) {
+            fase = 'fim';
+            clearInterval(relogio); clearInterval(consulta);
+            card.classList.add(tipo === 'ok' ? 'ds-dl-ok' : 'ds-dl-erro');
+            if (tipo === 'ok') progresso(1); else barra.classList.remove('ds-dl-indef');
+            etapa(texto); log(texto);
+            xBtn.title = 'Fechar';
+            if (tipo === 'ok') setTimeout(function () { if (!card.matches(':hover')) card.remove(); }, 12000);
+        }
+        xBtn.addEventListener('click', function () {
+            if (fase === 'fim') { card.remove(); return; }
+            ctrl.abort();
+        });
+
+        etapa('Pedindo o arquivo ao servidor'); log('Pedindo o arquivo ao servidor');
+        const relogio = setInterval(function () { tempoEl.textContent = seg(Date.now() - inicio); }, 1000);
+        // Enquanto o servidor monta o arquivo, pergunta o que ele está fazendo.
+        const consulta = setInterval(function () {
+            if (fase !== 'servidor') return;
+            fetch('/downloads/progresso/' + id, {credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (!d || fase !== 'servidor') return;
+                    (d.log || []).slice(vistos).forEach(log);
+                    vistos = (d.log || []).length;
+                    if (d.etapa) {
+                        const n = d.feito != null && d.total ? ' (' + d.feito.toLocaleString('pt-BR') + ' de ' + d.total.toLocaleString('pt-BR') + ')' : '';
+                        etapa(d.etapa + n);
+                    }
+                    progresso(d.feito != null && d.total ? d.feito / d.total : null);
+                }).catch(function () {});
+        }, 700);
+
+        fetch(url.href, {headers: {'X-Download-Id': id}, credentials: 'same-origin', signal: ctrl.signal})
+            .then(function (res) {
+                fase = 'recebendo';
+                const tipo = res.headers.get('content-type') || '';
+                if (res.status === 403) throw new Error('Seu usuário não tem permissão para este download.');
+                if (!res.ok) throw new Error('O servidor não conseguiu gerar o arquivo (erro ' + res.status + '). Tente de novo; se repetir, avise o administrador.');
+                if (tipo.indexOf('text/html') >= 0) throw new Error('A sessão expirou. Entre de novo no sistema e repita o download.');
+                const nomeArq = nomeDoArquivo(res, url);
+                // Resposta comprimida: o tamanho do cabeçalho é o comprimido, e o
+                // que chega aqui já vem descomprimido — barra só pelo que chegou.
+                const total = res.headers.get('content-encoding') ? 0 : (Number(res.headers.get('content-length')) || 0);
+                etapa('Recebendo o arquivo'); log('Servidor terminou; recebendo ' + nomeArq + (total ? ' (' + mb(total) + ')' : ''));
+                progresso(total ? 0 : null);
+                if (!res.body || !res.body.getReader) {
+                    return res.blob().then(function (b) { return {blob: b, nome: nomeArq}; });
+                }
+                const leitor = res.body.getReader(), partes = [];
+                let recebido = 0;
+                function ler() {
+                    return leitor.read().then(function (r) {
+                        if (r.done) return {blob: new Blob(partes, {type: tipo}), nome: nomeArq};
+                        partes.push(r.value); recebido += r.value.length;
+                        if (total) { progresso(recebido / total); etapa('Recebendo ' + mb(recebido) + ' de ' + mb(total)); }
+                        else etapa('Recebendo ' + mb(recebido));
+                        return ler();
+                    });
+                }
+                return ler();
+            })
+            .then(function (r) {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(r.blob);
+                a.download = r.nome;
+                a.setAttribute('data-download-direto', '');
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+                terminar('ok', 'Pronto: ' + r.nome + ' (' + mb(r.blob.size) + ') na pasta de downloads');
+            })
+            .catch(function (e) {
+                terminar('erro', e.name === 'AbortError' ? 'Download cancelado.' : (e.message || 'Falha na conexão com o servidor.'));
+            });
+    };
+
+    document.addEventListener('click', function (ev) {
+        if (ev.defaultPrevented || ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+        const a = ev.target.closest && ev.target.closest('a[href]');
+        if (!a) return;
+        let url;
+        try { url = new URL(a.href, location.href); } catch (e) { return; }
+        if (!ehDownload(url, a)) return;
+        ev.preventDefault();
+        baixarComProgresso(url.href, nomeDoLink(a));
+    });
+    // Formulários de exportação (GET), ex.: RMAs com os selecionados marcados.
+    document.addEventListener('submit', function (ev) {
+        const f = ev.target;
+        if (ev.defaultPrevented || (f.method || 'get').toLowerCase() !== 'get') return;
+        const url = new URL(f.action || location.href, location.href);
+        if (!ehDownload(url, f)) return;
+        ev.preventDefault();
+        const dados = new FormData(f, ev.submitter || undefined);
+        url.search = new URLSearchParams(dados).toString();
+        baixarComProgresso(url.href, ev.submitter ? nomeDoLink(ev.submitter) : 'Exportação');
+    });
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1650,6 +1650,13 @@ details.etapa[open] > summary { border-bottom: 1px solid var(--border); margin-b
     color: var(--text-muted); border: 1px solid var(--brand-border);
 }
 .cfg-destaque-alteracao svg { flex-shrink: 0; opacity: .8; }
+/* Última alteração manual do saldo, embaixo do nome do item na lista:
+   texto miúdo, sem caixa, pra não parecer mais uma linha da tabela. */
+.item-alteracao {
+    display: flex; align-items: flex-start; gap: 5px; margin-top: 4px;
+    font-size: 12px; line-height: 1.4; color: var(--text-muted-2); font-weight: 400;
+}
+.item-alteracao svg { flex-shrink: 0; margin-top: 2px; opacity: .75; }
 .cfg-acoes .btn { flex: 1; text-align: center; }
 
 /* O estilo do menu de abas mora em static/style.css, carregado no <head> —
@@ -2297,4 +2304,58 @@ a.ds-nav-direto { text-decoration: none; }
     .ck-dados { grid-template-columns: 1fr; }
     .ck-montagem { grid-template-columns: 1fr; height: auto; }
     .ck-cat-lista, .ck-sel-lista { max-height: 300px; }
+}
+
+/* ── Janela de downloads (base.html → baixarComProgresso) ──────────────────
+   Cartões empilhados no canto de baixo: um por download, com a etapa atual,
+   o tempo correndo, a barra e o registro do que já aconteceu. Não bloqueia a
+   tela — dá pra continuar trabalhando enquanto o arquivo é montado. */
+.ds-downloads {
+    position: fixed; right: 16px; bottom: 16px; z-index: 1200;
+    display: flex; flex-direction: column; gap: 10px;
+    width: min(380px, calc(100vw - 32px)); pointer-events: none;
+}
+.ds-dl {
+    pointer-events: auto; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-pop); padding: 12px 14px 10px;
+    animation: popIn .18s ease-out;
+}
+.ds-dl-cab { display: flex; align-items: center; gap: 8px; }
+.ds-dl-nome { flex: 1; font-size: 13.5px; line-height: 1.3; }
+.ds-dl-x {
+    border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+    font-size: 20px; line-height: 1; width: 28px; height: 28px; border-radius: 7px;
+}
+.ds-dl-x:hover { background: var(--surface-alt); color: var(--text); }
+.ds-dl-barra {
+    position: relative; height: 6px; margin: 10px 0 6px; overflow: hidden;
+    border-radius: 99px; background: var(--surface-alt);
+}
+.ds-dl-barra span {
+    display: block; height: 100%; width: 2%; border-radius: inherit;
+    background: var(--brand); transition: width .25s ease;
+}
+.ds-dl-indef span { width: 35%; animation: dlIndef 1.2s ease-in-out infinite; }
+@keyframes dlIndef { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.ds-dl-info {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.4;
+}
+.ds-dl-tempo { font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.ds-dl-log {
+    list-style: none; margin: 8px 0 0; padding: 8px 0 0; max-height: 132px; overflow-y: auto;
+    border-top: 1px solid var(--border-subtle); font-size: 12px; line-height: 1.5; color: var(--text-muted);
+}
+.ds-dl-log span {
+    display: inline-block; min-width: 38px; color: var(--text-muted-2);
+    font-variant-numeric: tabular-nums;
+}
+.ds-dl-ok .ds-dl-barra span { background: var(--ok-text); }
+.ds-dl-ok .ds-dl-etapa { color: var(--ok-text); font-weight: 600; }
+.ds-dl-erro .ds-dl-barra span { background: var(--danger-text); width: 100%; }
+.ds-dl-erro .ds-dl-etapa { color: var(--danger-text); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+    .ds-dl { animation: none; }
+    .ds-dl-indef span { animation: none; width: 100%; opacity: .45; }
 }

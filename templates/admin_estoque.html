@@ -61,7 +61,13 @@
                        color:{{ 'var(--danger-text)' if abaixo else ('var(--warn-text)' if proximo else 'var(--ok-text)') }};">
                 {{ item.quantidade_atual }}
             </td>
-            <td><strong>{{ item.tipo_nome }}</strong></td>
+            <td><strong>{{ item.tipo_nome }}</strong>
+                {% if item.ultima_alteracao %}
+                <div class="item-alteracao" title="Última alteração manual do saldo">
+                    {{ ic.svg('historico', 11) }}<span>{{ item.ultima_alteracao.texto }}</span>
+                </div>
+                {% endif %}
+            </td>
             <td style="font-family:monospace;font-size:13px;">{{ item.codigo_barra }}</td>
             <td>
                 {% if pode('estoque_editar') %}
@@ -138,15 +144,6 @@
                 {% endif %}
             </td>
         </tr>
-        {% if item.ultima_alteracao %}
-        <tr class="linha-destaque-alteracao">
-            <td colspan="8">
-                <div class="cfg-destaque-alteracao" style="margin:0;">
-                    {{ ic.svg('historico', 12) }} {{ item.ultima_alteracao.texto }}
-                </div>
-            </td>
-        </tr>
-        {% endif %}
         {% endfor %}
         </tbody>
     </table>

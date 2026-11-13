@@ -121,6 +121,7 @@ _GRUPOS = [
             _a("Todos os veículos", "baixar", "/admin/veiculos/exportar.xlsx", ["ver_veiculos"], tipo="download"),
             _a("Todas as RMAs", "baixar", "/admin/hardware/exportar.xlsx", ["ver_hardware"], tipo="download"),
             _a("Todos os kits finalizados", "baixar", "/reports/exportar-todos.xlsx", ["ver_relatorios"], tipo="download"),
+            _a("Sobressalentes enviados", "baixar", "/reports/sobressalentes/export", ["ver_relatorios"], tipo="download"),
             _a("Histórico da produção", "baixar", "/admin/producao/historico/exportar.xlsx", ["ver_producao"], tipo="download"),
         ]),
         _a("Certificado do celular", "cadeado", "/cert", tipo="download"),

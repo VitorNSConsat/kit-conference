@@ -103,7 +103,10 @@
     importar patrimônios) e <em>Kits e pedidos</em> (criar kit pela BOM, importar pedido).</li>
   <li><strong>Downloads</strong> — <em>Modelos para preencher</em> (veículos, RMAs, ajuste de estoque),
     <em>Exportações completas</em> (estoque, todos os veículos, todas as RMAs, todos os kits
-    finalizados, histórico da produção) e o certificado do celular.</li>
+    finalizados, sobressalentes enviados, histórico da produção) e o certificado do celular.
+    <em>Sobressalentes enviados</em> traz todos os envios: a aba <em>Envios</em> (um por linha,
+    com o conteúdo resumido e as observações) e a aba <em>Itens</em> (cada item de cada envio,
+    com o SOB, o nome do pacote, a quantidade e a observação do item).</li>
   <li><strong>Relatórios</strong> — <em>Kits e produção</em> (Kits finalizados, Kits por operador,
     Verificações, Pré-check de kits, Histórico da produção), <em>Patrimônio</em> (Patrimônios
     cadastrados, Mudanças de patrimônio), Sobressalentes enviados e Auditoria (admin).</li>
@@ -111,6 +114,18 @@
     administrador: usuários, permissões e tempo de inatividade —, Rede e acesso, Backup e Padrão
     visual).</li>
 </ul>
+<p class="nota">
+  <strong>Janela de downloads:</strong> todo download de planilha (pelo menu Downloads ou pelo
+  botão <em>Exportar Excel</em> de qualquer tela) abre uma janelinha no canto de baixo da tela.
+  Ela mostra o que está acontecendo: o servidor montando o arquivo (nas exportações grandes,
+  com as etapas — quantos kits achou, quantos itens leu, qual aba está montando), o arquivo
+  chegando (barra pelo tamanho), o tempo correndo e, no fim, o nome do arquivo salvo na pasta
+  de downloads. O <strong>×</strong> cancela enquanto está baixando e fecha depois de pronto.
+  Não bloqueia a tela: dá pra continuar trabalhando, e as outras pessoas também — a planilha é
+  montada à parte, sem segurar o sistema. Se a sessão tiver expirado ou faltar permissão, a
+  janela diz isso em vez de baixar uma página no lugar da planilha. O certificado do celular é
+  a exceção: abre direto no navegador, que é quem oferece a instalação.
+</p>
 <p class="nota">
   <strong>Padrão visual</strong> (Sistema → Configurações, só administrador): a referência viva da cara do
   sistema — cores (lidas da tela, no modo claro ou escuro), barra do topo e menus, Ir para, título da tela,
@@ -465,11 +480,13 @@
     Na janela de configuração, <strong>Quantidade Atual</strong>, <strong>Quantidade
     Mínima</strong> e <strong>Entrada / Saída</strong> ficam agrupados num quadro só
     ("Saldo — N unidade(s)"), nessa ordem, em vez de espalhados em linhas separadas.
-    Logo abaixo da linha de cada item — nesta lista e também em <strong>Controle de
-    Estoque</strong> — aparece um <strong>destaque</strong> com a última alteração
+    Embaixo do nome de cada item — nesta lista e também em <strong>Controle de
+    Estoque</strong> — aparece, em letra miúda, a última alteração
     <strong>manual</strong> de saldo (corrigir quantidade, ou + Adicionar / − Remover),
     quem fez e quando, sem precisar abrir o item pra conferir, enquanto ela estiver
-    dentro da janela de tempo configurada. O desconto automático de kit ou pedido
+    dentro da janela de tempo configurada. Ela fica dentro da própria linha do item (não numa
+    faixa separada no meio da tabela, que parecia mais uma linha de estoque) e também aparece no
+    quadro "Saldo" da janela de configuração do item. O desconto automático de kit ou pedido
     bipado <strong>não entra</strong> nesse destaque — a bipagem já mexe o dia inteiro,
     então repetir "Saída — Kit" a cada peça só criaria ruído; o destaque é só pra
     alteração que alguém fez de propósito na tela de estoque. Mínimo e status de
@@ -501,7 +518,7 @@
     <li><span class="campo">Onde aparece</span> — todas as telas, só Itens &amp; Estoque,
       ou só a tela inicial.</li>
     <li><span class="campo">Cor</span> — uma cor só pro aviso inteiro (fundo, borda e o
-      traço do lado de cada item no quadro). Item zerado ainda ganha o aviso.</li>
+      marcador ao lado de cada item no quadro). Item zerado ainda ganha o aviso.</li>
     <li><span class="campo">Destacar alteração por (h)</span> — por quanto tempo o
       destaque "o que mudou, quem mudou" (ver acima) fica visível depois de uma
       entrada, saída ou correção de estoque. 0 = desliga o destaque.</li>

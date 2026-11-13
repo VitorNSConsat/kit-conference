@@ -23,6 +23,7 @@ from database import init_db, db, now_brt
 from app.auth import (hash_password, verify_password, get_current_user,
                       require_login, require_admin, require_permission, is_admin)
 import app.items as items_mod
+import app.downloads as downloads_mod
 import app.kit_frontend as kit_frontend_mod
 import app.kit_templates as templates_mod
 import app.sessions as sessions_mod
@@ -631,6 +632,33 @@ def _parse_itens_form(form) -> list[dict]:
     return itens
 
 
+def _em_thread(func):
+    """Roda a rota numa thread à parte em vez da linha principal do servidor.
+
+    Para exportações: montar uma planilha grande é trabalho de CPU sem pausa
+    nenhuma, e numa rota `async` isso segurava o servidor inteiro — enquanto o
+    Excel era montado, ninguém conseguia abrir tela nenhuma ("o download
+    travou o sistema"). A rota continua escrita do mesmo jeito; ela só não
+    pode ter `await` dentro (se tiver, o erro aparece na hora, não em silêncio).
+    Vai logo acima do `async def`, abaixo do @require_..."""
+    import functools
+    from starlette.concurrency import run_in_threadpool
+
+    def _rodar(*args, **kwargs):
+        coro = func(*args, **kwargs)
+        try:
+            coro.send(None)
+        except StopIteration as fim:
+            return fim.value
+        coro.close()
+        raise RuntimeError(f"{func.__name__}: rota com await não pode usar @_em_thread")
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await run_in_threadpool(_rodar, *args, **kwargs)
+    return wrapper
+
+
 def _voltar_para(request: Request, padrao: str) -> str:
     """Para onde o botão "← Voltar" de uma tela de detalhe deve apontar.
 
@@ -1122,6 +1150,7 @@ def _dia_da_semana(data_iso: str) -> str:
 
 @app.get("/admin/auditoria/exportar.xlsx")
 @require_admin
+@_em_thread
 async def admin_auditoria_exportar(request: Request,
                                    data_ini: str = "", data_fim: str = "",
                                    busca: str = "",
@@ -2449,6 +2478,7 @@ async def admin_template_edit_post(request: Request, template_id: int):
 
 @app.get("/admin/templates/{template_id}/unidades/exportar.xlsx")
 @require_login
+@_em_thread
 async def admin_template_unidades_exportar(request: Request, template_id: int):
     from fastapi.responses import Response as _Resp
     import openpyxl
@@ -3910,12 +3940,36 @@ async def reports_exportar_todos(request: Request,
                                   tipo: list[str] = Query(default=[])):
     """Exporta todos os kits/pedidos finalizados que batem com os filtros
     atuais da tela de Relatórios (mesmos filtros — não é o kit único, é
-    o lote inteiro), com uma aba de resumo e uma de itens detalhados."""
-    from fastapi.responses import Response as _Resp
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from io import BytesIO
+    o lote inteiro), com uma aba de resumo e uma de itens detalhados.
 
+    Monta numa thread à parte: sem filtro são ~100 mil itens, e montar isso
+    na linha principal do servidor deixava o sistema inteiro parado até o
+    arquivo ficar pronto."""
+    from starlette.concurrency import run_in_threadpool
+    progresso = downloads_mod.de_request(request)
+    conteudo = await run_in_threadpool(_montar_relatorio_kits, data_ini, data_fim, busca,
+                                       operador_id, tipo, progresso)
+    return _xlsx_bytes_resposta(conteudo, "relatorio_kits.xlsx")
+
+
+def _xlsx_bytes_resposta(conteudo: bytes, nome: str):
+    from fastapi.responses import Response as _Resp
+    return _Resp(content=conteudo,
+                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"',
+                          # .xlsx já é um zip: comprimir de novo só gasta CPU do
+                          # servidor e esconde o tamanho real da barra de progresso.
+                          "Content-Encoding": "identity"})
+
+
+def _milhar(n: int) -> str:
+    return f"{n:,}".replace(",", ".")
+
+
+def _montar_relatorio_kits(data_ini, data_fim, busca, operador_id, tipo, progresso) -> bytes:
+    import app.planilhas as planilhas_mod
+
+    progresso.etapa("Procurando os kits finalizados")
     query = """
         SELECT kr.kit_id, kr.kit_template_id, kr.finalizado_em, kr.veiculo, kr.garagem,
                COALESCE(v.numero, kr.veiculo) AS veiculo_exibido,
@@ -3937,151 +3991,113 @@ async def reports_exportar_todos(request: Request,
 
     with db() as conn:
         kits = [dict(r) for r in conn.execute(query, params).fetchall()]
+        progresso.etapa(f"{_milhar(len(kits))} kit(s)/pedido(s) encontrados")
         kit_ids = [k["kit_id"] for k in kits]
         itens_por_kit = {}
-        if kit_ids:
-            placeholders = ",".join("?" * len(kit_ids))
+        # Em lotes: um IN (...) com milhares de ? passa do limite de
+        # variáveis do SQLite em versões mais antigas.
+        for ini in range(0, len(kit_ids), 500):
+            lote = kit_ids[ini:ini + 500]
+            progresso.etapa("Lendo os itens bipados", ini, len(kit_ids), registrar=ini == 0)
             rows_itens = conn.execute(
                 "SELECT kr.kit_id, it.nome AS tipo_nome, si.codigo_barra, "
                 "si.serial_number, si.mac_address, si.codigo_caixa, si.bipado_em "
                 "FROM scan_session_items si "
                 "JOIN item_tipo it ON it.id = si.item_tipo_id "
                 "JOIN kit_record kr ON kr.sessao_id = si.sessao_id "
-                f"WHERE kr.kit_id IN ({placeholders}) "
+                f"WHERE kr.kit_id IN ({','.join('?' * len(lote))}) "
                 "AND (si.status IS NULL OR si.status NOT IN ('movido', 'retirado')) "
                 "ORDER BY kr.kit_id, it.nome, si.bipado_em",
-                kit_ids
+                lote
             ).fetchall()
             for r in rows_itens:
                 itens_por_kit.setdefault(r["kit_id"], []).append(dict(r))
+    total_itens = sum(len(v) for v in itens_por_kit.values())
+    progresso.etapa(f"{_milhar(total_itens)} item(ns) bipado(s) lido(s)")
 
-    wb = openpyxl.Workbook()
-    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
-
-    def hdr_cell(ws, row, col, value):
-        c = ws.cell(row=row, column=col, value=value)
-        c.font = Font(bold=True, color=branco)
-        c.fill = PatternFill("solid", fgColor=azul)
-        c.alignment = Alignment(horizontal="center", vertical="center")
-        return c
+    pl = planilhas_mod.Planilha()
 
     # ── Aba Resumo ────────────────────────────────────────────────────────────
-    ws1 = wb.active
-    ws1.title = "Resumo"
-    for col, h in enumerate(
-        ["Tipo", "Veículo", "Cliente", "Garagem", "Kit", "Operador",
-         "Finalizado em", "Verificações", "Observação"], 1):
-        hdr_cell(ws1, 1, col, h)
-    for i, k in enumerate(kits):
-        row = i + 2
-        ws1.cell(row, 1, "Pedido" if k.get("kit_tipo") == "pedido" else "Kit")
-        ws1.cell(row, 2, k.get("veiculo_exibido") or "")
-        ws1.cell(row, 3, k["cliente"])
-        ws1.cell(row, 4, k.get("garagem") or "")
-        ws1.cell(row, 5, f"{k['kit_nome']} v{k['versao']}")
-        ws1.cell(row, 6, k["operador_nome"])
-        ws1.cell(row, 7, k.get("finalizado_em") or "")
-        ws1.cell(row, 8, k.get("num_validacoes") or 0)
-        ws1.cell(row, 9, k.get("observacao") or "")
-        if i % 2 == 0:
-            for col in range(1, 10):
-                ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFGHI", (10, 16, 22, 16, 30, 22, 20, 14, 34)):
-        ws1.column_dimensions[col].width = w
-    ws1.freeze_panes = "A2"
+    pl.aba("Resumo",
+           ["Tipo", "Veículo", "Cliente", "Garagem", "Kit", "Operador",
+            "Finalizado em", "Verificações", "Observação"],
+           [10, 16, 22, 16, 30, 22, 20, 14, 34],
+           ([("Pedido" if k.get("kit_tipo") == "pedido" else "Kit"),
+             k.get("veiculo_exibido") or "", k["cliente"], k.get("garagem") or "",
+             f"{k['kit_nome']} v{k['versao']}", k["operador_nome"],
+             k.get("finalizado_em") or "", k.get("num_validacoes") or 0,
+             k.get("observacao") or ""] for k in kits),
+           progresso, len(kits))
 
     # ── Aba Detalhes ──────────────────────────────────────────────────────────
-    ws2 = wb.create_sheet("Detalhes")
-    for col, h in enumerate(
-        ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number", "MAC Address",
-         "Caixa (lote)", "Origem", "Bipado em"], 1):
-        hdr_cell(ws2, 1, col, h)
-    row = 2
-    for k in kits:
-        veiculo_exibido = k.get("veiculo_exibido") or ""
-        kit_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
-        for item in itens_por_kit.get(k["kit_id"], []):
-            codigo = item["codigo_barra"]
-            if codigo.startswith("COMP:"):
-                parts = codigo.split(":", 3)
-                origem = "Conjunto"
-                codigo_display = parts[1] if len(parts) >= 2 else codigo
-            else:
-                origem = "Bipagem direta"
-                codigo_display = codigo
-            ws2.cell(row, 1, kit_label)
-            ws2.cell(row, 2, veiculo_exibido)
-            ws2.cell(row, 3, item["tipo_nome"])
-            ws2.cell(row, 4, codigo_display)
-            ws2.cell(row, 5, item.get("serial_number") or "")
-            ws2.cell(row, 6, item.get("mac_address") or "")
-            ws2.cell(row, 7, item.get("codigo_caixa") or "")
-            ws2.cell(row, 8, origem)
-            ws2.cell(row, 9, item.get("bipado_em") or "")
-            if row % 2 == 0:
-                for col in range(1, 10):
-                    ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-            row += 1
-    for col, w in zip("ABCDEFGHI", (34, 16, 28, 24, 20, 22, 20, 16, 20)):
-        ws2.column_dimensions[col].width = w
-    ws2.freeze_panes = "A2"
+    def linhas_detalhes():
+        for k in kits:
+            veiculo_exibido = k.get("veiculo_exibido") or ""
+            kit_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
+            for item in itens_por_kit.get(k["kit_id"], []):
+                codigo = item["codigo_barra"]
+                if codigo.startswith("COMP:"):
+                    parts = codigo.split(":", 3)
+                    origem = "Conjunto"
+                    codigo_display = parts[1] if len(parts) >= 2 else codigo
+                else:
+                    origem = "Bipagem direta"
+                    codigo_display = codigo
+                yield [kit_label, veiculo_exibido, item["tipo_nome"], codigo_display,
+                       item.get("serial_number") or "", item.get("mac_address") or "",
+                       item.get("codigo_caixa") or "", origem, item.get("bipado_em") or ""]
+
+    pl.aba("Detalhes",
+           ["Kit", "Veículo", "Tipo de Item", "Código de Barras", "Serial Number", "MAC Address",
+            "Caixa (lote)", "Origem", "Bipado em"],
+           [34, 16, 28, 24, 20, 22, 20, 16, 20],
+           linhas_detalhes(), progresso, total_itens)
 
     # ── Aba Unidades (ICCID/Telefone/CDT/ID Hardware dos Pedidos) ──────────────
     pedidos_no_lote = [k for k in kits if k.get("kit_tipo") == "pedido"]
     if pedidos_no_lote:
-        ws3 = wb.create_sheet("Unidades")
-        for col, h in enumerate(
-            ["Pedido", "Veículo", "ICCID", "Número de Telefone", "CDT", "ID Hardware"], 1):
-            hdr_cell(ws3, 1, col, h)
-        row = 2
-        for k in pedidos_no_lote:
-            pedido_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
-            veiculo_exibido = k.get("veiculo_exibido") or ""
-            for u in pedidos_mod.listar_unidades(k["kit_template_id"]):
-                ws3.cell(row, 1, pedido_label)
-                ws3.cell(row, 2, veiculo_exibido)
-                ws3.cell(row, 3, u.get("iccid") or "")
-                ws3.cell(row, 4, u.get("telefone") or "")
-                ws3.cell(row, 5, u.get("cdt") or "")
-                ws3.cell(row, 6, u.get("id_hardware") or "")
-                if row % 2 == 0:
-                    for col in range(1, 7):
-                        ws3.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-                row += 1
-        for col, w in zip("ABCDEF", (34, 16, 24, 22, 18, 22)):
-            ws3.column_dimensions[col].width = w
-        ws3.freeze_panes = "A2"
+        progresso.etapa("Lendo as unidades dos pedidos")
+        unidades_por_template = {}
+
+        def linhas_unidades():
+            for k in pedidos_no_lote:
+                pedido_label = f"{k['kit_nome']} v{k['versao']} ({k['kit_id'][:8].upper()})"
+                veiculo_exibido = k.get("veiculo_exibido") or ""
+                tid = k["kit_template_id"]
+                if tid not in unidades_por_template:   # vários kits, o mesmo pedido
+                    unidades_por_template[tid] = pedidos_mod.listar_unidades(tid)
+                for u in unidades_por_template[tid]:
+                    yield [pedido_label, veiculo_exibido, u.get("iccid") or "",
+                           u.get("telefone") or "", u.get("cdt") or "", u.get("id_hardware") or ""]
+
+        pl.aba("Unidades", ["Pedido", "Veículo", "ICCID", "Número de Telefone", "CDT", "ID Hardware"],
+               [34, 16, 24, 22, 18, 22], linhas_unidades(), progresso)
 
     # ── Aba Sobressalentes (peças extras enviadas, mesmo período do filtro) ────
     sobressalentes = estoque_mod.listar_sobressalentes(data_ini, data_fim)
     if sobressalentes:
-        ws4 = wb.create_sheet("Sobressalentes")
-        for col, h in enumerate(
-            ["Data", "Item", "Código", "Quantidade", "Cliente", "Enviado Por", "Observação"], 1):
-            hdr_cell(ws4, 1, col, h)
-        for i, r in enumerate(sobressalentes, 2):
-            ws4.cell(i, 1, (r["criado_em"] or "")[:16])
-            ws4.cell(i, 2, r["tipo_nome"])
-            ws4.cell(i, 3, r["codigo_barra"])
-            ws4.cell(i, 4, r["quantidade"])
-            ws4.cell(i, 5, r["cliente"])
-            ws4.cell(i, 6, r["operador_nome"] or "")
-            ws4.cell(i, 7, r["observacao"] or "")
-            if i % 2 == 0:
-                for col in range(1, 8):
-                    ws4.cell(i, col).fill = PatternFill("solid", fgColor=cinza)
-        for col, w in zip("ABCDEFG", (17, 28, 18, 12, 22, 22, 40)):
-            ws4.column_dimensions[col].width = w
-        ws4.freeze_panes = "A2"
+        pl.aba("Sobressalentes",
+               ["Data", "Item", "Código", "Quantidade", "Cliente", "Enviado Por", "Observação"],
+               [17, 28, 18, 12, 22, 22, 40],
+               ([(r["criado_em"] or "")[:16], r["tipo_nome"], r["codigo_barra"], r["quantidade"],
+                 r["cliente"], r["operador_nome"] or "", r["observacao"] or ""] for r in sobressalentes),
+               progresso)
 
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return _Resp(
-        content=buf.read(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": 'attachment; filename="relatorio_kits.xlsx"'},
-    )
+    progresso.etapa("Fechando o arquivo")
+    conteudo = pl.conteudo()
+    progresso.etapa(f"Planilha pronta ({len(conteudo) / 1048576:.1f} MB), enviando".replace(".", ","))
+    return conteudo
+
+
+@app.get("/downloads/progresso/{ident}")
+@require_login
+async def downloads_progresso(request: Request, ident: str):
+    """O que o servidor está fazendo num download pedido pela janela de
+    progresso (ver app/downloads.py). {"etapa": null} = ainda não começou, ou
+    é uma rota que não conta etapas (a janela mostra só o tempo correndo).
+    Não é 404 de propósito: a janela pergunta antes de a rota começar, e cada
+    404 virava um erro vermelho no console do navegador."""
+    return JSONResponse(downloads_mod.ler(ident) or {"etapa": None, "log": []})
 
 
 @app.post("/reports/{kit_id}/delete")
@@ -4120,6 +4136,7 @@ async def reports_validacoes(request: Request,
 
 @app.get("/reports/validacoes/export")
 @require_permission("ver_relatorios")
+@_em_thread
 async def reports_validacoes_export(request: Request,
                                     data_ini: str = "",
                                     data_fim: str = "",
@@ -4220,7 +4237,8 @@ def _xlsx_resposta(wb, nome: str):
     wb.save(buf)
     return _Resp(content=buf.getvalue(),
                  media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                 headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+                 headers={"Content-Disposition": f'attachment; filename="{nome}"',
+                          "Content-Encoding": "identity"})   # já é zip (ver _xlsx_bytes_resposta)
 
 
 @app.get("/reports/sobressalentes", response_class=HTMLResponse)
@@ -4251,6 +4269,7 @@ async def reports_sobressalentes(request: Request,
 
 @app.get("/reports/sobressalentes/export")
 @require_permission("ver_relatorios")
+@_em_thread
 async def reports_sobressalentes_export(request: Request,
                                         data_ini: str = "",
                                         data_fim: str = "",
@@ -4271,10 +4290,11 @@ async def reports_sobressalentes_export(request: Request,
                                for o in e["adicionadas"])]
                     for e in envios], primeira=True)
     _xlsx_planilha(wb, "Itens",
-                   ["Envio", "Data", "Cliente", "Item", "Código", "Quantidade", "Enviado por"],
-                   [12, 17, 22, 32, 18, 12, 22],
-                   [[e["rotulo"], e["criado_em"][:16], e["cliente"], i["tipo_nome"], i["codigo_barra"],
-                     i["quantidade"], e["operador_nome"]]
+                   ["Envio", "Nome do pacote", "Data", "Cliente", "Item", "Código", "Quantidade",
+                    "Enviado por", "Observação do item"],
+                   [12, 24, 17, 22, 32, 18, 12, 22, 36],
+                   [[e["rotulo"], e["nome"], e["criado_em"][:16], e["cliente"], i["tipo_nome"],
+                     i["codigo_barra"], i["quantidade"], e["operador_nome"], i["observacao"]]
                     for e in envios for i in e["itens"]])
     return _xlsx_resposta(wb, "sobressalentes.xlsx")
 
@@ -4308,6 +4328,7 @@ async def reports_pre_check(request: Request, data_ini: str = "", data_fim: str 
 
 @app.get("/reports/pre-check/export")
 @require_permission("ver_relatorios")
+@_em_thread
 async def reports_pre_check_export(request: Request, data_ini: str = "", data_fim: str = "",
                                    busca: str = "",
                                    situacao: list[str] = Query(default=[]),
@@ -4375,6 +4396,7 @@ async def reports_patrimonios(request: Request, data_ini: str = "", data_fim: st
 
 @app.get("/reports/patrimonios/export")
 @require_permission("ver_relatorios")
+@_em_thread
 async def reports_patrimonios_export(request: Request, data_ini: str = "", data_fim: str = "",
                                      busca: str = "",
                                      tipo: list[str] = Query(default=[]),
@@ -4433,6 +4455,7 @@ async def reports_patrimonio(request: Request,
 
 @app.get("/reports/patrimonio/export")
 @require_permission("ver_relatorios")
+@_em_thread
 async def reports_patrimonio_export(request: Request,
                                     data_ini: str = "",
                                     data_fim: str = "",
@@ -5357,6 +5380,7 @@ async def admin_producao_historico(request: Request,
 
 @app.get("/admin/producao/historico/exportar.xlsx")
 @require_login
+@_em_thread
 async def admin_producao_historico_exportar(request: Request,
                                              data_ini: str = "", data_fim: str = ""):
     from fastapi.responses import Response as _Resp
@@ -5536,86 +5560,46 @@ async def admin_estoque_importar_ajuste(request: Request):
 
 @app.get("/admin/estoque/exportar.xlsx")
 @require_login
+@_em_thread
 async def admin_estoque_exportar(request: Request):
-    from fastapi.responses import Response as _Resp
-    import openpyxl
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from io import BytesIO
-
+    """Estoque + histórico completo de movimentos. Com o histórico crescendo,
+    o openpyxl passou de 15 s (pintava a zebra célula por célula); pelo
+    app/planilhas.py sai o mesmo arquivo em poucos segundos."""
+    import app.planilhas as planilhas_mod
+    progresso = downloads_mod.de_request(request)
+    progresso.etapa("Lendo o estoque e o histórico de movimentos")
     itens = estoque_mod.listar_estoque()
     historico = estoque_mod.listar_historico_completo()
+    progresso.etapa(f"{_milhar(len(itens))} item(ns) e {_milhar(len(historico))} movimento(s)")
 
-    wb = openpyxl.Workbook()
-    azul, branco, cinza = "1A3A5C", "FFFFFF", "F4F7FB"
-
-    def hdr_cell(ws, row, col, value):
-        c = ws.cell(row=row, column=col, value=value)
-        c.font = Font(bold=True, color=branco)
-        c.fill = PatternFill("solid", fgColor=azul)
-        c.alignment = Alignment(horizontal="center", vertical="center")
-        return c
-
-    # ── Aba Estoque ──────────────────────────────────────────────────────────
-    ws1 = wb.active
-    ws1.title = "Estoque"
-    for col, h in enumerate(
-        ["Tipo de Item", "Código de Barras", "Quantidade Atual",
-         "Quantidade Mínima", "Status", "Cadastrado em"], 1):
-        hdr_cell(ws1, 1, col, h)
-    for i, item in enumerate(itens):
-        row = i + 2
+    def status(item):
         abaixo = item["quantidade_atual"] <= item["quantidade_minima"]
         proximo = item["quantidade_atual"] <= item["quantidade_minima"] * 2 and not abaixo
-        status = "Abaixo do mínimo" if abaixo else ("Próximo do mínimo" if proximo else "OK")
-        ws1.cell(row, 1, item["tipo_nome"])
-        ws1.cell(row, 2, item["codigo_barra"])
-        ws1.cell(row, 3, item["quantidade_atual"])
-        ws1.cell(row, 4, item["quantidade_minima"])
-        ws1.cell(row, 5, status)
-        ws1.cell(row, 6, item.get("criado_em") or "")
-        if i % 2 == 0:
-            for col in range(1, 7):
-                ws1.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEF", (32, 26, 16, 16, 20, 20)):
-        ws1.column_dimensions[col].width = w
-    ws1.freeze_panes = "A2"
+        return "Abaixo do mínimo" if abaixo else ("Próximo do mínimo" if proximo else "OK")
 
-    # ── Aba Histórico ────────────────────────────────────────────────────────
-    ws2 = wb.create_sheet("Histórico")
-    for col, h in enumerate(
-        ["Tipo de Item", "Código de Barras", "Movimento", "Quantidade",
-         "Observação", "Operador", "Data"], 1):
-        hdr_cell(ws2, 1, col, h)
     movimento_labels = {
         "entrada": "Entrada", "saida": "Saída", "saida_cancelada": "Saída cancelada",
         "correcao": "Correção", "ajuste_minimo": "Ajuste mínimo",
         "status_compra": "Status de compra",
     }
-    for i, m in enumerate(historico):
-        row = i + 2
-        ws2.cell(row, 1, m["tipo_nome"])
-        ws2.cell(row, 2, m["codigo_barra"])
-        ws2.cell(row, 3, movimento_labels.get(m["tipo"], m["tipo"]))
-        ws2.cell(row, 4, m["quantidade"])
-        ws2.cell(row, 5, m.get("observacao") or "")
-        ws2.cell(row, 6, m.get("operador_nome") or "—")
-        ws2.cell(row, 7, m.get("criado_em") or "")
-        if i % 2 == 0:
-            for col in range(1, 8):
-                ws2.cell(row, col).fill = PatternFill("solid", fgColor=cinza)
-    for col, w in zip("ABCDEFG", (32, 26, 18, 14, 32, 20, 20)):
-        ws2.column_dimensions[col].width = w
-    ws2.freeze_panes = "A2"
-
-    buf = BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    filename = f"estoque_{now_brt()[:10]}.xlsx"
-    return _Resp(
-        content=buf.read(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    pl = planilhas_mod.Planilha()
+    pl.aba("Estoque",
+           ["Tipo de Item", "Código de Barras", "Quantidade Atual",
+            "Quantidade Mínima", "Status", "Cadastrado em"],
+           [32, 26, 16, 16, 20, 20],
+           ([i["tipo_nome"], i["codigo_barra"], i["quantidade_atual"], i["quantidade_minima"],
+             status(i), i.get("criado_em") or ""] for i in itens),
+           progresso, len(itens))
+    pl.aba("Histórico",
+           ["Tipo de Item", "Código de Barras", "Movimento", "Quantidade",
+            "Observação", "Operador", "Data"],
+           [32, 26, 18, 14, 32, 20, 20],
+           ([m["tipo_nome"], m["codigo_barra"], movimento_labels.get(m["tipo"], m["tipo"]),
+             m["quantidade"], m.get("observacao") or "", m.get("operador_nome") or "—",
+             m.get("criado_em") or ""] for m in historico),
+           progresso, len(historico))
+    progresso.etapa("Fechando o arquivo")
+    return _xlsx_bytes_resposta(pl.conteudo(), f"estoque_{now_brt()[:10]}.xlsx")
 
 
 @app.post("/admin/estoque/alertas")
@@ -6517,6 +6501,7 @@ async def admin_veiculos_modelo(request: Request):
 
 @app.get("/admin/veiculos/exportar.xlsx")
 @require_login
+@_em_thread
 async def admin_veiculos_exportar(request: Request, busca: str = "",
                                    cliente: list[str] = Query(default=[]),
                                    modelo: list[str] = Query(default=[]),
@@ -7616,6 +7601,7 @@ async def admin_hardware_anexo_baixar(request: Request, anexo_id: int):
 
 @app.get("/admin/hardware/exportar.xlsx")
 @require_login
+@_em_thread
 async def admin_hardware_exportar(request: Request):
     """Exporta ocorrências pra Excel -- os IDS marcados na tela (checkbox),
     ou, sem nenhum marcado, TODAS as que batem com o filtro atual (mesmo

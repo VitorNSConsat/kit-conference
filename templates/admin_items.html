@@ -270,6 +270,13 @@
                                     onclick="cancelarEdicao({{ tipo.id }}, '{{ tipo.nome | e }}')">{{ ic.svg('fechar', 13) }}</button>
                         </div>
                     </form>
+                    {% if est and est.ultima_alteracao %}
+                    {# Fica DENTRO da linha do item (embaixo do nome): uma faixa
+                       própria no meio da tabela parecia uma linha de estoque. #}
+                    <div class="item-alteracao" title="Última alteração manual do saldo">
+                        {{ ic.svg('historico', 11) }}<span>{{ est.ultima_alteracao.texto }}</span>
+                    </div>
+                    {% endif %}
                 </td>
                 <td>
                     {% if est %}
@@ -305,15 +312,6 @@
                     {% endif %}
                 </td>
             </tr>
-            {% if est and est.ultima_alteracao %}
-            <tr class="linha-destaque-alteracao">
-                <td colspan="5">
-                    <div class="cfg-destaque-alteracao" style="margin:0;">
-                        {{ ic.svg('historico', 12) }} {{ est.ultima_alteracao.texto }}
-                    </div>
-                </td>
-            </tr>
-            {% endif %}
             {% endfor %}
             </tbody>
         </table>
@@ -438,6 +436,11 @@
                        (entrada/saída pela diferença). #}
                     <div class="cfg-grupo-saldo">
                         <div class="cfg-grupo-titulo">Saldo — {{ est.quantidade_atual }} unidade(s)</div>
+                        {% if est.ultima_alteracao %}
+                        <div class="cfg-destaque-alteracao">
+                            {{ ic.svg('historico', 12) }} {{ est.ultima_alteracao.texto }}
+                        </div>
+                        {% endif %}
                         <div class="cfg-linha cfg-linha-coluna" style="border-top:none;padding-top:2px;">
                             <span class="cfg-rotulo">Quantidade Atual
                                 <span class="cfg-ajuda">corrige o valor direto — para acertar contagem divergente</span>
