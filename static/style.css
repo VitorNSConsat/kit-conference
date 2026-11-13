@@ -2336,8 +2336,10 @@ a.ds-nav-direto { text-decoration: none; }
     display: block; height: 100%; width: 2%; border-radius: inherit;
     background: var(--brand); transition: width .25s ease;
 }
-.ds-dl-indef span { width: 35%; animation: dlIndef 1.2s ease-in-out infinite; }
-@keyframes dlIndef { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+/* Sem contagem do servidor: a barra cheia pulsa de leve (não fica correndo
+   de um lado pro outro, que chama atenção demais pra quem está trabalhando). */
+.ds-dl-indef span { width: 100%; animation: dlEspera 1.4s ease-in-out infinite alternate; }
+@keyframes dlEspera { from { opacity: .22; } to { opacity: .6; } }
 .ds-dl-info {
     display: flex; justify-content: space-between; gap: 10px;
     font-size: 12.5px; color: var(--text-muted); line-height: 1.4;
@@ -2357,5 +2359,5 @@ a.ds-nav-direto { text-decoration: none; }
 .ds-dl-erro .ds-dl-etapa { color: var(--danger-text); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
     .ds-dl { animation: none; }
-    .ds-dl-indef span { animation: none; width: 100%; opacity: .45; }
+    .ds-dl-indef span { animation: none; opacity: .45; }
 }
